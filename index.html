@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>Quiz Flask App</title>
+</head>
+<body>
+  <h1>Quiz Flask Server</h1>
+  <button id="load">Tải danh sách người dùng</button>
+  <pre id="out"></pre>
+  <script>
+    document.getElementById('load').onclick = async () => {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      document.getElementById('out').textContent = JSON.stringify(data, null, 2);
+    }
+  </script>
+</body>
+</html>
