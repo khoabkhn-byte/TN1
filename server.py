@@ -260,7 +260,7 @@ def get_result(result_id):
 @app.route("/", methods=["GET"])
 def index():
     try:
-        return send_from_directory("templates", "index.html")
+        return send_from_directory(".", "index.html")
     except Exception:
         return jsonify({"message": "Index not found"}), 404
 
