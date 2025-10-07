@@ -32,6 +32,18 @@ except Exception as e:
 db = client[DB_NAME]
 print(f"✅ Connected to MongoDB database: {DB_NAME}")
 
+# --------------------- CẤU HÌNH UPLOAD FILE ---------------------
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Đảm bảo thư mục 'uploads' tồn tại
+os.makedirs(UPLOAD_FOLDER, exist_ok=True) 
+
+# Hàm kiểm tra định dạng file
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 def remove_id(doc):
     if not doc:
         return doc
@@ -52,6 +64,131 @@ def handle_exception(e):
 @app.route("/healthz", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "db": DB_NAME})
+# --------------------- QUESTIONS API ---------------------
+@app.route("/questions", methods=["GET"])
+@app.route("/api/questions", methods=["GET"])
+def list_questions():
+    query = {}
+    subject = request.args.get("subject")
+    level = request.args.get("level")
+    testId = request.args.get("testId")
+    if subject: query["subject"] = subject
+    if level: query["level"] = level
+    if testId: query["testId"] = testId
+    docs = list(db.questions.find(query, {"_id": 0}))
+    return jsonify(docs)
+
+@app.route("/questions", methods=["POST"])
+@app.route("/api/questions", methods=["POST"])
+def create_question():
+    data = request.get_json() or {}
+    # newq sẽ bao gồm cả trường 'imageUrl' nếu frontend gửi lên
+    newq = {"id": str(uuid4()), **data} 
+    db.questions.insert_one(newq)
+    to_return = newq.copy(); to_return.pop("_id", None)
+    return jsonify(to_return), 201
+
+@app.route("/questions/<question_id>", methods=["PUT"])
+@app.route("/api/questions/<question_id>", methods=["PUT"])
+def update_question(question_id):
+    data = request.get_json() or {}
+    # Bỏ trường id ra khỏi dữ liệu cập nhật để tránh ghi đè
+    data.pop("id", None) 
+    
+    updated_q = db.questions.find_one_and_update(
+        {"id": question_id},
+        {"$set": data},
+        return_document=True
+    )
+    if not updated_q: return jsonify({"message": "Câu hỏi không tìm thấy."}), 404
+    return jsonify(remove_id(updated_q))
+
+@app.route("/questions/<question_id>", methods=["DELETE"])
+@app.route("/api/questions/<question_id>", methods=["DELETE"])
+def delete_question(question_id):
+    result = db.questions.delete_one({"id": question_id})
+    if result.deleted_count == 0:
+        return jsonify({"message": "Câu hỏi không tìm thấy."}), 404
+    return jsonify({"message": "Xóa câu hỏi thành công."}), 200
+
+# --------------------- TESTS API ---------------------
+@app.route("/tests", methods=["GET"])
+@app.route("/api/tests", methods=["GET"])
+def list_tests():
+    docs = list(db.tests.find({}, {"_id": 0}))
+    return jsonify(docs)
+
+@app.route("/tests", methods=["POST"])
+@app.route("/api/tests", methods=["POST"])
+def create_test():
+    data = request.get_json() or {}
+    newt = {"id": str(uuid4()), **data, "createdAt": datetime.datetime.utcnow().isoformat()}
+    db.tests.insert_one(newt)
+    to_return = newt.copy(); to_return.pop("_id", None)
+    return jsonify(to_return), 201
+
+@app.route("/tests/<test_id>", methods=["GET"])
+@app.route("/api/tests/<test_id>", methods=["GET"])
+def get_test(test_id):
+    doc = db.tests.find_one({"id": test_id}, {"_id": 0})
+    if not doc: return jsonify({"message": "Đề thi không tìm thấy."}), 404
+    return jsonify(doc)
+
+@app.route("/tests/<test_id>", methods=["DELETE"])
+@app.route("/api/tests/<test_id>", methods=["DELETE"])
+def delete_test(test_id):
+    result = db.tests.delete_one({"id": test_id})
+    # Đồng thời xóa các câu hỏi thuộc về đề thi này
+    db.questions.delete_many({"testId": test_id})
+    if result.deleted_count == 0:
+        return jsonify({"message": "Đề thi không tìm thấy."}), 404
+    return jsonify({"message": "Xóa đề thi thành công."}), 200
+
+# --------------------- RESULTS ---------------------
+@app.route("/results", methods=["GET"])
+@app.route("/api/results", methods=["GET"])
+def list_results():
+    query = {}
+    studentId = request.args.get("studentId")
+    if studentId: query["studentId"] = studentId
+    docs = list(db.results.find(query, {"_id": 0}))
+    return jsonify(docs)
+
+@app.route("/results", methods=["POST"])
+@app.route("/api/results", methods=["POST"])
+def create_result():
+    data = request.get_json() or {}
+    newr = {"id": str(uuid4()), **data, "submittedAt": datetime.datetime.utcnow().isoformat()}
+    db.results.insert_one(newr)
+    to_return = newr.copy(); to_return.pop("_id", None)
+    return jsonify(to_return), 201
+
+@app.route("/results/<result_id>", methods=["GET"])
+@app.route("/api/results/<result_id>", methods=["GET"])
+def get_result(result_id):
+    doc = db.results.find_one({"id": result_id}, {"_id": 0})
+    if not doc: return jsonify({"message": "Kết quả không tìm thấy."}), 404
+    return jsonify(doc)
+
+
+# --------------------- SERVE UPLOADED FILES (QUAN TRỌNG) ---------------------
+@app.route(f"/{UPLOAD_FOLDER}/<filename>")
+def uploaded_file(filename):
+    # Cho phép server trả về file từ thư mục 'uploads'
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
+# Serve frontend files (unchanged)
+@app.route("/", methods=["GET"])
+def index():
+    try:
+        return app.send_static_file("index.html")
+    except:
+        return "Frontend not built or index.html not found.", 500
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=PORT, debug=True)
 
 # --------------------- AUTH ---------------------
 @app.route("/login", methods=["POST"])
