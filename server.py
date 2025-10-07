@@ -221,6 +221,7 @@ def uploaded_file(filename):
 @app.route("/", methods=["GET"])
 def index():
     try:
+        return send_from_directory(".", "index.html")
         return app.send_static_file("index.html")
     except:
         return "Frontend not built or index.html not found.", 500
