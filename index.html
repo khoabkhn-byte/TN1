@@ -437,7 +437,7 @@ color: #dc3545; / đỏ chuẩn /
       <label>Nội dung:</label>
       <textarea id="edit-q-text"></textarea>
     </div>
-        <div class="form-group">
+    <div class="form-group">
       <label>Điểm:</label>
       <input type="number" id="edit-q-points">
     </div>
@@ -492,14 +492,10 @@ color: #dc3545; / đỏ chuẩn /
         <h4>Thêm câu hỏi mới</h4>
         
         <div class="form-group">
-        <label for="q-text">Nội dung câu hỏi:</label>
-<textarea id="q-text" rows="5" placeholder="Nhập câu hỏi..."></textarea>
-         </div>
-<div class="form-group">
-    <label for="q-image-file">Tải lên Hình ảnh (Nếu có):</label>
-    <input type="file" id="q-image-file" accept="image/*" /> 
-</div>
-
+          <label for="q-text">Nội dung câu hỏi:</label>
+          <textarea id="q-text" rows="4" required></textarea>
+        </div>
+        
         <div class="form-group">
           <label for="q-type">Loại câu hỏi:</label>
           <select id="q-type" onchange="toggleOptions()">
@@ -555,15 +551,16 @@ color: #dc3545; / đỏ chuẩn /
 
       <table id="q-table" border="1" style="width:100%;border-collapse:collapse;">
         <thead>
-    <tr>
-        <th>STT</th>
-        <th>Nội dung (và Ảnh)</th> <th>Loại</th>
-        <th>Điểm</th>
-        <th>Môn</th>
-        <th>Cấp độ</th>
-        <th>Hành động</th>
-    </tr>
-</thead>
+          <tr>
+            <th>STT</th>
+            <th>Nội dung</th>
+            <th>Loại</th>
+            <th>Điểm</th>
+            <th>Môn</th>
+            <th>Khối</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
         <tbody></tbody>
       </table>
     </div>
@@ -828,7 +825,7 @@ const SUBJECT_NAMES = {
   it: "Tin học"
 };
 
-     const serverUrl = window.location.origin;
+   const serverUrl = window.location.origin;
 
     function showTab(tabId, element) {
       document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
@@ -1104,174 +1101,115 @@ window.onclick = function(event) {
 
     // --- Question Management (CRUD) ---
 
-// Thay thế hàm addQuestion(event) hiện có của bạn bằng hàm sau
-
-async function addQuestion(event) { 
-    event.preventDefault();
-    const form = event.target;
-
-    const questionText = document.getElementById('q-text').value.trim();
-    const questionType = document.getElementById('q-type').value;
-    const imageFileInput = document.getElementById('q-image-file'); 
-    const imageFile = imageFileInput.files[0]; // Lấy đối tượng File
+async function addQuestion(event) {
+  event.preventDefault(); 
+  
+  // Lấy form
+  const form = document.getElementById('add-q-form-modal'); // Hoặc id form bạn đang dùng
+  
+  const qText = document.getElementById('q-text').value;
+  const type = document.getElementById('q-type').value;
+  const points = parseFloat(document.getElementById('q-points').value);
+  const subject = document.getElementById('q-subject-new').value;
+  const level = document.getElementById('q-level-new').value;
+  const options = [];
+  
+  if (type === 'mc') {
+    const optionInputs = document.querySelectorAll('.option-input');
+    const correctCheckboxes = document.querySelectorAll('.option-correct');
     
-    let imageUrl = ''; // Khởi tạo URL ảnh
-
-    // 1. TẢI ẢNH LÊN BACKEND (NẾU CÓ TỆP)
-    if (imageFile) {
-        const formData = new FormData();
-        // Tên trường 'image' phải khớp với tên trường mà backend của bạn mong đợi
-        formData.append('image', imageFile); 
-
-        try {
-            const uploadResponse = await fetch('/api/upload-image', { // <-- CHỈNH SỬA ENDPOINT CỦA BẠN
-                method: 'POST',
-                body: formData
-            });
-
-            if (!uploadResponse.ok) {
-                const errorData = await uploadResponse.json();
-                throw new Error(errorData.message || 'Lỗi tải ảnh lên server.');
-            }
-
-            // Backend trả về JSON chứa URL của ảnh đã lưu
-            const data = await uploadResponse.json();
-            imageUrl = data.url; // <-- Ví dụ: { url: 'https://server.com/images/abc.jpg' }
-
-        } catch (error) {
-            alert("Lỗi: Không thể tải ảnh lên: " + error.message);
-            console.error("Lỗi tải ảnh:", error);
-            return; // Dừng quá trình nếu tải ảnh thất bại
+    let correctCount = 0;
+    for (let i = 0; i < optionInputs.length; i++) {
+        options.push({ text: optionInputs[i].value, correct: correctCheckboxes[i].checked });
+        if (correctCheckboxes[i].checked) {
+            correctCount++;
         }
     }
-
-    // 2. THU THẬP DỮ LIỆU CÂU HỎI (Giữ nguyên logic cũ)
-    const optionsContainer = document.getElementById('options-list');
-    const options = [];
-    const correctAnswers = [];
-    let isValid = true;
     
-    const optionInputs = optionsContainer.querySelectorAll('.option-input');
-    const correctCheckboxes = optionsContainer.querySelectorAll('.option-correct');
-
-    optionInputs.forEach((input, index) => {
-        const text = input.value.trim();
-        const isCorrect = correctCheckboxes[index].checked;
-
-        if (text === '' && questionType === 'mc') {
-            isValid = false;
-            alert("Đáp án không được để trống!");
-        }
-
-        if (text !== '') {
-             options.push(text);
-        }
-       
-        if (isCorrect) {
-            correctAnswers.push(text);
-        }
-    });
-
-    if (!isValid || questionText === '') {
-        alert("Nội dung câu hỏi hoặc đáp án không hợp lệ!");
-        return;
-    }
-    
-    if (questionType === 'mc' && correctAnswers.length === 0) {
+    if (correctCount === 0) {
         alert("Câu hỏi trắc nghiệm phải có ít nhất một đáp án đúng.");
         return;
     }
+  }
 
-    // 3. GỌI API LƯU CÂU HỎI VÀO MONGODB
-    const newQuestionData = {
-        text: questionText,
-        imageUrl: imageUrl, // SẼ LÀ URL ẢNH TỪ SERVER
-        type: questionType,
-        options: options,
-        correctAnswers: correctAnswers
-    };
+  if (!qText) {
+    alert("Nhập nội dung câu hỏi");
+    return;
+  }
+
+  const newQuestion = { q: qText, type, points, subject, level, options };
+  
+  try {
+    const response = await fetch(`${serverUrl}/questions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newQuestion),
+    });
     
-    try {
-        const saveResponse = await fetch('/api/questions', { // <-- CHỈNH SỬA ENDPOINT CỦA BẠN
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(newQuestionData)
-        });
-
-        if (!saveResponse.ok) {
-            const errorData = await saveResponse.json();
-            throw new Error(errorData.message || 'Lỗi lưu câu hỏi vào MongoDB.');
-        }
-
-        alert("Thêm câu hỏi thành công! Vui lòng nhập câu hỏi tiếp theo.");
-        
-        // 4. RESET FORM & CẬP NHẬT GIAO DIỆN
-        form.reset(); 
-        document.getElementById('q-text').value = ''; 
-        
-        const optionsList = document.getElementById('options-list');
-        optionsList.innerHTML = ''; 
-        addOption();
-        
-        renderQuestions(); // Tải lại danh sách
-        
-    } catch (error) {
-        alert("Lỗi lưu câu hỏi: " + error.message);
-        console.error("Lỗi lưu câu hỏi:", error);
+    if (response.ok) {
+      alert("Thêm câu hỏi thành công! Vui lòng nhập câu hỏi tiếp theo.");
+      
+      // 1. ⚠️ Bỏ closeModal() để giữ Modal mở
+      
+      // 2. Reset form (clear input text, select)
+      form.reset();
+      
+      // 3. Reset các đáp án trắc nghiệm về trạng thái ban đầu
+      document.getElementById('options-list').innerHTML = ''; 
+      addOption(); // Thêm lại một đáp án mặc định
+      
+      // 4. Tải lại danh sách câu hỏi ở tab chính
+      renderQuestions();
+      
+    } else {
+      alert("Lỗi khi thêm câu hỏi.");
     }
+  } catch (error) {
+    alert("Lỗi kết nối đến máy chủ.");
+  }
 }
 
 // Trong index.html, tìm và chỉnh sửa hàm renderQuestions()
 
 async function renderQuestions() {
-    const tb = document.querySelector('#q-table tbody');
-    
-    // 💡 BƯỚC KHẮC PHỤC: Xóa nội dung cũ của tbody
-    tb.innerHTML = ''; 
-    
-    try {
-        const response = await fetch(`${serverUrl}/questions`);
-        const qs = await response.json();
+  const tb = document.querySelector('#q-table tbody');
+  
+  // 💡 BƯỚC KHẮC PHỤC: Xóa nội dung cũ của tbody
+  tb.innerHTML = ''; 
+  
+  try {
+    const response = await fetch(`${serverUrl}/questions`);
+    const qs = await response.json();
 
-        const fSubject = document.getElementById('q-subject').value;
-        const fLevel = document.getElementById('q-level').value;
+    const fSubject = document.getElementById('q-subject').value;
+    const fLevel = document.getElementById('q-level').value;
 
-        let filteredQs = qs.filter(q => 
-            (!fSubject || q.subject === fSubject) && (!fLevel || q.level === fLevel)
-        );
-        
-        filteredQs.forEach((q, i) => {
-            // 1. TẠO HTML CHO HÌNH ẢNH
-            // Kiểm tra nếu có URL hình ảnh, thì tạo thẻ <img>
-            const imageHtml = q.imageUrl
-                ? `<img src="${q.imageUrl}" alt="Ảnh" style="max-width: 100px; height: auto; border-radius: 4px; cursor: pointer;" onclick="showImageModal('${q.imageUrl}')">`
-                : '-'; // Nếu không có ảnh, hiển thị dấu gạch ngang
-                
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${i + 1}</td>
-                <td>
-                    ${escapeHtml(q.q)} 
-                    <div style="margin-top: 5px;">${imageHtml}</div> 
-                </td>
-                <td>${q.type === 'mc' ? 'TN' : 'TL'}</td>
-                <td>${q.points}</td>
-                <td>${SUBJECT_NAMES[q.subject] || q.subject || '-'}</td>
-                <td>${q.level || '-'}</td>
-                <td>
-                    <button onclick="editQ('${q.id}')" class="btn-edit">Sửa</button>
-                    <button onclick="delQ('${q.id}')" class="btn-delete">Xóa</button>
-                </td>
-            `;
-            tb.appendChild(tr); 
-        });
-    } catch (error) {
-        alert("Lỗi khi tải danh sách câu hỏi.");
-        console.error("Lỗi tải câu hỏi:", error);
-    }
+    let filteredQs = qs.filter(q => 
+      (!fSubject || q.subject === fSubject) && (!fLevel || q.level === fLevel)
+    );
+    
+    filteredQs.forEach((q, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${escapeHtml(q.q)}</td>
+        <td>${q.type === 'mc' ? 'TN' : 'TL'}</td>
+        <td>${q.points}</td>
+       <td>${SUBJECT_NAMES[q.subject] || q.subject || '-'}</td>
+        <td>${q.level || '-'}</td>
+        <td>
+          <button onclick="editQ('${q.id}')" class="btn-edit">Sửa</button>
+          <button onclick="delQ('${q.id}')" class="btn-delete">Xóa</button>
+        </td>
+      `;
+      // ✅ Mỗi lần lặp sẽ thêm một hàng mới vào tbody đã được làm sạch
+      tb.appendChild(tr); 
+    });
+  } catch (error) {
+    alert("Lỗi khi tải danh sách câu hỏi.");
+  }
 }
+
     async function delQ(id) {
       if (!confirm('Xóa câu hỏi này?')) return;
       try {
@@ -1327,18 +1265,7 @@ function showCreationMode(mode) {
   document.getElementById('creation-mode-manual').style.display = mode === 'manual' ? 'block' : 'none';
 }
 
-// Thêm hàm này vào file JavaScript (cần có Modal HTML cho nó hoạt động)
-function showImageModal(imageUrl) {
-    // 💡 Tạm thời chỉ mở ảnh trong tab mới nếu bạn chưa có Modal
-    window.open(imageUrl, '_blank');
-    
-    /*
-    // Nếu bạn có Modal HTML (ví dụ: Modal có id='image-modal')
-    const imgElement = document.getElementById('modal-image-display');
-    imgElement.src = imageUrl;
-    document.getElementById('image-modal').style.display = 'block';
-    */
-}
+
 
 async function saveEditQ() {
   const id = document.getElementById('edit-q-id').value;
@@ -2497,61 +2424,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
   </script>
-<div id="image-modal" class="modal-custom">
-    <div class="modal-content-custom">
-        <span class="close-custom" onclick="closeImageModal()">&times;</span>
-        <h3>Hình ảnh chi tiết</h3>
-        <img id="modal-image-display" src="" alt="Hình ảnh câu hỏi" style="width: 100%; height: auto; display: block; margin-top: 15px;">
-    </div>
-</div>
-
-<style>
-/* CSS cơ bản cho Modal */
-.modal-custom {
-    display: none; /* Mặc định ẩn */
-    position: fixed; 
-    z-index: 1000; /* Đảm bảo nằm trên cùng */
-    left: 0;
-    top: 0;
-    width: 100%; 
-    height: 100%; 
-    overflow: auto; 
-    background-color: rgba(0,0,0,0.9); /* Nền đen mờ */
-}
-
-.modal-content-custom {
-    margin: 5% auto; /* 5% từ trên xuống và căn giữa */
-    padding: 20px;
-    border: 1px solid #888;
-    width: 80%; /* Chiều rộng Modal */
-    max-width: 800px;
-    background-color: #fefefe;
-    border-radius: 8px;
-    position: relative;
-    animation-name: animatetop;
-    animation-duration: 0.4s
-}
-
-.close-custom {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-}
-
-.close-custom:hover,
-.close-custom:focus {
-    color: #000;
-    text-decoration: none;
-    cursor: pointer;
-}
-
-/* Hiệu ứng chuyển động (tùy chọn) */
-@keyframes animatetop {
-    from {top: -300px; opacity: 0}
-    to {top: 0; opacity: 1}
-}
-</style>
 </body>
 
 </html>
