@@ -271,9 +271,9 @@ def index():
     except Exception:
         return jsonify({"message": "Index not found"}), 404
 
-@app.route("/static/<path:path>")
-def serve_static(path):
-    return send_from_directory("static", path)
+@app.route("/", methods=["GET"])
+def root():
+    return send_from_directory("templates", "index.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
