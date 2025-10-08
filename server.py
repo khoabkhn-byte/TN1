@@ -32,7 +32,26 @@ except Exception as e:
 db = client[DB_NAME]
 print(f"✅ Connected to MongoDB database: {DB_NAME}")
 
+def remove_id(doc):
+    if not doc:
+        return doc
+    doc.pop("_id", None)
+    return doc
 
+def remove_id_from_list(docs):
+    return [remove_id(d) for d in docs]
+
+# Generic error handler
+@app.errorhandler(Exception)
+def handle_exception(e):
+    if isinstance(e, HTTPException):
+        return jsonify({"message": e.description}), e.code
+    return jsonify({"message": "Internal server error", "error": str(e)}), 500
+
+# Health
+@app.route("/healthz", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "db": DB_NAME})
 
 # --------------------- AUTH ---------------------
 @app.route("/login", methods=["POST"])
@@ -136,10 +155,23 @@ def delete_question(q_id):
     return jsonify({"message": "Câu hỏi không tìm thấy."}), 404
 
 # --------------------- TESTS ---------------------
-@app.route("/tests", methods=["GET"])
+@@app.route("/tests", methods=["GET"])
 @app.route("/api/tests", methods=["GET"])
 def list_tests():
-    docs = list(db.tests.find({}, {"_id": 0}))
+    query = {} # Initialize an empty query dictionary
+    
+    # Get filters from URL arguments
+    subject = request.args.get("subject")
+    level = request.args.get("level")
+
+    # Add filters to the query if they exist
+    if subject: 
+        query["subject"] = subject
+    if level: 
+        query["level"] = level
+        
+    # Apply the query when fetching from the database
+    docs = list(db.tests.find(query, {"_id": 0}))
     return jsonify(docs)
 
 @app.route("/tests/<test_id>", methods=["GET"])
@@ -241,7 +273,7 @@ def get_result(result_id):
 @app.route("/", methods=["GET"])
 def index():
     try:
-        return send_from_directory(".", "index.html")
+        return send_from_directory("templates", "index.html")
     except Exception:
         return jsonify({"message": "Index not found"}), 404
 
