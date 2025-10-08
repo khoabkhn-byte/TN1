@@ -157,13 +157,16 @@ def delete_question(q_id):
 # --------------------- TESTS ---------------------
 @app.route("/tests", methods=["GET"])
 @app.route("/api/tests", methods=["GET"])
-def list_tests(): query = {} 
-subject = request.args.get("subject") 
-level = request.args.get("level") 
-if subject: query["subject"] = subject 
-if level: query["level"] = level 
-docs = list(db.tests.find(query, {"_id": 0})) 
-return jsonify(docs)
+def list_tests():
+    # Bắt đầu khối hàm (thụt lề 4 dấu cách so với def)
+    query = {}
+    subject = request.args.get("subject")
+    level = request.args.get("level")
+    if subject: query["subject"] = subject
+    if level: query["level"] = level
+    docs = list(db.tests.find(query, {"_id": 0}))
+    return jsonify(docs) # Đây là câu lệnh return hợp lệ, vì nó nằm trong hàm.
+    # Kết thúc khối hàm
 
 @app.route("/tests/<test_id>", methods=["GET"])
 @app.route("/api/tests/<test_id>", methods=["GET"])
