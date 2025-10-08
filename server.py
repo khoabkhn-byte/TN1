@@ -237,6 +237,13 @@ def create_assign():
     to_return = newa.copy(); to_return.pop("_id", None)
     return jsonify(to_return), 201
 
+import cors from "cors";
+app.use(cors({
+  origin: "*", // hoặc liệt kê cụ thể domain của bạn
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 # --------------------- RESULTS ---------------------
 @app.route("/results", methods=["GET"])
 @app.route("/api/results", methods=["GET"])
