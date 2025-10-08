@@ -392,7 +392,7 @@ color: #dc3545; / đỏ chuẩn /
     <div id="tab-switcher">
       <div class="tab-button active" onclick="showTab('tab-q', this)">Ngân hàng câu hỏi</div>
       <div class="tab-button" onclick="showTab('tab-test', this)">Bài kiểm tra</div>
-      <div class="tab-button" onclick="showTab('tab-assign', this)">Giao đề</div>
+      <!--<div class="tab-button" onclick="showTab('tab-assign', this)">Giao đề</div>-->
       <div class="tab-button" onclick="showTab('tab-students', this)">Học sinh</div>
       <div class="tab-button" onclick="showTab('tab-results', this)">Kết quả</div>
     </div>
@@ -568,13 +568,20 @@ color: #dc3545; / đỏ chuẩn /
  <div id="tab-test" class="tab-content">
   <h2>Tạo bài kiểm tra</h2>
 
-  <div style="display: flex; margin-bottom: 20px;">
+  <!--<div style="display: flex; margin-bottom: 20px;">
     <button class="btn" style="margin-right: 10px;" onclick="showCreationMode('auto')">Tạo đề ngẫu nhiên</button>
     <button class="btn" onclick="showCreationMode('manual')">Tạo đề thủ công</button>
-  </div>
+  </div>-->
+  <div style="display: flex; margin-bottom: 20px;">
+  <button class="btn" style="margin-right: 10px;" onclick="document.getElementById('auto-test-modal').style.display='block'">Tạo đề ngẫu nhiên</button>
+  <button class="btn" onclick="document.getElementById('manual-test-modal').style.display='block'; filterQuestionsForManualTest()">Tạo đề thủ công</button>
+</div>
 
-  <div id="creation-mode-auto" style="border:1px solid #ccc; padding:15px; margin-bottom: 20px;">
-    <h3>Tạo đề ngẫu nhiên (Chọn ngẫu nhiên từ Ngân hàng)</h3>
+  <!--<div id="creation-mode-auto" style="border:1px solid #ccc; padding:15px; margin-bottom: 20px;">-->
+    <div id="auto-test-modal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="document.getElementById('auto-test-modal').style.display='none'">&times;</span>
+	<h3>Tạo đề ngẫu nhiên (Chọn ngẫu nhiên từ Ngân hàng)</h3>
     <div class="form-group">
       <label for="auto-test-name">Tên bài kiểm tra:</label>
       <input type="text" id="auto-test-name" />
@@ -613,8 +620,11 @@ color: #dc3545; / đỏ chuẩn /
     </div>
     <button class="btn btn-create-test" onclick="createAutoTest()">Tạo bài kiểm tra ngẫu nhiên</button>
   </div>
-
-  <div id="creation-mode-manual" style="border:1px solid #007bff; padding:15px; margin-bottom:20px; display:none;">
+</div>
+  <!--<div id="creation-mode-manual" style="border:1px solid #007bff; padding:15px; margin-bottom:20px; display:none;">-->
+  <div id="manual-test-modal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="document.getElementById('manual-test-modal').style.display='none'">&times;</span>
     <h3>Tạo đề thủ công (Lọc và chọn câu hỏi)</h3>
     <div class="form-group">
       <label for="manual-test-name">Tên bài kiểm tra:</label>
@@ -656,10 +666,37 @@ color: #dc3545; / đỏ chuẩn /
     </div>
     <button class="btn btn-create-test" onclick="createManualTest()" style="margin-top: 15px;">Tạo bài kiểm tra thủ công</button>
   </div>
+</div>
 
-  
+
   <hr style="margin-top: 30px; margin-bottom: 20px;">
 <h5>Danh sách bài kiểm tra</h5>
+
+ <!-- Thêm khối lọc-->
+  <div class="form-group" style="margin-bottom: 20px;">
+    <label for="test-filter-subject">Lọc theo Môn học:</label>
+    <select id="test-filter-subject" onchange="renderTests()">
+        <option value="">-- Tất cả Môn học --</option>
+        <option value="math">Toán</option>
+        <option value="literature">Văn</option>
+        <option value="english">Tiếng Anh</option>
+        <option value="physics">Vật lý</option>
+        <option value="chemistry">Hóa học</option>
+        <option value="biology">Sinh học</option>
+        <option value="history">Lịch sử</option>
+        <option value="geography">Địa lý</option>
+        <option value="civic">GDCD</option>
+        <option value="it">Tin học</option>
+    </select>
+    
+    <label for="test-filter-level" style="margin-left: 15px;">Lọc theo Khối:</label>
+    <select id="test-filter-level" onchange="renderTests()">
+        <option value="">-- Tất cả Khối --</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+    </select>
+</div>
 
 <div id="tests-list">
   <table id="test-table" border="1" style="width:100%; border-collapse: collapse; margin-top: 10px;">
@@ -733,7 +770,7 @@ color: #dc3545; / đỏ chuẩn /
     <h3>Giao đề kiểm tra</h3>
     <input type="hidden" id="assign-modal-test-id">
     
-    <p>Bài kiểm tra đang giao: <strong id="assign-modal-test-name"></strong></p>
+  <p>Bài kiểm tra đang giao: <strong id="assign-modal-test-name"></strong></p>
 
     <div class="form-group">
       <label for="assign-modal-student">Chọn học sinh:</label>
@@ -825,7 +862,7 @@ const SUBJECT_NAMES = {
   it: "Tin học"
 };
 
-   const serverUrl = window.location.origin;
+    const serverUrl = 'https://quiz-to21.onrender.com';
 
     function showTab(tabId, element) {
       document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
@@ -836,7 +873,7 @@ const SUBJECT_NAMES = {
       // Load data for the active tab
       if (tabId === 'tab-q') renderQuestions();
       if (tabId === 'tab-test') renderTests();
-      if (tabId === 'tab-assign') renderAssigns();
+      <!-- if (tabId === 'tab-assign') renderAssigns();-->
       if (tabId === 'tab-students') renderStudents();
       if (tabId === 'tab-results') renderResults();
       if (tabId === 'tab-q') {
@@ -845,7 +882,7 @@ const SUBJECT_NAMES = {
   
 }
   if (tabId === 'tab-test') {
-      showCreationMode('auto'); // Mặc định hiển thị chế độ ngẫu nhiên
+    //  showCreationMode('auto'); // Mặc định hiển thị chế độ ngẫu nhiên
   }
     }
 
@@ -1260,10 +1297,10 @@ async function renderQuestions() {
 }
 
 // Thêm hàm này vào phần JavaScript
-function showCreationMode(mode) {
-  document.getElementById('creation-mode-auto').style.display = mode === 'auto' ? 'block' : 'none';
-  document.getElementById('creation-mode-manual').style.display = mode === 'manual' ? 'block' : 'none';
-}
+//function showCreationMode(mode) {
+  //document.getElementById('creation-mode-auto').style.display = mode === 'auto' ? 'block' : 'none';
+  //document.getElementById('creation-mode-manual').style.display = mode === 'manual' ? 'block' : 'none';
+//}
 
 
 
@@ -1485,56 +1522,80 @@ function formatDate(isoString) {
     return 'Lỗi định dạng';
   }
 }
-async function renderTests() {
-    const testListDiv = document.getElementById('tests-list');
-    
-    // Tạo cấu trúc bảng nếu chưa có (để đảm bảo có tbody)
-    if (!document.getElementById('test-table')) {
-      const tableHTML = `
-        <table id="test-table" border="1" style="width:100%; border-collapse: collapse; margin-top: 10px;">
-          <thead>
-            <tr>
-              <th>STT</th>
-              <th>Tên bài kiểm tra</th>
-              <th>Môn học</th>
-              <th>Khối</th>
-              <th>Số câu</th>
-              <th>Thời gian (phút)</th>
-              <th>Ngày tạo</th>
-              <th>Ngày giao</th>
-              <th>Trạng thái</th>               
-	      <th>Hành động</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      `;
-      testListDiv.innerHTML = tableHTML;
-    }
-    
-    const tbody = document.querySelector('#test-table tbody');
-    tbody.innerHTML = ''; // Xóa nội dung cũ
 
-    try {
-        const response = await fetch(`${serverUrl}/tests`);
-        const tests = await response.json();
-        
-        // Số cột đã tăng lên 10 (9 cột cũ + 1 cột trạng thái mới)
-        if (tests.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 10px;">Chưa có bài kiểm tra nào được tạo.</td></tr>';
-    return;
-}
-        tests.forEach((test, i) => {
-            const tr = document.createElement('tr');
-            
-            const questionCount = test.questions ? test.questions.length : 0;
-            const subjectName = SUBJECT_NAMES[test.subject] || test.subject || '-';
-            
-            const createdAt = formatDate(test.createdAt); 
-            const assignedDateDisplay = formatDate(test.assignedDate);
+async function renderTests() {
+    // 1. LẤY GIÁ TRỊ TỪ BỘ LỌC
+    const subject = document.getElementById('test-filter-subject') ? document.getElementById('test-filter-subject').value : '';
+    const level = document.getElementById('test-filter-level') ? document.getElementById('test-filter-level').value : '';
+
+    const testListDiv = document.getElementById('tests-list');
+    
+    // Tạo cấu trúc bảng nếu chưa có (giữ nguyên logic của bạn)
+    if (!document.getElementById('test-table')) {
+        const tableHTML = `
+            <table id="test-table" border="1" style="width:100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Tên bài kiểm tra</th>
+                        <th>Môn học</th>
+                        <th>Khối</th>
+                        <th>Số câu</th>
+                        <th>Thời gian (phút)</th>
+                        <th>Ngày tạo</th>
+                        <th>Ngày giao</th>
+                        <th>Trạng thái</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        `;
+        testListDiv.innerHTML = tableHTML;
+    }
+    
+    const tbody = document.querySelector('#test-table tbody');
+    // Hiển thị trạng thái tải trong khi chờ API
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 10px;">Đang tải...</td></tr>'; 
+
+    try {
+        // 2. XÂY DỰNG URL API CÓ THAM SỐ LỌC
+        let url = `${serverUrl}/tests`;
+        const params = [];
+
+        if (subject) {
+            params.push(`subject=${subject}`);
+        }
+        if (level) {
+            params.push(`level=${level}`);
+        }
+        
+        if (params.length > 0) {
+            url += `?${params.join('&')}`; // Thêm ?subject=X&level=Y vào URL
+        }
+        
+        const response = await fetch(url); // GỌI API VỚI URL ĐÃ LỌC
+        const tests = await response.json();
+
+        // Xóa nội dung cũ sau khi tải xong
+        tbody.innerHTML = ''; 
+        
+        if (tests.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 10px;">Không tìm thấy bài kiểm tra nào với bộ lọc này.</td></tr>';
+            return;
+        }
+        
+        tests.forEach((test, i) => {
+            const tr = document.createElement('tr');
             
-            // 💡 LOGIC XÁC ĐỊNH TRẠNG THÁI
-            // Nếu assignedDate tồn tại (có giá trị) thì là 'Đã giao'
+            const questionCount = test.questions ? test.questions.length : 0;
+            const subjectName = SUBJECT_NAMES[test.subject] || test.subject || '-';
+            
+            // Giả định hàm formatDate() tồn tại
+            const createdAt = formatDate(test.createdAt);
+            const assignedDateDisplay = formatDate(test.assignedDate);
+            
+            // LOGIC XÁC ĐỊNH TRẠNG THÁI
             const isAssigned = test.assignedDate && test.assignedDate !== 'Chưa có' && test.assignedDate !== 'Ngày không hợp lệ';
 
             let statusText;
@@ -1547,32 +1608,33 @@ async function renderTests() {
                 statusText = 'Chưa giao';
                 statusColor = 'orange';
             }
-            
-           tr.innerHTML = `
-            <td>${i + 1}</td>
-            <td>${escapeHtml(test.name) || 'Không tên'}</td>
-            <td>${subjectName}</td>
-            <td>${test.level || '-'}</td>
-            <td>${questionCount}</td>
-            <td>${test.time || '-'}</td>
-            <td>${createdAt}</td>
-            <td>${assignedDateDisplay}</td>
-            <td style="color: ${statusColor}; font-weight: bold;">${statusText}</td>
-            <td>
-                <button onclick="openAssignModal('${test.id}', '${escapeHtml(test.name)}')" class="btn-primary" style="margin-right: 5px;">Giao đề</button> 
-                
-                <button onclick="viewTestContent('${test.id}')" class="btn-info">Xem</button>
-                <button onclick="editTest('${test.id}')" class="btn-edit">Sửa</button>
-                <button onclick="deleteTest('${test.id}')" class="btn-delete">Xóa</button>
-            </td>
-        `;
-            tbody.appendChild(tr);
-        });
-    } catch (error) {
-        console.error('Lỗi khi tải danh sách bài kiểm tra:', error);
-        tbody.innerHTML = '<tr><td colspan="10" style="color: red; text-align: center; padding: 10px;">Lỗi kết nối đến máy chủ.</td></tr>';
-    }
+            
+            tr.innerHTML = `
+                <td>${i + 1}</td>
+                <td>${escapeHtml(test.name) || 'Không tên'}</td>
+                <td>${subjectName}</td>
+                <td>${test.level || '-'}</td>
+                <td>${questionCount}</td>
+                <td>${test.time || '-'}</td>
+                <td>${createdAt}</td>
+                <td>${assignedDateDisplay}</td>
+                <td style="color: ${statusColor}; font-weight: bold;">${statusText}</td>
+                <td>
+                    <button onclick="openAssignModal('${test.id}', '${escapeHtml(test.name)}')" class="btn-primary" style="margin-right: 5px;">Giao đề</button>
+                    
+                    <button onclick="viewTestContent('${test.id}')" class="btn-info">Xem</button>
+                    <button onclick="editTest('${test.id}')" class="btn-edit">Sửa</button>
+                    <button onclick="deleteTest('${test.id}')" class="btn-delete">Xóa</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error('Lỗi khi tải danh sách bài kiểm tra:', error);
+        tbody.innerHTML = '<tr><td colspan="10" style="color: red; text-align: center; padding: 10px;">Lỗi kết nối đến máy chủ.</td></tr>';
+    }
 }
+
 async function editTest(testId) {
   try {
     const response = await fetch(`${serverUrl}/tests/${testId}`);
