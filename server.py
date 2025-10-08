@@ -273,7 +273,7 @@ def index():
 
 @app.route("/", methods=["GET"])
 def root():
-    return send_from_directory("templates", "index.html")
+    return send_from_directory(".", "index.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
