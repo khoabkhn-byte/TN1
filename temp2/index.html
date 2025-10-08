@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quiz Admin - Teacher Dashboard</title>
+
+  <!-- Bootstrap CDN with onerror fallback to local static files -->
+  <link id="bs-css"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        onerror="this.onerror=null;this.href='/static/css/bootstrap.min.css'">
+
+  <style>
+#app {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+#login-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: white;
+  z-index: 999;
+}
+
+
+    /* Theme xanh chủ đạo + small customizations */
+    :root {
+      --primary: #0d6efd; /* bootstrap default blue */
+      --accent: #0b5ed7;
+    }
+    body { background:#f5f7fb; }
+    .brand { color: var(--primary); font-weight:700; }
+    .container-main { max-width:1200px; margin:20px auto; }
+    .card { border-radius:10px; }
+    .modal-header { background: linear-gradient(90deg,var(--primary),var(--accent)); color:white; }
+    .btn-primary { background: var(--primary); border-color: var(--primary); }
+    .btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="container-main">
+    <!-- LOGIN card (centered) -->
+    <div id="login-screen" class="d-flex justify-content-center align-items-center" style="min-height:60vh;">
+      <div class="card p-4 shadow" style="width:380px;">
+        <h3 class="brand text-center">Hệ Thống Thi Trắc Nghiệm</h3>
+        <p class="text-center text-muted">Đăng nhập để truy cập Dashboard</p>
+        <input id="login-user" class="form-control mb-2" placeholder="Tên đăng nhập">
+        <input id="login-pass" type="password" class="form-control mb-3" placeholder="Mật khẩu">
+        <div class="d-grid">
+          <button class="btn btn-primary" onclick="login()">Đăng nhập</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- APP -->
+    <div id="app" style="display:none;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="brand">Dashboard Giáo Viên</h2>
+        <div>
+          <span id="who" class="me-3"></span>
+          <button class="btn btn-secondary" onclick="logout()">Đăng xuất</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <ul class="nav nav-tabs" id="teacherTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" id="q-tab" data-bs-toggle="tab" data-bs-target="#tab-questions">Câu hỏi</button></li>
+        <li class="nav-item"><button class="nav-link" id="t-tab" data-bs-toggle="tab" data-bs-target="#tab-tests">Bài thi</button></li>
+        <li class="nav-item"><button class="nav-link" id="s-tab" data-bs-toggle="tab" data-bs-target="#tab-students">Học sinh</button></li>
+        <li class="nav-item"><button class="nav-link" id="r-tab" data-bs-toggle="tab" data-bs-target="#tab-results">Kết quả</button></li>
+      </ul>
+
+      <div class="tab-content mt-3">
+        <!-- ========== TAB QUESTIONS ========== -->
+        <div class="tab-pane fade show active" id="tab-questions">
+          <div class="d-flex justify-content-between mb-2">
+            <h5>Câu hỏi</h5>
+            <div>
+              <button class="btn btn-outline-primary me-2" onclick="loadQuestions()">Tải lại</button>
+              <button class="btn btn-primary" onclick="openQuestionModal()">➕ Thêm câu hỏi</button>
+            </div>
+          </div>
+          <div class="card p-3">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Câu</th><th>Môn</th><th>Mức</th><th>Điểm</th><th>Hành động</th></tr></thead>
+              <tbody id="questions-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ========== TAB TESTS ========== -->
+        <div class="tab-pane fade" id="tab-tests">
+          <div class="d-flex justify-content-between mb-2">
+            <h5>Bài thi</h5>
+            <div>
+              <button class="btn btn-outline-primary me-2" onclick="loadTests()">Tải lại</button>
+              <button class="btn btn-primary" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
+            </div>
+          </div>
+          <div class="card p-3">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Tên</th><th>Môn</th><th>Thời gian (phút)</th><th>Hành động</th></tr></thead>
+              <tbody id="tests-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ========== TAB STUDENTS ========== -->
+        <div class="tab-pane fade" id="tab-students">
+          <div class="d-flex justify-content-between mb-2">
+            <h5>Học sinh</h5>
+            <div><button class="btn btn-primary" onclick="openStudentModal()">➕ Thêm học sinh</button></div>
+          </div>
+          <div class="card p-3">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Username</th><th>Vai trò</th><th>Hành động</th></tr></thead>
+              <tbody id="students-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ========== TAB RESULTS ========== -->
+        <div class="tab-pane fade" id="tab-results">
+          <div class="d-flex justify-content-between mb-2">
+            <h5>Kết quả</h5>
+            <div>
+              <select id="results-test-filter" class="form-select form-select-sm" style="width:240px; display:inline-block" onchange="loadResults()"></select>
+              <button class="btn btn-outline-primary ms-2" onclick="loadResults()">Tải lại</button>
+            </div>
+          </div>
+          <div class="card p-3">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Học sinh</th><th>Bài thi</th><th>Trạng thái</th><th>Điểm</th><th>Thời gian nộp</th></tr></thead>
+              <tbody id="results-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div> <!-- /app -->
+  </div> <!-- /container-main -->
+
+  <!-- ========== MODALS ========== -->
+  <!-- Question Modal -->
+  <div class="modal fade" id="modalQuestion" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Thêm / Sửa Câu hỏi</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="q-id">
+      <div class="mb-2"><label class="form-label">Câu hỏi</label><textarea id="q-q" class="form-control" rows="3"></textarea></div>
+      <div class="row">
+        <div class="col"><label class="form-label">Môn</label><input id="q-subject" class="form-control"></div>
+        <div class="col"><label class="form-label">Mức độ</label>
+          <select id="q-level" class="form-select"><option> Dễ</option><option> Trung bình</option><option> Khó</option></select>
+        </div>
+        <div class="col"><label class="form-label">Điểm</label><input id="q-points" type="number" class="form-control" value="1"></div>
+      </div>
+      <div class="mt-2"><label class="form-label">Tùy chọn (mỗi dòng 1 lựa chọn; thêm " *" sau text để đánh dấu đáp án đúng)</label>
+        <textarea id="q-options" class="form-control" rows="4"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="saveQuestion()">Lưu</button></div>
+  </div></div></div>
+
+  <!-- Test Create Choice Modal -->
+  <div class="modal fade" id="modalTestChoice" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Tạo bài thi</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="d-grid gap-2">
+        <button class="btn btn-outline-primary" onclick="openTestAutoModal()">Tạo tự động (theo số lượng/độ khó)</button>
+        <button class="btn btn-outline-primary" onclick="openTestManualModal()">Tạo thủ công (chọn câu hỏi)</button>
+      </div>
+    </div>
+  </div></div></div>
+
+  <!-- Test Manual Modal -->
+  <div class="modal fade" id="modalTestManual" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Tạo/Chỉnh sửa bài thi (Thủ công)</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="test-id">
+      <div class="mb-2"><label>Tên</label><input id="test-name" class="form-control"></div>
+      <div class="row mb-2">
+        <div class="col"><label>Môn</label><input id="test-subject" class="form-control"></div>
+        <div class="col"><label>Thời gian (phút)</label><input id="test-time" type="number" class="form-control" value="15"></div>
+      </div>
+      <div class="mb-2"><label>Chọn câu hỏi (click để chọn)</label>
+        <div id="manual-questions-list" style="max-height:300px; overflow:auto; border:1px solid #ddd; padding:8px;"></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="saveTestManual()">Lưu</button></div>
+  </div></div></div>
+
+  <!-- Test Auto Modal -->
+  <div class="modal fade" id="modalTestAuto" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Tạo tự động</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="mb-2"><label>Tên</label><input id="auto-name" class="form-control"></div>
+      <div class="row">
+        <div class="col"><label>Môn</label><input id="auto-subject" class="form-control"></div>
+        <div class="col"><label>Số câu</label><input id="auto-count" type="number" class="form-control" value="10"></div>
+      </div>
+      <div class="mb-2"><label>Phân bổ mức độ (vd: 5,3,2 cho Dễ,Trung bình,Khó)</label><input id="auto-dist" class="form-control" value="5,3,2"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="saveTestAuto()">Tạo</button></div>
+  </div></div></div>
+
+  <!-- Assign Modal -->
+  <div class="modal fade" id="modalAssign" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Giao đề</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p>Chọn học sinh để giao bài:</p>
+      <div id="assign-students-list" style="max-height:300px; overflow:auto; border:1px solid #ddd; padding:8px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+      <button class="btn btn-primary" onclick="confirmAssign()">Giao</button>
+    </div>
+  </div></div></div>
+
+  <!-- Student Modal -->
+  <div class="modal fade" id="modalStudent" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Thêm / Sửa học sinh</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <input type="hidden" id="stu-id">
+      <div class="mb-2"><label>Tên đăng nhập</label><input id="stu-user" class="form-control"></div>
+      <div class="mb-2"><label>Mật khẩu</label><input id="stu-pass" class="form-control" type="password"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="saveStudent()">Lưu</button></div>
+  </div></div></div>
+
+  <!-- Bootstrap bundle CDN with fallback -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+          onerror="this.onerror=null;loadLocalBootstrap()"></script>
+
+  <script>
+    const serverUrl = 'https://quiz-to21.onrender.com';
+    let currentUser = null;
+    // helpers
+    function qs(id){ return document.getElementById(id); }
+    async function fetchJson(url, opts){ const r = await fetch(url, opts); if(r.status===204) return null; return r.json(); }
+
+    // LOGIN
+    async function login(){
+      const user = qs('login-user').value.trim();
+      const pass = qs('login-pass').value.trim();
+      const res = await fetchJson(`${serverUrl}/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user, pass}) });
+      if(res && res.success){ currentUser = res.user; showApp(); } else { alert(res?.message || 'Đăng nhập thất bại'); }
+    }
+    function logout(){ currentUser = null; location.reload(); }
+function showApp(){
+  const login = qs('login-screen');
+  const app = qs('app');
+
+  if (login) {
+    login.style.opacity = 1;
+    login.style.transition = "opacity 0.4s ease";
+    login.style.opacity = 0;
+    setTimeout(() => login.remove(), 400); // Xóa hẳn login
+  }
+
+  if (app) {
+    app.style.display = "block";
+    app.style.opacity = 0;
+    app.style.transition = "opacity 0.6s ease";
+    setTimeout(() => { app.style.opacity = 1; }, 100);
+  }
+
+  qs('who').textContent = `${currentUser.user} (${currentUser.role})`;
+
+  // Chờ hiệu ứng xong mới tải dữ liệu
+  setTimeout(() => {
+    loadQuestions();
+    loadTests();
+    loadStudents();
+    loadResultsTestFilter();
+  }, 600);
+}
+
+
+    // ================= QUESTIONS =================
+    async function loadQuestions(){
+      const data = await fetchJson(`${serverUrl}/api/questions`);
+      const tbody = qs('questions-body'); tbody.innerHTML = '';
+      data.forEach(q=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${q.q}</td><td>${q.subject||''}</td><td>${q.level||''}</td><td>${q.points||''}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary me-1" onclick='openQuestionModal(${JSON.stringify(q)})'>Sửa</button>
+            <button class="btn btn-sm btn-outline-danger" onclick='deleteQuestion("${q.id}")'>Xóa</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openQuestionModal(q){
+      const modal = new bootstrap.Modal(qs('modalQuestion'));
+      if(q){
+        qs('q-id').value = q.id;
+        qs('q-q').value = q.q;
+        qs('q-subject').value = q.subject || '';
+        qs('q-level').value = q.level || 'Dễ';
+        qs('q-points').value = q.points || 1;
+        qs('q-options').value = (q.options||[]).map(o=>o.text+(o.correct?' *':'')) .join('\n');
+      } else {
+        qs('q-id').value=''; qs('q-q').value=''; qs('q-subject').value=''; qs('q-level').value='Dễ'; qs('q-points').value=1; qs('q-options').value='';
+      }
+      modal.show();
+    }
+
+    async function saveQuestion(){
+      const id = qs('q-id').value;
+      const payload = {
+        q: qs('q-q').value,
+        subject: qs('q-subject').value,
+        level: qs('q-level').value,
+        points: Number(qs('q-points').value) || 1,
+        options: qs('q-options').value.split('\n').filter(Boolean).map(l=>{
+          const correct = l.includes('*');
+          return { text: l.replace('*','').trim(), correct };
+        })
+      };
+      const url = id? `${serverUrl}/api/questions/${id}` : `${serverUrl}/api/questions`;
+      const method = id? 'PUT' : 'POST';
+      await fetchJson(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      bootstrap.Modal.getInstance(qs('modalQuestion')).hide();
+      loadQuestions();
+    }
+
+    async function deleteQuestion(id){
+      if(!confirm('Xóa câu hỏi?')) return;
+      await fetch(`${serverUrl}/api/questions/${id}`, { method:'DELETE' });
+      loadQuestions();
+    }
+
+    // ================= TESTS =================
+    async function loadTests(){
+      const data = await fetchJson(`${serverUrl}/api/tests`);
+      const tbody = qs('tests-body'); tbody.innerHTML = '';
+      data.forEach(t=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML = `<td>${t.name}</td><td>${t.subject||''}</td><td>${t.time||''}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-success me-1" onclick='viewTest(${JSON.stringify(t)})'>Xem</button>
+            <button class="btn btn-sm btn-outline-primary me-1" onclick='openTestManual(${JSON.stringify(t)})'>Sửa</button>
+            <button class="btn btn-sm btn-outline-danger me-1" onclick='deleteTest("${t.id}")'>Xóa</button>
+            <button class="btn btn-sm btn-outline-info" onclick='openAssignModal("${t.id}")'>Giao đề</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openTestCreateChoice(){ new bootstrap.Modal(qs('modalTestChoice')).show(); }
+    function openTestManualModal(){ new bootstrap.Modal(qs('modalTestManual')).show(); loadManualQuestions(); }
+    function openTestAutoModal(){ new bootstrap.Modal(qs('modalTestAuto')).show(); }
+
+    async function openTestManual(t){
+      // if editing existing
+      if(t){
+        qs('test-id').value = t.id;
+        qs('test-name').value = t.name;
+        qs('test-subject').value = t.subject || '';
+        qs('test-time').value = t.time || 15;
+      } else {
+        qs('test-id').value=''; qs('test-name').value=''; qs('test-subject').value=''; qs('test-time').value=15;
+      }
+      new bootstrap.Modal(qs('modalTestManual')).show();
+      loadManualQuestions();
+    }
+
+    async function loadManualQuestions(){
+      const qsList = await fetchJson(`${serverUrl}/api/questions`);
+      const box = qs('manual-questions-list'); box.innerHTML='';
+      qsList.forEach(q=>{
+        const div = document.createElement('div');
+        div.className = 'form-check';
+        div.innerHTML = `<input class="form-check-input" type="checkbox" value="${q.id}" id="mq-${q.id}">
+                         <label class="form-check-label" for="mq-${q.id}">${q.q} <small class="text-muted">[${q.subject}]</small></label>`;
+        box.appendChild(div);
+      });
+    }
+
+    async function saveTestManual(){
+      const id = qs('test-id').value;
+      const selected = Array.from(qs('manual-questions-list').querySelectorAll('input[type=checkbox]:checked')).map(i=>i.value);
+      const payload = { name: qs('test-name').value, subject: qs('test-subject').value, time: Number(qs('test-time').value), questions: selected };
+      const url = id? `${serverUrl}/api/tests/${id}` : `${serverUrl}/api/tests`;
+      const method = id? 'PUT' : 'POST';
+      await fetchJson(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      bootstrap.Modal.getInstance(qs('modalTestManual')).hide();
+      loadTests();
+    }
+
+    // Auto test create
+    async function saveTestAuto(){
+      const name = qs('auto-name').value;
+      const subject = qs('auto-subject').value;
+      const count = Number(qs('auto-count').value) || 10;
+      const dist = qs('auto-dist').value.split(',').map(s=>Number(s.trim())).filter(Boolean);
+      // simple approach: fetch all questions and pick random according to dist
+      const all = await fetchJson(`${serverUrl}/api/questions?subject=${encodeURIComponent(subject)}`);
+      // flatten and select
+      // naive selection: take first count questions (improvement: random by level)
+      const selected = all.slice(0, count).map(q=>q.id);
+      const payload = { name, subject, time: 15, questions: selected };
+      await fetchJson(`${serverUrl}/api/tests`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      bootstrap.Modal.getInstance(qs('modalTestAuto')).hide();
+      loadTests();
+    }
+
+    async function deleteTest(id){
+      if(!confirm('Xóa bài thi?')) return;
+      await fetch(`${serverUrl}/api/tests/${id}`, { method:'DELETE' });
+      loadTests();
+    }
+
+    function viewTest(t){
+      // simple viewer: alert summary (can be extended)
+      alert(`Bài: ${t.name}\nMôn: ${t.subject}\nSố câu: ${ (t.questions||[]).length }`);
+    }
+
+    // ================= STUDENTS =================
+    async function loadStudents(){
+      const data = await fetchJson(`${serverUrl}/api/users`);
+      const tbody = qs('students-body'); tbody.innerHTML='';
+      data.filter(u=>u.role!=='teacher').forEach(u=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${u.user}</td><td>${u.role}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary me-1" onclick='openStudent(${JSON.stringify(u)})'>Sửa</button>
+            <button class="btn btn-sm btn-outline-danger" onclick='deleteStudent("${u.id}")'>Xóa</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openStudent(u){
+      qs('stu-id').value = u.id || '';
+      qs('stu-user').value = u.user || '';
+      qs('stu-pass').value = u.pass || '';
+      new bootstrap.Modal(qs('modalStudent')).show();
+    }
+
+    function openStudentModal(){ qs('stu-id').value=''; qs('stu-user').value=''; qs('stu-pass').value=''; new bootstrap.Modal(qs('modalStudent')).show(); }
+
+    async function saveStudent(){
+      const id = qs('stu-id').value;
+      const payload = { user: qs('stu-user').value, pass: qs('stu-pass').value, role: 'student' };
+      const url = id? `${serverUrl}/api/users/${id}` : `${serverUrl}/api/users`;
+      const method = id? 'PUT' : 'POST';
+      await fetchJson(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      bootstrap.Modal.getInstance(qs('modalStudent')).hide();
+      loadStudents();
+    }
+
+    async function deleteStudent(id){
+      if(!confirm('Xóa học sinh?')) return;
+      await fetch(`${serverUrl}/api/users/${id}`, { method:'DELETE' });
+      loadStudents();
+    }
+
+    // ================= ASSIGN (GIAO ĐỀ) =================
+    let currentAssignTestId = null;
+    async function openAssignModal(testId){
+      currentAssignTestId = testId;
+      // load students list
+      const students = await fetchJson(`${serverUrl}/api/users`);
+      const box = qs('assign-students-list'); box.innerHTML='';
+      students.filter(s=>s.role!=='teacher').forEach(s=>{
+        const div = document.createElement('div');
+        div.className='form-check';
+        div.innerHTML = `<input class="form-check-input" type="checkbox" value="${s.id}" id="as-${s.id}">
+                         <label class="form-check-label" for="as-${s.id}">${s.user}</label>`;
+        box.appendChild(div);
+      });
+      new bootstrap.Modal(qs('modalAssign')).show();
+    }
+
+    async function confirmAssign(){
+      const selected = Array.from(qs('assign-students-list').querySelectorAll('input[type=checkbox]:checked')).map(i=>i.value);
+      if(selected.length===0){ alert('Chọn ít nhất 1 học sinh'); return; }
+      const payload = { testId: currentAssignTestId, studentIds: selected };
+      const res = await fetchJson(`${serverUrl}/api/assign-test`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      if(res && res.success){ alert(`Giao xong ${res.count} bài`); bootstrap.Modal.getInstance(qs('modalAssign')).hide(); loadResults(); }
+    }
+
+    // ================= RESULTS =================
+    async function loadResultsTestFilter(){
+      const tests = await fetchJson(`${serverUrl}/api/tests`);
+      const sel = qs('results-test-filter'); sel.innerHTML = '<option value="">-- Chọn bài để lọc --</option>';
+      tests.forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o); });
+    }
+
+    async function loadResults(){
+      const testId = qs('results-test-filter').value;
+      const qsParams = testId? `?testId=${encodeURIComponent(testId)}` : '';
+      const assignments = await fetchJson(`${serverUrl}/api/assignments${qsParams}`);
+      const tbody = qs('results-body'); tbody.innerHTML='';
+      for(const a of assignments){
+        // fetch student display name
+        const st = await fetchJson(`${serverUrl}/api/users`); // could be optimized by caching; keep simple
+        const studentObj = st.find(u=>u.id === a.studentId) || { user: a.studentId };
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${studentObj.user}</td><td>${a.testName||a.testId}</td><td>${a.status}</td><td>${a.score||''}</td><td>${a.submittedAt||''}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    // Load local bootstrap if CDN fails (fallback)
+    function loadLocalBootstrap(){
+      const s = document.createElement('script');
+      s.src = '/static/js/bootstrap.bundle.min.js';
+      document.body.appendChild(s);
+    }
+
+    // Auto-load if someone opened the app and backend is present, show login
+    (function init(){ /* nothing for now */ })();
+  </script>
+</body>
+</html>
