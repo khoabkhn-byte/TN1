@@ -155,23 +155,10 @@ def delete_question(q_id):
     return jsonify({"message": "Câu hỏi không tìm thấy."}), 404
 
 # --------------------- TESTS ---------------------
-@@app.route("/tests", methods=["GET"])
+@app.route("/tests", methods=["GET"])
 @app.route("/api/tests", methods=["GET"])
 def list_tests():
-    query = {} # Initialize an empty query dictionary
-    
-    # Get filters from URL arguments
-    subject = request.args.get("subject")
-    level = request.args.get("level")
-
-    # Add filters to the query if they exist
-    if subject: 
-        query["subject"] = subject
-    if level: 
-        query["level"] = level
-        
-    # Apply the query when fetching from the database
-    docs = list(db.tests.find(query, {"_id": 0}))
+    docs = list(db.tests.find({}, {"_id": 0}))
     return jsonify(docs)
 
 @app.route("/tests/<test_id>", methods=["GET"])
