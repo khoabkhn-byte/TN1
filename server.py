@@ -237,6 +237,9 @@ def create_assign():
     to_return = newa.copy(); to_return.pop("_id", None)
     return jsonify(to_return), 201
 
+@app.route("/api/assign-test", methods=["POST"])
+def alias_assign_test():
+    return create_assign()
 
 # --------------------- RESULTS ---------------------
 @app.route("/results", methods=["GET"])
