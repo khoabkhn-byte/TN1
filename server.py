@@ -105,8 +105,12 @@ def list_questions():
     query = {}
     subject = request.args.get("subject")
     level = request.args.get("level")
+    # THÊM BỘ LỌC LOẠI CÂU HỎI
+    q_type = request.args.get("type") 
     if subject: query["subject"] = subject
     if level: query["level"] = level
+    # DÒNG QUAN TRỌNG: THÊM BỘ LỌC VÀO TRUY VẤN
+    if q_type: query["type"] = q_type
     docs = list(db.questions.find(query, {"_id": 0}))
     return jsonify(docs)
 
