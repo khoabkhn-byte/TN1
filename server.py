@@ -107,10 +107,12 @@ def list_questions():
     level = request.args.get("level")
     # THÊM BỘ LỌC LOẠI CÂU HỎI
     q_type = request.args.get("type") 
+    difficulty = request.args.get("difficulty")
     if subject: query["subject"] = subject
     if level: query["level"] = level
     # DÒNG QUAN TRỌNG: THÊM BỘ LỌC VÀO TRUY VẤN
     if q_type: query["type"] = q_type
+    if difficulty: query["difficulty"] = difficulty
     docs = list(db.questions.find(query, {"_id": 0}))
     return jsonify(docs)
 
@@ -126,7 +128,8 @@ def create_question():
         "points": data.get("points"),
         "subject": data.get("subject"),
         "level": data.get("level"),
-        "options": data.get("options")
+        "options": data.get("options"),
+        "difficulty": data.get("difficulty", "medium")
     }
     db.questions.insert_one(newq)
     to_return = newq.copy(); to_return.pop("_id", None)
@@ -190,6 +193,74 @@ def create_test():
         "subject": data.get("subject"),
         "level": data.get("level"),
         "questions": data.get("questions", []),
+        "teacherId": data.get("teacherId")
+    }
+    db.tests.insert_one(newt)
+    to_return = newt.copy(); to_return.pop("_id", None)
+    return jsonify(to_return), 201
+
+
+@app.route("/tests/auto", methods=["POST"])
+@app.route("/api/tests/auto", methods=["POST"])
+def create_test_auto():
+    data = request.get_json() or {}
+    name = data.get("name", "Bài kiểm tra ngẫu nhiên")
+    subject = data.get("subject", "")
+    level = data.get("level", "")
+    total = int(data.get("total", data.get("count", 10)))
+    time = int(data.get("time", 30))
+    dist = data.get("dist", {"easy": 0, "medium": 0, "hard": 0})
+
+    # helper to pick questions by difficulty
+    def pick(diff, count):
+        q = {"difficulty": diff}
+        if subject:
+            q["subject"] = subject
+        if level:
+            q["level"] = level
+        all_q = list(db.questions.find(q, {"_id": 0}))
+        import random
+        random.shuffle(all_q)
+        return all_q[:count]
+
+    selected = []
+    try:
+        selected += pick("easy", int(dist.get("easy", 0)))
+        selected += pick("medium", int(dist.get("medium", 0)))
+        selected += pick("hard", int(dist.get("hard", 0)))
+    except Exception:
+        # fallback: ignore dist parse errors
+        pass
+
+    # fill remaining if not enough
+    if len(selected) < total:
+        remain = total - len(selected)
+        candidates = list(db.questions.find({}, {"_id": 0}))
+        import random
+        random.shuffle(candidates)
+        # avoid duplicates by id if possible
+        existing_ids = {q.get("id") for q in selected}
+        added = []
+        for c in candidates:
+            if c.get("id") in existing_ids:
+                continue
+            added.append(c)
+            existing_ids.add(c.get("id"))
+            if len(added) >= remain:
+                break
+        selected += added
+
+    selected = selected[:total]
+    question_ids = [q.get("id") for q in selected if q.get("id")]
+
+    newt = {
+        "id": str(uuid4()),
+        "name": name,
+        "time": time,
+        "subject": subject,
+        "level": level,
+        "questions": question_ids,
+        "count": len(question_ids),
         "teacherId": data.get("teacherId")
     }
     db.tests.insert_one(newt)
