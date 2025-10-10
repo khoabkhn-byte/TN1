@@ -11,8 +11,19 @@ import datetime, random
 load_dotenv()
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
-CORS(app, resources={r"/*": {"origins": "*"}})
+app = Flask(__name__, static_folder="static", template_folder="templates")
 
+# ✅ Cho phép tất cả domain truy cập (bao gồm file://)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+
+@app.after_request
+def apply_cors_headers(response):
+    """Fix CORS preflight for local files & Render"""
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+    response.headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    return response
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME", "quiz")
 PORT = int(os.getenv("PORT", 3000))
