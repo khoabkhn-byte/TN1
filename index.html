@@ -165,27 +165,67 @@
 
         <!-- TESTS -->
         <div class="tab-pane fade" id="tab-tests">
-          <div class="d-flex justify-content-between mb-2">
-            <h5>Bài thi</h5>
-            <div>
-              <button class="btn btn-outline-primary me-2" onclick="refreshResource('tests')">Tải lại</button>
-              <button class="btn btn-primary" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
-            </div>
-          </div>
-          <div class="card p-3">
-            <div class="table-wrap">
-              <table class="table table-sm table-hover">
-                <thead><tr><th>Tên</th><th>Môn</th><th>Thời gian (phút)</th><th>Hành động</th></tr></thead>
-                <tbody id="tests-tbody"></tbody>
-              </table>
-            </div>
-            <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
-              <div class="muted-small me-auto" id="tests-info"></div>
-              <button id="t-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('tests', -1)">Trang trước</button>
-              <button id="t-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('tests', 1)">Trang sau</button>
-            </div>
-          </div>
+    <div class="d-flex justify-content-between mb-2">
+        <h5>Bài thi</h5>
+        <div>
+            <button class="btn btn-outline-primary me-2" onclick="refreshResource('tests')">Tải lại</button>
+            <button class="btn btn-primary" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
         </div>
+    </div>
+    
+    <div class="card p-3 mb-3">
+        <h5>Bộ lọc Bài kiểm tra</h5>
+        <div class="row mb-1 align-items-end">
+            <div class="col-md-3">
+                <label for="filter-test-subject" class="form-label small">Môn học</label>
+                <select id="filter-test-subject" class="form-select form-select-sm" onchange="loadTests()"></select>
+            </div>
+            
+            <div class="col-md-3">
+                <label for="filter-test-level" class="form-label small">Khối lớp</label>
+                <select id="filter-test-level" class="form-select form-select-sm" onchange="loadTests()">
+                    <option value="">Tất cả</option>
+                    <option value="1">Khối 1</option>
+                    <option value="2">Khối 2</option>
+                    <option value="3">Khối 3</option>
+                    <option value="4">Khối 4</option>
+                    <option value="5">Khối 5</option>
+                    </select>
+            </div>
+
+            <div class="col-md-3">
+                <label for="filter-test-date" class="form-label small">Ngày tạo (Từ)</label>
+                <input type="date" id="filter-test-date" class="form-control form-control-sm" onchange="loadTests()">
+            </div>
+
+             <div class="col-md-3">
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetTestFilters()">Xóa lọc</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-3">
+        <div class="table-wrap">
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">#</th>
+                        <th style="width: 25%;">Tên bài thi</th>
+                        <th style="width: 15%;">Môn</th>
+                        <th style="width: 10%;">Khối lớp</th> <th style="width: 15%;">Ngày tạo</th> <th style="width: 10%;">Thời gian (phút)</th>
+                        <th style="width: 10%;">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="tests-tbody"></tbody>
+            </table>
+        </div>
+        <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
+            <div class="muted-small me-auto" id="tests-info"></div>
+            <button id="t-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('tests', -1)">Trang trước</button>
+            <button id="t-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('tests', 1)">Trang sau</button>
+        </div>
+    </div>
+</div>
 
         <!-- STUDENTS -->
         <div class="tab-pane fade" id="tab-students">
@@ -477,6 +517,20 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
   
+  const SUBJECT_NAMES = {
+  math: "Toán",
+  literature: "Văn",
+  english: "Tiếng Anh",
+  physics: "Vật lý",
+  chemistry: "Hóa học",
+  biology: "Sinh học",
+  history: "Lịch sử",
+  geography: "Địa lý",
+  civic: "GDCD",
+  it: "Tin học"
+};
+  
+  
   // Thêm hàm này vào khối <script>
 let nextOptionIndex = 0; // Biến đếm để quản lý ID/data-attribute
 
@@ -499,18 +553,24 @@ function addQuestionOption(text = '', isCorrect = false) {
 }
 
     // Configuration
-    const serverUrl = window.location.origin;
+    const serverUrl = 'https://quiz-to21.onrender.com';
     const PAGE_SIZE = 20;
     let currentUser = null;
+	
 
     // Pagination state
     const state = { questions: { list: [], page:1, total:0 }, tests: { list: [], page:1, total:0 }, students: { list: [], page:1, total:0 } };
 
-    const qs = id => document.getElementById(id);
+    
+	const qs = id => document.getElementById(id);
+	
 
     async function fetchJson(url, opts){ try { const r = await fetch(url, opts); if(r.status === 204) return null; return await r.json(); } catch(e){ console.error('fetch error', e); throw e; } }
 
-    // ---------- LOGIN ----------
+   
+
+
+   // ---------- LOGIN ----------
     qs('login-btn').addEventListener('click', async ()=> await login());
     qs('login-pass').addEventListener('keydown', (e)=>{ if(e.key==='Enter') login(); });
 
@@ -528,24 +588,42 @@ function addQuestionOption(text = '', isCorrect = false) {
     function logout(){ sessionStorage.removeItem('quiz_user'); location.reload(); }
 
     function showApp(){
-      const login = qs('login-screen');
-      const teacherApp = qs('app');
-      const studentApp = qs('student-app');
-      if(login) login.remove();
-      if(!currentUser) { // try restore from session
-        const s = sessionStorage.getItem('quiz_user'); if(s){ currentUser = JSON.parse(s); }
-      }
-      if(!currentUser){ document.body.innerHTML = '<div class="container-main"><div class="alert alert-danger">Không có người dùng. Vui lòng đăng nhập lại.</div></div>'; return; }
-      if(currentUser.role === 'teacher'){
-        teacherApp.style.display = 'block'; setTimeout(()=> teacherApp.style.opacity = 1, 60);
-        qs('who').textContent = `${currentUser.user} (teacher)`;
-        refreshAll();
-      } else {
-        studentApp.style.display = 'block'; setTimeout(()=> studentApp.style.opacity = 1, 60);
-        qs('who-stu').textContent = `${currentUser.user}`;
-        loadAssignedTests(); loadCompletedTests();
+    const login = qs('login-screen');
+    const teacherApp = qs('app');
+    const studentApp = qs('student-app');
+
+    // 1. Kiểm tra và khôi phục người dùng trước khi ẩn màn hình đăng nhập
+    if(!currentUser) { // Thử khôi phục từ session
+      const s = sessionStorage.getItem('quiz_user'); 
+      if(s){ 
+        currentUser = JSON.parse(s); 
       }
     }
+
+    // 2. Xử lý trường hợp không có người dùng
+    if(!currentUser){ 
+      document.body.innerHTML = '<div class="container-main"><div class="alert alert-danger">Không có người dùng. Vui lòng đăng nhập lại.</div></div>'; 
+      return; 
+    }
+
+    // 3. Nếu có người dùng, loại bỏ màn hình đăng nhập
+    if(login) login.remove();
+
+    // 4. Phân luồng theo vai trò
+    if(currentUser.role === 'teacher'){
+      // THÊM DÒNG NÀY ĐỂ ĐIỀN DỮ LIỆU VÀO DROPDOWN MÔN HỌC (FIX LỖI DROPDOWN RỖNG)
+      populateSubjectFilters(); 
+      
+      teacherApp.style.display = 'block'; setTimeout(()=> teacherApp.style.opacity = 1, 60);
+      qs('who').textContent = `${currentUser.user} (teacher)`;
+      // Hàm refreshAll() sẽ gọi loadQuestions() và loadTests() sau khi bộ lọc được điền
+      refreshAll();
+    } else {
+      studentApp.style.display = 'block'; setTimeout(()=> studentApp.style.opacity = 1, 60);
+      qs('who-stu').textContent = `${currentUser.user}`;
+      loadAssignedTests(); loadCompletedTests();
+    }
+}
 
     // ---------- Resource loading for teacher (kept similar to original) ----------
         function setTableLoading(tbodyId, message='Đang tải...'){
@@ -982,27 +1060,167 @@ function showToast(message, type = 'success') {
 
     // TESTS (teacher)
     async function loadTests(){ 
-		setTableLoading('tests-tbody','Đang tải bài thi...'); 
-		try{ 
-		const data = await fetchJson(`${serverUrl}/api/tests`); 
-		state.tests.list = Array.isArray(data)? data : []; 
-		state.tests.total = state.tests.list.length; 
-		state.tests.page = 1; renderPaged('tests'); } 
-		catch(e){ setTableError('tests-tbody','Không thể tải bài thi'); } }
+    // Lấy giá trị từ các bộ lọc mới (sử dụng ID mới: filter-test-...)
+    const subject = qs('filter-test-subject') ? qs('filter-test-subject').value : '';
+    const level = qs('filter-test-level') ? qs('filter-test-level').value : '';
+    const date = qs('filter-test-date') ? qs('filter-test-date').value : '';
     
-	function renderTests(items){ 
-		const tbody = qs('tests-tbody'); 
-		tbody.innerHTML=''; // <-- ĐÃ SỬA
-		if(!items.length){ 
-		tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Không có bài thi</td></tr>'; // <-- ĐÃ SỬA
-		return; }  
-		const frag = document.createDocumentFragment(); 
-		items.forEach(t=>{ const tr = document.createElement('tr'); 
-		tr.innerHTML = `<td>${escapeHtml(t.name)}</td><td>${escapeHtml(t.subject)}</td><td>${escapeHtml(t.time)}</td><td><button class="btn btn-sm btn-outline-success me-1" onclick='viewTest(${encodeURIComponent(JSON.stringify(t))})'>Xem</button><button class="btn btn-sm btn-outline-primary me-1" onclick='openTestManualFromRow(${encodeURIComponent(JSON.stringify(t))})'>Sửa</button><button class="btn btn-sm btn-outline-danger me-1" onclick='deleteTest("${t.id||t._id||''}")'>Xóa</button><button class="btn btn-sm btn-outline-info" onclick='openAssignModal("${t.id||t._id||''}")'>Giao đề</button></td>`; 
-		frag.appendChild(tr); }); 
-		tbody.appendChild(frag); 
+    // Xây dựng chuỗi truy vấn
+    let url = `${serverUrl}/api/tests`;
+    const params = [];
+    
+    if (subject) params.push(`subject=${subject}`);
+    if (level) params.push(`level=${level}`);
+    
+    // Tham số lọc theo ngày tạo (createdAtGte)
+    if (date) params.push(`createdAtGte=${date}`); 
+    
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+    }
+    
+    setTableLoading('tests-tbody','Đang tải bài thi...'); 
+    try{ 
+        const data = await fetchJson(url); // Dùng URL đã có bộ lọc
+        state.tests.list = Array.isArray(data)? data : []; 
+        state.tests.total = state.tests.list.length; 
+        state.tests.page = 1; 
+        
+        // renderPaged sẽ gọi hàm renderTests đã được sửa
+        renderPaged('tests'); 
+    } catch(e){ 
+        console.error("Lỗi tải bài kiểm tra:", e);
+        setTableError('tests-tbody','Không thể tải bài thi'); 
+    } 
 }
-		
+    
+	// Bạn cần sửa hàm renderTests trong file JS của bạn
+function renderTests(items) {
+    const tbody = qs('tests-tbody');
+    tbody.innerHTML = '';
+    
+    if (!items.length) { 
+        // Cập nhật colspan thành 7 để phù hợp với 7 cột trong HTML
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Không có bài kiểm tra nào phù hợp.</td></tr>'; 
+        return; 
+    }
+    
+    const frag = document.createDocumentFragment();
+    
+    // 1. KHẮC PHỤC LỖI STT: Tính toán STT bắt đầu theo trang hiện tại
+    // (Giả định bạn có biến state.tests.page và state.tests.pageSize)
+    // Nếu không có phân trang, hãy đặt let stt = 1;
+    let stt = (state.tests.page - 1) * state.tests.pageSize + 1; 
+    
+    items.forEach(t => {
+        const tr = document.createElement('tr');
+        const subjectName = SUBJECT_NAMES[t.subject] || t.subject || 'N/A';
+        
+        // Đảm bảo lấy ID bài thi
+        const testId = t.id || t._id || ''; 
+
+        // Lấy và định dạng dữ liệu Khối & Ngày tạo
+        const levelDisplay = t.level || 'N/A';
+        const createdAt = t.createdAt 
+                          ? new Date(t.createdAt).toLocaleDateString('vi-VN') 
+                          : 'N/A';
+                          
+        tr.innerHTML = `
+            <td class="text-center">${stt++}</td>
+            <td class="text-start">${escapeHtml(t.name)}</td>
+            <td class="text-center">${escapeHtml(subjectName)}</td>
+            <td class="text-center">${escapeHtml(levelDisplay)}</td>
+            <td class="text-center">${createdAt}</td>
+            <td class="text-center">${t.time || 'N/A'}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary me-1" onclick='openTestModalById("${testId}")'>Sửa</button>
+                <button class="btn btn-sm btn-outline-success me-1" onclick='openAssignModal("${testId}", "${t.name}")'>Giao đề</button>
+                <button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${t.name}")'>Xóa</button>
+            </td>
+        `;
+        frag.appendChild(tr);
+    });
+    tbody.appendChild(frag);
+}
+
+
+function populateTestSubjectFilter() {
+    if (isTestSubjectFilterPopulated) return;
+    const select = qs('filter-test-subject');
+    if (!select) return;
+
+    // Reset và thêm option "Tất cả"
+    select.innerHTML = '<option value="">Tất cả</option>'; 
+    
+    for (const [key, value] of Object.entries(SUBJECT_NAMES)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = value;
+        select.appendChild(option);
+    }
+    isTestSubjectFilterPopulated = true;
+}	
+
+// Đảm bảo SUBJECT_NAMES đã được khai báo ở phạm vi global và có dữ liệu, ví dụ:
+// const SUBJECT_NAMES = { 'math': 'Toán', 'literature': 'Văn', 'english': 'Tiếng Anh', ... };
+
+function populateSubjectFilters() {
+    // 1. Xác định các phần tử cần điền dữ liệu
+    const testFilterEl = qs('filter-test-subject');
+    const questionFilterEl = qs('q-filter-subject'); // Dùng ID 'q-filter-subject' riêng biệt
+    
+    // Thu thập tất cả các phần tử cần điền vào một mảng
+    const filterElements = [];
+    if (testFilterEl) filterElements.push(testFilterEl);
+    if (questionFilterEl) filterElements.push(questionFilterEl);
+
+    if (filterElements.length === 0) {
+        console.warn("Không tìm thấy các dropdown bộ lọc môn học (filter-test-subject hoặc q-filter-subject).");
+        return;
+    }
+    
+    // Lấy danh sách môn học. Đảm bảo SUBJECT_NAMES đã được định nghĩa.
+    const subjects = Object.keys(SUBJECT_NAMES);
+    if (subjects.length === 0) {
+        console.warn("SUBJECT_NAMES rỗng. Vui lòng đảm bảo hằng số này đã được định nghĩa.");
+        return;
+    }
+
+    filterElements.forEach(selectEl => {
+        // Lưu lại giá trị đã chọn hiện tại
+        const selectedValue = selectEl.value; 
+        
+        // 2. Xóa và điền option "Tất cả"
+        selectEl.innerHTML = '';
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = '--- Tất cả Môn học ---';
+        selectEl.appendChild(allOption);
+        
+        // 3. Điền các môn học
+        subjects.forEach(code => {
+            const option = document.createElement('option');
+            option.value = code;
+            // Sử dụng SUBJECT_NAMES đã khai báo ở đầu file JS
+            option.textContent = SUBJECT_NAMES[code] || code;
+            selectEl.appendChild(option);
+        });
+        
+        // Khôi phục giá trị đã chọn
+        if (selectedValue && selectEl.querySelector(`option[value="${selectedValue}"]`)) {
+            selectEl.value = selectedValue;
+        }
+    });
+
+    // Sau khi điền, gọi hàm tải dữ liệu ban đầu cho các tab
+    if (testFilterEl) loadTests();
+    if (questionFilterEl) loadQuestions();
+}
+
+// Gọi hàm này khi ứng dụng khởi tạo (Ví dụ: sau khi đăng nhập hoặc sau khi tải SUBJECT_NAMES)
+// Ví dụ: initApp() { ... populateSubjectFilters(); loadTests(); ... }
+
+	
     function viewTest(tStr){ 
 		try{ const t = JSON.parse(decodeURIComponent(tStr)); 
 		alert(`Bài: ${t.name}\nMôn: ${t.subject}\nSố câu: ${ (t.questions||[]).length }`);
@@ -1137,7 +1355,15 @@ async function saveTestManual() {
 }
     async function openTestCreateChoice(){ new bootstrap.Modal(qs('modalTestChoice')).show(); }
     async function openTestAutoModal(){ new bootstrap.Modal(qs('modalTestAuto')).show(); }
-    // Hàm tạo đề ngẫu nhiên
+    // Hàm reset bộ lọc
+	
+	function resetTestFilters() {
+    if (qs('filter-test-subject')) qs('filter-test-subject').value = '';
+    if (qs('filter-test-level')) qs('filter-test-level').value = '';
+    if (qs('filter-test-date')) qs('filter-test-date').value = '';
+    loadTests();
+}
+
 // Lưu bài kiểm tra sau khi xem trước
 async function saveTestAuto() {
   if (!previewedQuestions.length) {
@@ -1326,18 +1552,7 @@ function translateDifficulty(difficulty) {
     // Init: try restore session
     (function init(){ const s = sessionStorage.getItem('quiz_user'); if(s){ currentUser = JSON.parse(s); showApp(); } })();
   
- const SUBJECT_NAMES = {
-  math: "Toán",
-  literature: "Văn",
-  english: "Tiếng Anh",
-  physics: "Vật lý",
-  chemistry: "Hóa học",
-  biology: "Sinh học",
-  history: "Lịch sử",
-  geography: "Địa lý",
-  civic: "GDCD",
-  it: "Tin học"
-};
+ 
 
 let previewedQuestions = [];
 
