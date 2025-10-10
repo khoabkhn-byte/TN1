@@ -6,13 +6,22 @@ import os
 from dotenv import load_dotenv
 from werkzeug.exceptions import HTTPException
 import datetime
+import json # Cần thiết để parse chuỗi JSON từ FormData
+from werkzeug.utils import secure_filename # Cần thiết để bảo mật tên file khi lưu
 
+# Định nghĩa thư mục lưu trữ file ảnh
+UPLOAD_FOLDER = 'static/uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER) 
 # Load .env in local; Render provides env vars automatically
 load_dotenv()
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 # Allow all origins so frontend on any domain can call this API
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# THÊM DÒNG NÀY: Tăng giới hạn dữ liệu request lên 25MB (25 * 1024 * 1024 bytes)
+app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024 
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME", "quiz")
@@ -119,17 +128,44 @@ def list_questions():
 @app.route("/questions", methods=["POST"])
 @app.route("/api/questions", methods=["POST"])
 def create_question():
-    data = request.get_json() or {}
+    # SỬA: Lấy dữ liệu từ request.form (text) và request.files (file)
+    data = request.form
+    image_file = request.files.get('image')
+
+    # 1. Xử lý File Upload
+    image_url = None
+    if image_file:
+        # Tạo tên file duy nhất và an toàn
+        filename = secure_filename(image_file.filename)
+        file_ext = os.path.splitext(filename)[1]
+        unique_filename = f"{uuid4()}{file_ext}"
+        save_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+        
+        try:
+            image_file.save(save_path)
+            # URL phải tương ứng với thư mục static đã định nghĩa
+            image_url = f"/{UPLOAD_FOLDER}/{unique_filename}"
+        except Exception as e:
+            return jsonify({"message": f"Lỗi lưu file: {str(e)}"}), 500
+
+    # 2. Parse các trường JSON string (options, answer)
+    try:
+        options = json.loads(data.get("options", "[]"))
+        answer = data.get("answer", "")
+    except json.JSONDecodeError:
+        return jsonify({"message": "Lỗi định dạng dữ liệu Options hoặc Answer."}), 400
+
     newq = {
         "id": str(uuid4()),
         "q": data.get("q"),
-        "imageUrl": data.get("imageUrl"),
+        "imageUrl": image_url, # Sử dụng URL đã tạo
         "type": data.get("type"),
-        "points": data.get("points"),
+        "points": int(data.get("points", 1)),
         "subject": data.get("subject"),
         "level": data.get("level"),
-        "options": data.get("options"),
-        "difficulty": data.get("difficulty", "medium")
+        "difficulty": data.get("difficulty", "medium"),
+        "options": options,
+        "answer": answer
     }
     db.questions.insert_one(newq)
     to_return = newq.copy(); to_return.pop("_id", None)
@@ -145,12 +181,48 @@ def get_question(q_id):
 @app.route("/questions/<q_id>", methods=["PUT"])
 @app.route("/api/questions/<q_id>", methods=["PUT"])
 def update_question(q_id):
-    data = request.get_json() or {}
-    data.pop("_id", None)
-    res = db.questions.update_one({"id": q_id}, {"$set": data})
+    # SỬA: Lấy dữ liệu từ request.form (text) và request.files (file)
+    data = request.form
+    image_file = request.files.get('image')
+    
+    # 1. Chuẩn bị dữ liệu cập nhật
+    update_fields = {
+        "q": data.get("q"),
+        "type": data.get("type"),
+        "points": int(data.get("points", 1)),
+        "subject": data.get("subject"),
+        "level": data.get("level"),
+        "difficulty": data.get("difficulty", "medium"),
+    }
+    
+    # 2. Parse các trường JSON string
+    try:
+        update_fields["options"] = json.loads(data.get("options", "[]"))
+        update_fields["answer"] = data.get("answer", "")
+    except json.JSONDecodeError:
+        return jsonify({"message": "Lỗi định dạng dữ liệu Options hoặc Answer."}), 400
+
+    # 3. Xử lý File Upload Mới
+    if image_file:
+        # Tạo tên file duy nhất và an toàn
+        filename = secure_filename(image_file.filename)
+        file_ext = os.path.splitext(filename)[1]
+        unique_filename = f"{uuid4()}{file_ext}"
+        save_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+        
+        try:
+            image_file.save(save_path)
+            update_fields["imageUrl"] = f"/{UPLOAD_FOLDER}/{unique_filename}"
+        except Exception as e:
+            return jsonify({"message": f"Lỗi lưu file: {str(e)}"}), 500
+    
+    # 4. Cập nhật vào MongoDB
+    res = db.questions.update_one({"id": q_id}, {"$set": update_fields})
+    
     if res.matched_count > 0:
         updated = db.questions.find_one({"id": q_id}, {"_id": 0})
         return jsonify(updated)
+    
     return jsonify({"message": "Câu hỏi không tồn tại."}), 404
 
 @app.route("/questions/<q_id>", methods=["DELETE"])
