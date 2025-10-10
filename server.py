@@ -6,8 +6,8 @@ import os
 from dotenv import load_dotenv
 from werkzeug.exceptions import HTTPException
 import datetime
-import json # Cần thiết để parse chuỗi JSON từ FormData
-from werkzeug.utils import secure_filename # Cần thiết để bảo mật tên file khi lưu
+import json
+from werkzeug.utils import secure_filename
 
 # Định nghĩa thư mục lưu trữ file ảnh
 UPLOAD_FOLDER = 'static/uploads'
@@ -237,15 +237,24 @@ def delete_question(q_id):
 @app.route("/tests", methods=["GET"])
 @app.route("/api/tests", methods=["GET"])
 def list_tests():
-    # Bắt đầu khối hàm (thụt lề 4 dấu cách so với def)
     query = {}
     subject = request.args.get("subject")
     level = request.args.get("level")
-    if subject: query["subject"] = subject
-    if level: query["level"] = level
+    # THÊM: Lấy tham số lọc theo ngày tạo (Lớn hơn hoặc bằng)
+    createdAtGte = request.args.get("createdAtGte") 
+
+    if subject: 
+        query["subject"] = subject
+    if level: 
+        query["level"] = level
+    
+    if createdAtGte:
+        # Lọc theo ngày tạo Lớn hơn hoặc bằng (Frontend gửi YYYY-MM-DD)
+        # So sánh chuỗi ISO-8601 (YYYY-MM-DDTHH:MM:SS...) với YYYY-MM-DD bằng $gte hoạt động.
+        query["createdAt"] = {"$gte": createdAtGte}
+
     docs = list(db.tests.find(query, {"_id": 0}))
-    return jsonify(docs) # Đây là câu lệnh return hợp lệ, vì nó nằm trong hàm.
-    # Kết thúc khối hàm
+    return jsonify(docs)
 
 @app.route("/tests/<test_id>", methods=["GET"])
 @app.route("/api/tests/<test_id>", methods=["GET"])
@@ -265,7 +274,9 @@ def create_test():
         "subject": data.get("subject"),
         "level": data.get("level"),
         "questions": data.get("questions", []),
-        "teacherId": data.get("teacherId")
+        "teacherId": data.get("teacherId"),
+        # THÊM: Ngày tạo (ISO format)
+        "createdAt": datetime.datetime.utcnow().isoformat()
     }
     db.tests.insert_one(newt)
     to_return = newt.copy(); to_return.pop("_id", None)
@@ -333,7 +344,9 @@ def create_test_auto():
         "level": level,
         "questions": question_ids,
         "count": len(question_ids),
-        "teacherId": data.get("teacherId")
+        "teacherId": data.get("teacherId"),
+        # THÊM: Ngày tạo (ISO format)
+        "createdAt": datetime.datetime.utcnow().isoformat()
     }
     db.tests.insert_one(newt)
     to_return = newt.copy(); to_return.pop("_id", None)
