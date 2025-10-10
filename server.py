@@ -249,5 +249,13 @@ def index():
     except Exception:
         return jsonify({"message": "Index not found"}), 404
 
+@app.route("/", methods=["GET"])
+def index():
+    try:
+        return send_from_directory(".", "index.html")
+    except Exception:
+        return jsonify({"message": "Index not found"}), 404
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
