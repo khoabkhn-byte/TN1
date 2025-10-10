@@ -5,25 +5,25 @@ from uuid import uuid4
 import os
 from dotenv import load_dotenv
 from werkzeug.exceptions import HTTPException
-import datetime, random
+import datetime, random, time
 
-# Load .env in local; Render provides env vars automatically
-load_dotenv()
-
+# ==============================================================
+# ✅ FIX CORS cho Render và file:// frontend
+# ==============================================================
 app = Flask(__name__, static_folder="static", template_folder="templates")
-app = Flask(__name__, static_folder="static", template_folder="templates")
 
-# ✅ Cho phép tất cả domain truy cập (bao gồm file://)
+# Cho phép tất cả domain (bao gồm file://)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 @app.after_request
 def apply_cors_headers(response):
-    """Fix CORS preflight for local files & Render"""
+    """Bổ sung header CORS cho mọi response (kể cả preflight OPTIONS)."""
     response.headers.add("Access-Control-Allow-Origin", "*")
     response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
     response.headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
     response.headers.add("Access-Control-Allow-Credentials", "true")
     return response
+    
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME", "quiz")
 PORT = int(os.getenv("PORT", 3000))
@@ -261,6 +261,11 @@ def index():
     except Exception:
         return jsonify({"message": "Index not found"}), 404
 
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
+
+load_dotenv()
+
+MONGODB_URI = os.getenv("MONGODB_URI")
+DB_NAME = os.getenv("DB_NAME", "quiz")
+PORT = int(os.getenv("PORT", 3000))
