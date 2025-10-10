@@ -1,137 +1,120 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from pymongo import MongoClient, errors
+from pymongo import MongoClient
 from uuid import uuid4
-import os, random, datetime, time
+import os
 from dotenv import load_dotenv
 from werkzeug.exceptions import HTTPException
+import datetime
 
-# ==============================================================
-# ✅ FIX CORS cho Render và file:// frontend
-# ==============================================================
-app = Flask(__name__, static_folder="static", template_folder="templates")
-
-# Cho phép tất cả domain (kể cả file mở trực tiếp)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
-
-@app.after_request
-def apply_cors_headers(response):
-    """Thêm header CORS cho tất cả response (kể cả preflight OPTIONS)."""
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-    response.headers.add("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
-    response.headers.add("Access-Control-Allow-Credentials", "true")
-    return response
-
-# ==============================================================
-# ✅ Kết nối MongoDB tối ưu cho Render
-# ==============================================================
+# Load .env in local; Render provides env vars automatically
 load_dotenv()
+
+app = Flask(__name__, static_folder="static", template_folder="templates")
+# Allow all origins so frontend on any domain can call this API
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME", "quiz")
 PORT = int(os.getenv("PORT", 3000))
 
 if not MONGODB_URI:
-    raise RuntimeError("❌ MONGODB_URI chưa được cấu hình trong Render environment.")
+    raise RuntimeError("MONGODB_URI is not set. Set it in environment variables.")
 
-def connect_mongo():
-    retries = 5
-    for i in range(retries):
-        try:
-            client = MongoClient(
-                MONGODB_URI,
-                serverSelectionTimeoutMS=5000,
-                connectTimeoutMS=5000,
-                socketTimeoutMS=None,
-                maxPoolSize=20,
-                minPoolSize=2,
-                maxIdleTimeMS=60000,
-                connect=False,
-                retryWrites=True,
-                tls=True if "mongodb+srv" in MONGODB_URI else False
-            )
-            client.admin.command("ping")
-            print("✅ Đã kết nối MongoDB thành công.")
-            return client
-        except errors.ServerSelectionTimeoutError as e:
-            print(f"⚠️ Lỗi kết nối MongoDB (thử {i+1}/5):", e)
-            time.sleep(3)
-    raise RuntimeError("❌ Không thể kết nối MongoDB sau nhiều lần thử.")
+# Connect to MongoDB
+client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+try:
+    client.server_info()
+except Exception as e:
+    print("❌ Cannot connect to MongoDB. Check MONGODB_URI. Error:", e)
+    raise
 
-client = connect_mongo()
 db = client[DB_NAME]
+print(f"✅ Connected to MongoDB database: {DB_NAME}")
 
-# ==============================================================
-# ✅ Các hàm tiện ích
-# ==============================================================
 def remove_id(doc):
-    if not doc: return doc
+    if not doc:
+        return doc
     doc.pop("_id", None)
     return doc
 
 def remove_id_from_list(docs):
     return [remove_id(d) for d in docs]
 
-# ==============================================================
-# ✅ Xử lý lỗi chung
-# ==============================================================
+# Generic error handler
 @app.errorhandler(Exception)
 def handle_exception(e):
     if isinstance(e, HTTPException):
         return jsonify({"message": e.description}), e.code
     return jsonify({"message": "Internal server error", "error": str(e)}), 500
 
-# ==============================================================
-# ✅ HEALTH CHECK
-# ==============================================================
+# Health
 @app.route("/healthz", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "db": DB_NAME})
 
-# ==============================================================
-# ✅ AUTH
-# ==============================================================
+# --------------------- AUTH ---------------------
+@app.route("/login", methods=["POST"])
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json() or {}
-    user, passwd = data.get("user"), data.get("pass")
+    user = data.get("user")
+    passwd = data.get("pass")
     if not user or passwd is None:
-        return jsonify({"success": False, "message": "Thiếu thông tin đăng nhập"}), 400
+        return jsonify({"success": False, "message": "Missing credentials"}), 400
     found = db.users.find_one({"user": user, "pass": passwd})
     if found:
         return jsonify({"success": True, "user": {"id": found.get("id"), "user": found.get("user"), "role": found.get("role")}})
     return jsonify({"success": False, "message": "Tên đăng nhập hoặc mật khẩu không đúng."}), 401
 
+@app.route("/register", methods=["POST"])
 @app.route("/api/register", methods=["POST"])
 def register():
     data = request.get_json() or {}
-    user, passwd = data.get("user"), data.get("pass")
+    user = data.get("user"); passwd = data.get("pass")
+    dob = data.get("dob"); gender = data.get("gender")
     if not user or passwd is None:
-        return jsonify({"success": False, "message": "Thiếu user hoặc pass"}), 400
+        return jsonify({"success": False, "message": "Missing user or pass"}), 400
     if db.users.find_one({"user": user}):
-        return jsonify({"success": False, "message": "Tên tài khoản đã tồn tại"}), 409
-    new_user = {"id": str(uuid4()), "user": user, "pass": passwd, "role": "student", "createdAt": datetime.datetime.utcnow().isoformat()}
+        return jsonify({"success": False, "message": "Tên tài khoản đã tồn tại."}), 409
+    new_user = {"id": str(uuid4()), "user": user, "pass": passwd, "dob": dob, "gender": gender, "role": "student"}
     db.users.insert_one(new_user)
-    return jsonify({"success": True, "user": remove_id(new_user)}), 201
+    to_return = new_user.copy()
+    to_return.pop("_id", None)
+    return jsonify({"success": True, "user": to_return}), 201
 
-# ==============================================================
-# ✅ QUESTIONS
-# ==============================================================
+# --------------------- USERS ---------------------
+@app.route("/users", methods=["GET"])
+@app.route("/api/users", methods=["GET"])
+def get_users():
+    docs = list(db.users.find({}, {"_id": 0}))
+    return jsonify(docs)
+
+@app.route("/users/<user_id>", methods=["DELETE"])
+@app.route("/api/users/<user_id>", methods=["DELETE"])
+def delete_user(user_id):
+    res = db.users.delete_one({"id": user_id})
+    if res.deleted_count > 0:
+        return "", 204
+    return jsonify({"message": "Người dùng không tìm thấy."}), 404
+
+# --------------------- QUESTIONS ---------------------
+@app.route("/questions", methods=["GET"])
 @app.route("/api/questions", methods=["GET"])
 def list_questions():
     query = {}
     subject = request.args.get("subject")
     level = request.args.get("level")
-    q_type = request.args.get("type")
-    difficulty = request.args.get("difficulty")
+    # THÊM BỘ LỌC LOẠI CÂU HỎI
+    q_type = request.args.get("type") 
     if subject: query["subject"] = subject
     if level: query["level"] = level
+    # DÒNG QUAN TRỌNG: THÊM BỘ LỌC VÀO TRUY VẤN
     if q_type: query["type"] = q_type
-    if difficulty: query["difficulty"] = difficulty
     docs = list(db.questions.find(query, {"_id": 0}))
     return jsonify(docs)
 
+@app.route("/questions", methods=["POST"])
 @app.route("/api/questions", methods=["POST"])
 def create_question():
     data = request.get_json() or {}
@@ -140,15 +123,23 @@ def create_question():
         "q": data.get("q"),
         "imageUrl": data.get("imageUrl"),
         "type": data.get("type"),
-        "points": data.get("points", 1),
+        "points": data.get("points"),
         "subject": data.get("subject"),
         "level": data.get("level"),
-        "difficulty": data.get("difficulty", "medium"),
-        "options": data.get("options", [])
+        "options": data.get("options")
     }
     db.questions.insert_one(newq)
-    return jsonify(remove_id(newq)), 201
+    to_return = newq.copy(); to_return.pop("_id", None)
+    return jsonify(to_return), 201
 
+@app.route("/questions/<q_id>", methods=["GET"])
+@app.route("/api/questions/<q_id>", methods=["GET"])
+def get_question(q_id):
+    doc = db.questions.find_one({"id": q_id}, {"_id": 0})
+    if not doc: return jsonify({"message": "Câu hỏi không tồn tại."}), 404
+    return jsonify(doc)
+
+@app.route("/questions/<q_id>", methods=["PUT"])
 @app.route("/api/questions/<q_id>", methods=["PUT"])
 def update_question(q_id):
     data = request.get_json() or {}
@@ -159,6 +150,7 @@ def update_question(q_id):
         return jsonify(updated)
     return jsonify({"message": "Câu hỏi không tồn tại."}), 404
 
+@app.route("/questions/<q_id>", methods=["DELETE"])
 @app.route("/api/questions/<q_id>", methods=["DELETE"])
 def delete_question(q_id):
     res = db.questions.delete_one({"id": q_id})
@@ -166,78 +158,95 @@ def delete_question(q_id):
         return "", 204
     return jsonify({"message": "Câu hỏi không tìm thấy."}), 404
 
-# ==============================================================
-# ✅ TESTS
-# ==============================================================
+# --------------------- TESTS ---------------------
+@app.route("/tests", methods=["GET"])
 @app.route("/api/tests", methods=["GET"])
 def list_tests():
+    # Bắt đầu khối hàm (thụt lề 4 dấu cách so với def)
     query = {}
     subject = request.args.get("subject")
     level = request.args.get("level")
     if subject: query["subject"] = subject
     if level: query["level"] = level
     docs = list(db.tests.find(query, {"_id": 0}))
+    return jsonify(docs) # Đây là câu lệnh return hợp lệ, vì nó nằm trong hàm.
+    # Kết thúc khối hàm
+
+@app.route("/tests/<test_id>", methods=["GET"])
+@app.route("/api/tests/<test_id>", methods=["GET"])
+def get_test(test_id):
+    doc = db.tests.find_one({"id": test_id}, {"_id": 0})
+    if not doc: return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+    return jsonify(doc)
+
+@app.route("/tests", methods=["POST"])
+@app.route("/api/tests", methods=["POST"])
+def create_test():
+    data = request.get_json() or {}
+    newt = {
+        "id": str(uuid4()),
+        "name": data.get("name"),
+        "time": data.get("time"),
+        "subject": data.get("subject"),
+        "level": data.get("level"),
+        "questions": data.get("questions", []),
+        "teacherId": data.get("teacherId")
+    }
+    db.tests.insert_one(newt)
+    to_return = newt.copy(); to_return.pop("_id", None)
+    return jsonify(to_return), 201
+
+@app.route("/tests/<test_id>", methods=["PUT"])
+@app.route("/api/tests/<test_id>", methods=["PUT"])
+def update_test(test_id):
+    data = request.get_json() or {}
+    data.pop("_id", None)
+    res = db.tests.update_one({"id": test_id}, {"$set": data})
+    if res.matched_count > 0:
+        updated = db.tests.find_one({"id": test_id}, {"_id": 0})
+        return jsonify(updated)
+    return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+
+@app.route("/tests/<test_id>", methods=["DELETE"])
+@app.route("/api/tests/<test_id>", methods=["DELETE"])
+def delete_test(test_id):
+    res = db.tests.delete_one({"id": test_id})
+    if res.deleted_count > 0:
+        return "", 204
+    return jsonify({"message": "Bài kiểm tra không tìm thấy."}), 404
+
+# --------------------- ASSIGNS ---------------------
+@app.route("/assigns", methods=["GET"])
+@app.route("/api/assigns", methods=["GET"])
+def list_assigns():
+    query = {}
+    studentId = request.args.get("studentId")
+    if studentId: query["studentId"] = studentId
+    docs = list(db.assigns.find(query, {"_id": 0}))
     return jsonify(docs)
 
-@app.route("/api/tests/auto", methods=["POST"])
-def create_auto_test():
-    data = request.get_json(force=True)
-    subject = data.get("subject", "")
-    level = data.get("level", "")
-    total = int(data.get("count", 10))
-    dist = data.get("dist", {})
-    teacher = data.get("createdBy", "system")
-
-    dist_easy = int(dist.get("easy", 0))
-    dist_medium = int(dist.get("medium", 0))
-    dist_hard = int(dist.get("hard", 0))
-
-    q_filter = {}
-    if subject: q_filter["subject"] = subject
-    if level: q_filter["level"] = level
-    all_questions = list(db.questions.find(q_filter))
-
-    if not all_questions:
-        return jsonify({"success": False, "message": "Không có câu hỏi phù hợp"}), 400
-
-    easy_q = [q for q in all_questions if q.get("difficulty") in ["easy", 1, "1"]]
-    medium_q = [q for q in all_questions if q.get("difficulty") in ["medium", 2, "2", "3"]]
-    hard_q = [q for q in all_questions if q.get("difficulty") in ["hard", 3, "4", "5"]]
-
-    def pick_random(arr, n):
-        return random.sample(arr, min(len(arr), n)) if arr else []
-
-    selected = []
-    selected += pick_random(easy_q, dist_easy)
-    selected += pick_random(medium_q, dist_medium)
-    selected += pick_random(hard_q, dist_hard)
-
-    if len(selected) < total:
-        remaining = [q for q in all_questions if q not in selected]
-        selected += pick_random(remaining, total - len(selected))
-
-    per_point = round(10 / len(selected), 2)
-    test_name = data.get("name", "Bài ngẫu nhiên") + f" ({len(selected)} câu)"
-
-    new_test = {
+@app.route("/assigns", methods=["POST"])
+@app.route("/api/assigns", methods=["POST"])
+def create_assign():
+    data = request.get_json() or {}
+    newa = {
         "id": str(uuid4()),
-        "name": test_name,
-        "subject": subject or "Tổng hợp",
-        "level": level or "All",
-        "time": data.get("time", 45),
-        "questions": [q.get("id") for q in selected],
-        "pointsEach": per_point,
-        "createdBy": teacher,
-        "createdAt": datetime.datetime.utcnow().isoformat(),
-        "type": "auto"
+        "testId": data.get("testId"),
+        "studentId": data.get("studentId"),
+        "deadline": data.get("deadline"),
+        "status": data.get("status"),
+        "timeAssigned": data.get("timeAssigned") or datetime.datetime.utcnow().isoformat()
     }
+    db.assigns.insert_one(newa)
+    to_return = newa.copy(); to_return.pop("_id", None)
+    return jsonify(to_return), 201
 
-    db.tests.insert_one(new_test)
-    return jsonify({"success": True, "test": remove_id(new_test)}), 201
+@app.route("/api/assign-test", methods=["POST"])
+def alias_assign_test():
+    return create_assign()
 
-# ==============================================================
-# ✅ RESULTS
-# ==============================================================
+# --------------------- RESULTS ---------------------
+@app.route("/results", methods=["GET"])
 @app.route("/api/results", methods=["GET"])
 def list_results():
     query = {}
@@ -246,16 +255,23 @@ def list_results():
     docs = list(db.results.find(query, {"_id": 0}))
     return jsonify(docs)
 
+@app.route("/results", methods=["POST"])
 @app.route("/api/results", methods=["POST"])
 def create_result():
     data = request.get_json() or {}
     newr = {"id": str(uuid4()), **data, "submittedAt": datetime.datetime.utcnow().isoformat()}
     db.results.insert_one(newr)
-    return jsonify(remove_id(newr)), 201
+    to_return = newr.copy(); to_return.pop("_id", None)
+    return jsonify(to_return), 201
 
-# ==============================================================
-# ✅ STATIC / FRONTEND
-# ==============================================================
+@app.route("/results/<result_id>", methods=["GET"])
+@app.route("/api/results/<result_id>", methods=["GET"])
+def get_result(result_id):
+    doc = db.results.find_one({"id": result_id}, {"_id": 0})
+    if not doc: return jsonify({"message": "Kết quả không tìm thấy."}), 404
+    return jsonify(doc)
+
+# Serve frontend files (unchanged)
 @app.route("/", methods=["GET"])
 def index():
     try:
