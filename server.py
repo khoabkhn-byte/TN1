@@ -126,8 +126,8 @@ def list_questions():
     if difficulty: query["difficulty"] = difficulty
      # THÊM LOGIC TÌM KIẾM BẰNG $regex
     if search_keyword:
-    # Tìm kiếm không phân biệt chữ hoa/thường ('i') trong trường 'q'
-    query["q"] = {"$regex": search_keyword, "$options": "i"} 
+        # Tìm kiếm không phân biệt chữ hoa/thường ('i') trong trường 'q'
+        query["q"] = {"$regex": search_keyword, "$options": "i"} 
     
     docs = list(db.questions.find(query, {"_id": 0}))
     return jsonify(docs)
