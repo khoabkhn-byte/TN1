@@ -676,7 +676,7 @@ function addQuestionOption(text = '', isCorrect = false) {
 }
 
     // Configuration
-    const serverUrl = window.location.origin;
+    const serverUrl = 'https://quiz-to21.onrender.com';
     const PAGE_SIZE = 20;
     let currentUser = null;
 	
@@ -2032,8 +2032,23 @@ function dropToPreview(event) {
   event.preventDefault();
   const qId = event.dataTransfer.getData('text/plain');
   if (!qId) return;
-  const isSelected = manualState.selectedQuestions.some(s => s._id === qId);
-  if (!isSelected) toggleSelectManualQuestion(qId);
+
+  const isSelected = manualState.selectedQuestions.some(s => s._id === qId); 
+  
+  if (!isSelected) {
+      // ✅ Vấn đề: Nếu code ở đây, nó sẽ gọi toggleSelectManualQuestion(qId).
+      // Nhưng nếu bạn chỉnh sửa hàm này để xử lý logic:
+      
+      const q = manualState.questionBank.find(x => x._id === qId); 
+      if (!q) return;
+
+      // ✅ Bắt buộc: Nếu thêm bằng kéo thả, cũng phải Deep Copy
+      const qCopy = JSON.parse(JSON.stringify(q));
+      manualState.selectedQuestions.push(qCopy); 
+      
+      renderManualPreview(); // Cập nhật hiển thị
+      renderManualQuestionBank();
+  }
 }
 
 // =================== XÓA CÂU HỎI ===================
