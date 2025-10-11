@@ -241,6 +241,11 @@ def delete_question(q_id):
     return jsonify({"message": "Câu hỏi không tìm thấy."}), 404
 
 # --------------------- TESTS ---------------------
+@app.route('/test.html')
+def serve_test_html():
+    # Phục vụ file test.html từ thư mục gốc của ứng dụng (app.root_path)
+    return send_from_directory(app.root_path, 'test.html')
+
 @app.route("/tests", methods=["GET"])
 @app.route("/api/tests", methods=["GET"])
 def list_tests():
