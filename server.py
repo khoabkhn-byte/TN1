@@ -117,11 +117,18 @@ def list_questions():
     # THÊM BỘ LỌC LOẠI CÂU HỎI
     q_type = request.args.get("type") 
     difficulty = request.args.get("difficulty")
+    # DÒNG MỚI: LẤY THAM SỐ TÌM KIẾM
+    search_keyword = request.args.get("search") 
     if subject: query["subject"] = subject
     if level: query["level"] = level
     # DÒNG QUAN TRỌNG: THÊM BỘ LỌC VÀO TRUY VẤN
     if q_type: query["type"] = q_type
     if difficulty: query["difficulty"] = difficulty
+     # THÊM LOGIC TÌM KIẾM BẰNG $regex
+    if search_keyword:
+    # Tìm kiếm không phân biệt chữ hoa/thường ('i') trong trường 'q'
+    query["q"] = {"$regex": search_keyword, "$options": "i"} 
+    
     docs = list(db.questions.find(query, {"_id": 0}))
     return jsonify(docs)
 
