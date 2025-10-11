@@ -676,7 +676,7 @@ function addQuestionOption(text = '', isCorrect = false) {
 }
 
     // Configuration
-    const serverUrl = window.location.origin;
+    const serverUrl = 'https://quiz-to21.onrender.com';
     const PAGE_SIZE = 20;
     let currentUser = null;
 	
@@ -1258,7 +1258,7 @@ function renderTests(items) {
             <td class="text-center">${createdAt}</td>
             <td class="text-center">${t.time || 'N/A'}</td>
             <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary me-1" onclick='openTestModalById("${testId}")'>Sửa</button>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick='openEditManualTest("${testId}")'>Sửa</button>
                 <button class="btn btn-sm btn-outline-success me-1" onclick='openAssignModal("${testId}", "${t.name}")'>Giao đề</button>
                 <button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${t.name}")'>Xóa</button>
             </td>
@@ -1400,7 +1400,41 @@ async function loadManualQuestions() {
     }
 }
     
- 
+ async function openEditManualTest(testId) {
+  try {
+    // Gọi API để lấy chi tiết đề thi theo ID
+    const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
+    if (!test) {
+      alert("Không tìm thấy đề thi này.");
+      return;
+    }
+
+    // Mở modal tạo đề thủ công
+    const modalEl = qs('modalTestManual');
+    const modal = new bootstrap.Modal(modalEl);
+
+    // Điền thông tin đề thi
+    qs('m-test-name').value = test.name || '';
+    qs('m-test-time').value = test.time || 45;
+    qs('m-test-level').value = test.level || '';
+    qs('m-test-subject').value = test.subject || '';
+    qs('m-test-count').value = (test.questions || []).length || 0;
+
+    // Đổ danh sách câu hỏi đã chọn vào khung đề thi
+    manualState.selectedQuestions = Array.isArray(test.questions) ? test.questions : [];
+    renderManualPreview();
+
+    // Tải lại ngân hàng câu hỏi để hiển thị danh sách bên phải
+    await loadManualQuestions();
+
+    // Mở modal
+    modal.show();
+  } catch (e) {
+    console.error(e);
+    alert("Lỗi khi mở modal sửa đề thi.");
+  }
+}
+
 
 
 
@@ -1669,38 +1703,123 @@ document.getElementById('modalTestAuto').addEventListener('show.bs.modal', () =>
     async function deleteStudent(id){ if(!confirm('Xóa học sinh?')) return; try{ await fetch(`${serverUrl}/api/users/${id}`, { method:'DELETE' }); await loadStudents(); } catch(e){ alert('Lỗi xóa'); } }
 
     // ASSIGN
-    let assignCurrentTestId = null;
-    async function openAssignModal(testId){ assignCurrentTestId = testId; const box = qs('assign-students-list'); box.innerHTML = '<div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải danh sách học sinh...</div></div>'; new bootstrap.Modal(qs('modalAssign')).show(); try{ const users = await fetchJson(`${serverUrl}/api/users`); box.innerHTML = ''; users.filter(u=> (u.role||'student') !== 'teacher').forEach(u=>{ const div = document.createElement('div'); div.className='form-check'; div.innerHTML = `<input class="form-check-input" type="checkbox" id="as-${u.id||u._id}" value="${u.id||u._id}"><label class="form-check-label" for="as-${u.id||u._id}">${escapeHtml(u.user||u.username||u.name)}</label>`; box.appendChild(div); }); } catch(e){ box.innerHTML = '<div class="text-danger">Không tải được danh sách học sinh</div>'; } }
-    async function confirmAssign(){ const selected = Array.from(qs('assign-students-list').querySelectorAll('input[type=checkbox]:checked')).map(i=>i.value); if(!selected.length){ alert('Chọn ít nhất 1 học sinh'); return; } try{ const payload = { testId: assignCurrentTestId, studentIds: selected }; const res = await fetchJson(`${serverUrl}/api/assigns`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }); if(res && res.success){ alert(`Đã giao ${res.count||selected.length} bài`); bootstrap.Modal.getInstance(qs('modalAssign')).hide(); loadResults(); } } catch(e){ alert('Lỗi giao đề'); } }
+    // ====== GIAO ĐỀ ======
+let assignCurrentTestId = null;
+
+async function openAssignModal(testId) {
+  assignCurrentTestId = testId;
+  const box = qs('assign-students-list');
+  const modalEl = qs('modalAssign');
+  const modal = new bootstrap.Modal(modalEl);
+
+  // Hiển thị trạng thái đang tải
+  box.innerHTML = `
+    <div class="spinner-row">
+      <div class="spinner-border text-success" role="status"></div>
+      <div>Đang tải danh sách học sinh...</div>
+    </div>
+  `;
+
+  modal.show();
+
+  try {
+    // Gọi API lấy danh sách người dùng
+    const users = await fetchJson(`${serverUrl}/api/users`);
+    if (!Array.isArray(users) || users.length === 0) {
+      box.innerHTML = '<div class="text-center text-muted py-2">Không có học sinh nào.</div>';
+      return;
+    }
+
+    // Chỉ lấy học sinh (bỏ teacher)
+    const students = users.filter(u => (u.role || 'student') !== 'teacher');
+
+    // Hiển thị danh sách dạng checkbox
+    if (students.length === 0) {
+      box.innerHTML = '<div class="text-center text-muted py-2">Không có học sinh nào để giao đề.</div>';
+      return;
+    }
+
+    box.innerHTML = students.map(u => `
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="as-${u.id || u._id}" value="${u.id || u._id}">
+        <label class="form-check-label" for="as-${u.id || u._id}">
+          ${escapeHtml(u.user || u.username || u.name)}
+        </label>
+      </div>
+    `).join('');
+
+  } catch (e) {
+    console.error('Lỗi tải danh sách học sinh:', e);
+    box.innerHTML = '<div class="text-danger text-center py-2">Không thể tải danh sách học sinh.</div>';
+  }
+}
+
+async function confirmAssign() {
+  const selected = Array.from(
+    qs('assign-students-list').querySelectorAll('input[type=checkbox]:checked')
+  ).map(i => i.value);
+
+  if (!selected.length) {
+    alert('Vui lòng chọn ít nhất 1 học sinh.');
+    return;
+  }
+
+  try {
+    const payload = { testId: assignCurrentTestId, students: selected };
+
+  const res = await fetchJson(`${serverUrl}/api/assign-multiple`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ testId: assignCurrentTestId, students: selected })
+});
+
+
+    if (res && res.success) {
+      alert(`✅ Đã giao đề cho ${res.count || selected.length} học sinh.`);
+      bootstrap.Modal.getInstance(qs('modalAssign')).hide();
+      await loadResults();
+    } else {
+      alert('❌ Giao đề thất bại: ' + (res.message || 'Server không phản hồi thành công.'));
+    }
+  } catch (e) {
+    console.error('Lỗi giao đề:', e);
+    alert('❌ Không thể giao đề, vui lòng thử lại.');
+  }
+}
+
+
 
     // RESULTS (teacher)
     async function loadResultsTestFilter(){ try{ const tests = await fetchJson(`${serverUrl}/api/tests`); const sel = qs('results-test-filter'); if(sel){ sel.innerHTML = '<option value="">-- Tất cả --</option>'; tests.forEach(t=>{ const o = document.createElement('option'); o.value = t.id || t._id; o.textContent = t.name; sel.appendChild(o); }); } } catch(e){ /* ignore */ } }
-    async function loadResults(){ const testId = qs('results-test-filter')? qs('results-test-filter').value : ''; const q = testId? `?testId=${encodeURIComponent(testId)}` : ''; const tbody = qs('results-tbody'); tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải kết quả...</div></div></td></tr>'; try{ const assigns = await fetchJson(`${serverUrl}/api/assignments${q}`); if(!Array.isArray(assigns) || assigns.length===0){ tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không có kết quả</td></tr>'; return; } const users = await fetchJson(`${serverUrl}/api/users`); const frag = document.createDocumentFragment(); assigns.forEach(a=>{ const st = (users||[]).find(u=> (u.id||u._id) === a.studentId) || { user: a.studentId }; const tr = document.createElement('tr'); tr.innerHTML = `<td>${escapeHtml(st.user)}</td><td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.status)}</td><td>${escapeHtml(a.score||'')}</td><td>${escapeHtml(a.submittedAt||'')}</td>`; frag.appendChild(tr); }); tbody.innerHTML=''; tbody.appendChild(frag); } catch(e){ tbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Lỗi tải kết quả</td></tr>'; } }
+    async function loadResults(){ const testId = qs('results-test-filter')? qs('results-test-filter').value : ''; const q = testId? `?testId=${encodeURIComponent(testId)}` : ''; const tbody = qs('results-tbody'); tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải kết quả...</div></div></td></tr>'; try{ const assigns = await fetchJson(`${serverUrl}/api/assigns${q}`); if(!Array.isArray(assigns) || assigns.length===0){ tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không có kết quả</td></tr>'; return; } const users = await fetchJson(`${serverUrl}/api/users`); const frag = document.createDocumentFragment(); assigns.forEach(a=>{ const st = (users||[]).find(u=> (u.id||u._id) === a.studentId) || { user: a.studentId }; const tr = document.createElement('tr'); tr.innerHTML = `<td>${escapeHtml(st.user)}</td><td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.status)}</td><td>${escapeHtml(a.score||'')}</td><td>${escapeHtml(a.submittedAt||'')}</td>`; frag.appendChild(tr); }); tbody.innerHTML=''; tbody.appendChild(frag); } catch(e){ tbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Lỗi tải kết quả</td></tr>'; } }
 
     // ---------- STUDENT functions ----------
     async function loadAssignedTests(){
-      const tbody = qs('assigned-tbody'); tbody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải...</div></div></td></tr>';
-      try {
+    const tbody = qs('assigned-tbody'); tbody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải...</div></div></td></tr>';
+    try {
         const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user')||'null');
         const q = s ? `?studentId=${encodeURIComponent(s.id||s._id||s.user)}` : '';
-        const assigns = await fetchJson(`${serverUrl}/api/assignments${q}`);
+        // ----------------------------------------------------
+        // ĐÃ SỬA: 'assignments' thành 'assigns'
+        const assigns = await fetchJson(`${serverUrl}/api/assigns${q}`); 
+        // ----------------------------------------------------
         if(!Array.isArray(assigns) || assigns.length===0){ tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Không có đề được giao</td></tr>'; return; }
         const frag = document.createDocumentFragment();
         assigns.forEach(a=>{
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.subject||'')}</td><td>${escapeHtml(a.time || '')} phút</td><td><button class="btn btn-sm btn-success" onclick='startTest("${a.testId||a.test||a.id||a._id}")'>Làm bài</button></td>`;
-          frag.appendChild(tr);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.subject||'')}</td><td>${escapeHtml(a.time || '')} phút</td><td><button class="btn btn-sm btn-success" onclick='startTest("${a.testId||a.test||a.id||a._id}")'>Làm bài</button></td>`;
+            frag.appendChild(tr);
         });
         tbody.innerHTML=''; tbody.appendChild(frag);
-      } catch(e){ tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Lỗi tải đề</td></tr>'; }
-    }
+    } catch(e){ tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Lỗi tải đề</td></tr>'; }
+}
 
     async function loadCompletedTests(){
       const tbody = qs('done-tbody'); tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải...</div></div></td></tr>';
       try {
         const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user')||'null');
         const q = s ? `?studentId=${encodeURIComponent(s.id||s._id||s.user)}` : '';
-        const done = await fetchJson(`${serverUrl}/api/assignments${q}&status=submitted`);
+        const done = await fetchJson(`${serverUrl}/api/assigns${q}&status=submitted`);
         if(!Array.isArray(done) || done.length===0){ tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Chưa có bài đã làm</td></tr>'; return; }
         const frag = document.createDocumentFragment();
         done.forEach(a=>{
