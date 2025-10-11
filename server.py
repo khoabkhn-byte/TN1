@@ -243,8 +243,10 @@ def delete_question(q_id):
 # --------------------- TESTS ---------------------
 @app.route('/test.html')
 def serve_test_html():
-    # Phục vụ file test.html từ thư mục gốc của ứng dụng (app.root_path)
-    return send_from_directory(app.root_path, 'test.html')
+    # Sử dụng os.path.dirname(__file__) để lấy thư mục của file server.py
+    # và phục vụ file test.html từ thư mục đó.
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    return send_from_directory(current_dir, 'test.html') 
 
 @app.route("/tests", methods=["GET"])
 @app.route("/api/tests", methods=["GET"])
