@@ -38,12 +38,18 @@
     object-fit: contain; /* Đảm bảo hình ảnh đầy đủ, không bị cắt */
 }
 
-/* Thêm vào khối <style> ở đầu file HTML */
+/* Thêm vào khối ở đầu file HTML */
 #modalTestManual #m-test-subject {
     display: block !important;
     visibility: visible !important;
     height: auto !important;
 }
+
+.selected-question {
+    background-color: #c4d8e5 !important; 
+    border-left: 4px solid #0d6efd; 
+}
+
   </style>
 </head>
 <body>
@@ -440,16 +446,14 @@
             <hr>
 
             <h6>Khung Đề Thi (Kéo thả để sắp xếp)</h6>
-<div id="manual-preview-container" 
-     class="list-group p-2 border rounded" 
-     style="min-height: 200px;"
-     ondragover="allowDrop(event)"        
-	 ondrop="dropToPreview(event)">       
-	 <p class="text-muted small text-center m-0">Kéo thả câu hỏi từ bên dưới vào đây.</p>
-</div>
-            <div class="text-end mt-2 small text-muted">Tổng điểm: <span id="m-total-score">0.00</span></div>
-          </div>
-
+		<div id="manual-preview-container" 
+			class="list-group p-2 border rounded" 
+			style="min-height: 200px;"
+			ondragover="allowDrop(event)"        
+			ondrop="dropToPreview(event)">       
+			<p class="text-muted small text-center m-0">Kéo thả câu hỏi từ bên dưới vào đây.</p>
+		</div>
+            <div class="text-end mt-2 small text-muted">Tổng điểm: <span id="m-total-score">0.00</span></div></div>
           <div class="col-lg-7">
             <h6>Ngân hàng Câu hỏi</h6>
             <div class="row mb-2">
@@ -463,7 +467,7 @@
                     </select>
                 </div>
                 <div class="col">
-    <input type="text" 
+		<input type="text" 
            class="form-control form-control-sm" 
            id="m-q-search" 
            placeholder="Tìm kiếm từ khóa..." 
@@ -617,6 +621,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
  
  <script>
+ 
   
   const SUBJECT_NAMES = {
   math: "Toán",
@@ -647,42 +652,8 @@ function formatDifficulty(diff) {
     return diff;
 }
 
-// --- LOGIC KÉO THẢ NGÂN HÀNG CÂU HỎI (Dưới lên Preview) ---
 
 let draggedQuestionId = null;
-
-// 1. Bắt đầu kéo (từ Ngân hàng Câu hỏi)
-function dragQuestionBankItem(event) {
-    const row = event.target.closest('tr'); 
-    if (!row) return;
-    draggedQuestionId = row.getAttribute('data-id');
-    
-    // Gắn dữ liệu ID câu hỏi vào drag event
-    event.dataTransfer.setData('text/plain', draggedQuestionId);
-    event.dataTransfer.effectAllowed = 'copy';
-}
-
-// 2. Cho phép thả (trên Khung đề thi)
-function allowDrop(event) {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
-}
-
-// 3. Xử lý khi thả (vào Khung đề thi)
-function dropToPreview(event) {
-    event.preventDefault();
-    const qId = event.dataTransfer.getData('text/plain');
-    if (!qId) return;
-
-    // Thêm câu hỏi vào danh sách đề thủ công (nếu chưa có)
-    const isSelected = manualState.selectedQuestions.some(sq => sq._id === qId);
-    if (!isSelected) {
-        toggleSelectManualQuestion(qId);
-    }
-
-    // Reset trạng thái kéo
-    draggedQuestionId = null;
-}
 
 
 
@@ -705,7 +676,7 @@ function addQuestionOption(text = '', isCorrect = false) {
 }
 
     // Configuration
-    const serverUrl = window.location.origin;
+    const serverUrl = 'https://quiz-to21.onrender.com';
     const PAGE_SIZE = 20;
     let currentUser = null;
 	
@@ -1444,13 +1415,6 @@ function addQuestionFromBank(questionId) {
     }
 }
 
-function removeQuestionFromPreview(questionId) {
-    manualState.selectedQuestions = manualState.selectedQuestions.filter(q => q._id !== questionId);
-    renderManualPreview();
-    renderManualQuestionBank(); // Cập nhật lại ngân hàng câu hỏi (hiện lại câu đã xóa)
-}
-
-
 
 
 
@@ -1481,6 +1445,7 @@ function openManualTestModal() {
     modal.show();
 }
 
+// qs là hàm tắt của document.querySelector
 async function saveManualTest() {
     if (manualState.selectedQuestions.length === 0) {
         alert("Vui lòng chọn ít nhất một câu hỏi cho đề thi.");
@@ -1493,30 +1458,49 @@ async function saveManualTest() {
         level: qs('m-test-level').value,
         subject: qs('m-test-subject').value,
         
-        // Chuẩn bị ID câu hỏi theo đúng thứ tự hiển thị
+        // SỬA LỖI: Cần đồng nhất ID. Nếu máy chủ muốn _id, hãy dùng _id.
+        // Nếu máy chủ muốn id, hãy dùng id (cần kiểm tra dữ liệu)
         questions: manualState.selectedQuestions.map(q => q._id),
         
-        // Cờ cho biết đây là đề thủ công (tùy chọn)
         isManual: true,
-        
-        // Giả định tổng điểm luôn là 10.00
         scorePerQuestion: 10.00 / manualState.selectedQuestions.length
     };
     
-    // Kiểm tra tính hợp lệ cơ bản
     if (!testData.subject) { alert("Vui lòng chọn Môn học."); return; }
 
     try {
         const url = `${serverUrl}/api/tests`;
-        // Gửi dữ liệu bằng phương thức POST
-        await fetchJson(url, { method: 'POST', body: JSON.stringify(testData) });
+        
+        // ✅ BỔ SUNG: Kiểm tra xem fetchJson có thêm Content-Type không.
+        // Nếu fetchJson KHÔNG tự thêm header 'Content-Type', bạn cần làm điều này:
+        
+        const options = { 
+            method: 'POST', 
+            headers: {
+                'Content-Type': 'application/json' // Khắc phục lỗi 415
+            },
+            body: JSON.stringify(testData) 
+        };
+        
+        // Giả sử fetchJson là một wrapper:
+        // Cần đảm bảo fetchJson cho phép bạn truyền header hoặc tự động thêm nó.
+        // Nếu không rõ, bạn có thể thay thế bằng hàm fetch chuẩn nếu cần.
+        
+        const response = await fetch(url, options); // Thay thế bằng fetch chuẩn để đảm bảo
+        
+        if (!response.ok) {
+             // Lỗi 415 sẽ được bắt ở đây
+            throw new Error(`Lưu đề thất bại. Status: ${response.status}`);
+        }
+        
+        // const data = await response.json(); // Có thể không cần nếu server trả về 204
         
         alert(`Đã lưu thành công bài kiểm tra: ${testData.name}`);
         
         // Đóng modal và tải lại danh sách bài thi
         const modal = bootstrap.Modal.getInstance(qs('modalTestManual'));
         if (modal) modal.hide();
-        loadTests(true); 
+        loadTests(true); // Tải lại danh sách để hiển thị đề mới
     } catch(e) {
         console.error("Lỗi khi lưu bài kiểm tra thủ công:", e);
         alert(`Lỗi khi lưu bài kiểm tra: ${e.message || 'Lỗi kết nối API'}`);
@@ -1861,67 +1845,13 @@ async function previewAutoTest() {
 
 
 
-// Hàm xóa câu hỏi khỏi khung đề thi
-function removeManualQuestion(id) {
-    manualState.selectedQuestions = manualState.selectedQuestions.filter(q => q._id !== id);
-    // Sau khi xóa, phải render lại cả hai khu vực
-    renderManualPreview();
-    renderManualQuestionBank(); 
-    qs('m-test-count').value = manualState.selectedQuestions.length;
-}
+	let draggedPreviewId = null;
 
-function dragQuestion(event) {
-    // Kéo từ Ngân hàng Câu hỏi
-    draggedQuestionId = event.target.getAttribute('data-id');
-    event.dataTransfer.setData("text/plain", draggedQuestionId); // Dữ liệu kéo
-}
-
-function allowDrop(event) {
-    event.preventDefault(); // Cho phép drop vào khu vực Preview
-}
-
-qs('manual-preview-container').ondragover = allowDrop;
-
-qs('manual-preview-container').ondrop = (event) => {
-    event.preventDefault();
-    const questionId = event.dataTransfer.getData("text/plain");
-    if (questionId) {
-        addQuestionFromBank(questionId);
-    }
-};
-
-// --- LOGIC KÉO THẢ SẮP XẾP TRONG PREVIEW ---
-
-let draggedPreviewId = null;
-
-function dragPreviewItem(event) {
+	function dragPreviewItem(event) {
     draggedPreviewId = event.target.getAttribute('data-id');
     event.dataTransfer.setData("text/plain", draggedPreviewId);
     event.dataTransfer.effectAllowed = "move";
 }
-
-function dropPreviewItem(event) {
-    event.preventDefault();
-    const droppedId = event.dataTransfer.getData("text/plain");
-    const targetElement = event.target.closest('.list-group-item'); // Tìm phần tử list-group-item
-    if (!targetElement || !droppedId || droppedId === targetElement.getAttribute('data-id')) {
-        return;
-    }
-
-    const targetId = targetElement.getAttribute('data-id');
-
-    const sourceIndex = manualState.selectedQuestions.findIndex(q => q._id === droppedId);
-    const targetIndex = manualState.selectedQuestions.findIndex(q => q._id === targetId);
-
-    if (sourceIndex > -1 && targetIndex > -1) {
-        // Thực hiện việc di chuyển phần tử trong mảng
-        const [movedItem] = manualState.selectedQuestions.splice(sourceIndex, 1);
-        manualState.selectedQuestions.splice(targetIndex, 0, movedItem);
-        renderManualPreview(); // Vẽ lại giao diện
-    }
-}
-
-
 
 
 
@@ -1980,17 +1910,17 @@ function renderManualQuestionBank() {
     const tr = document.createElement('tr');
     tr.dataset.id = q._id;
     tr.style.cursor = 'pointer';
-    tr.className = isSelected ? 'table-secondary' : '';
+    // Đã thêm class tùy chỉnh để hiển thị trạng thái chọn
+    tr.className = isSelected ? 'table-secondary selected-question' : '';
     tr.onclick = () => toggleSelectManualQuestion(q._id);
 
-    // ✅ Cho phép kéo nếu chưa chọn
-    if (!isSelected) {
-      tr.draggable = true;
-      tr.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', q._id);
-        e.dataTransfer.effectAllowed = 'copy';
-      });
-    }
+    // ✅ KHẮC PHỤC LỖI: Bỏ điều kiện if (!isSelected) để cho phép kéo tất cả các hàng
+    tr.draggable = true;
+    tr.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', q._id);
+      // Kéo từ Ngân hàng đề là hành động "copy" (thêm)
+      e.dataTransfer.effectAllowed = 'copy'; 
+    });
 
     tr.innerHTML = `
       <td>${idx + 1}</td>
@@ -2004,26 +1934,38 @@ function renderManualQuestionBank() {
 
 // =================== THÊM / BỎ CÂU HỎI ===================
 function toggleSelectManualQuestion(qId) {
-  const q = manualState.questionBank.find(x => x._id === qId);
-  if (!q) return;
+    // Lấy câu hỏi gốc từ ngân hàng (Giả định q._id là đúng)
+    const q = manualState.questionBank.find(x => x._id === qId); 
+    if (!q) return;
 
-  const exists = manualState.selectedQuestions.some(x => x._id === qId);
-  if (exists) {
-    manualState.selectedQuestions = manualState.selectedQuestions.filter(x => x._id !== qId);
-  } else {
-    manualState.selectedQuestions.push(q);
-  }
+    // Phép so sánh ID (Sử dụng x.id để khớp với cấu trúc trong mảng đã chọn)
+    const exists = manualState.selectedQuestions.some(x => x.id === qId); 
+    
+    if (exists) {
+        // Lọc bỏ nếu đã tồn tại
+        manualState.selectedQuestions = manualState.selectedQuestions.filter(x => x.id !== qId);
+    } else {
+        // ✅ KHẮC PHỤC: Tạo bản sao sâu (deep copy) để đối tượng mới độc lập
+        // Đây là cách đơn giản và hiệu quả nhất cho dữ liệu JSON/JS thuần túy
+        const qCopy = JSON.parse(JSON.stringify(q));
+        manualState.selectedQuestions.push(qCopy); 
+    }
 
-  renderManualPreview();
-  renderManualQuestionBank();
+    renderManualPreview();
+    renderManualQuestionBank();
 }
 
 // =================== HIỂN THỊ KHUNG ĐỀ THI ===================
 function renderManualPreview() {
   const container = document.getElementById('manual-preview-container');
   if (!container) return;
-
   container.innerHTML = '';
+  
+  // Rất quan trọng: Thêm sự kiện dropToPreview vào container để nhận thả từ Ngân hàng
+  // Nếu không có, bạn không thể thả vào vùng trống
+  container.addEventListener('dragover', allowDrop);
+  container.addEventListener('drop', dropToPreview);
+
   const questions = manualState.selectedQuestions || [];
   if (questions.length === 0) {
     container.innerHTML = `<p class="text-muted small text-center m-0">Kéo thả hoặc click chọn câu hỏi để thêm vào đề thi.</p>`;
@@ -2032,8 +1974,8 @@ function renderManualPreview() {
     return;
   }
 
-	const per = 10 / questions.length;
-	let total = 1;
+  const per = 10 / questions.length;
+  let total = 0;
 
   questions.forEach((q, idx) => {
     const item = document.createElement('div');
@@ -2046,12 +1988,15 @@ function renderManualPreview() {
       <div class="d-flex align-items-center">
         <span class="badge bg-secondary me-2">${q.difficulty || ''}</span>
         <span class="badge bg-info me-2">${per.toFixed(2)}đ</span>
-        <button class="btn-close" onclick="removeQuestionFromPreview('${q._id}')"></button>
+        <button class="btn-close" onclick="removeQuestionFromPreview('${q._id}')" aria-label="Xóa"></button>
       </div>
     `;
+    
+    // ✅ Khắc phục: DND cho Sắp xếp lại
     item.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', q._id));
-    item.addEventListener('dragover', (e) => e.preventDefault());
-    item.addEventListener('drop', dropPreviewItem);
+    item.addEventListener('dragover', allowDrop); // Cho phép thả lên item này
+    item.addEventListener('drop', dropPreviewItem); // Logic sắp xếp lại
+
     container.appendChild(item);
     total += per;
   });
@@ -2068,8 +2013,8 @@ function dropPreviewItem(event) {
   if (!sourceId || !targetId || sourceId === targetId) return;
 
   const arr = manualState.selectedQuestions;
-  const srcIndex = arr.findIndex(q => q._id === sourceId);
-  const tgtIndex = arr.findIndex(q => q._id === targetId);
+  const srcIndex = arr.findIndex(q => q.id === sourceId);
+  const tgtIndex = arr.findIndex(q => q.id === targetId);
   if (srcIndex === -1 || tgtIndex === -1) return;
 
   const [moved] = arr.splice(srcIndex, 1);
@@ -2079,7 +2024,8 @@ function dropPreviewItem(event) {
 
 // =================== NHẬN KÉO THẢ TỪ NGÂN HÀNG ===================
 function allowDrop(event) {
-  event.preventDefault();
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
 }
 
 function dropToPreview(event) {
