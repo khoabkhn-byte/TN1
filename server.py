@@ -408,6 +408,30 @@ def create_assign():
 def alias_assign_test():
     return create_assign()
 
+@app.route("/api/assign-multiple", methods=["POST"])
+def assign_multiple():
+    data = request.get_json() or {}
+    test_id = data.get("testId")
+    students = data.get("students", [])
+    if not test_id or not students:
+        return jsonify({"success": False, "message": "Thiếu testId hoặc danh sách học sinh"}), 400
+
+    created = []
+    for sid in students:
+        newa = {
+            "id": str(uuid4()),
+            "testId": test_id,
+            "studentId": sid,
+            "deadline": data.get("deadline"),
+            "status": "assigned",
+            "timeAssigned": datetime.datetime.utcnow().isoformat()
+        }
+        db.assigns.insert_one(newa)
+        newa.pop("_id", None)
+        created.append(newa)
+
+    return jsonify({"success": True, "count": len(created), "assigns": created}), 201
+
 # --------------------- RESULTS ---------------------
 @app.route("/results", methods=["GET"])
 @app.route("/api/results", methods=["GET"])
