@@ -273,8 +273,17 @@ def list_tests():
 @app.route("/tests/<test_id>", methods=["GET"])
 @app.route("/api/tests/<test_id>", methods=["GET"])
 def get_test(test_id):
-    doc = db.tests.find_one({"id": test_id}, {"_id": 0})
-    if not doc: return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+    # Thử tìm kiếm cả bằng trường 'id' (UUID chuỗi) và 'testId' (nếu có)
+    doc = db.tests.find_one({
+        "$or": [
+            {"id": test_id},  # Tìm kiếm theo trường ID chính (UUID)
+            {"_id": test_id}  # Phòng trường hợp _id được lưu dưới dạng chuỗi
+        ]
+    }, {"_id": 0})
+    
+    if not doc: 
+        return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+        
     return jsonify(doc)
 
 @app.route("/tests", methods=["POST"])
