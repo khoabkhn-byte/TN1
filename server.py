@@ -387,10 +387,52 @@ def delete_test(test_id):
 @app.route("/assigns", methods=["GET"])
 @app.route("/api/assigns", methods=["GET"])
 def list_assigns():
-    query = {}
     studentId = request.args.get("studentId")
-    if studentId: query["studentId"] = studentId
-    docs = list(db.assigns.find(query, {"_id": 0}))
+    
+    pipeline = []
+    
+    # 1. Lọc theo studentId (Nếu có)
+    if studentId: 
+        pipeline.append({"$match": {"studentId": studentId}})
+
+    # 2. Bước Lookup (JOIN): Kết nối assigns với tests
+    pipeline.append({
+        "$lookup": {
+            "from": "tests",         # Tên bộ sưu tập đề thi
+            "localField": "testId",  # Trường ID đề thi trong bộ sưu tập 'assigns'
+            "foreignField": "id",    # Trường ID đề thi trong bộ sưu tập 'tests'
+            "as": "testInfo"         # Đặt kết quả vào trường 'testInfo'
+        }
+    })
+
+    # 3. Bước Unwind: Biến mảng 'testInfo' thành đối tượng
+    pipeline.append({"$unwind": {"path": "$testInfo", "preserveNullAndEmptyArrays": True}})
+
+    # 4. Bước Projection: Định hình lại và chọn các trường cần thiết
+    pipeline.append({
+        "$project": {
+            "_id": 0,
+            "id": "$id",
+            "testId": "$testId",
+            "studentId": "$studentId",
+            "deadline": "$deadline",
+            "status": "$status",
+            "timeAssigned": "$timeAssigned",
+            
+            # Lấy tên đề thi (Trường 'name' từ 'tests')
+            "testName": "$testInfo.name", 
+            
+            # Lấy môn học (Trường 'subject' từ 'tests')
+            "subject": "$testInfo.subject", 
+            
+            # Lấy thời gian làm bài (Trường 'time' từ 'tests')
+            "time": "$testInfo.time" 
+        }
+    })
+
+    # 5. Thực thi Aggregation và trả về kết quả
+    # Sử dụng db.assigns vì đây là bộ sưu tập khởi đầu của pipeline
+    docs = list(db.assigns.aggregate(pipeline)) 
     return jsonify(docs)
 
 @app.route("/assigns", methods=["POST"])
