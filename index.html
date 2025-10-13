@@ -1360,13 +1360,11 @@ function populateSubjectFilters() {
 		
 async function loadManualQuestions() {
     // 1. Lấy giá trị từ bộ lọc ĐỀ THI (bao gồm Khối của đề thi)
-    const subject = qs('m-test-subject').value.trim(); 
-    const level = qs('m-test-level').value.trim();     // <--- Lấy Khối TỪ BỘ LỌC ĐỀ THI
-    
-    // 2. Lấy giá trị từ bộ lọc NGÂN HÀNG CÂU HỎI (chỉ còn Độ khó và Tìm kiếm)
-    const difficulty = qs('m-q-difficulty').value.trim(); 
+    const subject = qs('m-test-subject').value.trim(); 
+    const level = qs('m-test-level').value.trim();     
+    // 2. Lấy giá trị từ bộ lọc NGÂN HÀNG CÂU HỎI
+    const difficulty = qs('m-q-difficulty').value.trim(); 
     const search = qs('m-q-search').value.trim();
-    
     const tbody = qs('m-questions-tbody');
 
     if (!subject) {
@@ -1381,19 +1379,23 @@ async function loadManualQuestions() {
     let queryParams = [];
     queryParams.push(`subject=${encodeURIComponent(subject)}`);
 
-    // Gửi Khối lên API (sử dụng Khối của Đề thi)
-    if (level) queryParams.push(`level=${encodeURIComponent(level)}`); 
-    
-    // Gửi các bộ lọc còn lại lên API
+    if (level) queryParams.push(`level=${encodeURIComponent(level)}`); 
     if (difficulty) queryParams.push(`difficulty=${encodeURIComponent(difficulty)}`);
     if (search) queryParams.push(`search=${encodeURIComponent(search)}`);
-    
     const url = `${serverUrl}/api/questions?${queryParams.join('&')}`;
 
     try {
         const data = await fetchJson(url);
-        manualState.questionBank = Array.isArray(data) ? data : [];
-        renderManualQuestionBank(); 
+        
+        // 🛑 ĐIỂM SỬA LỖI MỚI: BẮT BUỘC Deep Copy khi tải Ngân hàng Câu hỏi
+        if (Array.isArray(data)) {
+            // Tạo bản sao sâu cho toàn bộ ngân hàng câu hỏi
+            manualState.questionBank = JSON.parse(JSON.stringify(data));
+        } else {
+            manualState.questionBank = [];
+        }
+        
+        renderManualQuestionBank(); 
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Lỗi tải dữ liệu câu hỏi.</td></tr>';
         manualState.questionBank = [];
@@ -1401,40 +1403,51 @@ async function loadManualQuestions() {
 }
     
  async function openEditManualTest(testId) {
-  try {
-    // Gọi API để lấy chi tiết đề thi theo ID
-    const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
-    if (!test) {
-      alert("Không tìm thấy đề thi này.");
-      return;
+    try {
+        // 1. Gọi API để lấy chi tiết đề thi theo ID
+        const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
+        if (!test) {
+            alert("Không tìm thấy đề thi này.");
+            return;
+        }
+
+        // 2. Mở modal tạo đề thủ công
+        const modalEl = qs('modalTestManual');
+        const modal = new bootstrap.Modal(modalEl);
+
+        // 3. Điền thông tin đề thi
+        qs('m-test-name').value = test.name || '';
+        qs('m-test-time').value = test.time || 45;
+        qs('m-test-level').value = test.level || '';
+        qs('m-test-subject').value = test.subject || '';
+        // Lưu ID của đề thi đang chỉnh sửa vào trạng thái để biết đây là thao tác UPDATE
+        manualState.currentTestId = testId; 
+        
+        // 4. Đổ danh sách câu hỏi đã chọn vào khung đề thi
+        if (Array.isArray(test.questions)) {
+            // 🛑 ĐIỂM SỬA LỖI: Sử dụng Deep Copy (Sao chép Sâu)
+            // Việc này đảm bảo các đối tượng câu hỏi trong selectedQuestions 
+            // độc lập với dữ liệu gốc và độc lập với nhau, khắc phục lỗi trùng lặp nội dung
+            manualState.selectedQuestions = JSON.parse(JSON.stringify(test.questions));
+        } else {
+            manualState.selectedQuestions = [];
+        }
+        
+        renderManualPreview(); // Hiển thị khung đề thi
+        
+        qs('m-test-count').value = manualState.selectedQuestions.length;
+        // (Hàm renderManualPreview đã tự tính toán và cập nhật điểm)
+
+        // 5. Tải lại ngân hàng câu hỏi để hiển thị danh sách bên phải
+        await loadManualQuestions();
+
+        // 6. Mở modal
+        modal.show();
+    } catch (e) {
+        console.error(e);
+        alert("Lỗi khi mở modal sửa đề thi.");
     }
-
-    // Mở modal tạo đề thủ công
-    const modalEl = qs('modalTestManual');
-    const modal = new bootstrap.Modal(modalEl);
-
-    // Điền thông tin đề thi
-    qs('m-test-name').value = test.name || '';
-    qs('m-test-time').value = test.time || 45;
-    qs('m-test-level').value = test.level || '';
-    qs('m-test-subject').value = test.subject || '';
-    qs('m-test-count').value = (test.questions || []).length || 0;
-
-    // Đổ danh sách câu hỏi đã chọn vào khung đề thi
-    manualState.selectedQuestions = Array.isArray(test.questions) ? test.questions : [];
-    renderManualPreview();
-
-    // Tải lại ngân hàng câu hỏi để hiển thị danh sách bên phải
-    await loadManualQuestions();
-
-    // Mở modal
-    modal.show();
-  } catch (e) {
-    console.error(e);
-    alert("Lỗi khi mở modal sửa đề thi.");
-  }
 }
-
 
 
 
@@ -1442,10 +1455,19 @@ async function loadManualQuestions() {
 
 function addQuestionFromBank(questionId) {
     const q = manualState.questionBank.find(item => item._id === questionId);
+    
+    // Kiểm tra xem câu hỏi có tồn tại trong ngân hàng và chưa được chọn không
     if (q && !manualState.selectedQuestions.some(sq => sq._id === questionId)) {
-        manualState.selectedQuestions.push(q);
+        
+        // SỬA LỖI TẠI ĐÂY: Tạo Deep Copy của đối tượng câu hỏi
+        // JSON.parse(JSON.stringify(q)) là cách nhanh và đơn giản nhất
+        // để tạo một bản sao độc lập của đối tượng.
+        const qCopy = JSON.parse(JSON.stringify(q));
+        qCopy.tempId = `temp-${Date.now()}-${Math.random().toString(16).substring(2)}`; 
+        manualState.selectedQuestions.push(qCopy); // Thêm bản sao vào mảng
+        
         renderManualPreview();
-        renderManualQuestionBank(); // Cập nhật lại ngân hàng câu hỏi (ẩn câu đã chọn)
+        renderManualQuestionBank(); 
     }
 }
 
@@ -2053,21 +2075,18 @@ function renderManualQuestionBank() {
 
 // =================== THÊM / BỎ CÂU HỎI ===================
 function toggleSelectManualQuestion(qId) {
-    // Lấy câu hỏi gốc từ ngân hàng (Giả định q._id là đúng)
-    const q = manualState.questionBank.find(x => x._id === qId); 
+    const q = manualState.questionBank.find(x => x._id === qId); 
     if (!q) return;
 
-    // Phép so sánh ID (Sử dụng x.id để khớp với cấu trúc trong mảng đã chọn)
-    const exists = manualState.selectedQuestions.some(x => x.id === qId); 
+    // 🛑 ĐÃ SỬA: Dùng x._id để so sánh, đồng nhất với qId (là _id)
+    const exists = manualState.selectedQuestions.some(x => x._id === qId); 
     
     if (exists) {
-        // Lọc bỏ nếu đã tồn tại
-        manualState.selectedQuestions = manualState.selectedQuestions.filter(x => x.id !== qId);
+        // 🛑 ĐÃ SỬA: Dùng x._id khi lọc
+        manualState.selectedQuestions = manualState.selectedQuestions.filter(x => x._id !== qId);
     } else {
-        // ✅ KHẮC PHỤC: Tạo bản sao sâu (deep copy) để đối tượng mới độc lập
-        // Đây là cách đơn giản và hiệu quả nhất cho dữ liệu JSON/JS thuần túy
         const qCopy = JSON.parse(JSON.stringify(q));
-        manualState.selectedQuestions.push(qCopy); 
+        manualState.selectedQuestions.push(qCopy); 
     }
 
     renderManualPreview();
@@ -2076,69 +2095,74 @@ function toggleSelectManualQuestion(qId) {
 
 // =================== HIỂN THỊ KHUNG ĐỀ THI ===================
 function renderManualPreview() {
-  const container = document.getElementById('manual-preview-container');
-  if (!container) return;
-  container.innerHTML = '';
-  
-  // Rất quan trọng: Thêm sự kiện dropToPreview vào container để nhận thả từ Ngân hàng
-  // Nếu không có, bạn không thể thả vào vùng trống
-  container.addEventListener('dragover', allowDrop);
-  container.addEventListener('drop', dropToPreview);
-
-  const questions = manualState.selectedQuestions || [];
-  if (questions.length === 0) {
-    container.innerHTML = `<p class="text-muted small text-center m-0">Kéo thả hoặc click chọn câu hỏi để thêm vào đề thi.</p>`;
-    document.getElementById('m-test-count').value = 0;
-    document.getElementById('m-total-score').textContent = '0.00';
-    return;
-  }
-
-  const per = 10 / questions.length;
-  let total = 0;
-
-  questions.forEach((q, idx) => {
-    const item = document.createElement('div');
-    item.className = 'list-group-item d-flex justify-content-between align-items-center';
-    item.draggable = true;
-    item.dataset.id = q._id;
-
-    item.innerHTML = `
-      <div><strong>${idx + 1}.</strong> ${escapeHtml(q.q || q.question)}</div>
-      <div class="d-flex align-items-center">
-        <span class="badge bg-secondary me-2">${q.difficulty || ''}</span>
-        <span class="badge bg-info me-2">${per.toFixed(2)}đ</span>
-        <button class="btn-close" onclick="removeQuestionFromPreview('${q._id}')" aria-label="Xóa"></button>
-      </div>
-    `;
+    const container = document.getElementById('manual-preview-container');
+    if (!container) return;
+    container.innerHTML = '';
     
-    // ✅ Khắc phục: DND cho Sắp xếp lại
-    item.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', q._id));
-    item.addEventListener('dragover', allowDrop); // Cho phép thả lên item này
-    item.addEventListener('drop', dropPreviewItem); // Logic sắp xếp lại
+    // Rất quan trọng: Thêm sự kiện dropToPreview vào container để nhận thả từ Ngân hàng
+    // Nếu không có, bạn không thể thả vào vùng trống
+    container.addEventListener('dragover', allowDrop);
+    container.addEventListener('drop', dropToPreview);
 
-    container.appendChild(item);
-    total += per;
-  });
+    const questions = manualState.selectedQuestions || [];
+    if (questions.length === 0) {
+        container.innerHTML = `<p class="text-muted small text-center m-0">Kéo thả hoặc click chọn câu hỏi để thêm vào đề thi.</p>`;
+        document.getElementById('m-test-count').value = 0;
+        document.getElementById('m-total-score').textContent = '0.00';
+        return;
+    }
 
-  document.getElementById('m-test-count').value = questions.length;
-  document.getElementById('m-total-score').textContent = total.toFixed(2);
+    const per = 10 / questions.length;
+    let total = 0;
+
+    questions.forEach((q, idx) => {
+        // Lấy ID độc lập (tempId hoặc _id) để đảm bảo tính duy nhất
+        const displayId = q.tempId || q._id; 
+        
+        // ✅ ĐÃ SỬA LỖI: Thêm 'const' để tạo phần tử mới cho mỗi lần lặp
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+        item.draggable = true;
+        item.dataset.id = displayId; // Dùng ID độc lập
+
+        item.innerHTML = `
+            <div><strong>${idx + 1}.</strong> ${escapeHtml(q.q || q.question)}</div>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-secondary me-2">${q.difficulty || ''}</span>
+                <span class="badge bg-info me-2">${per.toFixed(2)}đ</span>
+                <button class="btn-close" onclick="removeQuestionFromPreview('${displayId}')" aria-label="Xóa"></button>
+            </div>
+        `;
+        
+        // DND cho Sắp xếp lại
+        item.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', displayId));
+        item.addEventListener('dragover', allowDrop); // Cho phép thả lên item này
+        item.addEventListener('drop', dropPreviewItem); // Logic sắp xếp lại
+
+        container.appendChild(item);
+        total += per;
+    });
+
+    document.getElementById('m-test-count').value = questions.length;
+    document.getElementById('m-total-score').textContent = total.toFixed(2);
 }
 
 // =================== KÉO THẢ TRONG KHUNG PREVIEW ===================
 function dropPreviewItem(event) {
-  event.preventDefault();
-  const sourceId = event.dataTransfer.getData('text/plain');
-  const targetId = event.target.closest('.list-group-item')?.dataset.id;
-  if (!sourceId || !targetId || sourceId === targetId) return;
+    event.preventDefault();
+    const sourceId = event.dataTransfer.getData('text/plain');
+    const targetId = event.target.closest('.list-group-item')?.dataset.id;
+    if (!sourceId || !targetId || sourceId === targetId) return;
 
-  const arr = manualState.selectedQuestions;
-  const srcIndex = arr.findIndex(q => q.id === sourceId);
-  const tgtIndex = arr.findIndex(q => q.id === targetId);
-  if (srcIndex === -1 || tgtIndex === -1) return;
+    const arr = manualState.selectedQuestions;
+    // 🛑 LỖI: Cần dùng q._id thay vì q.id
+    const srcIndex = arr.findIndex(q => q._id === sourceId); // Sửa từ q.id thành q._id
+    const tgtIndex = arr.findIndex(q => q._id === targetId); // Sửa từ q.id thành q._id
+    if (srcIndex === -1 || tgtIndex === -1) return;
 
-  const [moved] = arr.splice(srcIndex, 1);
-  arr.splice(tgtIndex, 0, moved);
-  renderManualPreview();
+    const [moved] = arr.splice(srcIndex, 1);
+    arr.splice(tgtIndex, 0, moved);
+    renderManualPreview();
 }
 
 // =================== NHẬN KÉO THẢ TỪ NGÂN HÀNG ===================
