@@ -1526,6 +1526,11 @@ async function openTestEditModal(testId) {
 
     const modalEl = qs('modalTestEdit');
     const modal = new bootstrap.Modal(modalEl);
+	// 1. **SỬA LỖI DEEP COPY & KHỞI TẠO STATE**
+    window.editState = window.editState || {};
+     // ✅ TẠO BẢN SAO SÂU: Sao chép mảng câu hỏi để thao tác không ảnh hưởng đến dữ liệu gốc.
+    window.editState.selectedQuestions = JSON.parse(JSON.stringify(test.questions || []));
+    window.editState.currentTest = test; // Lưu trữ đề thi gốc để tham chiếu
 
     // Gán thông tin chung
     qs('edit-test-id').value = testId;
@@ -1534,9 +1539,9 @@ async function openTestEditModal(testId) {
     qs('edit-test-level').value = test.level || '';
     qs('edit-test-subject').value = test.subject || '';
 
-    // Hiển thị câu hỏi (test.questions đã có đủ dữ liệu)
-    renderEditPreview(test.questions || []);
-    qs('edit-test-count').value = (test.questions || []).length;
+	renderSubjectFilters(); 
+    renderEditPreview(window.editState.selectedQuestions);
+    qs('edit-test-count').value = window.editState.selectedQuestions.length;
 
     // Nạp lại danh sách ngân hàng câu hỏi
     await loadEditQuestions();
@@ -1567,7 +1572,7 @@ function renderEditPreview(questions = []) {
 
   let totalScore = 0;
   questions.forEach((q, i) => {
-    const questionText = q.question || '(Không có nội dung)';
+    const questionText = q.q || q.question || '(Không có nội dung)'; 
     const subj = q.subject || '';
     const diff = q.difficulty || '';
     const score = Number(q.score || 0);
@@ -1576,7 +1581,8 @@ function renderEditPreview(questions = []) {
     item.className = 'list-group-item py-2 px-3 mb-1 rounded border';
     item.draggable = true;
     item.ondragstart = (e) => dragEditQuestion(e, q);
-
+	item.ondragover = allowDrop; 
+    item.ondrop = (e) => dropToRearrangeEdit(e, i); // Thả vào vị trí 'i'
     item.innerHTML = `
       <div class="d-flex justify-content-between align-items-center">
         <div>
@@ -1599,8 +1605,8 @@ function renderEditPreview(questions = []) {
   qs('edit-total-score').textContent = totalScore.toFixed(2);
   qs('edit-test-count').value = questions.length;
 
-  window.editState = window.editState || {};
-  window.editState.selectedQuestions = questions;
+  //window.editState = window.editState || {};
+  //window.editState.selectedQuestions = questions;
 }
 
 
@@ -1622,15 +1628,57 @@ function dragEditQuestion(e, question) {
 }
 
 function dropToEditPreview(e) {
-  e.preventDefault();
-  try {
-    const question = JSON.parse(e.dataTransfer.getData("edit-question"));
-    window.editState = window.editState || { selectedQuestions: [] };
-    window.editState.selectedQuestions.push(question);
-    renderEditPreview(window.editState.selectedQuestions);
-  } catch (err) {
-    console.error(err);
-  }
+  e.preventDefault();
+  try {
+    const question = JSON.parse(e.dataTransfer.getData("edit-question"));
+    window.editState = window.editState || { selectedQuestions: [] };
+    
+    // Chỉ thêm nếu câu hỏi chưa có (để tránh thêm trùng)
+    const isSelected = window.editState.selectedQuestions.some(sq => sq._id === question._id);
+    if (!isSelected) {
+        window.editState.selectedQuestions.push(JSON.parse(JSON.stringify(question)));
+        renderEditPreview(window.editState.selectedQuestions);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function dropToRearrangeEdit(e, targetIndex) {
+    e.preventDefault();
+    
+    // Lấy dữ liệu câu hỏi đang kéo (được set từ dragEditQuestion)
+    const questionData = e.dataTransfer.getData("edit-question");
+    if (!questionData) return;
+
+    try {
+        const question = JSON.parse(questionData);
+        const arr = window.editState.selectedQuestions;
+
+        // 1. TÌM VÀ XÓA CÂU HỎI GỐC (nếu đang kéo câu hỏi đã có)
+        // Tìm câu hỏi trong mảng đang chọn
+        const srcIndex = arr.findIndex(q => q._id === question._id); 
+
+        if (srcIndex > -1) {
+            // Trường hợp 1: KÉO THẢ SẮP XẾP LẠI (Di chuyển câu hỏi đã chọn)
+            arr.splice(srcIndex, 1); // Xóa khỏi vị trí cũ
+        } else {
+            // Trường hợp 2: KÉO THẢ TỪ NGÂN HÀNG (Thêm mới)
+            // Đảm bảo Deep Copy lần nữa nếu không muốn thay đổi dữ liệu ngân hàng
+            // (Mặc dù đã được Deep Copy trong dragEditQuestion, thêm lần nữa để chắc chắn)
+        }
+
+        // 2. CHÈN VÀO VỊ TRÍ MỚI
+        // Nếu câu hỏi không có trong mảng (từ ngân hàng), thì nó là thêm mới
+        const qToInsert = srcIndex > -1 ? question : JSON.parse(JSON.stringify(question));
+        arr.splice(targetIndex, 0, qToInsert); // Chèn vào vị trí đích
+
+        // 3. CẬP NHẬT UI
+        renderEditPreview(arr);
+        
+    } catch (err) {
+        console.error("Lỗi kéo thả sắp xếp:", err);
+    }
 }
 
 function allowDrop(e) {
@@ -1668,7 +1716,7 @@ async function loadEditQuestions() {
 
     tbody.innerHTML = '';
     filtered.forEach((q, i) => {
-      const questionText = q.question || '(Không có nội dung)';
+      const questionText = q.q || q.question || '(Không có nội dung)'; 
       const subj = q.subject || '';
       const diff = q.difficulty || '';
 
@@ -1720,6 +1768,25 @@ async function saveEditedTest() {
   }
 }
 
+function renderSubjectFilters() {
+    // 1. Dropdown Lọc chung (nếu có)
+    const filterSubjectEl = qs('q-filter-subject'); 
+    if (filterSubjectEl) {
+        filterSubjectEl.innerHTML = '<option value="">Tất cả Môn học</option>';
+        for (const [key, name] of Object.entries(SUBJECT_NAMES)) {
+            filterSubjectEl.innerHTML += `<option value="${key}">${name}</option>`;
+        }
+    }
+
+    // 2. Dropdown trong Modal Sửa đề thi
+    const editSubjectEl = qs('edit-test-subject');
+    if (editSubjectEl) {
+        editSubjectEl.innerHTML = '<option value="">Chọn Môn học</option>';
+        for (const [key, name] of Object.entries(SUBJECT_NAMES)) {
+            editSubjectEl.innerHTML += `<option value="${key}">${name}</option>`;
+        }
+    }
+}
     
 	
   /*
@@ -2469,6 +2536,7 @@ function renderManualPreview() {
 }
 
 // =================== KÉO THẢ TRONG KHUNG PREVIEW ===================
+// ✅ SỬA ĐỔI HÀM dropPreviewItem()
 function dropPreviewItem(event) {
     event.preventDefault();
     const sourceId = event.dataTransfer.getData('text/plain');
@@ -2476,13 +2544,20 @@ function dropPreviewItem(event) {
     if (!sourceId || !targetId || sourceId === targetId) return;
 
     const arr = manualState.selectedQuestions;
-    // 🛑 LỖI: Cần dùng q._id thay vì q.id
-    const srcIndex = arr.findIndex(q => q._id === sourceId); // Sửa từ q.id thành q._id
-    const tgtIndex = arr.findIndex(q => q._id === targetId); // Sửa từ q.id thành q._id
+
+    // SỬA LỖI: Tìm kiếm bằng q._id HOẶC q.tempId
+    const findById = (q, id) => q._id === id || q.tempId === id;
+    
+    // Tìm index nguồn
+    const srcIndex = arr.findIndex(q => findById(q, sourceId)); 
+    // Tìm index đích
+    const tgtIndex = arr.findIndex(q => findById(q, targetId)); 
+    
     if (srcIndex === -1 || tgtIndex === -1) return;
 
     const [moved] = arr.splice(srcIndex, 1);
     arr.splice(tgtIndex, 0, moved);
+    
     renderManualPreview();
 }
 
@@ -2516,10 +2591,17 @@ function dropToPreview(event) {
 }
 
 // =================== XÓA CÂU HỎI ===================
+// ✅ SỬA LỖI KHÔNG ĐỒNG NHẤT ID
 function removeQuestionFromPreview(qId) {
-  manualState.selectedQuestions = manualState.selectedQuestions.filter(x => x._id !== qId);
-  renderManualPreview();
-  renderManualQuestionBank();
+    manualState.selectedQuestions = manualState.selectedQuestions.filter(x => 
+        // Logic mới: Trả về TRUE nếu KHÔNG PHẢI là câu hỏi cần xóa.
+        // Loại bỏ câu hỏi nếu (x._id == qId HOẶC x.tempId == qId)
+        
+        !(x._id === qId || x.tempId === qId)
+    );
+    
+    renderManualPreview();
+    renderManualQuestionBank();
 }
 
 
