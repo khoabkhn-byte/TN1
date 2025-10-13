@@ -500,6 +500,121 @@
   </div>
 </div>
 
+<!-- Edit Test Modal -->
+<div class="modal fade" id="modalTestEdit" tabindex="-1" aria-labelledby="editTestLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="editTestLabel">✏️ Sửa Bài Kiểm Tra</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="row mb-3">
+          <!-- Thông tin chung -->
+          <div class="col-lg-5">
+            <h6>Thông tin Đề thi</h6>
+            
+            <input type="hidden" id="edit-test-id">
+            
+            <div class="mb-3">
+              <label class="form-label small">Tên bài kiểm tra</label>
+              <input type="text" class="form-control form-control-sm" id="edit-test-name" placeholder="Nhập tên bài thi">
+            </div>
+            
+            <div class="row">
+              <div class="col-6 mb-3">
+                <label class="form-label small">Thời gian (phút)</label>
+                <input type="number" class="form-control form-control-sm" id="edit-test-time" value="45" min="5">
+              </div>
+              
+              <div class="col-6 mb-3">
+                <label class="form-label small">Khối lớp</label>
+                <select class="form-select form-select-sm" id="edit-test-level" onchange="loadEditQuestions()">
+                  <option value="">Tất cả</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="row">
+              <div class="col-6 mb-3">
+                <label class="form-label small">Môn học</label>
+                <select class="form-select form-select-sm subject-filter" id="edit-test-subject" onchange="loadEditQuestions()"></select>
+              </div>
+              <div class="col-6 mb-3">
+                <label class="form-label small">Số câu đã chọn</label>
+                <input type="text" class="form-control form-control-sm" id="edit-test-count" readonly value="0">
+              </div>
+            </div>
+
+            <hr>
+
+            <h6>Khung Đề Thi (Có thể kéo thả sắp xếp)</h6>
+            <div id="edit-preview-container" 
+                class="list-group p-2 border rounded"
+                style="min-height: 200px;"
+                ondragover="allowDrop(event)"
+                ondrop="dropToEditPreview(event)">
+              <p class="text-muted small text-center m-0">Kéo thả câu hỏi từ bên phải vào đây.</p>
+            </div>
+
+            <div class="text-end mt-2 small text-muted">
+              Tổng điểm: <span id="edit-total-score">0.00</span>
+            </div>
+          </div>
+          
+          <!-- Ngân hàng câu hỏi -->
+          <div class="col-lg-7">
+            <h6>Ngân hàng Câu hỏi</h6>
+            <div class="row mb-2">
+              <div class="col-auto">
+                <select class="form-select form-select-sm" id="edit-q-difficulty" onchange="loadEditQuestions()">
+                  <option value="">Độ Khó</option>
+                  <option value="easy">Dễ</option>
+                  <option value="medium">Trung bình</option>
+                  <option value="hard">Khó</option>
+                </select>
+              </div>
+              <div class="col">
+                <input type="text" class="form-control form-control-sm" id="edit-q-search"
+                       placeholder="Tìm kiếm từ khóa..." oninput="loadEditQuestions()">
+              </div>
+            </div>
+
+            <div id="edit-question-bank" style="max-height: 400px; overflow-y: auto;">
+              <table class="table table-sm table-hover">
+                <thead>
+                  <tr>
+                    <th style="width:5%;">#</th>
+                    <th style="width:65%;">Câu hỏi</th>
+                    <th>Môn</th>
+                    <th>Độ khó</th>
+                  </tr>
+                </thead>
+                <tbody id="edit-questions-tbody">
+                  <tr><td colspan="4" class="text-center text-muted">Chọn môn học để tải câu hỏi...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+        <button type="button" class="btn btn-primary" onclick="saveEditedTest()">💾 Lưu Thay Đổi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 <!-- Modal Tạo bài kiểm tra ngẫu nhiên (phiên bản nâng cao) -->
 <div class="modal fade" id="modalTestAuto" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -1258,7 +1373,7 @@ function renderTests(items) {
             <td class="text-center">${createdAt}</td>
             <td class="text-center">${t.time || 'N/A'}</td>
             <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary me-1" onclick='openEditManualTest("${testId}")'>Sửa</button>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick='openTestEditModal("${testId}")'>Sửa</button>
                 <button class="btn btn-sm btn-outline-success me-1" onclick='openAssignModal("${testId}", "${t.name}")'>Giao đề</button>
                 <button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${t.name}")'>Xóa</button>
             </td>
@@ -1401,8 +1516,214 @@ async function loadManualQuestions() {
         manualState.questionBank = [];
     }
 }
+
+
+// 🧩 Mở modal sửa đề thi (sửa cả đề tự động và thủ công)
+async function openTestEditModal(testId) {
+  try {
+    const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
+    if (!test) return alert("Không tìm thấy đề thi!");
+
+    const modalEl = qs('modalTestEdit');
+    const modal = new bootstrap.Modal(modalEl);
+
+    // Gán thông tin chung
+    qs('edit-test-id').value = testId;
+    qs('edit-test-name').value = test.name || '';
+    qs('edit-test-time').value = test.time || 45;
+    qs('edit-test-level').value = test.level || '';
+    qs('edit-test-subject').value = test.subject || '';
+
+    // Hiển thị câu hỏi (test.questions đã có đủ dữ liệu)
+    renderEditPreview(test.questions || []);
+    qs('edit-test-count').value = (test.questions || []).length;
+
+    // Nạp lại danh sách ngân hàng câu hỏi
+    await loadEditQuestions();
+
+    modal.show();
+  } catch (err) {
+    console.error(err);
+    alert("Lỗi khi tải dữ liệu đề thi.");
+  }
+}
+
+
+
+
+// 🧩 Hiển thị danh sách câu hỏi trong khung sửa đề
+function renderEditPreview(questions = []) {
+  const container = qs('edit-preview-container');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!questions.length) {
+    container.innerHTML = `<p class="text-muted small text-center m-0">Chưa có câu hỏi nào được chọn.</p>`;
+    qs('edit-total-score').textContent = '0.00';
+    qs('edit-test-count').value = 0;
+    return;
+  }
+
+  let totalScore = 0;
+  questions.forEach((q, i) => {
+    const questionText = q.question || '(Không có nội dung)';
+    const subj = q.subject || '';
+    const diff = q.difficulty || '';
+    const score = Number(q.score || 0);
+
+    const item = document.createElement('div');
+    item.className = 'list-group-item py-2 px-3 mb-1 rounded border';
+    item.draggable = true;
+    item.ondragstart = (e) => dragEditQuestion(e, q);
+
+    item.innerHTML = `
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <strong>${i + 1}. </strong>${questionText}
+          <div class="small text-muted">${subj} | ${diff}</div>
+        </div>
+        <div>
+          <input type="number" class="form-control form-control-sm d-inline-block text-end"
+                 style="width:70px;" value="${score}" min="0"
+                 onchange="updateEditQuestionScore(${i}, this.value)">
+          <button class="btn btn-sm btn-outline-danger ms-1" onclick="removeEditQuestion(${i})">🗑</button>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(item);
+    totalScore += score;
+  });
+
+  qs('edit-total-score').textContent = totalScore.toFixed(2);
+  qs('edit-test-count').value = questions.length;
+
+  window.editState = window.editState || {};
+  window.editState.selectedQuestions = questions;
+}
+
+
+
+function removeEditQuestion(index) {
+  if (!window.editState?.selectedQuestions) return;
+  window.editState.selectedQuestions.splice(index, 1);
+  renderEditPreview(window.editState.selectedQuestions);
+}
+
+function updateEditQuestionScore(index, newScore) {
+  if (!window.editState?.selectedQuestions) return;
+  window.editState.selectedQuestions[index].score = parseFloat(newScore) || 0;
+  renderEditPreview(window.editState.selectedQuestions);
+}
+
+function dragEditQuestion(e, question) {
+  e.dataTransfer.setData("edit-question", JSON.stringify(question));
+}
+
+function dropToEditPreview(e) {
+  e.preventDefault();
+  try {
+    const question = JSON.parse(e.dataTransfer.getData("edit-question"));
+    window.editState = window.editState || { selectedQuestions: [] };
+    window.editState.selectedQuestions.push(question);
+    renderEditPreview(window.editState.selectedQuestions);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function allowDrop(e) {
+  e.preventDefault();
+}
+
+
+// 🧩 Nạp danh sách câu hỏi cho modal sửa đề
+async function loadEditQuestions() {
+  try {
+    const subject = qs('edit-test-subject').value || '';
+    const level = qs('edit-test-level').value || '';
+    const difficulty = qs('edit-q-difficulty').value || '';
+    const keyword = (qs('edit-q-search').value || '').toLowerCase();
+
+    const tbody = qs('edit-questions-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">⏳ Đang tải câu hỏi...</td></tr>`;
+
+    const url = new URL(`${serverUrl}/api/questions`);
+    if (subject) url.searchParams.append('subject', subject);
+    if (level && level !== 'All') url.searchParams.append('level', level);
+    if (difficulty) url.searchParams.append('difficulty', difficulty);
+
+    const data = await fetchJson(url.toString());
+    if (!Array.isArray(data) || !data.length) {
+      tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Không có câu hỏi nào.</td></tr>`;
+      return;
+    }
+
+    const filtered = keyword
+      ? data.filter(q => (q.question || '').toLowerCase().includes(keyword))
+      : data;
+
+    tbody.innerHTML = '';
+    filtered.forEach((q, i) => {
+      const questionText = q.question || '(Không có nội dung)';
+      const subj = q.subject || '';
+      const diff = q.difficulty || '';
+
+      const tr = document.createElement('tr');
+      tr.draggable = true;
+      tr.ondragstart = (e) => e.dataTransfer.setData("edit-question", JSON.stringify(q));
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${questionText}</td>
+        <td>${subj}</td>
+        <td>${diff}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+  } catch (err) {
+    console.error(err);
+    qs('edit-questions-tbody').innerHTML =
+      `<tr><td colspan="4" class="text-danger text-center">Lỗi tải câu hỏi!</td></tr>`;
+  }
+}
+
+
+
+
+async function saveEditedTest() {
+  const modalEl = qs('modalTestEdit');
+  const testId = modalEl.dataset.testId;
+  const payload = {
+    name: qs('m-test-edit-name').value,
+    time: parseInt(qs('m-test-edit-time').value),
+    level: qs('m-test-edit-level').value,
+    subject: qs('m-test-edit-subject').value,
+    questions: getEditedTestQuestions()
+  };
+
+  try {
+    await fetch(`${serverUrl}/api/tests/${testId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    bootstrap.Modal.getInstance(modalEl).hide();
+    await loadTests();
+    showToast("Đã lưu đề thi thành công!");
+  } catch (err) {
+    console.error(err);
+    showToast("Lỗi lưu đề thi!", "danger");
+  }
+}
+
     
- async function openEditManualTest(testId) {
+	
+  /*
+  async function openEditManualTest(testId) {
     try {
         // 1. Gọi API để lấy chi tiết đề thi theo ID
         const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
@@ -1447,7 +1768,7 @@ async function loadManualQuestions() {
         console.error(e);
         alert("Lỗi khi mở modal sửa đề thi.");
     }
-}
+}  */
 
 
 
