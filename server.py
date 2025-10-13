@@ -276,16 +276,45 @@ def list_tests():
 @app.route("/tests/<test_id>", methods=["GET"])
 @app.route("/api/tests/<test_id>", methods=["GET"])
 def get_test(test_id):
-    # Thử tìm kiếm cả bằng trường 'id' (UUID chuỗi) và 'testId' (nếu có)
-    doc = db.tests.find_one({
-        "$or": [
-            {"id": test_id},  # Tìm kiếm theo trường ID chính (UUID)
-            {"_id": test_id}  # Phòng trường hợp _id được lưu dưới dạng chuỗi
-        ]
-    }, {"_id": 0})
+    # 1. Tìm kiếm bài kiểm tra theo trường 'id' (UUID)
+    doc = db.tests.find_one({"id": test_id}, {"_id": 0})
     
     if not doc: 
         return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+    
+    question_list = doc.get("questions", [])
+    
+    # 2. KHẮC PHỤC LỖI: Kiểm tra nếu questions chỉ là một mảng IDs (Ví dụ: test tự động)
+    # Nếu phần tử đầu tiên là chuỗi, ta giả định đó là ID và cần lookup.
+    if question_list and isinstance(question_list[0], str):
+        
+        question_ids = question_list
+        
+        # Lấy chi tiết câu hỏi từ collection 'questions'
+        # Dùng {"$in": question_ids} để tìm tất cả câu hỏi theo ID cùng lúc
+        full_questions = list(db.questions.find({"id": {"$in": question_ids}}))
+        
+        # Chuyển đổi _id của câu hỏi thành chuỗi (Chuẩn bị dữ liệu cho Frontend)
+        id_to_question = {}
+        for q in full_questions:
+            # Chuyển đổi ObjectId thành chuỗi (như đã sửa ở list_questions)
+            if q.get("_id"):
+                q["_id"] = str(q["_id"]) 
+            # Tạo dictionary mapping ID -> Question
+            q.pop("_id", None) # Đảm bảo _id gốc của MongoDB không bị gửi đi
+            id_to_question[q["id"]] = q
+            
+        # Sắp xếp lại danh sách câu hỏi theo thứ tự ID gốc
+        sorted_questions = []
+        for qid in question_ids:
+            if qid in id_to_question:
+                sorted_questions.append(id_to_question[qid])
+        
+        # Ghi đè mảng IDs bằng mảng các đối tượng câu hỏi
+        doc["questions"] = sorted_questions
+    
+    # 3. Đảm bảo _id của bài thi được loại bỏ (đã làm ở find_one)
+    doc.pop("_id", None)
         
     return jsonify(doc)
 
