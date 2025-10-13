@@ -129,7 +129,10 @@ def list_questions():
         # Tìm kiếm không phân biệt chữ hoa/thường ('i') trong trường 'q'
         query["q"] = {"$regex": search_keyword, "$options": "i"} 
     
-    docs = list(db.questions.find(query, {"_id": 0}))
+    # docs = list(db.questions.find(query, {"_id": 0}))
+    docs = list(db.questions.find(query))
+    for doc in docs:
+        doc['_id'] = str(doc['_id'])
     return jsonify(docs)
 
 @app.route("/questions", methods=["POST"])
