@@ -516,6 +516,20 @@ def update_test(test_id):
         print("Error in update_test:", e)
         return jsonify({"message": "Không thể cập nhật đề thi.", "error": str(e)}), 500
 
+
+@app.route("/tests/<test_id>", methods=["DELETE"])
+@app.route("/api/tests/<test_id>", methods=["DELETE"])
+def delete_test(test_id):
+    try:
+        # Tìm và xóa đề theo id
+        result = db.tests.delete_one({"id": test_id})
+        if result.deleted_count == 0:
+            return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+        return jsonify({"message": "Đã xóa đề thi thành công!"}), 200
+    except Exception as e:
+        print("Error deleting test:", e)
+        return jsonify({"message": "Không thể xóa đề thi.", "error": str(e)}), 500
+
 # --------------------- ASSIGNS ---------------------
 @app.route("/assigns", methods=["GET"])
 @app.route("/api/assigns", methods=["GET"])
