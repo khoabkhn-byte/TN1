@@ -276,66 +276,126 @@ def list_tests():
 @app.route("/tests/<test_id>", methods=["GET"])
 @app.route("/api/tests/<test_id>", methods=["GET"])
 def get_test(test_id):
-    # 1. Tìm kiếm bài kiểm tra theo trường 'id' (UUID)
     doc = db.tests.find_one({"id": test_id}, {"_id": 0})
-    
-    if not doc: 
+    if not doc:
         return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
-    
+
     question_list = doc.get("questions", [])
-    
-    # 2. KHẮC PHỤC LỖI: Kiểm tra nếu questions chỉ là một mảng IDs (Ví dụ: test tự động)
-    # Nếu phần tử đầu tiên là chuỗi, ta giả định đó là ID và cần lookup.
-    if question_list and isinstance(question_list[0], str):
-        
-        question_ids = question_list
-        
-        # Lấy chi tiết câu hỏi từ collection 'questions'
-        # Dùng {"$in": question_ids} để tìm tất cả câu hỏi theo ID cùng lúc
-        full_questions = list(db.questions.find({"id": {"$in": question_ids}}))
-        
-        # Chuyển đổi _id của câu hỏi thành chuỗi (Chuẩn bị dữ liệu cho Frontend)
-        id_to_question = {}
-        for q in full_questions:
-            # Chuyển đổi ObjectId thành chuỗi (như đã sửa ở list_questions)
-            if q.get("_id"):
-                q["_id"] = str(q["_id"]) 
-            # Tạo dictionary mapping ID -> Question
-            q.pop("_id", None) # Đảm bảo _id gốc của MongoDB không bị gửi đi
-            id_to_question[q["id"]] = q
-            
-        # Sắp xếp lại danh sách câu hỏi theo thứ tự ID gốc
-        sorted_questions = []
-        for qid in question_ids:
-            if qid in id_to_question:
-                sorted_questions.append(id_to_question[qid])
-        
-        # Ghi đè mảng IDs bằng mảng các đối tượng câu hỏi
-        doc["questions"] = sorted_questions
-    
-    # 3. Đảm bảo _id của bài thi được loại bỏ (đã làm ở find_one)
-    doc.pop("_id", None)
-        
-    return jsonify(doc)
+
+    try:
+        # Nếu mảng rỗng -> trả luôn (frontend sẽ hiển thị khung rỗng)
+        if not question_list:
+            doc["questions"] = []
+            return jsonify(doc)
+
+        # Trường hợp 1: stored as list of IDs (strings)
+        if isinstance(question_list, list) and all(isinstance(x, str) for x in question_list):
+            # lookup details
+            full_questions = list(db.questions.find({"id": {"$in": question_list}}, {"_id": 0}))
+            # Preserve order of question_list
+            id_to_q = {q["id"]: q for q in full_questions if q.get("id")}
+            sorted_questions = [id_to_q[qid] for qid in question_list if qid in id_to_q]
+            doc["questions"] = sorted_questions
+            return jsonify(doc)
+
+        # Trường hợp 2: stored as list of dicts
+        if isinstance(question_list, list) and all(isinstance(x, dict) for x in question_list):
+            # If they already look like full question objects (have 'q' text), return as-is
+            if all(("q" in x or "question" in x) for x in question_list):
+                # Ensure no MongoDB _id leaks
+                cleaned = []
+                for q in question_list:
+                    qc = q.copy()
+                    qc.pop("_id", None)
+                    cleaned.append(qc)
+                doc["questions"] = cleaned
+                return jsonify(doc)
+            # Otherwise, extract ids from objects that have id/_id and lookup
+            ids = []
+            for q in question_list:
+                if isinstance(q.get("id"), str):
+                    ids.append(q["id"])
+                elif isinstance(q.get("_id"), str):
+                    ids.append(q["_id"])
+            if ids:
+                full_questions = list(db.questions.find({"id": {"$in": ids}}, {"_id": 0}))
+                id_to_q = {q["id"]: q for q in full_questions if q.get("id")}
+                sorted_questions = [id_to_q[qid] for qid in ids if qid in id_to_q]
+                doc["questions"] = sorted_questions
+                return jsonify(doc)
+            # If we reach here, fallback to returning original stored objects cleaned
+            cleaned = []
+            for q in question_list:
+                qc = q.copy(); qc.pop("_id", None)
+                cleaned.append(qc)
+            doc["questions"] = cleaned
+            return jsonify(doc)
+
+        # Fallback: unknown shape -> return as-is but clean
+        doc["questions"] = question_list
+        return jsonify(doc)
+
+    except Exception as e:
+        # Defensive: don't crash, return doc with questions as-is
+        print("Error resolving questions for test:", e)
+        doc["questions"] = question_list
+        return jsonify(doc)
 
 @app.route("/tests", methods=["POST"])
 @app.route("/api/tests", methods=["POST"])
 def create_test():
     data = request.get_json() or {}
-    newt = {
-        "id": str(uuid4()),
-        "name": data.get("name"),
-        "time": data.get("time"),
-        "subject": data.get("subject"),
-        "level": data.get("level"),
-        "questions": data.get("questions", []),
-        "teacherId": data.get("teacherId"),
-        # THÊM: Ngày tạo (ISO format)
-        "createdAt": datetime.datetime.utcnow().isoformat()
-    }
-    db.tests.insert_one(newt)
-    to_return = newt.copy(); to_return.pop("_id", None)
-    return jsonify(to_return), 201
+
+    # Normalize/transform incoming questions to list of IDs
+    incoming_questions = data.get("questions", [])
+    question_ids = []
+
+    try:
+        for q in incoming_questions:
+            # If string -> assume it's an ID
+            if isinstance(q, str):
+                question_ids.append(q)
+            # If dict with id or _id -> use that id
+            elif isinstance(q, dict):
+                if q.get("id"):
+                    question_ids.append(q.get("id"))
+                elif q.get("_id"):
+                    question_ids.append(q.get("_id"))
+                # If dict looks like a full question (has 'q' text), insert into questions collection
+                elif q.get("q") or q.get("question"):
+                    new_q = {
+                        "id": str(uuid4()),
+                        "q": q.get("q") or q.get("question"),
+                        "imageUrl": q.get("imageUrl"),
+                        "type": q.get("type"),
+                        "points": int(q.get("points", 1)),
+                        "subject": q.get("subject"),
+                        "level": q.get("level"),
+                        "difficulty": q.get("difficulty", "medium"),
+                        "options": q.get("options", []),
+                        "answer": q.get("answer", "")
+                    }
+                    db.questions.insert_one(new_q)
+                    question_ids.append(new_q["id"])
+                # else skip unknown object
+        # build test doc
+        newt = {
+            "id": str(uuid4()),
+            "name": data.get("name"),
+            "time": data.get("time"),
+            "subject": data.get("subject"),
+            "level": data.get("level"),
+            "questions": question_ids,
+            "teacherId": data.get("teacherId"),
+            "createdAt": datetime.datetime.utcnow().isoformat()
+        }
+        db.tests.insert_one(newt)
+        to_return = newt.copy(); to_return.pop("_id", None)
+        return jsonify(to_return), 201
+
+    except Exception as e:
+        print("Error in create_test:", e)
+        return jsonify({"message": "Không thể tạo đề thi.", "error": str(e)}), 500
 
 
 @app.route("/tests/auto", methods=["POST"])
@@ -411,20 +471,50 @@ def create_test_auto():
 @app.route("/api/tests/<test_id>", methods=["PUT"])
 def update_test(test_id):
     data = request.get_json() or {}
-    data.pop("_id", None)
-    res = db.tests.update_one({"id": test_id}, {"$set": data})
-    if res.matched_count > 0:
-        updated = db.tests.find_one({"id": test_id}, {"_id": 0})
-        return jsonify(updated)
-    return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+    # Normalize incoming questions similarly to create_test
+    incoming_questions = data.get("questions", None)
 
-@app.route("/tests/<test_id>", methods=["DELETE"])
-@app.route("/api/tests/<test_id>", methods=["DELETE"])
-def delete_test(test_id):
-    res = db.tests.delete_one({"id": test_id})
-    if res.deleted_count > 0:
-        return "", 204
-    return jsonify({"message": "Bài kiểm tra không tìm thấy."}), 404
+    try:
+        update_doc = data.copy()
+        update_doc.pop("_id", None)
+
+        if incoming_questions is not None:
+            question_ids = []
+            for q in incoming_questions:
+                if isinstance(q, str):
+                    question_ids.append(q)
+                elif isinstance(q, dict):
+                    if q.get("id"):
+                        question_ids.append(q.get("id"))
+                    elif q.get("_id"):
+                        question_ids.append(q.get("_id"))
+                    elif q.get("q") or q.get("question"):
+                        # insert new question doc
+                        new_q = {
+                            "id": str(uuid4()),
+                            "q": q.get("q") or q.get("question"),
+                            "imageUrl": q.get("imageUrl"),
+                            "type": q.get("type"),
+                            "points": int(q.get("points", 1)),
+                            "subject": q.get("subject"),
+                            "level": q.get("level"),
+                            "difficulty": q.get("difficulty", "medium"),
+                            "options": q.get("options", []),
+                            "answer": q.get("answer", "")
+                        }
+                        db.questions.insert_one(new_q)
+                        question_ids.append(new_q["id"])
+            update_doc["questions"] = question_ids
+
+        res = db.tests.update_one({"id": test_id}, {"$set": update_doc})
+        if res.matched_count > 0:
+            updated = db.tests.find_one({"id": test_id}, {"_id": 0})
+            return jsonify(updated)
+        return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+
+    except Exception as e:
+        print("Error in update_test:", e)
+        return jsonify({"message": "Không thể cập nhật đề thi.", "error": str(e)}), 500
 
 # --------------------- ASSIGNS ---------------------
 @app.route("/assigns", methods=["GET"])
