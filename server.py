@@ -277,98 +277,122 @@ def list_tests():
 @app.route("/tests/<test_id>", methods=["GET"])
 @app.route("/api/tests/<test_id>", methods=["GET"])
 def get_test(test_id):
-    doc = db.tests.find_one({"id": test_id}, {"_id": 0})
+    # LƯU Ý: Đề thi của bạn hiện tại không lưu _id, nên find_one({"id": test_id}, {"_id": 0}) là đúng
+    doc = db.tests.find_one({"id": test_id}, {"_id": 0}) 
     if not doc:
         return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
 
     question_list = doc.get("questions", [])
 
-    try:
-        # Nếu mảng rỗng -> trả luôn (frontend sẽ hiển thị khung rỗng)
-        if not question_list:
-            doc["questions"] = []
+    # Trường hợp 2: List of Dicts (Đề thủ công đã lưu đầy đủ HOẶC đề tự động lưu rút gọn)
+    if isinstance(question_list, list) and all(isinstance(x, dict) for x in question_list):
+        
+        # KIỂM TRA: Nếu list đã đầy đủ nội dung (có trường 'question' hoặc 'q'), trả về ngay.
+        if all(("q" in x or "question" in x) for x in question_list):
+            return jsonify(doc) # Đã đầy đủ, không cần bù đắp
+
+        # NẾU THIẾU NỘI DUNG (Cần bù đắp - Áp dụng cho đề tự động mới)
+        ids_to_resolve = []
+        for q in question_list:
+            # Ưu tiên lấy ID để tra cứu
+            if isinstance(q.get("id"), str):
+                ids_to_resolve.append(q["id"])
+            # Có thể thêm logic tra cứu bằng q.get("_id") nếu cần cho trường hợp khác
+            
+        if ids_to_resolve:
+            # HƯỚNG SỬA: CẦN TRA CỨU CẢ BẰNG UUID (id) VÀ ObjectId (_id)
+            object_ids = []
+            uuid_strings = []
+
+            for qid_str in ids_to_resolve:
+                try:
+                    # Cố gắng chuyển sang ObjectId để tra cứu _id
+                    object_ids.append(ObjectId(qid_str))
+                except Exception:
+                    # Nếu lỗi, giữ nguyên là chuỗi để tra cứu id (UUID)
+                    uuid_strings.append(qid_str)
+
+            # --- TRUY VẤN ---
+            query = []
+            if object_ids:
+                query.append({"_id": {"$in": object_ids}})
+            if uuid_strings:
+                query.append({"id": {"$in": uuid_strings}})
+            
+            if query:
+                full_questions = list(db.questions.find({"$or": query}))
+                
+                # --- XỬ LÝ KẾT QUẢ VÀ SẮP XẾP ---
+                id_to_q = {}
+                for q in full_questions:
+                    # Ánh xạ bằng cả UUID ('id') và ObjectId string ('_id')
+                    if q.get("id"):
+                        id_to_q[q["id"]] = q
+                    if q.get("_id"):
+                        id_to_q[str(q["_id"])] = q
+
+                resolved_questions = []
+                for q_lite in question_list:
+                    # Lấy ID của đối tượng rút gọn
+                    q_id = q_lite.get("id") or str(q_lite.get("_id"))
+                    
+                    if q_id and q_id in id_to_q:
+                        q_full = id_to_q[q_id].copy()
+                        q_full.pop("_id", None) # Đảm bảo _id không lọt ra
+                        resolved_questions.append(q_full)
+                    else:
+                        resolved_questions.append(q_lite) # Nếu không tìm thấy, giữ lại đối tượng rút gọn
+
+                doc["questions"] = resolved_questions
+                return jsonify(doc)
+                
+            # Fallback nếu không có ID nào tra cứu được
             return jsonify(doc)
 
-        # Trường hợp 1: stored as list of IDs (strings)
-        if isinstance(question_list, list) and all(isinstance(x, str) for x in question_list):
-            
-            # --- FIX: Đảm bảo tra cứu bằng trường _id nếu ID là ObjectId ---
-            valid_object_ids = []
-            
-            for qid_str in question_list:
-                try:
-                    # Chuyển đổi ID string sang ObjectId object nếu hợp lệ
-                    valid_object_ids.append(ObjectId(qid_str))
-                except Exception:
-                    # Nếu lỗi, ID đó là UUID (sẽ bị bỏ qua trong truy vấn _id)
-                    pass 
 
-            # Nếu tìm thấy ObjectIds, truy vấn bằng _id. Nếu không, truy vấn bằng id (UUID)
-            if valid_object_ids:
-                # SỬ DỤNG {"_id": ...} để tra cứu bằng ObjectId
-                full_questions = list(db.questions.find({"_id": {"$in": valid_object_ids}}))
-            else:
-                 # Nếu không có ObjectId nào, giữ nguyên logic tra cứu UUID bằng trường 'id'
-                 full_questions = list(db.questions.find({"id": {"$in": question_list}}, {"_id": 0}))
+    # Trường hợp 1: List of IDs (Đề thủ công lưu cũ - Mảng toàn chuỗi ID)
+    if isinstance(question_list, list) and all(isinstance(x, str) for x in question_list):
+        
+        # Tách IDs thành ObjectId và UUID strings
+        valid_object_ids = []
+        uuid_strings = []
+        for qid_str in question_list:
+            try:
+                valid_object_ids.append(ObjectId(qid_str))
+            except Exception:
+                uuid_strings.append(qid_str)
 
-            # Preserve order of question_list
+        # --- TRUY VẤN ---
+        query = []
+        if valid_object_ids:
+            query.append({"_id": {"$in": valid_object_ids}})
+        if uuid_strings:
+            query.append({"id": {"$in": uuid_strings}})
+        
+        if query:
+            full_questions = list(db.questions.find({"$or": query}))
+            
+            # --- XỬ LÝ KẾT QUẢ VÀ SẮP XẾP ---
             id_to_q = {}
             for q in full_questions:
-                # Ánh xạ bằng cả UUID ('id') và ObjectId string ('_id')
-                if q.get("id"):
-                    id_to_q[q["id"]] = q
-                
-                # Chuyển ObjectId object thành string để mapping (Vì test document lưu string)
-                q['_id'] = str(q['_id'])
-                id_to_q[q['_id']] = q
+                if q.get("id"): id_to_q[q["id"]] = q
+                if q.get("_id"): id_to_q[str(q["_id"])] = q # Ánh xạ bằng ObjectId string
 
-            # Sắp xếp lại danh sách câu hỏi theo thứ tự đã lưu
-            sorted_questions = [id_to_q[qid] for qid in question_list if qid in id_to_q]
+            sorted_questions = []
+            for qid in question_list:
+                # Tìm bằng ID gốc (chuỗi)
+                if qid in id_to_q:
+                    q_full = id_to_q[qid].copy()
+                    q_full.pop("_id", None)
+                    q_full["id"] = qid # Đảm bảo ID là chuỗi
+                    sorted_questions.append(q_full)
+
             doc["questions"] = sorted_questions
             return jsonify(doc)
 
-        # Trường hợp 2: stored as list of dicts
-        if isinstance(question_list, list) and all(isinstance(x, dict) for x in question_list):
-            # If they already look like full question objects (have 'q' text), return as-is
-            if all(("q" in x or "question" in x) for x in question_list):
-                # Ensure no MongoDB _id leaks
-                cleaned = []
-                for q in question_list:
-                    qc = q.copy()
-                    qc.pop("_id", None)
-                    cleaned.append(qc)
-                doc["questions"] = cleaned
-                return jsonify(doc)
-            # Otherwise, extract ids from objects that have id/_id and lookup
-            ids = []
-            for q in question_list:
-                if isinstance(q.get("id"), str):
-                    ids.append(q["id"])
-                elif isinstance(q.get("_id"), str):
-                    ids.append(q["_id"])
-            if ids:
-                full_questions = list(db.questions.find({"id": {"$in": ids}}, {"_id": 0}))
-                id_to_q = {q["id"]: q for q in full_questions if q.get("id")}
-                sorted_questions = [id_to_q[qid] for qid in ids if qid in id_to_q]
-                doc["questions"] = sorted_questions
-                return jsonify(doc)
-            # If we reach here, fallback to returning original stored objects cleaned
-            cleaned = []
-            for q in question_list:
-                qc = q.copy(); qc.pop("_id", None)
-                cleaned.append(qc)
-            doc["questions"] = cleaned
-            return jsonify(doc)
-
-        # Fallback: unknown shape -> return as-is but clean
-        doc["questions"] = question_list
-        return jsonify(doc)
-
-    except Exception as e:
-        # Defensive: don't crash, return doc with questions as-is
-        print("Error resolving questions for test:", e)
-        doc["questions"] = question_list
-        return jsonify(doc)
+    
+    # Fallback: unknown shape -> return as-is
+    return jsonify(doc)
 
 @app.route("/tests", methods=["POST"])
 @app.route("/api/tests", methods=["POST"])
