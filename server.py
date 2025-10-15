@@ -283,7 +283,7 @@ def get_test(test_id):
 
     question_list = doc.get("questions", [])
 
-   try:
+    try:
         # Nếu mảng rỗng -> trả luôn (frontend sẽ hiển thị khung rỗng)
         if not question_list:
             doc["questions"] = []
