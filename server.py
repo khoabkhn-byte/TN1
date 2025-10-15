@@ -1,3 +1,4 @@
+from bson.objectid import ObjectId
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from pymongo import MongoClient
@@ -282,7 +283,7 @@ def get_test(test_id):
 
     question_list = doc.get("questions", [])
 
-    try:
+   try:
         # Nếu mảng rỗng -> trả luôn (frontend sẽ hiển thị khung rỗng)
         if not question_list:
             doc["questions"] = []
@@ -290,10 +291,38 @@ def get_test(test_id):
 
         # Trường hợp 1: stored as list of IDs (strings)
         if isinstance(question_list, list) and all(isinstance(x, str) for x in question_list):
-            # lookup details
-            full_questions = list(db.questions.find({"id": {"$in": question_list}}, {"_id": 0}))
+            
+            # --- FIX: Đảm bảo tra cứu bằng trường _id nếu ID là ObjectId ---
+            valid_object_ids = []
+            
+            for qid_str in question_list:
+                try:
+                    # Chuyển đổi ID string sang ObjectId object nếu hợp lệ
+                    valid_object_ids.append(ObjectId(qid_str))
+                except Exception:
+                    # Nếu lỗi, ID đó là UUID (sẽ bị bỏ qua trong truy vấn _id)
+                    pass 
+
+            # Nếu tìm thấy ObjectIds, truy vấn bằng _id. Nếu không, truy vấn bằng id (UUID)
+            if valid_object_ids:
+                # SỬ DỤNG {"_id": ...} để tra cứu bằng ObjectId
+                full_questions = list(db.questions.find({"_id": {"$in": valid_object_ids}}))
+            else:
+                 # Nếu không có ObjectId nào, giữ nguyên logic tra cứu UUID bằng trường 'id'
+                 full_questions = list(db.questions.find({"id": {"$in": question_list}}, {"_id": 0}))
+
             # Preserve order of question_list
-            id_to_q = {q["id"]: q for q in full_questions if q.get("id")}
+            id_to_q = {}
+            for q in full_questions:
+                # Ánh xạ bằng cả UUID ('id') và ObjectId string ('_id')
+                if q.get("id"):
+                    id_to_q[q["id"]] = q
+                
+                # Chuyển ObjectId object thành string để mapping (Vì test document lưu string)
+                q['_id'] = str(q['_id'])
+                id_to_q[q['_id']] = q
+
+            # Sắp xếp lại danh sách câu hỏi theo thứ tự đã lưu
             sorted_questions = [id_to_q[qid] for qid in question_list if qid in id_to_q]
             doc["questions"] = sorted_questions
             return jsonify(doc)
