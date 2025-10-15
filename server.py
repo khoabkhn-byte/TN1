@@ -283,71 +283,94 @@ def get_test(test_id):
         return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
 
     question_list = doc.get("questions", [])
-
-    # Trường hợp 2: List of Dicts (Đề thủ công đã lưu đầy đủ HOẶC đề tự động lưu rút gọn)
-    if isinstance(question_list, list) and all(isinstance(x, dict) for x in question_list):
+    
+    # 1. PHÂN LOẠI DỮ LIỆU VÀ XÁC ĐỊNH ID CẦN BÙ ĐẮP
+    ids_to_resolve = []
+    
+    if question_list and isinstance(question_list[0], dict):
+        # Trường hợp 2: List of Dicts (Đã có nội dung HOẶC cần bù đắp)
         
-        # KIỂM TRA: Nếu list đã đầy đủ nội dung (có trường 'question' hoặc 'q'), trả về ngay.
+        # Nếu đã đầy đủ nội dung, trả về ngay.
         if all(("q" in x or "question" in x) for x in question_list):
-            return jsonify(doc) # Đã đầy đủ, không cần bù đắp
+            return jsonify(doc) 
 
-        # NẾU THIẾU NỘI DUNG (Cần bù đắp - Áp dụng cho đề tự động mới)
-        ids_to_resolve = []
+        # Nếu thiếu nội dung (Đề tự động hoặc rút gọn), trích xuất ID để bù đắp
         for q in question_list:
             # Ưu tiên lấy ID để tra cứu
-            if isinstance(q.get("id"), str):
-                ids_to_resolve.append(q["id"])
-            # Có thể thêm logic tra cứu bằng q.get("_id") nếu cần cho trường hợp khác
+            qid = q.get("id") or str(q.get("_id"))
+            if qid:
+                ids_to_resolve.append(qid)
+
+    elif question_list and isinstance(question_list[0], str):
+        # Trường hợp 1: List of IDs (Đề thủ công lưu cũ)
+        ids_to_resolve = question_list
+
+
+    # 2. THỰC HIỆN TRUY VẤN BÙ ĐẮP (Nếu có ID cần tìm)
+    if ids_to_resolve:
+        # Tách IDs thành ObjectId và UUID strings
+        object_ids = []
+        uuid_strings = []
+        for qid_str in ids_to_resolve:
+            try:
+                object_ids.append(ObjectId(qid_str))
+            except Exception:
+                uuid_strings.append(qid_str)
+
+        # --- TRUY VẤN ---
+        query = []
+        if object_ids:
+            query.append({"_id": {"$in": object_ids}})
+        if uuid_strings:
+            query.append({"id": {"$in": uuid_strings}})
+        
+        if query:
+            full_questions = list(db.questions.find({"$or": query}))
             
-        if ids_to_resolve:
-            # HƯỚNG SỬA: CẦN TRA CỨU CẢ BẰNG UUID (id) VÀ ObjectId (_id)
-            object_ids = []
-            uuid_strings = []
+            # --- XỬ LÝ KẾT QUẢ VÀ SẮP XẾP ---
+            id_to_q = {}
+            for q in full_questions:
+                # Ánh xạ bằng cả UUID ('id') và ObjectId string ('_id')
+                if q.get("id"): id_to_q[q["id"]] = q
+                if q.get("_id"): id_to_q[str(q["_id"])] = q
 
-            for qid_str in ids_to_resolve:
-                try:
-                    # Cố gắng chuyển sang ObjectId để tra cứu _id
-                    object_ids.append(ObjectId(qid_str))
-                except Exception:
-                    # Nếu lỗi, giữ nguyên là chuỗi để tra cứu id (UUID)
-                    uuid_strings.append(qid_str)
-
-            # --- TRUY VẤN ---
-            query = []
-            if object_ids:
-                query.append({"_id": {"$in": object_ids}})
-            if uuid_strings:
-                query.append({"id": {"$in": uuid_strings}})
+            resolved_questions = []
             
-            if query:
-                full_questions = list(db.questions.find({"$or": query}))
-                
-                # --- XỬ LÝ KẾT QUẢ VÀ SẮP XẾP ---
-                id_to_q = {}
-                for q in full_questions:
-                    # Ánh xạ bằng cả UUID ('id') và ObjectId string ('_id')
-                    if q.get("id"):
-                        id_to_q[q["id"]] = q
-                    if q.get("_id"):
-                        id_to_q[str(q["_id"])] = q
+            # Sử dụng danh sách gốc để giữ thứ tự
+            list_to_process = question_list if isinstance(question_list[0], str) else ids_to_resolve
 
-                resolved_questions = []
-                for q_lite in question_list:
-                    # Lấy ID của đối tượng rút gọn
-                    q_id = q_lite.get("id") or str(q_lite.get("_id"))
+            for qid in list_to_process:
+                # Tìm kiếm bằng ID gốc (chuỗi)
+                if qid in id_to_q:
+                    q_full = id_to_q[qid].copy()
                     
-                    if q_id and q_id in id_to_q:
-                        q_full = id_to_q[q_id].copy()
-                        q_full.pop("_id", None) # Đảm bảo _id không lọt ra
-                        resolved_questions.append(q_full)
-                    else:
-                        resolved_questions.append(q_lite) # Nếu không tìm thấy, giữ lại đối tượng rút gọn
-
-                doc["questions"] = resolved_questions
-                return jsonify(doc)
+                    # ✅ BƯỚC SỬA LỖI QUAN TRỌNG: Đảm bảo _id và id được đồng bộ
+                    q_full["_id"] = str(q_full.get("_id")) # Gán _id (string)
+                    q_full["id"] = q_full.get("id") or q_full["_id"] # Đảm bảo ID là chuỗi
+                    
+                    resolved_questions.append(q_full)
+            
+            # Nếu là trường hợp List of Dicts (đề tự động), cần thay thế các đối tượng rút gọn bằng đối tượng đầy đủ
+            if isinstance(question_list[0], dict):
+                # Thay thế các đối tượng rút gọn bằng các đối tượng đầy đủ đã tìm thấy
+                final_questions = []
+                resolved_map = {q.get("_id"): q for q in resolved_questions}
                 
-            # Fallback nếu không có ID nào tra cứu được
-            return jsonify(doc)
+                for q_lite in question_list:
+                    # Lấy _id string của câu hỏi rút gọn để tìm kiếm trong map
+                    id_key = str(q_lite.get("_id")) or q_lite.get("id")
+                    
+                    if id_key and id_key in resolved_map:
+                        final_questions.append(resolved_map[id_key])
+                    else:
+                        final_questions.append(q_lite) # Giữ lại nếu không tìm thấy
+                
+                doc["questions"] = final_questions
+            else:
+                # Trường hợp List of IDs (đề cũ)
+                doc["questions"] = resolved_questions
+
+    return jsonify(doc)
 
 
     # Trường hợp 1: List of IDs (Đề thủ công lưu cũ - Mảng toàn chuỗi ID)
