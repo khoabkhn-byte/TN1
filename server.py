@@ -116,6 +116,11 @@ def get_users():
     if nameSearch:
         # Tìm kiếm không phân biệt chữ hoa/thường trong trường 'fullName'
         query["fullName"] = {"$regex": nameSearch, "$options": "i"} 
+        
+    # Lọc theo Giới tính ✅ BỔ SUNG LỌC GIỚI TÍNH
+    gender = request.args.get("gender")
+    if gender:
+        query["gender"] = gender 
     
     # Thực hiện truy vấn và loại trừ _id
     docs = list(db.users.find(query, {"_id": 0}))
