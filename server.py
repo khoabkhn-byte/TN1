@@ -79,6 +79,7 @@ def login():
 
 @app.route("/register", methods=["POST"])
 @app.route("/api/register", methods=["POST"])
+@app.route("/api/users", methods=["POST"]) # ✅ BỔ SUNG DÒNG NÀY
 def register():
     data = request.get_json() or {}
     user = data.get("user"); passwd = data.get("pass")
