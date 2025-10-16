@@ -79,16 +79,29 @@ def login():
 
 @app.route("/register", methods=["POST"])
 @app.route("/api/register", methods=["POST"])
-@app.route("/api/users", methods=["POST"]) # ✅ BỔ SUNG DÒNG NÀY
+@app.route("/api/users", methods=["POST"]) # ✅ Bổ sung POST /api/users
 def register():
     data = request.get_json() or {}
     user = data.get("user"); passwd = data.get("pass")
-    dob = data.get("dob"); gender = data.get("gender")
+    
+    # ✅ THÊM CÁC TRƯỜNG MỚI
+    fullName = data.get("fullName"); className = data.get("className")
+    gender = data.get("gender") # đã có từ trước
+
     if not user or passwd is None:
         return jsonify({"success": False, "message": "Missing user or pass"}), 400
     if db.users.find_one({"user": user}):
         return jsonify({"success": False, "message": "Tên tài khoản đã tồn tại."}), 409
-    new_user = {"id": str(uuid4()), "user": user, "pass": passwd, "dob": dob, "gender": gender, "role": "student"}
+    
+    new_user = {
+        "id": str(uuid4()), 
+        "user": user, 
+        "pass": passwd, 
+        "fullName": fullName,  # ✅ LƯU HỌ TÊN
+        "className": className, # ✅ LƯU LỚP
+        "gender": gender, 
+        "role": data.get("role", "student") # Lấy role từ payload, mặc định là student
+    }
     db.users.insert_one(new_user)
     to_return = new_user.copy()
     to_return.pop("_id", None)
