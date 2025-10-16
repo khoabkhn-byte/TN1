@@ -55,8 +55,16 @@
         color: #28a745; 
         font-weight: bold;
         transform: translateY(-50%);
-    }
-	
+}
+
+
+/* STYLE MỚI CHO TIÊU ĐỀ BẢNG ĐỀ THI */
+    #tab-tests .table-bordered thead th {
+        background-color: WhiteSmoke; /* Màu xám nhạt */
+        color: DarkOliveGreen; /* Màu chữ đen đậm */
+        border-bottom: 2px solid var(--primary); /* Đường viền dưới màu xanh lá */
+}
+
 
 
   </style>
@@ -150,6 +158,9 @@
 		        <option value="hard">Khó</option>
 		      </select>
 		    </div>
+			<div class="col-md-3 d-flex align-items-center">
+		      <button class="btn btn-sm btn-outline-secondary" onclick="clearAllQuestionFilters()">Xóa Lọc</button>
+		    </div>
 		  </div>
 
 
@@ -227,22 +238,23 @@
     </div>
 
     <div class="card p-3">
-        <div class="table-wrap">
-            <table class="table table-sm table-hover">
-                <thead>
-                    <tr>
-                        <th style="width: 4%;"class="text-center">#</th>
-                        <th style="width: 21%;"class="text-center">Tên bài thi</th>
-                        <th style="width: 15%;"class="text-center">Môn</th>
-                        <th style="width: 15%;"class="text-center">Khối lớp</th> 
-						<th style="width: 15%;"class="text-center">Ngày tạo</th> 
-						<th style="width: 15%;"class="text-center">Thời gian (phút)</th>
-                        <th style="width: 15%;"class="text-center">Hành động</th>
-                    </tr>
-                </thead>
-                <tbody id="tests-tbody"></tbody>
-            </table>
-        </div>
+        <div class="table-wrap">
+            <table class="table table-sm table-hover table-bordered">
+                <thead>
+                    <tr>
+                        <th style="width: 4%;" class="text-center nowrap">#</th>            
+                        <th style="width: 25%;" class="text-start">Tên bài thi</th> 
+                        <th style="width: 10%;" class="text-center nowrap">Môn</th>          
+                        <th style="width: 8%;" class="text-center nowrap">Khối lớp</th>     
+                        <th style="width: 8%;" class="text-center nowrap">Số câu</th>       
+                        <th style="width: 12%;" class="text-center nowrap">Ngày tạo</th>     
+                        <th style="width: 8%;" class="text-center nowrap">Thời gian (phút)</th> 
+                        <th style="width: 25%;" class="text-center action-column-buttons">Hành động</th> 
+                    </tr>
+                </thead>
+                <tbody id="tests-tbody"></tbody>
+            </table>
+        </div>
         <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
             <div class="muted-small me-auto" id="tests-info"></div>
             <button id="t-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('tests', -1)">Trang trước</button>
@@ -253,24 +265,135 @@
 
         <!-- STUDENTS -->
         <div class="tab-pane fade" id="tab-students">
-          <div class="d-flex justify-content-between mb-2">
-            <h5>Học sinh</h5>
-            <div><button class="btn btn-primary" onclick="openStudentModal()">➕ Thêm học sinh</button></div>
-          </div>
-          <div class="card p-3">
-            <div class="table-wrap">
-              <table class="table table-sm table-hover">
-                <thead><tr><th>Username</th><th>Vai trò</th><th>Hành động</th></tr></thead>
-                <tbody id="students-tbody"></tbody>
-              </table>
+    <div class="d-flex justify-content-between mb-2">
+        <h5>Học sinh</h5>
+        <div><button class="btn btn-primary" onclick="openStudentModal()">➕ Thêm học sinh</button></div>
+    </div>
+    
+    <div class="card p-3 mb-3">
+        <div class="row g-3 align-items-end">
+            
+            <div class="col-md-2">
+                <label class="form-label small text-muted">Vai trò</label>
+                <select id="filter-student-role" class="form-select form-select-sm" onchange="loadStudents()">
+                    <option value="">-- Tất cả --</option>
+                    <option value="student">Học sinh</option>
+                    <option value="monitor">Lớp trưởng</option>
+                    <option value="vice_monitor">Lớp phó</option>
+                    <option value="team_leader">Tổ trưởng</option>
+                </select>
             </div>
-            <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
-              <div class="muted-small me-auto" id="students-info"></div>
-              <button id="s-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('students', -1)">Trang trước</button>
-              <button id="s-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('students', 1)">Trang sau</button>
+            
+            <div class="col-md-2">
+                <label class="form-label small text-muted">Lớp</label>
+                <input type="text" id="filter-student-class" class="form-control form-control-sm" placeholder="Nhập tên lớp..." onkeyup="debounceLoadStudents()">
             </div>
-          </div>
+            
+            <div class="col-md-2">
+                <label class="form-label small text-muted">Giới tính</label>
+                <select id="filter-student-gender" class="form-select form-select-sm" onchange="loadStudents()">
+                    <option value="">-- Tất cả --</option>
+                    <option value="male">Nam</option>
+                    <option value="female">Nữ</option>
+                    <option value="other">Khác</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label small text-muted">Tìm kiếm Tên</label>
+                <input type="text" id="search-student-name" class="form-control form-control-sm" placeholder="Nhập Họ tên..." onkeyup="debounceLoadStudents()">
+            </div>
+            
+            <div class="col-md-1">
+                <button class="btn btn-sm btn-outline-danger w-100" onclick="clearStudentFilters()">
+                    Xóa Lọc
+                </button>
+            </div>
         </div>
+    </div>
+    <div class="card p-3">
+        <div class="table-wrap">
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">STT</th>
+                        <th style="width: 15%;">Username</th>
+                        <th style="width: 20%;">Họ tên</th>
+                        <th style="width: 10%;">Lớp</th>
+                        <th style="width: 10%;">Giới tính</th> <th style="width: 10%;">Vai trò</th>
+                        <th style="width: 20%;">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="students-tbody"></tbody>
+            </table>
+        </div>
+        </div>
+</div>
+		
+		<!-- MODAL EDIT STUDENTS -->
+<div class="modal fade" id="modalStudentEdit" tabindex="-1" aria-labelledby="studentEditLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="student-modal-title">➕ Thêm Học sinh mới</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="student-form" onsubmit="event.preventDefault(); saveStudent();">
+                <div class="modal-body">
+                    <input type="hidden" id="student-id">
+                    
+                    <div class="mb-3">
+                        <label for="student-username" class="form-label">Tên đăng nhập (Username)</label>
+                        <input type="text" class="form-control" id="student-username" required placeholder="Ví dụ: nguyenvana">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-7 mb-3">
+                            <label for="student-fullname" class="form-label">Họ và tên</label>
+                            <input type="text" class="form-control" id="student-fullname" placeholder="Nguyễn Văn A">
+                        </div>
+                        <div class="col-md-5 mb-3">
+                            <label for="student-gender" class="form-label">Giới tính</label>
+                            <select id="student-gender" class="form-select">
+                                <option value="">-- Chọn Giới tính --</option>
+                                <option value="male">Nam</option>
+                                <option value="female">Nữ</option>
+                                <option value="other">Khác</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-7 mb-3">
+                            <label for="student-class" class="form-label">Lớp</label>
+                            <input type="text" class="form-control" id="student-class" placeholder="Ví dụ: 10A1">
+                        </div>
+                        <div class="col-md-5 mb-3">
+                            <label for="student-role" class="form-label">Vai trò</label>
+                            <select id="student-role" class="form-select" required>
+                                <option value="student">Học sinh</option>
+                                <option value="monitor">Lớp trưởng</option>
+                                <option value="vice_monitor">Lớp phó</option>
+                                <option value="team_leader">Tổ trưởng</option>
+                                <option value="admin">Quản trị viên</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="student-password" class="form-label">Mật khẩu (Để trống nếu không đổi)</label>
+                        <input type="password" class="form-control" id="student-password" placeholder="Nhập mật khẩu mới">
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="submit" class="btn btn-primary">💾 Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
         <!-- RESULTS -->
         <div class="tab-pane fade" id="tab-results">
@@ -706,6 +829,49 @@
   </div>
 </div>
 
+
+<!-- Modal làm bài -->
+<div class="modal fade" id="modalQuiz" tabindex="-1" aria-labelledby="modalQuizLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white p-3">
+                <!-- Tên đề thi sẽ được điền bằng JS -->
+                <h5 class="modal-title" id="modalQuizLabel">Đề Thi: <span id="quiz-title-display"></span></h5>
+                <div class="d-flex align-items-center">
+                    <span class="me-3 fs-5">Thời gian còn lại:</span>
+                    <!-- Thanh đếm ngược thời gian -->
+                    <h5 class="mb-0 text-warning bg-dark p-2 rounded-2" id="quiz-timer">--:--</h5>
+                </div>
+                <!-- Nút đóng/thoát -->
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="confirmExitQuiz()"></button>
+            </div>
+            
+            <div class="modal-body p-4">
+                <!-- Vùng chứa các câu hỏi -->
+                <div id="quiz-questions-container" class="space-y-4">
+                    <!-- Câu hỏi sẽ được render bằng JS tại đây -->
+                </div>
+
+                <!-- Vùng hiển thị kết quả sau khi nộp bài -->
+                <div id="quiz-results-summary" class="d-none mt-4 p-4 border rounded-3 bg-light">
+                    <h4 class="text-primary mb-3">Kết Quả Bài Làm</h4>
+                    <p class="fs-5">Điểm trắc nghiệm: <strong id="score-display" class="text-success">0/10</strong></p>
+                    <p class="text-muted">Lưu ý: Điểm cuối cùng sẽ bao gồm cả phần tự luận (nếu có) được giáo viên chấm.</p>
+                </div>
+            </div>
+            
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" onclick="confirmExitQuiz()">
+                    <i class="bi bi-x-circle me-2"></i>Thoát/Hủy
+                </button>
+                <button type="button" class="btn btn-success" id="btn-submit-quiz" onclick="submitQuiz()">
+                    <i class="bi bi-send-fill me-2"></i>Nộp Bài
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
   <!-- Assign modal -->
   <div class="modal fade" id="modalAssign" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title">Giao đề</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -764,9 +930,50 @@ let manualState = {
     selectedQuestions: [], // Mảng lưu các câu hỏi đã chọn trong đề thủ công
     questionBank: [],      // Mảng lưu các câu hỏi đã được tải (ngân hàng câu hỏi)
 };
+
+// Thêm các biến phân trang và giới hạn trang cho Học sinh
+const PAGE_LIMIT = 10; 
+let studentsPage = 1; // Trang hiện tại
   
   // Thêm hàm này vào khối <script>
 let nextOptionIndex = 0; // Biến đếm để quản lý ID/data-attribute
+
+// -------------------- BIẾN TOÀN CỤC CHO QUIZ --------------------
+let quizModalInstance = null;
+let currentQuiz = null; // Lưu đề thi hiện tại (từ Quiz ID)
+let currentAssignmentId = null; // Lưu Assignment ID hiện tại
+let timerInterval = null; // Biến lưu trữ interval của bộ đếm ngược
+let quizEndTime = null; // Thời điểm kết thúc bài làm
+
+// Hàm tiện ích để hiển thị thời gian HH:MM:SS
+function formatTime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    
+    // Nếu > 1 giờ, hiển thị HH:MM:SS, nếu không hiển thị MM:SS
+    if (h > 0) {
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// Hàm khởi tạo instance của Modal
+document.addEventListener('DOMContentLoaded', () => {
+    // ... (các khởi tạo DOMContentLoaded khác của bạn)
+    
+    // Khởi tạo Quiz Modal Instance
+    const modalElement = document.getElementById('modalQuiz');
+    if (modalElement && typeof bootstrap !== 'undefined') {
+        quizModalInstance = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+});
+// -------------------- KẾT THÚC BIẾN TOÀN CỤC CHO QUIZ --------------------
+
+
 
 // Hàm chuyển đổi độ khó từ code sang text
 function formatDifficulty(diff) {
@@ -822,15 +1029,41 @@ function addQuestionOption(text = '', isCorrect = false) {
     qs('login-pass').addEventListener('keydown', (e)=>{ if(e.key==='Enter') login(); });
 
     async function login(){
-      qs('login-msg').style.display='none';
-      const user = qs('login-user').value.trim();
-      const pass = qs('login-pass').value.trim();
-      if(!user || !pass){ qs('login-msg').textContent='Điền tên đăng nhập và mật khẩu'; qs('login-msg').style.display='block'; return; }
-      try {
-        const res = await fetchJson(`${serverUrl}/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user, pass}) });
-        if(res && res.success){ currentUser = res.user; sessionStorage.setItem('quiz_user', JSON.stringify(currentUser)); showApp(); } else { qs('login-msg').textContent = res?.message || 'Đăng nhập thất bại'; qs('login-msg').style.display='block'; }
-      } catch(e){ qs('login-msg').textContent = 'Không kết nối server'; qs('login-msg').style.display='block'; }
+    qs('login-msg').style.display='none';
+    const user = qs('login-user').value.trim();
+    const pass = qs('login-pass').value.trim();
+    
+    if(!user || !pass){ 
+        qs('login-msg').textContent='Điền tên đăng nhập và mật khẩu'; 
+        qs('login-msg').style.display='block'; 
+        return; 
     }
+    
+    try {
+        const res = await fetchJson(`${serverUrl}/api/login`, { 
+            method:'POST', 
+            headers:{'Content-Type':'application/json'}, 
+            body:JSON.stringify({user, pass}) 
+        });
+        
+        if(res && res.success && res.user){ 
+            // 1. Cập nhật biến toàn cục và lưu trữ session/local storage
+            currentUser = res.user; 
+            sessionStorage.setItem('quiz_user', JSON.stringify(currentUser)); 
+            
+            // ✅ SỬA LỖI: Truyền đối tượng user vào showApp
+            showApp(currentUser); 
+        
+        } else { 
+            qs('login-msg').textContent = res?.message || 'Đăng nhập thất bại'; 
+            qs('login-msg').style.display='block'; 
+        }
+    } catch(e){ 
+        console.error("Lỗi đăng nhập:", e);
+        qs('login-msg').textContent = 'Không kết nối server hoặc lỗi mạng.'; 
+        qs('login-msg').style.display='block'; 
+    }
+}
 
     function logout(){ sessionStorage.removeItem('quiz_user'); location.reload(); }
 
@@ -857,20 +1090,29 @@ function addQuestionOption(text = '', isCorrect = false) {
     if(login) login.remove();
 
     // 4. Phân luồng theo vai trò
-    if(currentUser.role === 'teacher'){
+    const isTeacherOrAdmin = currentUser.role === 'teacher' || currentUser.role === 'admin';
+
+    if(isTeacherOrAdmin){
       // THÊM DÒNG NÀY ĐỂ ĐIỀN DỮ LIỆU VÀO DROPDOWN MÔN HỌC (FIX LỖI DROPDOWN RỖNG)
-      populateSubjectFilters(); 
+      if (typeof populateSubjectFilters === 'function') populateSubjectFilters(); 
       
       teacherApp.style.display = 'block'; setTimeout(()=> teacherApp.style.opacity = 1, 60);
       qs('who').textContent = `${currentUser.user} (teacher)`;
-      // Hàm refreshAll() sẽ gọi loadQuestions() và loadTests() sau khi bộ lọc được điền
-      refreshAll();
+      
+      // ✅ LOGIC TẢI DỮ LIỆU MỚI CHO GIÁO VIÊN
+      // Nếu bạn muốn giữ refreshAll(), hãy đảm bảo nó gọi loadQuizzes() và loadStudents()
+      if (typeof loadQuizzes === 'function') loadQuizzes(); 
+      if (typeof loadStudents === 'function') loadStudents(); 
+
     } else {
       studentApp.style.display = 'block'; setTimeout(()=> studentApp.style.opacity = 1, 60);
       qs('who-stu').textContent = `${currentUser.user}`;
-      loadAssignedTests(); loadCompletedTests();
+      
+      // ✅ LOGIC TẢI DỮ LIỆU MỚI CHO HỌC SINH (Thay thế các hàm cũ)
+      if (typeof loadAssignments === 'function') loadAssignments();
     }
 }
+
 
     // ---------- Resource loading for teacher (kept similar to original) ----------
         function setTableLoading(tbodyId, message='Đang tải...'){
@@ -1038,8 +1280,201 @@ function renderQuestions(items){
         alert("Lỗi: Không tìm thấy câu hỏi này trong danh sách hiện tại.");
     }
 }
+
+
+async function startQuiz(testId, assignmentId, durationMinutes) {
+    // 1. Khởi tạo Modal (Chỉ lần đầu)
+    if (!quizModalInstance) {
+        quizModalInstance = new bootstrap.Modal(qs('modalQuiz'), {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+
+    // Các thao tác DOM không liên quan đến dữ liệu Quiz
+    qs('btn-submit-quiz').classList.remove('d-none');
+    qs('quiz-results-summary').classList.add('d-none');
+    qs('quiz-questions-container').style.pointerEvents = 'auto';
+
+    // 2. Tải đề thi
+    try {
+        const quiz = await fetchJson(`${serverUrl}/api/quizzes/${testId}`);
+        
+        // **********************************************
+        // ✅ SỬA LỖI 404 (Nếu fetchJson không ném exception cho 4xx)
+        // Backend Flask thường trả về {"message": "..."} khi lỗi 404.
+        if (!quiz || quiz.message) {
+             // Ném lỗi để chuyển thẳng xuống block catch, tránh TypeError
+             throw new Error(quiz ? quiz.message : "Dữ liệu đề thi không hợp lệ."); 
+        }
+        // **********************************************
+
+        currentQuiz = quiz.questions; // Lưu trữ câu hỏi
+        currentAssignmentId = assignmentId; // Lưu trữ ID Assignment
+        
+        // ❌ Dòng này gây lỗi TypeError nếu qs('quiz-title') là null
+        // Đảm bảo qs('quiz-title') phải là một phần tử DOM hợp lệ trước khi gọi
+        const quizTitleElement = qs('quiz-title');
+        if (quizTitleElement) {
+            quizTitleElement.textContent = escapeHtml(quiz.testName || `Đề thi ID: ${testId}`);
+        } else {
+            // Ném lỗi nếu phần tử DOM không tồn tại
+            throw new Error("Không tìm thấy phần tử hiển thị tiêu đề quiz (quiz-title).");
+        }
+
+
+        // 3. Render câu hỏi và hiển thị Modal
+        renderQuestions(currentQuiz);
+        quizModalInstance.show();
+        
+        // 4. Bắt đầu Timer
+        startQuizTimer(durationMinutes);
+        
+    } catch (e) {
+        console.error("Lỗi tải đề thi:", e);
+        // Bây giờ showMessageBox sẽ hoạt động vì đã được định nghĩa.
+        showMessageBox("Lỗi", "Không thể tải đề thi. Vui lòng thử lại sau. " + (e.message || "Lỗi không xác định."));
+    }
+}
+
+async function submitQuiz(isTimeout = false) {
+    if (!currentQuiz || !currentAssignmentId) {
+        showMessageBox("Lỗi", "Không có bài làm nào đang được thực hiện.");
+        return;
+    }
+
+    if (!isTimeout) {
+        const confirmSubmit = await confirmBoxAsync("Xác nhận", "Bạn có chắc chắn muốn nộp bài? Bài làm sẽ không thể chỉnh sửa sau khi nộp.");
+        if (!confirmSubmit) return;
+    }
+
+    clearInterval(timerInterval); // Dừng timer ngay lập tức
+
+    // 1. Thu thập câu trả lời
+    const answers = currentQuiz.map(q => {
+        const answerElement = qs(`.answer-area[data-question-id="${q.id}"]`);
+        let studentAnswer = null;
+
+        if (q.type === 'multiple_choice') {
+            // Trắc nghiệm: Tìm radio button được chọn
+            const selected = answerElement.querySelector(`input[name="q_${q.id}"]:checked`);
+            if (selected) {
+                studentAnswer = parseInt(selected.value);
+            }
+        } else if (q.type === 'essay') {
+            // Tự luận: Lấy giá trị từ textarea
+            studentAnswer = answerElement.querySelector('textarea').value.trim();
+        }
+        
+        return { 
+            questionId: q.id, 
+            type: q.type, 
+            answer: studentAnswer || null // Gửi null nếu không trả lời
+        };
+    });
+
+    // 2. Gửi dữ liệu lên Backend
+    try {
+        qs('btn-submit-quiz').disabled = true;
+        
+        const resultPayload = {
+            studentId: currentUser.id,
+            assignmentId: currentAssignmentId,
+            testId: currentQuiz[0].testId, // Hoặc lấy từ biến global nếu có
+            studentAnswers: answers,
+            submittedAt: new Date().toISOString()
+        };
+
+        const result = await fetchJson(`${serverUrl}/api/results`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(resultPayload)
+        });
+
+        // 3. Hiển thị kết quả (Dựa trên phản hồi từ server)
+        displayQuizResults(result); 
+
+    } catch (e) {
+        console.error("Lỗi nộp bài:", e);
+        showMessageBox("Lỗi Nộp bài", "Không thể nộp bài. Vui lòng kiểm tra kết nối.");
+    } finally {
+        qs('btn-submit-quiz').disabled = false;
+        // Tải lại danh sách bài tập để cập nhật trạng thái
+        loadAssignments(); 
+    }
+}
+
+function showMessageBox(title, message) {
+    // Tùy chọn 1: Dùng alert đơn giản (Nếu bạn chưa xây dựng modal)
+    // alert(`${title}: ${message}`); 
     
-	// THAY THẾ TOÀN BỘ HÀM openQuestionModal NÀY
+    // Tùy chọn 2: Nếu bạn đã có Bootstrap Modal
+    // Giả sử modal có ID là #messageModal
+    document.getElementById('messageModalLabel').textContent = title;
+    document.getElementById('messageModalBody').textContent = message;
+    new bootstrap.Modal(document.getElementById('messageModal')).show();
+}
+
+function displayQuizResults(result) {
+    // Dữ liệu giả định: Backend đã tính điểm trắc nghiệm
+    const questions = currentQuiz;
+    const summaryEl = qs('quiz-results-summary');
+    const container = qs('quiz-questions-container');
+
+    // Ẩn nút nộp bài và chặn tương tác với câu hỏi
+    qs('btn-submit-quiz').classList.add('d-none');
+    container.style.pointerEvents = 'none';
+
+    let totalScore = result.calculatedScore || 0;
+    let totalQuestions = questions.length;
+    let correctCount = result.correctCount || 0; // Giả sử Backend trả về
+    let autoGradedScore = 0;
+
+    // Cập nhật tóm tắt kết quả
+    summaryEl.innerHTML = `
+        <h5 class="text-center text-primary">KẾT QUẢ BÀI LÀM</h5>
+        <div class="alert alert-info">
+            Điểm Trắc nghiệm (Tự động chấm): <strong>${totalScore} / 10</strong> (Giả định)
+            <br>
+            Số câu trắc nghiệm đúng: <strong>${correctCount} / ${totalQuestions}</strong>
+            <br>
+            Kết quả cuối cùng sẽ được cập nhật sau khi Giáo viên chấm điểm tự luận.
+        </div>
+    `;
+    summaryEl.classList.remove('d-none');
+
+    // Hiển thị phản hồi từng câu hỏi
+    questions.forEach((q, index) => {
+        const answerArea = qs(`.answer-area[data-question-id="${q.id}"]`);
+        if (!answerArea) return;
+
+        // Giả định: Backend trả về kết quả từng câu trong result.questionResults
+        const qResult = (result.questionResults || []).find(qr => qr.questionId === q.id);
+        const isCorrect = qResult ? qResult.isCorrect : false;
+
+        let feedbackHtml = '';
+        if (q.type === 'multiple_choice') {
+            const icon = isCorrect ? `<i class="bi bi-check-circle-fill text-success"></i> Đúng` : `<i class="bi bi-x-circle-fill text-danger"></i> Sai`;
+            feedbackHtml = `<div class="mt-2 p-2 rounded ${isCorrect ? 'bg-light-green' : 'bg-light-red'}">
+                ${icon}. Đáp án đúng: ${q.correctAnswer}
+            </div>`;
+        } else if (q.type === 'essay') {
+            feedbackHtml = `<div class="mt-2 p-2 rounded bg-light-yellow">
+                <i class="bi bi-clock-history"></i> **Đang chờ Giáo viên chấm điểm.**
+            </div>`;
+        }
+        answerArea.insertAdjacentHTML('afterend', feedbackHtml);
+    });
+    
+    // Đặt tên nút Thoát thành Đóng
+    const exitButton = qs('btn-exit-quiz');
+    if (exitButton) {
+        exitButton.textContent = 'Đóng';
+        exitButton.onclick = () => quizModalInstance.hide(); // Đóng ngay, không cần confirm
+    }
+}
+
+    
 
 // THAY THẾ TOÀN BỘ HÀM openQuestionModal NÀY
 
@@ -1180,7 +1615,27 @@ function openQuestionModal(q){
     toggleOptionFields(); 
     modal.show();
 }
-	
+
+function clearAllQuestionFilters() {
+    // 1. Reset Môn học
+    const subjectEl = qs('q-filter-subject');
+    if (subjectEl) subjectEl.value = '';
+
+    // 2. Reset Khối lớp
+    const levelEl = qs('q-filter-level');
+    if (levelEl) levelEl.value = ''; 
+
+    // 3. Reset Loại câu hỏi
+    const typeEl = qs('q-filter-type');
+    if (typeEl) typeEl.value = ''; 
+
+    // 4. Reset Độ Khó
+    const difficultyEl = qs('filter-difficulty');
+    if (difficultyEl) difficultyEl.value = '';
+    
+    // 5. Tải lại danh sách câu hỏi để áp dụng bộ lọc mới (trống)
+    loadQuestions(true); 
+}	
 
     // CHỈNH SỬA HÀM saveQuestion()
 async function saveQuestion(){ 
@@ -1346,50 +1801,46 @@ function renderTests(items) {
     const tbody = qs('tests-tbody');
     tbody.innerHTML = '';
     
-    if (!items.length) { 
-        // Cập nhật colspan thành 7 để phù hợp với 7 cột trong HTML
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Không có bài kiểm tra nào phù hợp.</td></tr>'; 
-        return; 
-    }
+    // Tổng số cột là 8
+    const TOTAL_COLUMNS = 8; 
+
+    if (!items.length) { 
+        tbody.innerHTML = `<tr><td colspan="${TOTAL_COLUMNS}" class="text-center text-muted">Không có bài kiểm tra nào phù hợp.</td></tr>`; 
+        return; 
+    }
     
     const frag = document.createDocumentFragment();
 
-    // SỬA LỖI NaN: Sử dụng PAGE_SIZE đã được định nghĩa
-    // Đảm bảo state.tests.page có giá trị mặc định là 1 (hoặc đã được khởi tạo là số)
-    // Nếu PAGE_SIZE không tồn tại, nó sẽ là NaN. Ta giả định PAGE_SIZE là hằng số.
-    const currentPage = parseInt(state.tests.page) || 1; // Đảm bảo page là số, mặc định là 1
-    
-    let stt = (currentPage - 1) * PAGE_SIZE + 1; // Sử dụng hằng số PAGE_SIZE
+    const currentPage = parseInt(state.tests.page) || 1; 
+    let stt = (currentPage - 1) * PAGE_SIZE + 1; 
     
     items.forEach(t => {
         const tr = document.createElement('tr');
         const subjectName = SUBJECT_NAMES[t.subject] || t.subject || 'N/A';
         
-        // Đảm bảo lấy ID bài thi
-        const testId = t.id || t._id || ''; 
+        const testId = t.id || t._id || ''; 
 
-        // Lấy và định dạng dữ liệu Khối & Ngày tạo
         const levelDisplay = t.level || 'N/A';
-        const createdAt = t.createdAt 
-                              ? new Date(t.createdAt).toLocaleDateString('vi-VN') 
-                              : 'N/A';
-                              
+        const createdAt = t.createdAt 
+                              ? new Date(t.createdAt).toLocaleDateString('vi-VN') 
+                              : 'N/A';
+        
         tr.innerHTML = `
-            <td class="text-center">${stt++}</td>
-            <td class="text-start">${escapeHtml(t.name)}</td>
-            <td class="text-center">${escapeHtml(subjectName)}</td>
-            <td class="text-center">${escapeHtml(levelDisplay)}</td>
-            <td class="text-center">${createdAt}</td>
-            <td class="text-center">${t.time || 'N/A'}</td>
-            <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary me-1" onclick='openTestEditModal("${testId}")'>Sửa</button>
-                <button class="btn btn-sm btn-outline-success me-1" onclick='openAssignModal("${testId}", "${t.name}")'>Giao đề</button>
-                <button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${t.name}")'>Xóa</button>
-            </td>
-        `;
-        frag.appendChild(tr);
-    });
-    tbody.appendChild(frag);
+<td class="text-center nowrap">${stt++}</td>
+<td class="text-start">${escapeHtml(t.name)}</td> 
+<td class="text-center nowrap">${escapeHtml(subjectName)}</td> 
+<td class="text-center nowrap">${escapeHtml(levelDisplay)}</td>
+<td class="text-center nowrap">${t.count || (t.questions ? t.questions.length : '—')}</td> 
+<td class="text-center nowrap">${createdAt}</td>
+<td class="text-center nowrap">${t.time || 'N/A'}</td>
+<td class="text-center p-1 action-column-buttons"> 
+    <div class="d-flex justify-content-center flex-wrap" style="gap: 1px;"> 
+        <button class="btn btn-sm btn-outline-primary" onclick='openTestEditModal("${testId}")'>Sửa</button><button class="btn btn-sm btn-outline-success" onclick='openAssignModal("${testId}", "${t.name}")'>Giao đề</button><button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${t.name}")'>Xóa</button>
+    </div>
+</td>`; // ✅ XÓA BỎ DẤU XUỐNG DÒNG VÀ KHOẢNG TRẮNG ĐẦU/CUỐI
+        frag.appendChild(tr);
+    });
+    tbody.appendChild(frag);
 }
 
 
@@ -1605,14 +2056,33 @@ async function openTestEditModal(testId) {
     qs('edit-test-id').value = testId;
     qs('edit-test-name').value = test.name || '';
     qs('edit-test-time').value = test.time || 45;
-    qs('edit-test-level').value = test.level || '';
-    qs('edit-test-subject').value = test.subject || '';
-	
-	renderSubjectFilters(); 
+    //qs('edit-test-level').value = test.level || '';
+    //qs('edit-test-subject').value = test.subject || ''; // Giá trị hiển thị
+
+// ✅ BƯỚC SỬA: KHÓA MÔN HỌC VÀ KHỐI LỚP 
+    const subjectEl = qs('edit-test-subject');
+    const levelEl = qs('edit-test-level');
+    
+    // 1. Gán giá trị
+    subjectEl.value = test.subject || '';
+    levelEl.value = test.level || ''; 
+    
+    // 2. KHÓA (disabled) sau khi đã gán giá trị
+    subjectEl.setAttribute('disabled', true); 
+    levelEl.setAttribute('disabled', true);
+    
+    // ✅ BƯỚC SỬA 2: ĐỒNG BỘ HÓA TRẠNG THÁI BỘ LỌC NGÂN HÀNG CÂU HỎI
+    if (typeof manualState !== 'undefined' && typeof manualState.filters !== 'undefined') {
+        manualState.filters.subject = test.subject || ''; 
+        manualState.filters.level = test.level || '';     
+    }
+
+    renderSubjectFilters();
+	subjectEl.value = test.subject || '';  
     renderEditPreview(window.editState.selectedQuestions);
     qs('edit-test-count').value = window.editState.selectedQuestions.length;
 
-    // 4. Tải và Render Ngân hàng câu hỏi (loadEditQuestions không chạy ở BƯỚC 1)
+    // 4. Tải và Render Ngân hàng câu hỏi (loadEditQuestions sử dụng manualState.filters)
     await loadEditQuestions();
 	renderEditQuestionBank();
 	
@@ -1622,6 +2092,10 @@ async function openTestEditModal(testId) {
     alert("Lỗi khi tải dữ liệu đề thi.");
   }
 }
+
+
+
+
 
 // =================== API HELPER ===================
 async function listQuestions(params = {}) {
@@ -1760,10 +2234,11 @@ function renderEditPreview(questions = []) {
     const subj = q.subject || '';
     const diff = q.difficulty || '';
     const score = Number(q.score || 0);
-
     const item = document.createElement('div');
     item.className = 'list-group-item py-2 px-3 mb-1 rounded border';
     item.draggable = true;
+	item.dataset.qId = q._id;     // ID câu hỏi
+	item.dataset.index = i;       // Vị trí (index) hiện tại
     item.ondragstart = (e) => dragEditQuestion(e, q);
 	item.ondragover = allowDrop; 
     item.ondrop = (e) => dropToRearrangeEdit(e, i); // Thả vào vị trí 'i'
@@ -1807,8 +2282,30 @@ function updateEditQuestionScore(index, newScore) {
   renderEditPreview(window.editState.selectedQuestions);
 }
 
-function dragEditQuestion(e, question) {
-  e.dataTransfer.setData("edit-question", JSON.stringify(question));
+function dragEditQuestion(event, questionData) {
+    // 1. Đặt ID (text/plain) - Khắc phục lỗi "Không lấy được ID"
+    // Khi kéo một câu hỏi TỪ Ngân hàng Câu hỏi (Question Bank):
+    if (questionData && questionData._id) {
+        event.dataTransfer.setData('text/plain', questionData._id); 
+    }
+    
+    // Khi kéo một câu hỏi TRONG Khung Đề Thi (Reorder):
+    // Phải lấy vị trí nguồn từ thuộc tính dữ liệu của phần tử HTML
+    const sourceEl = event.target.closest('[data-q-id]');
+    if (sourceEl) {
+        const srcIndex = sourceEl.dataset.index;
+        
+        // 2. Đặt Vị trí Nguồn (sourceIndex) - BẮT BUỘC cho sắp xếp lại
+        if (srcIndex !== undefined) {
+             event.dataTransfer.setData('sourceIndex', srcIndex);
+        } else {
+             console.error("Lỗi: Không tìm thấy Index nguồn để sắp xếp lại.");
+        }
+    }
+
+    // Đặt hiệu ứng cho phép sắp xếp lại
+    event.dataTransfer.dropEffect = 'move';
+    setTimeout(() => event.target.classList.add('dragging'), 0);
 }
 
 
@@ -1854,40 +2351,52 @@ function dropToEditPreview(e) {
 }
 
 
-function dropToRearrangeEdit(e, targetIndex) {
-    e.preventDefault();
-    
-    // Lấy dữ liệu câu hỏi đang kéo (được set từ dragEditQuestion)
-    const questionData = e.dataTransfer.getData("edit-question");
-    if (!questionData) return;
+function dropToRearrangeEdit(event, targetIndex) {
+    event.preventDefault();
 
-    try {
-        const question = JSON.parse(questionData);
+    const qId = event.dataTransfer.getData('text/plain');
+    const srcIndexStr = event.dataTransfer.getData('sourceIndex');
+    
+    if (!qId) return;
+
+    // --- Xử lý Thao tác Sắp xếp lại (Reorder) ---
+    if (srcIndexStr) {
+        // Đây là thao tác Sắp xếp lại (Reorder), đã có srcIndex
+        const srcIndex = parseInt(srcIndexStr, 10);
+        
+        if (srcIndex === targetIndex) return; 
+
+        const arr = window.editState.selectedQuestions;
+        
+        // Thực hiện sắp xếp lại mảng
+        const moved = arr[srcIndex];
+        arr.splice(srcIndex, 1);
+        arr.splice(targetIndex, 0, moved);
+        
+        // Render lại giao diện
+        renderEditPreview(arr); 
+
+    // --- Xử lý Thao tác Thêm mới vào vị trí (Insert) ---
+    } else {
+        // Đây là thao tác Kéo thả từ Ngân hàng Câu hỏi vào (Thêm mới)
+        
         const arr = window.editState.selectedQuestions;
 
-        // 1. TÌM VÀ XÓA CÂU HỎI GỐC (nếu đang kéo câu hỏi đã có)
-        // Tìm câu hỏi trong mảng đang chọn
-        const srcIndex = arr.findIndex(q => q._id === question._id); 
+        // 1. Kiểm tra trùng lặp
+        const isSelected = arr.some(s => s._id === qId); 
+        if (isSelected) return; // Không làm gì nếu đã chọn
 
-        if (srcIndex > -1) {
-            // Trường hợp 1: KÉO THẢ SẮP XẾP LẠI (Di chuyển câu hỏi đã chọn)
-            arr.splice(srcIndex, 1); // Xóa khỏi vị trí cũ
-        } else {
-            // Trường hợp 2: KÉO THẢ TỪ NGÂN HÀNG (Thêm mới)
-            // Đảm bảo Deep Copy lần nữa nếu không muốn thay đổi dữ liệu ngân hàng
-            // (Mặc dù đã được Deep Copy trong dragEditQuestion, thêm lần nữa để chắc chắn)
-        }
+        // 2. Tìm câu hỏi đầy đủ từ ngân hàng
+        const q = window.editState.questionBank.find(x => x._id === qId); 
+        if (!q) return;
 
-        // 2. CHÈN VÀO VỊ TRÍ MỚI
-        // Nếu câu hỏi không có trong mảng (từ ngân hàng), thì nó là thêm mới
-        const qToInsert = srcIndex > -1 ? question : JSON.parse(JSON.stringify(question));
-        arr.splice(targetIndex, 0, qToInsert); // Chèn vào vị trí đích
-
-        // 3. CẬP NHẬT UI
-        renderEditPreview(arr);
+        // 3. Tạo Deep Copy và Thêm vào vị trí chỉ định (targetIndex)
+        const qCopy = JSON.parse(JSON.stringify(q));
+        arr.splice(targetIndex, 0, qCopy); 
         
-    } catch (err) {
-        console.error("Lỗi kéo thả sắp xếp:", err);
+        // 4. Render lại giao diện
+        renderEditPreview(arr); 
+        renderEditQuestionBank(); // Cập nhật trạng thái "đã chọn" trong ngân hàng
     }
 }
 
@@ -1902,15 +2411,17 @@ async function loadEditQuestions() {
     window.editState = window.editState || {}; 
     window.editState.questionBank = []; // Khởi tạo mảng rỗng để tránh lỗi
     try {
-        const subject = qs('edit-test-subject').value || '';
-        const level = qs('edit-test-level').value || '';
+        // ✅ BƯỚC SỬA: ĐỌC TỪ TRẠNG THÁI LỌC ĐÃ ĐƯỢC ĐỒNG BỘ TỪ openTestEditModal
+        const filters = manualState.filters || {};
+        const subject = filters.subject || ''; // Đọc từ manualState.filters.subject
+        const level = filters.level || '';     // Đọc từ manualState.filters.level
+        
+        // Giữ nguyên việc đọc các trường bộ lọc Ngân hàng câu hỏi
         const difficulty = qs('edit-q-difficulty').value || '';
         const keyword = (qs('edit-q-search').value || '').toLowerCase();
 
-        // ❌ BỎ: Xóa lệnh cập nhật trạng thái "Đang tải" trực tiếp lên tbody
-        // (Việc này sẽ được renderEditQuestionBank() xử lý sau)
-
         const url = new URL(`${serverUrl}/api/questions`);
+        // Sử dụng biến subject và level đã lấy từ manualState.filters
         if (subject) url.searchParams.append('subject', subject);
         if (level && level !== 'All') url.searchParams.append('level', level);
         if (difficulty) url.searchParams.append('difficulty', difficulty);
@@ -1924,23 +2435,14 @@ async function loadEditQuestions() {
           ? questionsArray.filter(q => (q.question || q.q || '').toLowerCase().includes(keyword))
           : questionsArray;
 
-        // ✅ BƯỚC QUAN TRỌNG: LƯU KẾT QUẢ ĐÃ LỌC VÀO STATE
-        // Hàm renderEditQuestionBank() sẽ sử dụng dữ liệu này để vẽ và tô màu
+        // ✅ LƯU KẾT QUẢ ĐÃ LỌC VÀO STATE
         window.editState.questionBank = filtered; 
-        
-        // ❌ BỎ: Toàn bộ logic render trực tiếp lên tbody (tbody.innerHTML = ''; filtered.forEach(...))
-        // Phần render này được chuyển sang renderEditQuestionBank()
 
     } catch (err) {
         console.error("Lỗi khi tải câu hỏi:", err);
-        // ✅ ĐẢM BẢO QUESTION BANK LÀ MẢNG RỖNG KHI XẢY RA LỖI để tránh lỗi TypeError
         window.editState.questionBank = [];
-        
-        // Vì hàm này không còn render trực tiếp, chúng ta cần để renderEditQuestionBank() 
-        // xử lý thông báo lỗi bằng cách kiểm tra questionBank là mảng rỗng.
     }
 }
-
 /*function toggleSelectEditQuestion(qId) {
     const qIndex = window.editState.selectedQuestions.findIndex(q => q._id === qId);
     const rowElement = qs(`tr[data-id="${qId}"]`, qs('edit-questions-tbody'));
@@ -2024,29 +2526,72 @@ function toggleSelectEditQuestion(qId) {
 
 
 async function saveEditedTest() {
-  const modalEl = qs('modalTestEdit');
-  const testId = modalEl.dataset.testId;
+  const modalEl = qs('modalTestEdit'); 
+  
+  // ✅ Đọc ID đề thi trực tiếp từ trường input ẩn
+  const testIdInput = qs('edit-test-id');
+  const testId = testIdInput ? testIdInput.value : undefined;
+
+  if (!testId) {
+    showToast("Lỗi: Không tìm thấy ID đề thi để lưu. Vui lòng thử lại.", "danger");
+    return;
+  }
+  
+  // ✅ Đọc các trường nhập liệu khác (ID đã được sửa ở lần trước)
+  const nameInput = qs('edit-test-name'); 
+  const timeInput = qs('edit-test-time');
+  const levelInput = qs('edit-test-level');
+  const subjectInput = qs('edit-test-subject');
+
+  if (!nameInput || !timeInput || !levelInput || !subjectInput) {
+    console.error("Lỗi: Không tìm thấy một hoặc nhiều trường nhập liệu (edit-test-...).");
+    showToast("Lỗi: Không tìm thấy các trường nhập liệu để lưu!", "danger");
+    return;
+  }
+  
   const payload = {
-    name: qs('m-test-edit-name').value,
-    time: parseInt(qs('m-test-edit-time').value),
-    level: qs('m-test-edit-level').value,
-    subject: qs('m-test-edit-subject').value,
+    name: nameInput.value.trim(),
+    time: parseInt(timeInput.value),
+    level: levelInput.value,
+    subject: subjectInput.value,
     questions: getEditedTestQuestions()
   };
 
   try {
-    await fetch(`${serverUrl}/api/tests/${testId}`, {
+    // GỌI API VỚI ID ĐÃ ĐƯỢC ĐỌC TỪ INPUT
+    await fetch(`${serverUrl}/api/tests/${testId}`, { 
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    bootstrap.Modal.getInstance(modalEl).hide();
+    
+    // Kiểm tra modalEl tồn tại trước khi gọi getInstance
+    if (modalEl) {
+        bootstrap.Modal.getInstance(modalEl).hide();
+    }
     await loadTests();
     showToast("Đã lưu đề thi thành công!");
   } catch (err) {
     console.error(err);
     showToast("Lỗi lưu đề thi!", "danger");
   }
+}
+
+// ✅ HÀM ĐÃ SỬA: Đọc từ window.editState.selectedQuestions
+function getEditedTestQuestions() {
+    // Kiểm tra biến trạng thái đang giữ danh sách câu hỏi đề thi
+    if (typeof window.editState !== 'undefined' && window.editState.selectedQuestions) {
+        
+        // Bắt buộc: Map qua mảng để chỉ lấy các trường cần thiết 
+        // (ví dụ: _id, points) để gửi về server.
+        return window.editState.selectedQuestions.map(q => ({
+            _id: q._id,
+            points: q.points || 1 // Giả định mỗi câu hỏi mặc định 1 điểm
+        }));
+    }
+    
+    // Trả về mảng rỗng nếu không tìm thấy dữ liệu (để tránh lỗi)
+    return []; 
 }
 
 function renderSubjectFilters() {
@@ -2385,12 +2930,227 @@ document.getElementById('modalTestAuto').addEventListener('show.bs.modal', () =>
 });
     async function deleteTest(id){ if(!confirm('Xóa bài thi?')) return; try{ await fetch(`${serverUrl}/api/tests/${id}`, { method:'DELETE' }); await loadTests(); } catch(e){ alert('Lỗi xóa'); } }
 
+
+
     // STUDENTS (teacher)
-    async function loadStudents(){ setTableLoading('students-tbody','Đang tải học sinh...'); try{ const data = await fetchJson(`${serverUrl}/api/users`); state.students.list = (Array.isArray(data)? data : []).filter(u => (u.role||'student') !== 'teacher'); state.students.total = state.students.list.length; state.students.page = 1; renderPaged('students'); } catch(e){ setTableError('students-tbody','Không thể tải học sinh'); } }
-    function renderStudents(items){ const tbody = qs('students-tbody'); tbody.innerHTML=''; if(!items.length){ tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Không có học sinh</td></tr>'; return; } const frag = document.createDocumentFragment(); items.forEach(u=>{ const tr = document.createElement('tr'); tr.innerHTML = `<td>${escapeHtml(u.user||u.username||'')}</td><td>${escapeHtml(u.role||'')}</td><td><button class="btn btn-sm btn-outline-primary me-1" onclick='openStudentFromRow(${encodeURIComponent(JSON.stringify(u))})'>Sửa</button><button class="btn btn-sm btn-outline-danger" onclick='deleteStudent("${u.id||u._id||''}")'>Xóa</button></td>`; frag.appendChild(tr); }); tbody.appendChild(frag); }
+	
+	async function openStudentModal(studentId = null) {
+    const modalEl = qs('modalStudentEdit'); // Dùng # cho ID
+    const modal = new bootstrap.Modal(modalEl);
+    
+    // Đặt lại tiêu đề và form
+    qs('student-modal-title').textContent = studentId ? '✏️ Sửa thông tin Học sinh' : '➕ Thêm Học sinh mới';
+    qs('student-form').reset();
+    qs('student-id').value = ''; // Reset ID
+    
+    if (studentId) {
+        try {
+            // ✅ THÊM LOGIC FETCH DỮ LIỆU THỰC TẾ
+            const student = await fetchJson(`${serverUrl}/api/users/${studentId}`);
+            
+            qs('student-id').value = student.id || student._id; 
+            qs('student-username').value = student.user || ''; // Thay vì student.username
+			qs('student-fullname').value = student.fullName || '';
+            qs('student-class').value = student.className || '';
+            qs('student-gender').value = student.gender || '';
+            qs('student-role').value = student.role || 'student';
+            // Không gán mật khẩu
+            
+        } catch (error) {
+            console.error("Lỗi khi tải dữ liệu học sinh:", error);
+            alert("Không tìm thấy thông tin học sinh hoặc lỗi kết nối!");
+            return;
+        }
+    }
+    
+    modal.show();
+}
+
+
+	
+    // Biến lưu trữ debounce timer
+let studentFilterTimer; 
+
+// Hàm debounce để tránh gọi API liên tục
+function debounceLoadStudents() {
+    clearTimeout(studentFilterTimer);
+    studentFilterTimer = setTimeout(() => {
+        loadStudents();
+    }, 300); // Đợi 300ms sau khi người dùng ngừng gõ
+}
+
+// Hàm tải học sinh với bộ lọc
+// Thay thế hàm loadStudents() hiện tại bằng hàm này
+async function loadStudents() {
+    // 1. Lấy giá trị từ bộ lọc
+    const role = qs('filter-student-role').value;
+    const className = qs('filter-student-class').value;
+    const nameSearch = qs('search-student-name').value;
+    const gender = qs('filter-student-gender').value; // ✅ LẤY GIÁ TRỊ GIỚI TÍNH MỚI
+    
+    // 2. Xây dựng chuỗi truy vấn
+    let url = `${serverUrl}/api/users?page=${studentsPage}&limit=${PAGE_LIMIT}`;
+
+    if (role) {
+        url += `&role=${role}`;
+    }
+    if (className) {
+        url += `&class=${className}`;
+    }
+    if (nameSearch) {
+        url += `&name=${nameSearch}`;
+    }
+    if (gender) { // ✅ THÊM LỌC GIỚI TÍNH VÀO URL
+        url += `&gender=${gender}`;
+    }
+
+    // 3. Gọi API và render
+    try {
+        const data = await fetchJson(url);
+        // ...
+        renderStudents(data.users || data);
+    } catch (e) {
+        console.error("Lỗi khi tải danh sách học sinh:", e);
+    }
+}
+
+// Hàm xóa lọc
+function clearStudentFilters() {
+    qs('filter-student-role').value = '';
+    qs('filter-student-class').value = '';
+    qs('search-student-name').value = '';
+    qs('filter-student-gender').value = ''; // ✅ RESET BỘ LỌC GIỚI TÍNH
+    loadStudents();
+}
+    
+// Thêm hàm tiện ích hiển thị Giới tính
+function getGenderLabel(gender) {
+    const genders = {
+        'male': 'Nam',
+        'female': 'Nữ',
+        'other': 'Khác'
+    };
+    return genders[gender] || 'N/A';
+}
+
+function getRoleLabel(role) {
+    const roles = {
+        'student': 'Học sinh',
+        'monitor': 'Lớp trưởng',
+        'vice_monitor': 'Lớp phó',
+        'team_leader': 'Tổ trưởng',
+		'teacher': 'Giáo viên',
+        'admin': 'Quản trị viên'
+    };
+    return roles[role] || 'Học sinh'; // Mặc định là 'Học sinh'
+}
+
+function renderStudents(items){ 
+    const tbody = qs('students-tbody'); 
+    tbody.innerHTML = ''; 
+
+    // ✅ KHỞI TẠO frag NGAY ĐẦU HÀM ĐỂ KHẮC PHỤC LỖI ReferenceError
+    const frag = document.createDocumentFragment(); 
+    
+    // Xử lý trường hợp danh sách rỗng
+    if (!items || items.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="7" class="text-center text-muted py-3">Không tìm thấy học sinh nào theo điều kiện lọc.</td>`;
+        tbody.appendChild(tr);
+        return;
+    }
+    
+    // Lặp qua danh sách và thêm vào fragment
+    items.forEach((u, index) => { 
+        const studentId = u.id || u._id || '';
+        const tr = document.createElement('tr'); 
+        
+        tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${escapeHtml(u.user || '')}</td>
+            
+            <td>${escapeHtml(u.fullName || 'Chưa cập nhật')}</td>
+            <td>${escapeHtml(u.className || 'N/A')}</td> 
+            
+            <td>${getGenderLabel(u.gender || '')}</td> <!-- CỘT GIỚI TÍNH -->
+            
+            <td>${getRoleLabel(u.role || 'student')}</td>
+            
+            <td>
+                <button class="btn btn-sm btn-outline-primary me-1" 
+                        onclick='openStudentModal("${studentId}")'>Sửa</button>
+                        
+                <button class="btn btn-sm btn-outline-danger" 
+                        onclick='deleteStudent("${studentId}")'>Xóa</button>
+            </td>`; 
+        frag.appendChild(tr); 
+    }); 
+    
+    // Đưa fragment vào DOM (chỉ một lần)
+    tbody.appendChild(frag); 
+}
+	
     function openStudentFromRow(uStr){ try{ const u = JSON.parse(decodeURIComponent(uStr)); openStudent(u); } catch(e){ openStudent(); } }
     function openStudent(u){ const modalEl = qs('modalStudent'); const modal = new bootstrap.Modal(modalEl); if(u){ qs('m-stu-id').value = u.id || u._id || ''; qs('m-stu-user').value = u.user || u.username || ''; qs('m-stu-pass').value = u.pass || ''; } else { qs('m-stu-id').value=''; qs('m-stu-user').value=''; qs('m-stu-pass').value=''; } modal.show(); }
-    async function saveStudent(){ const id = qs('m-stu-id').value; const payload = { user: qs('m-stu-user').value, pass: qs('m-stu-pass').value, role: 'student' }; try{ if(id) await fetchJson(`${serverUrl}/api/users/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }); else await fetchJson(`${serverUrl}/api/users`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) }); bootstrap.Modal.getInstance(qs('modalStudent')).hide(); await loadStudents(); } catch(e){ alert('Lỗi lưu học sinh'); } }
+	
+    async function saveStudent() {
+    const id = qs('student-id').value;
+    
+    // Lấy giá trị các trường thông tin
+    const user = qs('student-username').value;
+    const pass = qs('student-password').value;
+    const role = qs('student-role').value;
+    const fullName = qs('student-fullname').value;
+    const className = qs('student-class').value;
+    const gender = qs('student-gender').value; 
+
+    // Chuẩn bị dữ liệu gửi đi
+    const dataToSend = {
+        user: user,
+        role: role,
+        fullName: fullName,
+        className: className,
+        gender: gender,
+    };
+    if (pass) dataToSend.pass = pass; // Chỉ gửi pass nếu có giá trị (thêm mới hoặc sửa)
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `${serverUrl}/api/users/${id}` : `${serverUrl}/api/users`;
+
+    try {
+        await fetchJson(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataToSend)
+        });
+
+        alert(`Đã ${id ? 'cập nhật' : 'thêm'} học sinh thành công!`);
+
+        // Đóng Modal
+        const modalEl = document.getElementById('modalStudentEdit'); 
+        if (modalEl) {
+            const modalInstance = bootstrap.Modal.getInstance(modalEl); 
+            if (modalInstance) {
+                modalInstance.hide(); 
+            }
+        }
+        
+        // Gọi loadStudents sau khi lưu thành công (Khắc phục lỗi ReferenceError)
+        await loadStudents();
+
+    } catch (error) {
+        let errorMessage = `Lỗi khi lưu học sinh: ${error.message || 'Lỗi không xác định.'}`;
+        
+        // ✅ XỬ LÝ LỖI 409 (Conflict) TỪ BACKEND
+        if (error.status === 409) {
+            errorMessage = "Lỗi: Tên đăng nhập (Username) này đã tồn tại. Vui lòng chọn một tên khác.";
+        }
+        
+        console.error("Lỗi khi lưu/cập nhật học sinh:", error);
+        alert(errorMessage);
+    }
+}
+	
     async function deleteStudent(id){ if(!confirm('Xóa học sinh?')) return; try{ await fetch(`${serverUrl}/api/users/${id}`, { method:'DELETE' }); await loadStudents(); } catch(e){ alert('Lỗi xóa'); } }
 
     // ASSIGN
@@ -2485,51 +3245,168 @@ async function confirmAssign() {
     async function loadResults(){ const testId = qs('results-test-filter')? qs('results-test-filter').value : ''; const q = testId? `?testId=${encodeURIComponent(testId)}` : ''; const tbody = qs('results-tbody'); tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải kết quả...</div></div></td></tr>'; try{ const assigns = await fetchJson(`${serverUrl}/api/assigns${q}`); if(!Array.isArray(assigns) || assigns.length===0){ tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không có kết quả</td></tr>'; return; } const users = await fetchJson(`${serverUrl}/api/users`); const frag = document.createDocumentFragment(); assigns.forEach(a=>{ const st = (users||[]).find(u=> (u.id||u._id) === a.studentId) || { user: a.studentId }; const tr = document.createElement('tr'); tr.innerHTML = `<td>${escapeHtml(st.user)}</td><td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.status)}</td><td>${escapeHtml(a.score||'')}</td><td>${escapeHtml(a.submittedAt||'')}</td>`; frag.appendChild(tr); }); tbody.innerHTML=''; tbody.appendChild(frag); } catch(e){ tbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Lỗi tải kết quả</td></tr>'; } }
 
     // ---------- STUDENT functions ----------
-    async function loadAssignedTests(){
-    const tbody = qs('assigned-tbody'); tbody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải...</div></div></td></tr>';
+    // -------------------- HÀM XỬ LÝ ASSIGNMENTS (HỌC SINH) --------------------
+
+// Biến lưu trạng thái lọc hiện tại ('all', 'pending', 'submitted')
+let assignmentFilterStatus = 'all';
+
+// ----------------------------------------------------------------------
+// CÁC HÀM TẢI VÀ XỬ LÝ ASSIGNMENTS CHO HỌC SINH (Thay thế logic cũ)
+// ----------------------------------------------------------------------
+
+/**
+ * Tải tất cả Assignments và Results của học sinh hiện tại, sau đó xử lý và hiển thị.
+ */
+async function loadAssignments() {
+    // Hiển thị trạng thái tải cho cả hai bảng
+    const pendingTbody = qs('assigned-tbody');
+    const doneTbody = qs('done-tbody');
+    
+    if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="4" class="text-center"><div class="spinner-border text-success spinner-border-sm" role="status"></div> Đang tải đề được giao...</td></tr>';
+    if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-border text-success spinner-border-sm" role="status"></div> Đang tải bài đã làm...</td></tr>';
+
     try {
-        const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user')||'null');
-        const q = s ? `?studentId=${encodeURIComponent(s.id||s._id||s.user)}` : '';
-        // ----------------------------------------------------
-        // ĐÃ SỬA: 'assignments' thành 'assigns'
-        const assigns = await fetchJson(`${serverUrl}/api/assigns${q}`); 
-        // ----------------------------------------------------
-        if(!Array.isArray(assigns) || assigns.length===0){ tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Không có đề được giao</td></tr>'; return; }
-        const frag = document.createDocumentFragment();
-        assigns.forEach(a=>{
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.subject||'')}</td><td>${escapeHtml(a.time || '')} phút</td><td><button class="btn btn-sm btn-success" onclick='startTest("${a.testId||a.test||a.id||a._id}")'>Làm bài</button></td>`;
-            frag.appendChild(tr);
-        });
-        tbody.innerHTML=''; tbody.appendChild(frag);
-    } catch(e){ tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Lỗi tải đề</td></tr>'; }
+        const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
+        if (!s || !s.id) {
+            console.error("Không tìm thấy ID người dùng.");
+            if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Lỗi: Không tìm thấy thông tin học sinh.</td></tr>';
+            if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Lỗi: Không tìm thấy thông tin học sinh.</td></tr>';
+            return;
+        }
+
+        const studentId = s.id;
+        const q = `?studentId=${encodeURIComponent(studentId)}`;
+        
+        // 1. Tải danh sách Bài tập được giao (Assignments)
+        const assigns = await fetchJson(`${serverUrl}/api/assigns${q}`);
+        
+        // 2. Tải danh sách Kết quả bài làm (Results)
+        const results = await fetchJson(`${serverUrl}/api/results${q}`);
+        
+        // 3. Xử lý và phân loại
+        const processed = processAssignments(assigns, results);
+        
+        // 4. Render vào hai bảng riêng biệt
+        renderPendingAssignments(processed.pending);
+        renderCompletedAssignments(processed.completed);
+
+    } catch (e) {
+        console.error("Lỗi tải Assignments:", e);
+        if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Lỗi tải đề.</td></tr>';
+        if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Lỗi tải bài đã làm.</td></tr>';
+    }
 }
 
-    async function loadCompletedTests(){
-      const tbody = qs('done-tbody'); tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải...</div></div></td></tr>';
-      try {
-        const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user')||'null');
-        const q = s ? `?studentId=${encodeURIComponent(s.id||s._id||s.user)}` : '';
-        const done = await fetchJson(`${serverUrl}/api/assigns${q}&status=submitted`);
-        if(!Array.isArray(done) || done.length===0){ tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Chưa có bài đã làm</td></tr>'; return; }
-        const frag = document.createDocumentFragment();
-        done.forEach(a=>{
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.subject||'')}</td><td>${escapeHtml(a.status)}</td><td>${escapeHtml(a.score||'')}</td><td><button class="btn btn-sm btn-outline-primary" onclick='viewResult("${a.id||a._id||a.assignmentId||a.testId}")'>Xem</button></td>`;
-          frag.appendChild(tr);
-        });
-        tbody.innerHTML=''; tbody.appendChild(frag);
-      } catch(e){ tbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Lỗi tải</td></tr>'; }
+/**
+ * Ghép Assignments và Results để xác định trạng thái và điểm số.
+ * @param {Array} assigns - Danh sách Assignments
+ * @param {Array} results - Danh sách Results
+ * @returns {object} {pending: [], completed: []}
+ */
+function processAssignments(assigns, results) {
+    const resultsMap = new Map();
+    results.forEach(r => resultsMap.set(r.assignmentId, r));
+
+    const pending = [];
+    const completed = [];
+    
+    assigns.forEach(a => {
+        const result = resultsMap.get(a.id); // Dùng a.id là assignmentId
+        
+        if (result) {
+            // ĐÃ LÀM
+            a.status = 'Đã nộp';
+            a.score = result.calculatedScore || 'Đang chấm';
+            a.resultId = result.id; // Lưu ID kết quả để xem lại
+            completed.push(a);
+        } else {
+            // CHƯA LÀM
+            a.status = 'Chưa làm';
+            a.score = '';
+            pending.push(a);
+        }
+    });
+
+    return { pending, completed };
+}
+
+/**
+ * Hiển thị danh sách bài tập CHƯA LÀM vào bảng assigned-tbody.
+ * @param {Array} pendingAssigns - Danh sách bài tập chưa làm
+ */
+function renderPendingAssignments(pendingAssigns) {
+    const tbody = qs('assigned-tbody');
+    if (!tbody) return; 
+
+    if (pendingAssigns.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Không có đề được giao.</td></tr>';
+        return;
     }
 
-    function startTest(testId){ // open test.html in same domain
-      // save current user to sessionStorage already done at login
-      window.location.href = `test.html?testId=${encodeURIComponent(testId)}`;
+    const frag = document.createDocumentFragment();
+    pendingAssigns.forEach(a => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${escapeHtml(a.testName || a.testId)}</td>
+            <td>${escapeHtml(a.subject || '—')}</td>
+            <td>${escapeHtml(a.time || '—')} phút</td>
+            <td>
+                <button class="btn btn-sm btn-success" 
+                        onclick="startQuiz('${a.testId}', '${a.id}', ${a.time})">Làm bài</button>
+            </td>
+        `;
+        frag.appendChild(tr);
+    });
+
+    tbody.innerHTML = '';
+    tbody.appendChild(frag);
+}
+
+/**
+ * Hiển thị danh sách bài tập ĐÃ LÀM vào bảng done-tbody.
+ * @param {Array} completedAssigns - Danh sách bài tập đã làm
+ */
+function renderCompletedAssignments(completedAssigns) {
+    const tbody = qs('done-tbody');
+    if (!tbody) return;
+
+    if (completedAssigns.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Chưa có bài đã làm.</td></tr>';
+        return;
     }
 
-    function viewResult(ref){ // open test.html in review mode
-      window.location.href = `test.html?testId=${encodeURIComponent(ref)}&review=1`;
-    }
+    const frag = document.createDocumentFragment();
+    completedAssigns.forEach(a => {
+        const tr = document.createElement('tr');
+        // Trạng thái/Điểm số được tính trong processAssignments
+        tr.innerHTML = `
+            <td>${escapeHtml(a.testName || a.testId)}</td>
+            <td>${escapeHtml(a.subject || '—')}</td>
+            <td>${escapeHtml(a.status)}</td>
+            <td>${escapeHtml(a.score || '—')}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" 
+                        onclick="viewResult('${a.resultId}')">Xem</button>
+            </td>
+        `;
+        frag.appendChild(tr);
+    });
+
+    tbody.innerHTML = '';
+    tbody.appendChild(frag);
+}
+
+// Hàm viewResult cũ cần giữ lại hoặc được định nghĩa lại nếu bạn không muốn dùng test.html
+function viewResult(resultId) { 
+    // Tạm thời chuyển hướng để xem kết quả chi tiết.
+    // Nếu bạn muốn xem kết quả trong Modal, chúng ta cần thay đổi logic này.
+    alert('Chức năng Xem kết quả chi tiết chưa được triển khai. ID kết quả: ' + resultId);
+    // window.location.href = `test.html?resultId=${encodeURIComponent(resultId)}&review=1`;
+}
+
+
+
+
 
 // Thêm hàm thống kê này vào khối <script>
 function renderQuestionStats(questions) {
