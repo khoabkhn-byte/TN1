@@ -153,6 +153,10 @@ def update_user(user_id):
         update_fields["pass"] = data["pass"]
     if "role" in data:
         update_fields["role"] = data["role"]
+    if "fullName" in data: 
+        update_fields["fullName"] = data["fullName"] # ✅ TRƯỜNG MỚI
+    if "className" in data: 
+        update_fields["className"] = data["className"] # ✅ TRƯỜNG MỚI    
     if "dob" in data:
         update_fields["dob"] = data["dob"]
     if "gender" in data:
