@@ -822,6 +822,25 @@ def assign_multiple():
         created.append(newa)
 
     return jsonify({"success": True, "count": len(created), "assigns": created}), 201
+    
+# --------------------- QUIZ ---------------------
+@app.route("/quizzes/<quiz_id>", methods=["GET"])
+@app.route("/api/quizzes/<quiz_id>", methods=["GET"])
+@app.route("/tests/<quiz_id>", methods=["GET"])
+@app.route("/api/tests/<quiz_id>", methods=["GET"])
+def get_quiz(quiz_id):
+    """
+    Lấy thông tin một bài thi (quiz/test) theo ID.
+    Endpoint này giải quyết lỗi 404 khi frontend gọi /api/quizzes/<id>.
+    """
+    # Tìm bài thi trong collection 'quizzes' (Giả định bạn lưu bài thi ở đây)
+    doc = db.quizzes.find_one({"id": quiz_id}, {"_id": 0}) 
+    
+    if not doc:
+        # Trả về 404 nếu không tìm thấy quiz
+        return jsonify({"message": "Bài thi không tìm thấy."}), 404
+    
+    return jsonify(doc), 200 # Trả về dữ liệu bài thi
 
 # --------------------- RESULTS ---------------------
 @app.route("/results", methods=["GET"])
