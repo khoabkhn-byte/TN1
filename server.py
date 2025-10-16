@@ -98,7 +98,35 @@ def register():
 @app.route("/users", methods=["GET"])
 @app.route("/api/users", methods=["GET"])
 def get_users():
-    docs = list(db.users.find({}, {"_id": 0}))
+    query = {}
+    
+    # 1. Lọc theo Vai trò
+    role = request.args.get("role")
+    if role:
+        query["role"] = role
+        
+    # 2. Lọc theo Lớp
+    className = request.args.get("class")
+    if className:
+        # Tìm kiếm chính xác tên lớp (nếu muốn tìm kiếm tương đối thì dùng $regex)
+        query["className"] = className 
+        
+    # 3. Tìm kiếm theo Tên (Tìm kiếm tương đối)
+    nameSearch = request.args.get("name")
+    if nameSearch:
+        # Tìm kiếm không phân biệt chữ hoa/thường trong trường 'fullName'
+        query["fullName"] = {"$regex": nameSearch, "$options": "i"} 
+    
+    # Thực hiện truy vấn và loại trừ _id
+    docs = list(db.users.find(query, {"_id": 0}))
+    
+    # Nếu bạn dùng phân trang, logic sẽ phức tạp hơn:
+    # total_users = db.users.count_documents(query)
+    # limit = int(request.args.get("limit", 10))
+    # offset = int(request.args.get("page", 1) - 1) * limit
+    # docs = list(db.users.find(query, {"_id": 0}).skip(offset).limit(limit))
+    # return jsonify({"total": total_users, "users": docs})
+
     return jsonify(docs)
 
 @app.route("/users/<user_id>", methods=["GET"])
