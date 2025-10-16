@@ -87,7 +87,10 @@ def register():
     # ✅ THÊM CÁC TRƯỜNG MỚI
     fullName = data.get("fullName"); className = data.get("className")
     gender = data.get("gender") # đã có từ trước
-
+    # ✅ LOGIC ĐỒNG BỘ: Chuyển vai trò 'admin' thành 'teacher' khi lưu
+    role_to_save = data.get("role", "student")
+    if role_to_save == "admin":
+        role_to_save = "teacher" # Buộc lưu là 'teacher' để đồng bộ với Frontend
     if not user or passwd is None:
         return jsonify({"success": False, "message": "Missing user or pass"}), 400
     if db.users.find_one({"user": user}):
@@ -170,7 +173,10 @@ def update_user(user_id):
     if "pass" in data:
         update_fields["pass"] = data["pass"]
     if "role" in data:
-        update_fields["role"] = data["role"]
+        role_to_update = data["role"]
+        if role_to_update == "admin":
+            role_to_update = "teacher" # Buộc lưu là 'teacher' để đồng bộ với Frontend
+        update_fields["role"] = role_to_update
     if "fullName" in data: 
         update_fields["fullName"] = data["fullName"] # ✅ TRƯỜNG MỚI
     if "className" in data: 
