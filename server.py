@@ -100,6 +100,47 @@ def get_users():
     docs = list(db.users.find({}, {"_id": 0}))
     return jsonify(docs)
 
+@app.route("/users/<user_id>", methods=["GET"])
+@app.route("/api/users/<user_id>", methods=["GET"])
+def get_user(user_id):
+    """Bổ sung: Lấy thông tin người dùng theo ID để hỗ trợ Sửa (Edit)"""
+    doc = db.users.find_one({"id": user_id}, {"_id": 0})
+    if not doc:
+        return jsonify({"message": "Người dùng không tìm thấy."}), 404
+    return jsonify(doc)
+
+
+@app.route("/users/<user_id>", methods=["PUT", "PATCH"])
+@app.route("/api/users/<user_id>", methods=["PUT", "PATCH"])
+def update_user(user_id):
+    """Bổ sung: Xử lý yêu cầu Sửa/Cập nhật (PUT) thông tin người dùng."""
+    data = request.get_json() or {}
+    update_fields = {}
+    
+    # Sử dụng các trường 'user' và 'pass' nhất quán với route /login và /register
+    if "user" in data:
+        update_fields["user"] = data["user"]
+    if "pass" in data:
+        update_fields["pass"] = data["pass"]
+    if "role" in data:
+        update_fields["role"] = data["role"]
+    if "dob" in data:
+        update_fields["dob"] = data["dob"]
+    if "gender" in data:
+        update_fields["gender"] = data["gender"]
+        
+    if not update_fields:
+        return jsonify({"message": "Không có trường nào được cung cấp để cập nhật."}), 400
+
+    # Cập nhật trong MongoDB dựa trên trường 'id'
+    res = db.users.update_one({"id": user_id}, {"$set": update_fields})
+
+    if res.matched_count == 0:
+        return jsonify({"message": "Người dùng không tìm thấy."}), 404
+    
+    updated_user = db.users.find_one({"id": user_id}, {"_id": 0})
+    return jsonify(updated_user), 200 # Trả về 200 OK với dữ liệu cập nhật
+
 @app.route("/users/<user_id>", methods=["DELETE"])
 @app.route("/api/users/<user_id>", methods=["DELETE"])
 def delete_user(user_id):
