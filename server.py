@@ -847,15 +847,14 @@ def create_result():
     student_answers = data.get("studentAnswers", [])
     test_id = data.get("testId")
 
-    # Lấy danh sách ID câu hỏi
-    q_ids = [a["questionId"] for a in student_answers if "questionId" in a]
+    # 🔹 Lấy danh sách ID câu hỏi
+    q_ids = [a.get("questionId") for a in student_answers if "questionId" in a]
     questions = list(db.questions.find(
         {"id": {"$in": q_ids}},
-        {"_id": 0, "id": 1, "type": 1, "points": 1, "correct_answer": 1, "correctAnswer": 1}
+        {"_id": 0, "id": 1, "type": 1, "points": 1, "options": 1}
     ))
 
     question_map = {q["id"]: q for q in questions}
-
     total_score = 0
     detailed = []
 
@@ -865,10 +864,19 @@ def create_result():
         if not q:
             continue
 
-        correct_ans = q.get("correct_answer") or q.get("correctAnswer")
+        q_type = q.get("type")
         student_ans = ans.get("answer")
         max_points = int(q.get("points", 1))
-        is_correct = (str(student_ans) == str(correct_ans)) if q.get("type") == "multiple_choice" else False
+
+        correct_ans = None
+        # ✅ Lấy đáp án đúng từ options[]
+        if q_type == "mc" and q.get("options"):
+            for opt in q["options"]:
+                if opt.get("correct") is True:
+                    correct_ans = opt.get("text")
+                    break
+
+        is_correct = (str(student_ans) == str(correct_ans)) if q_type == "mc" else False
         points = max_points if is_correct else 0
         total_score += points
 
@@ -895,6 +903,7 @@ def create_result():
     db.results.insert_one(new_result)
     new_result.pop("_id", None)
     return jsonify(new_result), 201
+
 
 
 @app.route("/results/<result_id>", methods=["GET"])
