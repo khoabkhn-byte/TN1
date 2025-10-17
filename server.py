@@ -863,19 +863,18 @@ def create_result():
         is_correct = False
         points_gained = 0
         
-        # Lấy điểm tối đa một cách an toàn
+        # Lấy điểm tối đa một cách an toàn (Mặc định 1 điểm)
         max_points = q_original.get("points", 1) if q_original else 0
         
         # Nếu không tìm thấy câu hỏi hoặc câu trả lời rỗng, bỏ qua tính điểm
         if q_original and ans["answer"] is not None:
-            # Ưu tiên correct_answer, nếu không có thì dùng correctAnswer
             correct_answer = q_original.get("correct_answer") or q_original.get("correctAnswer")
             
             if q_original.get("type") == 'multiple_choice':
                 # So sánh đáp án trắc nghiệm
                 if str(ans["answer"]) == str(correct_answer):
                     is_correct = True
-                    points_gained = max_points # Sử dụng điểm tối đa đã lấy
+                    points_gained = max_points
             
             # Câu tự luận vẫn là 0 điểm
 
@@ -892,7 +891,7 @@ def create_result():
             "isCorrect": is_correct,
             "pointsGained": points_gained,
             "maxPoints": max_points,
-            "correctAnswer": correct_answer_for_frontend # FIX: Đảm bảo trường này được trả về
+            "correctAnswer": correct_answer_for_frontend
         })
 
     # 3. Lưu kết quả
@@ -908,7 +907,6 @@ def create_result():
     to_return = newr.copy()
     to_return.pop("_id", None)
     
-    # 4. Trả về chi tiết kết quả và điểm
     return jsonify(to_return), 201
 
 @app.route("/results/<result_id>", methods=["GET"])
