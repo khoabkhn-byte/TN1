@@ -372,153 +372,124 @@ def list_tests():
     docs = list(db.tests.find(query, {"_id": 0}))
     return jsonify(docs)
     
-@app.route("/quizzes/<test_id>", methods=["GET"]) # <-- THÊM DÒNG NÀY
-@app.route("/api/quizzes/<test_id>", methods=["GET"]) # <-- THÊM DÒNG NÀY
+@app.route("/quizzes/<test_id>", methods=["GET"])
+@app.route("/api/quizzes/<test_id>", methods=["GET"])
 @app.route("/tests/<test_id>", methods=["GET"])
 @app.route("/api/tests/<test_id>", methods=["GET"])
 def get_test(test_id):
-    # LƯU Ý: Đề thi của bạn hiện tại không lưu _id, nên find_one({"id": test_id}, {"_id": 0}) là đúng
-    doc = db.tests.find_one({"id": test_id}, {"_id": 0}) 
+    """
+    Lấy đề thi theo test_id. Hỗ trợ:
+      - tests collection lưu mảng question ids (strings hoặc ObjectId)
+      - tests collection lưu mảng objects (rút gọn) cần bù đắp nội dung
+    Trả về doc với field 'questions' là list các question full (mỗi question có 'id' là string).
+    """
+    # Tìm trong tests trước, fallback sang quizzes
+    doc = db.tests.find_one({"id": test_id}, {"_id": 0})
     if not doc:
         doc = db.quizzes.find_one({"id": test_id}, {"_id": 0})
 
     if not doc:
         return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
-    question_list = doc.get("questions", [])
-    if not question_list:
-         return jsonify(doc) 
-    
-    # 1. PHÂN LOẠI DỮ LIỆU VÀ XÁC ĐỊNH ID CẦN BÙ ĐẮP
-    ids_to_resolve = []
-    
-    if question_list and isinstance(question_list[0], dict):
-        # Trường hợp 2: List of Dicts (Đã có nội dung HOẶC cần bù đắp)
-        
-        # Nếu đã đầy đủ nội dung, trả về ngay.
-        if all(("q" in x or "question" in x) for x in question_list):
-            return jsonify(doc) 
 
-        # Nếu thiếu nội dung (Đề tự động hoặc rút gọn), trích xuất ID để bù đắp
+    question_list = doc.get("questions", [])
+    # Nếu không có questions hoặc rỗng: trả nguyên doc
+    if not question_list:
+        return jsonify(doc)
+
+    # Chuẩn hoá: nếu items là dicts và đã có nội dung (q hoặc question), trả luôn
+    first_item = question_list[0]
+    if isinstance(first_item, dict):
+        # Nếu mọi object đã có field 'q' (nội dung) hoặc 'question', coi là đầy đủ
+        if all(isinstance(x, dict) and ("q" in x or "question" in x) for x in question_list):
+            return jsonify(doc)
+        # Nếu là list of dict nhưng rút gọn (chỉ id/_id), ta phải bù đắp
+        # trích các id string cần resolve
+        ids_to_resolve = []
         for q in question_list:
-            # Ưu tiên lấy ID để tra cứu
-            qid = q.get("id") or str(q.get("_id"))
+            qid = None
+            if isinstance(q.get("id"), str) and q.get("id").strip():
+                qid = q.get("id")
+            elif q.get("_id"):
+                qid = str(q.get("_id"))
             if qid:
                 ids_to_resolve.append(qid)
+    elif isinstance(first_item, str):
+        # list of ids (string) - xử lý bình thường
+        ids_to_resolve = question_list.copy()
+    else:
+        # Không xác định shape -> trả nguyên doc
+        return jsonify(doc)
 
-    elif question_list and isinstance(question_list[0], str):
-        # Trường hợp 1: List of IDs (Đề thủ công lưu cũ)
-        ids_to_resolve = question_list
+    if not ids_to_resolve:
+        return jsonify(doc)
 
+    # Phân loại ids: ObjectId-able vs UUID strings
+    object_ids = []
+    uuid_strings = []
+    for qid_str in ids_to_resolve:
+        try:
+            object_ids.append(ObjectId(qid_str))
+        except Exception:
+            uuid_strings.append(qid_str)
 
-    # 2. THỰC HIỆN TRUY VẤN BÙ ĐẮP (Nếu có ID cần tìm)
-    if ids_to_resolve:
-        # Tách IDs thành ObjectId và UUID strings
-        object_ids = []
-        uuid_strings = []
-        for qid_str in ids_to_resolve:
-            try:
-                object_ids.append(ObjectId(qid_str))
-            except Exception:
-                uuid_strings.append(qid_str)
+    # Tạo query $or
+    or_clauses = []
+    if object_ids:
+        or_clauses.append({"_id": {"$in": object_ids}})
+    if uuid_strings:
+        or_clauses.append({"id": {"$in": uuid_strings}})
 
-        # --- TRUY VẤN ---
-        query = []
-        if object_ids:
-            query.append({"_id": {"$in": object_ids}})
-        if uuid_strings:
-            query.append({"id": {"$in": uuid_strings}})
-        
-        if query:
-            full_questions = list(db.questions.find({"$or": query}))
-            
-            # --- XỬ LÝ KẾT QUẢ VÀ SẮP XẾP ---
-            id_to_q = {}
-            for q in full_questions:
-                # Ánh xạ bằng cả UUID ('id') và ObjectId string ('_id')
-                if q.get("id"): id_to_q[q["id"]] = q
-                if q.get("_id"): id_to_q[str(q["_id"])] = q
+    full_questions = []
+    if or_clauses:
+        full_questions = list(db.questions.find({"$or": or_clauses}, {"_id": 1, "id": 1, "q": 1, "options": 1, "points": 1, "imageUrl": 1}))
 
-            resolved_questions = []
-            
-            # Sử dụng danh sách gốc để giữ thứ tự
-            list_to_process = question_list if isinstance(question_list[0], str) else ids_to_resolve
+    # Map bằng cả id (uuid) và str(_id)
+    id_map = {}
+    for q in full_questions:
+        # convert _id to string key
+        if q.get("_id") is not None:
+            id_map[str(q["_id"])] = q
+        if q.get("id"):
+            id_map[q["id"]] = q
 
-            for qid in list_to_process:
-                # Tìm kiếm bằng ID gốc (chuỗi)
-                if qid in id_to_q:
-                    q_full = id_to_q[qid].copy()
-                    
-                    # ✅ BƯỚC SỬA LỖI QUAN TRỌNG: Đảm bảo _id và id được đồng bộ
-                    q_full["_id"] = str(q_full.get("_id")) # Gán _id (string)
-                    q_full["id"] = q_full.get("id") or q_full["_id"] # Đảm bảo ID là chuỗi
-                    
-                    resolved_questions.append(q_full)
-            
-            # Nếu là trường hợp List of Dicts (đề tự động), cần thay thế các đối tượng rút gọn bằng đối tượng đầy đủ
-            if isinstance(question_list[0], dict):
-                # Thay thế các đối tượng rút gọn bằng các đối tượng đầy đủ đã tìm thấy
-                final_questions = []
-                resolved_map = {q.get("_id"): q for q in resolved_questions}
-                
-                for q_lite in question_list:
-                    # Lấy _id string của câu hỏi rút gọn để tìm kiếm trong map
-                    id_key = str(q_lite.get("_id")) or q_lite.get("id")
-                    
-                    if id_key and id_key in resolved_map:
-                        final_questions.append(resolved_map[id_key])
-                    else:
-                        final_questions.append(q_lite) # Giữ lại nếu không tìm thấy
-                
-                doc["questions"] = final_questions
+    # Xây final_questions giữ nguyên thứ tự ban đầu
+    final_questions = []
+    if isinstance(first_item, dict):
+        # mapping nhanh bằng id/_id lấy từ object rút gọn
+        for q_lite in question_list:
+            # thử lấy id hoặc _id string
+            id_key = None
+            if isinstance(q_lite.get("id"), str) and q_lite.get("id").strip():
+                id_key = q_lite.get("id")
+            elif q_lite.get("_id"):
+                id_key = str(q_lite.get("_id"))
+            if id_key and id_key in id_map:
+                q_full = id_map[id_key].copy()
+                # chuẩn hoá: convert _id thành string và đảm bảo 'id' field tồn tại
+                q_full["_id"] = str(q_full.get("_id")) if q_full.get("_id") is not None else None
+                q_full["id"] = q_full.get("id") or q_full["_id"]
+                # Loại bỏ trường nội bộ Mongo nếu bạn không muốn trả về _id thô
+                # nếu muốn xóa: q_full.pop("_id", None)
+                final_questions.append(q_full)
             else:
-                # Trường hợp List of IDs (đề cũ)
-                doc["questions"] = resolved_questions
+                # không tìm thấy bản đầy đủ -> giữ nguyên object rút gọn
+                final_questions.append(q_lite)
+    else:
+        # list of ids (strings)
+        for qid in ids_to_resolve:
+            if qid in id_map:
+                q_full = id_map[qid].copy()
+                q_full["_id"] = str(q_full.get("_id")) if q_full.get("_id") is not None else None
+                q_full["id"] = q_full.get("id") or q_full["_id"]
+                final_questions.append(q_full)
+            else:
+                # không tìm thấy -> skip hoặc giữ id rỗng; mình sẽ skip
+                app.logger.warning(f"Question id {qid} not found in questions collection.")
+                # bạn có thể append placeholder nếu muốn
+                # final_questions.append({"id": qid, "q": "(Không tìm thấy nội dung)"})
 
-    return jsonify(doc)
-
-
-    # Trường hợp 1: List of IDs (Đề thủ công lưu cũ - Mảng toàn chuỗi ID)
-    if isinstance(question_list, list) and all(isinstance(x, str) for x in question_list):
-        
-        # Tách IDs thành ObjectId và UUID strings
-        valid_object_ids = []
-        uuid_strings = []
-        for qid_str in question_list:
-            try:
-                valid_object_ids.append(ObjectId(qid_str))
-            except Exception:
-                uuid_strings.append(qid_str)
-
-        # --- TRUY VẤN ---
-        query = []
-        if valid_object_ids:
-            query.append({"_id": {"$in": valid_object_ids}})
-        if uuid_strings:
-            query.append({"id": {"$in": uuid_strings}})
-        
-        if query:
-            full_questions = list(db.questions.find({"$or": query}))
-            
-            # --- XỬ LÝ KẾT QUẢ VÀ SẮP XẾP ---
-            id_to_q = {}
-            for q in full_questions:
-                if q.get("id"): id_to_q[q["id"]] = q
-                if q.get("_id"): id_to_q[str(q["_id"])] = q # Ánh xạ bằng ObjectId string
-
-            sorted_questions = []
-            for qid in question_list:
-                # Tìm bằng ID gốc (chuỗi)
-                if qid in id_to_q:
-                    q_full = id_to_q[qid].copy()
-                    q_full.pop("_id", None)
-                    q_full["id"] = qid # Đảm bảo ID là chuỗi
-                    sorted_questions.append(q_full)
-
-            doc["questions"] = sorted_questions
-            return jsonify(doc)
-
-    
-    # Fallback: unknown shape -> return as-is
+    # Gán lại questions và trả
+    doc["questions"] = final_questions
     return jsonify(doc)
 
 @app.route("/tests", methods=["POST"])
@@ -828,6 +799,13 @@ def assign_multiple():
         created.append(newa)
 
     return jsonify({"success": True, "count": len(created), "assigns": created}), 201
+
+
+@app.route("/debug/tests", methods=["GET"])
+def debug_list_tests():
+    docs = list(db.tests.find({}, {"_id": 0, "id": 1, "name": 1}))
+    return jsonify(docs)
+
     
 
 # --------------------- RESULTS ---------------------
@@ -844,10 +822,10 @@ def list_results():
 @app.route("/api/results", methods=["POST"])
 def create_result():
     data = request.get_json() or {}
-    student_answers = data.get("studentAnswers", [])
+    student_answers = data.get("studentAnswers", [])  # expecting list of {questionId, answer, type?}
     test_id = data.get("testId")
 
-    # 🔹 Lấy danh sách ID câu hỏi
+    # Lấy danh sách ID câu hỏi
     q_ids = [a.get("questionId") for a in student_answers if "questionId" in a]
     questions = list(db.questions.find(
         {"id": {"$in": q_ids}},
@@ -862,6 +840,17 @@ def create_result():
         qid = ans.get("questionId")
         q = question_map.get(qid)
         if not q:
+            # Nếu không tìm thấy câu hỏi — lưu entry nhưng đánh dấu missing
+            detailed.append({
+                "questionId": qid,
+                "type": ans.get("type", "mc"),
+                "studentAnswer": ans.get("answer"),
+                "isCorrect": False,
+                "pointsGained": 0,
+                "maxPoints": 0,
+                "correctAnswer": None,
+                "note": "question-not-found"
+            })
             continue
 
         q_type = q.get("type")
@@ -869,21 +858,48 @@ def create_result():
         max_points = int(q.get("points", 1))
 
         correct_ans = None
-        # ✅ Lấy đáp án đúng từ options[]
+        # Lấy đáp án đúng từ options[]
         if q_type == "mc" and q.get("options"):
             for opt in q["options"]:
                 if opt.get("correct") is True:
                     correct_ans = opt.get("text")
                     break
 
-        is_correct = (str(student_ans) == str(correct_ans)) if q_type == "mc" else False
+        # Nếu student_ans là số (index), convert sang text khi có options
+        student_ans_text = student_ans
+        if q_type == "mc" and q.get("options"):
+            try:
+                # số nguyên (index)
+                if isinstance(student_ans, int):
+                    idx = student_ans
+                    if 0 <= idx < len(q["options"]):
+                        student_ans_text = q["options"][idx].get("text")
+                else:
+                    # có thể là chuỗi số "2"
+                    if isinstance(student_ans, str) and student_ans.isdigit():
+                        idx = int(student_ans)
+                        if 0 <= idx < len(q["options"]):
+                            student_ans_text = q["options"][idx].get("text")
+                    # nếu student_ans là object id của option hoặc giá trị nào khác, giữ nguyên
+            except Exception:
+                # giữ nguyên student_ans_text
+                pass
+
+        # so sánh (bỏ whitespace, so sánh string)
+        is_correct = False
+        if q_type == "mc":
+            is_correct = (str(student_ans_text).strip() == str(correct_ans).strip()) if correct_ans is not None else False
+        else:
+            # cho các loại khác (essay) mặc định false, chờ chấm tay
+            is_correct = False
+
         points = max_points if is_correct else 0
         total_score += points
 
         detailed.append({
             "questionId": qid,
             "type": q_type,
-            "studentAnswer": student_ans,
+            "studentAnswer": student_ans_text,
             "isCorrect": is_correct,
             "pointsGained": points,
             "maxPoints": max_points,
@@ -904,6 +920,7 @@ def create_result():
     db.results.insert_one(new_result)
     new_result.pop("_id", None)
     return jsonify(new_result), 201
+
 
 
 
