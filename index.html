@@ -93,6 +93,12 @@
 .bg-success-subtle { background-color: #d1e7dd !important; }
 .bg-warning-subtle { background-color: #fff3cd !important; }
 
+.badge {
+  font-size: 0.85rem;
+  padding: 0.4em 0.6em;
+  border-radius: 0.3rem;
+}
+
   </style>
 </head>
 <body>
@@ -897,6 +903,40 @@
     </div>
 </div>
 
+<!-- xem kết quả -->
+<!-- Modal xem lại bài làm -->
+<div class="modal fade" id="modalReviewQuiz" tabindex="-1" aria-labelledby="modalReviewQuizLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white p-3 d-flex justify-content-between align-items-start flex-wrap">
+        <div class="d-flex justify-content-between align-items-start w-100">
+          <h5 class="modal-title" id="modalReviewQuizLabel">
+            Xem lại bài làm: <span id="review-quiz-title"></span>
+          </h5>
+          <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+      </div>
+
+      <div class="modal-body p-4">
+        <div id="review-questions-container" class="space-y-4"></div>
+
+        <div id="review-results-summary" class="mt-4 p-4 border rounded-3 bg-light">
+          <h4 class="text-primary mb-3">Tổng kết bài làm</h4>
+          <p class="fs-5">Điểm trắc nghiệm: <strong id="review-score-display" class="text-success">0</strong></p>
+          <p class="text-muted">Điểm cuối cùng bao gồm phần tự luận (sau khi giáo viên chấm).</p>
+        </div>
+      </div>
+
+      <div class="modal-footer justify-content-end">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle me-2"></i>Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 
   <!-- Assign modal -->
   <div class="modal fade" id="modalAssign" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
@@ -970,6 +1010,17 @@ let currentQuiz = null; // Lưu đề thi hiện tại (từ Quiz ID)
 let currentAssignmentId = null; // Lưu Assignment ID hiện tại
 let timerInterval = null; // Biến lưu trữ interval của bộ đếm ngược
 let quizEndTime = null; // Thời điểm kết thúc bài làm
+let reviewQuizModalInstance;
+
+document.addEventListener("DOMContentLoaded", () => {
+  const reviewModalEl = document.getElementById("modalReviewQuiz");
+  if (reviewModalEl) {
+    reviewQuizModalInstance = new bootstrap.Modal(reviewModalEl, {
+      backdrop: 'static',
+      keyboard: false
+    });
+  }
+});
 
 // Hàm tiện ích để hiển thị thời gian HH:MM:SS
 function formatTime(seconds) {
@@ -1319,7 +1370,8 @@ async function startQuiz(testId, assignmentId, durationMinutes) {
     // 2. Tải đề thi
     try {
         const quiz = await fetchJson(`${serverUrl}/api/quizzes/${testId}`);
-		console.log("Dữ liệu đề thi nhận được:", quiz); 
+		console.log("Dữ liệu đề thi nhận được:", quiz);
+		currentTest = quiz; // ✅ Lưu đề thi hiện tại để các hàm khác (như submitQuiz) dùng được		
         
         // Kiểm tra lỗi 404/ dữ liệu (Đã được sửa ở các bước trước)
         if (!quiz || quiz.message) {
@@ -1571,63 +1623,97 @@ async function submitQuiz(isTimeout = false) {
         return;
     }
 
+    // 🔹 Xác nhận nộp bài nếu không phải tự động hết giờ
     if (!isTimeout) {
-        const confirmSubmit = await confirmBoxAsync("Xác nhận", "Bạn có chắc chắn muốn nộp bài? Bài làm sẽ không thể chỉnh sửa sau khi nộp.");
+        const confirmSubmit = await confirmBoxAsync(
+            "Xác nhận",
+            "Bạn có chắc chắn muốn nộp bài? Bài làm sẽ không thể chỉnh sửa sau khi nộp."
+        );
         if (!confirmSubmit) return;
     }
 
-    if (typeof timerInterval !== 'undefined') {
+    // 🔹 Dừng đếm thời gian
+    if (typeof timerInterval !== "undefined") {
         clearInterval(timerInterval);
     }
 
     // 1️⃣ Thu thập câu trả lời
     const answers = currentQuiz.map(q => {
-        const container = document.querySelector(`.card[data-question-id="${q.id}"]`);
-        if (!container) return { questionId: q.id, type: q.type, answer: null };
+        const qid = q.id || q._id; // đề phòng dữ liệu trả về chỉ có _id
+        const qtype = q.type || q.questionType || "mc"; // fallback an toàn
 
-        let studentAnswer = null;
-        if (q.type === 'multiple_choice' || q.type === 'mc') {
-            const selected = container.querySelector(`input[name="q_${q.id}"]:checked`);
-            if (selected) studentAnswer = selected.value;
-        } else if (q.type === 'essay') {
-            studentAnswer = container.querySelector('textarea.essay-answer')?.value?.trim() || null;
+        const container = document.querySelector(`.card[data-question-id="${qid}"]`);
+        if (!container) {
+            console.warn("⚠️ Không tìm thấy phần tử câu hỏi:", qid);
+            return { questionId: qid, type: qtype, answer: null };
         }
 
-        return { questionId: q.id, type: q.type, answer: studentAnswer };
+        let studentAnswer = null;
+
+        // 🟢 Câu trắc nghiệm (multiple choice)
+        if (qtype === "multiple_choice" || qtype === "mc") {
+            const selected = container.querySelector(`input[name="q_${qid}"]:checked`);
+            if (selected) studentAnswer = selected.value;
+        }
+
+        // 🟢 Câu tự luận
+        else if (qtype === "essay" || qtype === "tu_luan") {
+            const textarea = container.querySelector("textarea.essay-answer");
+            if (textarea) studentAnswer = textarea.value.trim() || null;
+        }
+
+        // Ghi log debug nếu rỗng
+        if (studentAnswer === null)
+            console.log("⚠️ Không có câu trả lời cho:", qid, qtype);
+
+        return { questionId: qid, type: qtype, answer: studentAnswer };
     });
 
-    const submitButton = document.getElementById('btn-submit-quiz'); 
+    console.log("🧩 Kết quả thu thập:", answers);
+
+    // 2️⃣ Chuẩn bị gửi
+    const submitButton = document.getElementById("btn-submit-quiz");
     try {
         if (submitButton) submitButton.disabled = true;
 
-        const testId = currentQuiz[0]?.testId || currentAssignmentId;
+        const testId = currentQuiz[0]?.testId || currentTest?.id || currentAssignmentId;
         const studentId = currentUser?.id;
-        if (!testId || !studentId) throw new Error("Không thể xác định ID bài thi hoặc học sinh.");
+		console.log("📘 Test ID dùng để nộp:", testId);
 
+        if (!testId || !studentId)
+            throw new Error("Không thể xác định ID bài thi hoặc học sinh.");
+
+        // 3️⃣ Payload gửi backend
         const resultPayload = {
             studentId,
             assignmentId: currentAssignmentId,
             testId,
             studentAnswers: answers,
-            submittedAt: new Date().toISOString()
+            submittedAt: new Date().toISOString(),
         };
 
+        console.log("📤 Gửi kết quả:", resultPayload);
+
         const result = await fetchJson(`${serverUrl}/api/results`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(resultPayload)
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(resultPayload),
         });
 
+        console.log("✅ Kết quả nhận từ server:", result);
+
+        // 4️⃣ Hiển thị kết quả chấm trắc nghiệm
         displayQuizResults(result);
 
     } catch (err) {
-        console.error("Lỗi nộp bài:", err);
-        showMessageBox("Lỗi", "Không thể nộp bài: " + (err.message || 'Không xác định'));
+        console.error("❌ Lỗi nộp bài:", err);
+        showMessageBox("Lỗi", "Không thể nộp bài: " + (err.message || "Không xác định"));
     } finally {
         if (submitButton) submitButton.disabled = false;
-        loadAssignments();
+        loadAssignments(); // cập nhật danh sách bài đã làm
     }
 }
+
 
 
 
@@ -1798,6 +1884,58 @@ async function getTestName(testId) {
     
     return foundName;
 }
+
+
+function renderDoneAssignments(completed) {
+  const tbody = document.getElementById("done-tbody");
+  tbody.innerHTML = "";
+
+  if (!completed.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">Chưa có bài đã làm.</td></tr>`;
+    return;
+  }
+
+  completed.forEach(a => {
+    const tr = document.createElement("tr");
+
+    // ✅ Tô màu cho trạng thái điểm
+    let scoreDisplay = a.score || "";
+    let colorClass = "";
+
+    // Nếu là "Đang chấm"
+    if (typeof a.score === "string" && a.score.toLowerCase().includes("đang chấm")) {
+      scoreDisplay = "Đang chấm";
+      colorClass = "text-warning fw-bold"; // màu cam
+    }
+    // Nếu là "Đã chấm" hoặc có điểm số
+    else if (typeof a.score === "string" && a.score.toLowerCase().includes("đã chấm")) {
+      scoreDisplay = "Đã chấm";
+      colorClass = "text-success fw-bold"; // màu xanh
+    }
+    else if (!isNaN(parseFloat(a.score))) {
+      colorClass = "text-success fw-bold"; // màu xanh cho điểm số
+    }
+
+    // ✅ Tạo hàng
+    tr.innerHTML = `
+      <td>${escapeHtml(a.name || "Không tên")}</td>
+      <td>${escapeHtml(a.subject || "-")}</td>
+      <td>${escapeHtml(a.status || "-")}</td>
+      <td class="${colorClass}">${escapeHtml(scoreDisplay)}</td>
+      <td>
+        <button class="btn btn-outline-primary btn-sm" onclick="openReviewQuiz('${a.resultId}')">
+          <i class="bi bi-eye"></i> Xem
+        </button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+
+
+
 
 // THAY THẾ TOÀN BỘ HÀM openQuestionModal NÀY
 
@@ -2336,6 +2474,94 @@ async function loadManualQuestions() {
     alert("Lỗi khi tải dữ liệu đề thi.");
   }
 }*/
+
+async function openReviewQuiz(resultId) {
+  try {
+    const res = await fetch(`${serverUrl}/api/results/${resultId}`);
+    const result = await res.json();
+
+    if (!result || !result.detailedResults) {
+      alert("Không tìm thấy dữ liệu kết quả bài thi này!");
+      return;
+    }
+
+    const modalEl = document.getElementById("modalReviewQuiz");
+    const modalInstance = new bootstrap.Modal(modalEl);
+    const container = document.getElementById("review-questions-container");
+    const summary = document.getElementById("review-results-summary");
+
+    container.innerHTML = "";
+    summary.classList.add("d-none");
+
+    let totalCorrect = 0;
+    let totalQuestions = result.detailedResults.length;
+    let totalScore = 0;
+    let maxScore = 0;
+
+    result.detailedResults.forEach(d => {
+      const card = document.createElement("div");
+      card.className = "card mb-3 position-relative";
+
+      const isCorrect = d.isCorrect;
+      const statusBadge = `
+        <div class="position-absolute top-0 end-0 mt-2 me-2 d-flex align-items-center">
+          <div class="text-white fw-bold d-flex align-items-center justify-content-center"
+               style="width:22px;height:22px;border-radius:4px;background-color:${isCorrect ? '#198754' : '#dc3545'};">
+               ${isCorrect ? 'Đ' : 'S'}
+          </div>
+          <span class="ms-2 small fw-semibold">${d.pointsGained}/${d.maxPoints}</span>
+        </div>`;
+
+      let html = `
+        <div class="card-body border ${isCorrect ? 'border-success' : 'border-danger'} rounded-3 position-relative">
+          ${statusBadge}
+          <h6 class="card-title">Câu hỏi ${d.questionId.slice(0, 6)}</h6>
+      `;
+
+      if (d.type === "mc") {
+        (d.options || []).forEach(opt => {
+          const val = opt.text;
+          const correct = val === d.correctAnswer;
+          const chosen = val === d.studentAnswer;
+          const cls = correct ? "bg-success-subtle" :
+                      chosen ? "bg-warning-subtle" : "";
+          html += `
+            <div class="form-check border rounded p-2 mb-1 ${cls}">
+              <input type="radio" disabled ${chosen ? "checked" : ""}> ${val}
+            </div>`;
+        });
+      } else if (d.type === "essay") {
+        html += `<div class="mt-2 p-2 border rounded bg-light">${d.studentAnswer || "(Chưa làm)"}</div>`;
+      }
+
+      html += `</div>`;
+      card.innerHTML = html;
+      container.appendChild(card);
+
+      if (d.isCorrect) totalCorrect++;
+      totalScore += d.pointsGained;
+      maxScore += d.maxPoints;
+    });
+
+    summary.classList.remove("d-none");
+    summary.innerHTML = `
+      <div class="alert alert-info">
+        <h5 class="text-primary mb-2">Tổng kết bài làm</h5>
+        <p>
+          Tổng số câu: <strong>${totalQuestions}</strong><br>
+          Số câu đúng: <strong>${totalCorrect}</strong><br>
+          Điểm trắc nghiệm: <strong>${totalScore}/${maxScore}</strong>
+        </p>
+      </div>`;
+
+    modalInstance.show();
+  } catch (err) {
+    console.error(err);
+    alert("Không thể tải kết quả. " + err.message);
+  }
+}
+
+
 
 async function openTestEditModal(testId) {
   try {
@@ -3707,7 +3933,13 @@ function renderCompletedAssignments(completedAssigns) {
             <td>${escapeHtml(a.testName || a.testId)}</td>
             <td>${escapeHtml(a.subject || '—')}</td>
             <td>${escapeHtml(a.status)}</td>
-            <td>${escapeHtml(a.score || '—')}</td>
+            <td class="${
+  (a.score || '').toString().toLowerCase().includes('đang chấm')
+    ? 'text-warning fw-bold'
+    : 'text-success fw-bold'
+}">
+  ${escapeHtml(a.score || '—')}
+</td>
             <td>
                 <button class="btn btn-sm btn-outline-primary" 
                         onclick="viewResult('${a.resultId}')">Xem</button>
@@ -3721,11 +3953,88 @@ function renderCompletedAssignments(completedAssigns) {
 }
 
 // Hàm viewResult cũ cần giữ lại hoặc được định nghĩa lại nếu bạn không muốn dùng test.html
-function viewResult(resultId) { 
-    // Tạm thời chuyển hướng để xem kết quả chi tiết.
-    // Nếu bạn muốn xem kết quả trong Modal, chúng ta cần thay đổi logic này.
-    alert('Chức năng Xem kết quả chi tiết chưa được triển khai. ID kết quả: ' + resultId);
-    // window.location.href = `test.html?resultId=${encodeURIComponent(resultId)}&review=1`;
+async function viewResult(resultId) {
+  try {
+    // 1️⃣ Gọi API lấy kết quả
+    const result = await fetchJson(`${serverUrl}/api/results/${resultId}`);
+    if (!result) {
+      showMessageBox("Lỗi", "Không tìm thấy kết quả bài thi.");
+      return;
+    }
+
+    // 2️⃣ Lấy chi tiết đề thi (để hiển thị câu hỏi, đáp án)
+    const quiz = await fetchJson(`${serverUrl}/api/quizzes/${result.testId}`);
+    if (!quiz || !quiz.questions) {
+      showMessageBox("Lỗi", "Không tải được thông tin đề thi.");
+      return;
+    }
+
+    // 3️⃣ Render câu hỏi và highlight
+    renderReviewQuiz(result, quiz);
+
+    // 4️⃣ Hiển thị modal
+    reviewQuizModalInstance.show();
+
+  } catch (err) {
+    console.error("Lỗi xem lại bài thi:", err);
+    showMessageBox("Lỗi", "Không thể tải dữ liệu xem lại.");
+  }
+}
+
+function renderReviewQuiz(result, quiz) {
+  const container = document.getElementById("review-questions-container");
+  const titleEl = document.getElementById("review-quiz-title");
+  const scoreDisplay = document.getElementById("review-score-display");
+
+  if (!container) return;
+  container.innerHTML = '';
+
+  const detailed = result.detailedResults || [];
+  const questions = quiz.questions || [];
+  titleEl.textContent = quiz.name || quiz.testName || "Bài thi";
+
+  let totalScore = 0;
+
+  questions.forEach((q, idx) => {
+    const res = detailed.find(r => r.questionId === q.id);
+    const studentAns = res?.studentAnswer ?? null;
+    const correctAns = res?.correctAnswer ?? null;
+    const isCorrect = res?.isCorrect ?? false;
+    const gained = res?.pointsGained ?? 0;
+    const max = res?.maxPoints ?? q.points ?? 1;
+
+    totalScore += gained;
+
+    const card = document.createElement('div');
+    card.className = `card mb-3 ${isCorrect ? 'border-success' : 'border-danger'}`;
+    card.innerHTML = `
+      <div class="card-body">
+        <h5 class="card-title">Câu ${idx + 1}</h5>
+        <p>${escapeHtml(q.q || '')}</p>
+        ${q.imageUrl ? `<img src="${q.imageUrl}" class="img-fluid mb-2 rounded">` : ''}
+        <div class="mt-3">
+          ${q.type === 'mc'
+            ? q.options.map(opt => {
+                let cls = '';
+                if (opt.text === correctAns) cls = 'bg-success text-white';
+                else if (opt.text === studentAns && !isCorrect) cls = 'bg-warning';
+                return `<div class="p-2 border rounded mb-1 ${cls}">${escapeHtml(opt.text)}</div>`;
+              }).join('')
+            : `<textarea class="form-control" disabled>${escapeHtml(studentAns || '')}</textarea>`}
+        </div>
+
+        <div class="mt-3 d-flex justify-content-between align-items-center">
+          <div>
+            <span class="badge ${isCorrect ? 'bg-success' : 'bg-danger'}">${isCorrect ? 'Đ' : 'S'}</span>
+            <span class="ms-2 small">Điểm: ${gained}/${max}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  scoreDisplay.textContent = totalScore.toFixed(2);
 }
 
 
