@@ -380,9 +380,10 @@ def get_test(test_id):
     # LƯU Ý: Đề thi của bạn hiện tại không lưu _id, nên find_one({"id": test_id}, {"_id": 0}) là đúng
     doc = db.tests.find_one({"id": test_id}, {"_id": 0}) 
     if not doc:
-        return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+        doc = db.quizzes.find_one({"id": test_id}, {"_id": 0})
 
-    question_list = doc.get("questions", [])
+    if not doc:
+        return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
     
     # 1. PHÂN LOẠI DỮ LIỆU VÀ XÁC ĐỊNH ID CẦN BÙ ĐẮP
     ids_to_resolve = []
@@ -843,10 +844,10 @@ def create_result():
     student_answers = data.get("studentAnswers", [])
     test_id = data.get("testId")
 
-    # 1. Truy vấn đáp án đúng và điểm
+    # 1. Truy vấn đáp án đúng và điểm (FIX LỖI TÍNH ĐIỂM)
     q_ids = [ans["questionId"] for ans in student_answers]
     
-    # Lấy các câu hỏi gốc từ DB, sử dụng cả 'correct_answer' và 'correctAnswer' để an toàn
+    # Lấy các câu hỏi gốc từ DB (chỉ lấy ID, đáp án đúng, và điểm)
     correct_questions = list(db.questions.find({"id": {"$in": q_ids}}, 
                                                {"id": 1, "correct_answer": 1, "correctAnswer": 1, "points": 1, "type": 1, "_id": 0}))
 
@@ -855,7 +856,6 @@ def create_result():
     total_score = 0
     detailed_results = []
     
-    # 2. Tính điểm và tạo chi tiết kết quả (FIX LỖI TÍNH ĐIỂM 0/0)
     for ans in student_answers:
         q_id = ans["questionId"]
         q_original = correct_map.get(q_id)
@@ -866,17 +866,17 @@ def create_result():
         # Lấy điểm tối đa một cách an toàn (Mặc định 1 điểm)
         max_points = q_original.get("points", 1) if q_original else 0
         
-        # Nếu không tìm thấy câu hỏi hoặc câu trả lời rỗng, bỏ qua tính điểm
         if q_original and ans["answer"] is not None:
+            # Ưu tiên correct_answer, nếu không có thì dùng correctAnswer
             correct_answer = q_original.get("correct_answer") or q_original.get("correctAnswer")
             
             if q_original.get("type") == 'multiple_choice':
-                # So sánh đáp án trắc nghiệm
+                # So sánh đáp án trắc nghiệm (chuyển về chuỗi để so sánh an toàn)
                 if str(ans["answer"]) == str(correct_answer):
                     is_correct = True
                     points_gained = max_points
             
-            # Câu tự luận vẫn là 0 điểm
+            # Câu tự luận vẫn là 0 điểm tự động
 
         total_score += points_gained
         
@@ -891,14 +891,14 @@ def create_result():
             "isCorrect": is_correct,
             "pointsGained": points_gained,
             "maxPoints": max_points,
-            "correctAnswer": correct_answer_for_frontend
+            "correctAnswer": correct_answer_for_frontend # Dữ liệu cần cho highlight
         })
 
-    # 3. Lưu kết quả
+    # 2. Lưu kết quả
     newr = {
         "id": str(uuid4()), 
         **data, 
-        "totalScore": total_score,
+        "totalScore": total_score, # ĐIỂM ĐÃ TÍNH
         "detailedResults": detailed_results,
         "submittedAt": datetime.datetime.utcnow().isoformat()
     }
