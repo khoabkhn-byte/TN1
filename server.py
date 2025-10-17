@@ -847,73 +847,55 @@ def create_result():
     student_answers = data.get("studentAnswers", [])
     test_id = data.get("testId")
 
-    # 1. Truy vấn đáp án đúng và điểm (FIX LỖI TÍNH ĐIỂM)
-    q_ids = [ans["questionId"] for ans in student_answers]
-    
-    # Lấy các câu hỏi gốc từ DB (chỉ lấy ID, đáp án đúng, và điểm)
-    correct_questions = list(db.questions.find({"id": {"$in": q_ids}}, 
-                                               {"id": 1, "correct_answer": 1, "correctAnswer": 1, "points": 1, "type": 1, "_id": 0}))
+    # Lấy danh sách ID câu hỏi
+    q_ids = [a["questionId"] for a in student_answers if "questionId" in a]
+    questions = list(db.questions.find(
+        {"id": {"$in": q_ids}},
+        {"_id": 0, "id": 1, "type": 1, "points": 1, "correct_answer": 1, "correctAnswer": 1}
+    ))
 
-    correct_map = {q["id"]: q for q in correct_questions}
-    
+    question_map = {q["id"]: q for q in questions}
+
     total_score = 0
-    detailed_results = []
-    
-    for ans in student_answers:
-        q_id = ans["questionId"]
-        q_original = correct_map.get(q_id)
-        
-        is_correct = False
-        points_gained = 0
-        
-        # Lấy điểm tối đa một cách an toàn (Mặc định 1 điểm)
-        try:
-            max_points = int(q_original.get("points", 1)) if q_original else 0
-        except ValueError:
-            max_points = 1 # Fallback nếu points không phải số
-        
-        if q_original and ans["answer"] is not None:
-            # Ưu tiên correct_answer, nếu không có thì dùng correctAnswer
-            correct_answer = q_original.get("correct_answer") or q_original.get("correctAnswer")
-            
-            if q_original.get("type") == 'multiple_choice':
-                # So sánh đáp án trắc nghiệm (chuyển về chuỗi để so sánh an toàn)
-                if str(ans["answer"]) == str(correct_answer):
-                    is_correct = True
-                    points_gained = max_points
-            
-            # Câu tự luận vẫn là 0 điểm tự động
+    detailed = []
 
-        total_score += points_gained
-        
-        # Lấy đáp án đúng cho Frontend highlight
-        correct_answer_for_frontend = None
-        if q_original and q_original.get("type") == 'multiple_choice':
-             correct_answer_for_frontend = q_original.get("correct_answer") or q_original.get("correctAnswer")
-        
-        detailed_results.append({
-            "questionId": q_id,
-            "studentAnswer": ans["answer"],
+    for ans in student_answers:
+        qid = ans.get("questionId")
+        q = question_map.get(qid)
+        if not q:
+            continue
+
+        correct_ans = q.get("correct_answer") or q.get("correctAnswer")
+        student_ans = ans.get("answer")
+        max_points = int(q.get("points", 1))
+        is_correct = (str(student_ans) == str(correct_ans)) if q.get("type") == "multiple_choice" else False
+        points = max_points if is_correct else 0
+        total_score += points
+
+        detailed.append({
+            "questionId": qid,
+            "studentAnswer": student_ans,
             "isCorrect": is_correct,
-            "pointsGained": points_gained,
+            "pointsGained": points,
             "maxPoints": max_points,
-            "correctAnswer": correct_answer_for_frontend # Dữ liệu cần cho highlight
+            "correctAnswer": correct_ans
         })
 
-    # 2. Lưu kết quả
-    newr = {
-        "id": str(uuid4()), 
-        **data, 
-        "totalScore": total_score, # ĐIỂM ĐÃ TÍNH
-        "detailedResults": detailed_results,
+    new_result = {
+        "id": str(uuid4()),
+        "studentId": data.get("studentId"),
+        "testId": test_id,
+        "assignmentId": data.get("assignmentId"),
+        "studentAnswers": student_answers,
+        "detailedResults": detailed,
+        "totalScore": total_score,
         "submittedAt": datetime.datetime.utcnow().isoformat()
     }
-    db.results.insert_one(newr)
-    
-    to_return = newr.copy()
-    to_return.pop("_id", None)
-    
-    return jsonify(to_return), 201
+
+    db.results.insert_one(new_result)
+    new_result.pop("_id", None)
+    return jsonify(new_result), 201
+
 
 @app.route("/results/<result_id>", methods=["GET"])
 @app.route("/api/results/<result_id>", methods=["GET"])
