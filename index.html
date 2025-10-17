@@ -65,7 +65,33 @@
         border-bottom: 2px solid var(--primary); /* Đường viền dưới màu xanh lá */
 }
 
+/* Màu viền (đảm bảo có) */
+.border-success { border: 2px solid #28a745 !important; }
+.border-danger { border: 2px solid #dc3545 !important; }
+.border-warning { border: 2px solid #ffc107 !important; }
 
+/* Màu nền nhẹ cho vùng feedback */
+.bg-light-gray { background-color: #f8f9fa; } 
+
+/* =================== HIGHLIGHT TRẮC NGHIỆM =================== */
+/* Xanh lá: Đáp án đúng (Gốc hoặc Học sinh chọn đúng) */
+.bg-success-highlight { 
+    background-color: #d4edda !important; /* Xanh lá nhạt */
+    border-radius: 5px;
+    padding: 5px;
+}
+
+/* Cam: Đáp án học sinh chọn sai (Sai đáp án gốc) */
+.bg-warning-highlight { 
+    background-color: #fff3cd !important; /* Cam/vàng nhạt */
+    border: 1px solid #ffc107;
+    border-radius: 5px;
+    padding: 5px;
+}
+/* ============================================================= */
+
+.bg-success-subtle { background-color: #d1e7dd !important; }
+.bg-warning-subtle { background-color: #fff3cd !important; }
 
   </style>
 </head>
@@ -834,25 +860,24 @@
 <div class="modal fade" id="modalQuiz" tabindex="-1" aria-labelledby="modalQuizLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white p-3">
-                <!-- Tên đề thi sẽ được điền bằng JS -->
-                <h5 class="modal-title" id="modalQuizLabel">Đề Thi: <span id="quiz-title-display"></span></h5>
-                <div class="d-flex align-items-center">
-                    <span class="me-3 fs-5">Thời gian còn lại:</span>
-                    <!-- Thanh đếm ngược thời gian -->
-                    <h5 class="mb-0 text-warning bg-dark p-2 rounded-2" id="quiz-timer">--:--</h5>
-                </div>
-                <!-- Nút đóng/thoát -->
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="confirmExitQuiz()"></button>
-            </div>
-            
-            <div class="modal-body p-4">
-                <!-- Vùng chứa các câu hỏi -->
-                <div id="quiz-questions-container" class="space-y-4">
-                    <!-- Câu hỏi sẽ được render bằng JS tại đây -->
+            <div class="modal-header bg-primary text-white p-3 d-flex justify-content-between align-items-start flex-wrap">
+                
+                <div class="d-flex justify-content-between align-items-start w-100">
+                    <h5 class="modal-title" id="modalQuizLabel">
+                        Đề Thi: <span id="quiz-title-display"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close" id="btn-close-quiz"></button>
                 </div>
 
-                <!-- Vùng hiển thị kết quả sau khi nộp bài -->
+                <div class="d-flex align-items-center justify-content-end w-100 mt-2">
+                    <span class="me-3 fs-5">Thời gian còn lại:</span>
+                    <h5 class="mb-0 text-warning bg-dark p-2 rounded-2" id="quiz-timer">--:--</h5>
+                </div>
+            </div>
+
+            <div class="modal-body p-4">
+                <div id="quiz-questions-container" class="space-y-4"></div>
+
                 <div id="quiz-results-summary" class="d-none mt-4 p-4 border rounded-3 bg-light">
                     <h4 class="text-primary mb-3">Kết Quả Bài Làm</h4>
                     <p class="fs-5">Điểm trắc nghiệm: <strong id="score-display" class="text-success">0/10</strong></p>
@@ -861,7 +886,7 @@
             </div>
             
             <div class="modal-footer justify-content-between">
-                <button type="button" class="btn btn-secondary" onclick="confirmExitQuiz()">
+                <button type="button" class="btn btn-secondary" id="btn-exit-quiz">
                     <i class="bi bi-x-circle me-2"></i>Thoát/Hủy
                 </button>
                 <button type="button" class="btn btn-success" id="btn-submit-quiz" onclick="submitQuiz()">
@@ -871,6 +896,7 @@
         </div>
     </div>
 </div>
+
 
   <!-- Assign modal -->
   <div class="modal fade" id="modalAssign" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
@@ -1283,15 +1309,9 @@ function renderQuestions(items){
 
 
 async function startQuiz(testId, assignmentId, durationMinutes) {
-    // 1. Khởi tạo Modal (Chỉ lần đầu)
-    if (!quizModalInstance) {
-        quizModalInstance = new bootstrap.Modal(qs('modalQuiz'), {
-            backdrop: 'static',
-            keyboard: false
-        });
-    }
+    // 1. Khởi tạo Modal (Sử dụng quizModalInstance đã được khởi tạo trong DOMContentLoaded)
+    // Code của bạn đã bỏ qua bước này vì bạn đã khởi tạo nó trong DOMContentLoaded. (OK)
 
-    // Các thao tác DOM không liên quan đến dữ liệu Quiz
     qs('btn-submit-quiz').classList.remove('d-none');
     qs('quiz-results-summary').classList.add('d-none');
     qs('quiz-questions-container').style.pointerEvents = 'auto';
@@ -1299,43 +1319,251 @@ async function startQuiz(testId, assignmentId, durationMinutes) {
     // 2. Tải đề thi
     try {
         const quiz = await fetchJson(`${serverUrl}/api/quizzes/${testId}`);
+		console.log("Dữ liệu đề thi nhận được:", quiz); 
         
-        // **********************************************
-        // ✅ SỬA LỖI 404 (Nếu fetchJson không ném exception cho 4xx)
-        // Backend Flask thường trả về {"message": "..."} khi lỗi 404.
+        // Kiểm tra lỗi 404/ dữ liệu (Đã được sửa ở các bước trước)
         if (!quiz || quiz.message) {
-             // Ném lỗi để chuyển thẳng xuống block catch, tránh TypeError
              throw new Error(quiz ? quiz.message : "Dữ liệu đề thi không hợp lệ."); 
         }
-        // **********************************************
 
         currentQuiz = quiz.questions; // Lưu trữ câu hỏi
         currentAssignmentId = assignmentId; // Lưu trữ ID Assignment
         
-        // ❌ Dòng này gây lỗi TypeError nếu qs('quiz-title') là null
-        // Đảm bảo qs('quiz-title') phải là một phần tử DOM hợp lệ trước khi gọi
-        const quizTitleElement = qs('quiz-title');
+        // ✅ SỬA LỖI DOM: Dùng ID chính xác 'quiz-title-display'
+        const quizTitleElement = qs('quiz-title-display');
+
         if (quizTitleElement) {
-            quizTitleElement.textContent = escapeHtml(quiz.testName || `Đề thi ID: ${testId}`);
+            // Dữ liệu đề thi thường có trường 'name' hoặc 'testName'
+            const quizName = quiz.name || quiz.testName || `Đề thi ID: ${testId}`;
+            quizTitleElement.textContent = escapeHtml(quizName);
         } else {
-            // Ném lỗi nếu phần tử DOM không tồn tại
-            throw new Error("Không tìm thấy phần tử hiển thị tiêu đề quiz (quiz-title).");
+            // Ném lỗi mới với tên ID chính xác (Dòng 1322 mới)
+            throw new Error("Không tìm thấy phần tử hiển thị tiêu đề quiz (quiz-title-display)."); 
         }
 
-
         // 3. Render câu hỏi và hiển thị Modal
-        renderQuestions(currentQuiz);
-        quizModalInstance.show();
+renderQuizInterface(currentQuiz);
+quizModalInstance.show();
+
+// 🔹 Reset lại nút “Đóng” về “Thoát/Hủy” khi bắt đầu bài mới
+const exitBtn = document.getElementById("btn-exit-quiz");
+if (exitBtn) {
+    exitBtn.textContent = "Thoát/Hủy";
+    exitBtn.classList.remove("btn-secondary");
+    exitBtn.classList.add("btn-danger");
+}
+
+// 🔹 Gán confirmExitQuiz cho các nút đóng & hủy khi bắt đầu làm bài
+const closeBtn = document.getElementById("btn-close-quiz");
+if (exitBtn) exitBtn.onclick = confirmExitQuiz;
+if (closeBtn) closeBtn.onclick = confirmExitQuiz;
+
         
-        // 4. Bắt đầu Timer
+        // 4. Bắt đầu Timer (Lỗi ReferenceError đã được khắc phục)
+        // Dòng 1331:
         startQuizTimer(durationMinutes);
         
     } catch (e) {
         console.error("Lỗi tải đề thi:", e);
-        // Bây giờ showMessageBox sẽ hoạt động vì đã được định nghĩa.
+        // Dòng 1334:
         showMessageBox("Lỗi", "Không thể tải đề thi. Vui lòng thử lại sau. " + (e.message || "Lỗi không xác định."));
     }
 }
+
+// ==================== HÀM HIỂN THỊ GIAO DIỆN LÀM BÀI (SỬA LỖI ẢNH) ====================
+
+function renderQuizInterface(questions) {
+    const container = document.getElementById('quiz-questions-container'); 
+    if (!container) return;
+    
+    container.innerHTML = ''; 
+    if (!questions || questions.length === 0) {
+        container.innerHTML = '<p class="text-danger">Không có câu hỏi nào được tìm thấy.</p>';
+        return;
+    }
+
+    let questionsHtml = '';
+
+    questions.forEach((q, index) => {
+        const qNumber = index + 1;
+        const questionText = q.q || q.question || 'Nội dung câu hỏi không xác định.'; 
+        const options = q.options || [];
+        const qId = q.id || q._id;
+        // Xác định loại câu hỏi an toàn (mặc định trắc nghiệm nếu có options)
+        const qType = q.type || (options.length > 0 ? 'multiple_choice' : 'essay'); 
+
+        // 1. XỬ LÝ HÌNH ẢNH (ĐÃ SỬA LỖI file:///C:/...)
+        let imageHtml = '';
+        if (q.imageUrl) {
+            let safeImageUrl = q.imageUrl;
+            
+            // Tìm và cắt chuỗi từ vị trí '/static/uploads/' (hoặc '/static/')
+            const staticIndex = safeImageUrl.indexOf('/static/');
+            
+            if (staticIndex !== -1) {
+                // Lấy phần đường dẫn tương đối (ví dụ: /static/uploads/image.jpg)
+                safeImageUrl = safeImageUrl.substring(staticIndex);
+            } else if (!safeImageUrl.startsWith('/')) {
+                 // Nếu URL là "static/uploads/...", thêm / vào đầu
+                 safeImageUrl = '/' + safeImageUrl;
+            } else {
+                 // Nếu không thể xác định đường dẫn tương đối (ví dụ: vẫn là C:/), vô hiệu hóa ảnh
+                 safeImageUrl = null;
+            }
+
+            if (safeImageUrl) {
+                 imageHtml = `
+                    <div class="my-3 text-center">
+                        <img src="${escapeHtml(safeImageUrl)}" alt="Hình ảnh câu hỏi" 
+                            onerror="this.onerror=null; this.src='https://placehold.co/400x200/cccccc/333333?text=Không+thể+tải+ảnh';" 
+                            style="max-width: 100%; height: auto; border-radius: 8px;">
+                    </div>
+                `;
+            }
+        }
+        
+        // 2. XỬ LÝ VÙNG NHẬP LIỆU (Tự luận vs Trắc nghiệm)
+        let inputAreaHtml = '';
+
+        if (qType === 'essay') {
+            // Vùng nhập tự luận (textarea)
+            inputAreaHtml = `
+                <div class="form-group mt-3">
+                    <label for="essay_${qId}" class="form-label text-muted">Vui lòng nhập câu trả lời của bạn vào ô bên dưới:</label>
+                    <textarea id="essay_${qId}" class="form-control essay-answer" rows="6" placeholder="Viết câu trả lời tự luận..."></textarea>
+                </div>
+            `;
+        } else {
+            // Vùng trắc nghiệm (radio buttons)
+            let optionsHtml = '';
+            options.forEach((opt, optIndex) => {
+                const optLetter = String.fromCharCode(65 + optIndex);
+                const optValue = opt.value || opt.text || opt; 
+
+                const inputName = `q_${qId}`;
+                const inputId = `${inputName}_${optIndex}`;
+                
+                optionsHtml += `
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="${inputName}" id="${inputId}" value="${escapeHtml(optValue)}">
+                        <label class="form-check-label" for="${inputId}">
+                            <strong>${optLetter}.</strong> ${escapeHtml(optValue)}
+                        </label>
+                    </div>
+                `;
+            });
+            inputAreaHtml = `<div class="options-container">${optionsHtml}</div>`;
+        }
+        
+        // 3. Xây dựng thẻ CARD chính (Chứa data-question-id và data-question-type)
+        questionsHtml += `
+            <div class="card p-4 mb-4 shadow-sm" data-question-id="${qId}" data-question-type="${qType}">
+                <h6 class="mb-3 text-primary">Câu ${qNumber}:</h6>
+                
+                ${imageHtml}
+                <div class="mb-4 question-content">${questionText}</div> 
+                ${inputAreaHtml}
+                
+            </div>
+        `;
+    });
+
+    container.innerHTML = questionsHtml;
+    
+    // Gọi hàm thống kê (nếu tồn tại)
+    if (typeof renderQuestionStats === 'function') {
+        renderQuestionStats(questions); 
+    }
+}
+
+function startQuizTimer(durationMinutes) {
+    const timerDisplayElement = qs('quiz-timer');
+    
+    // 1. Dừng timer cũ nếu có
+    if (timerInterval) {
+        clearInterval(timerInterval);
+    }
+    
+    // 2. Tính thời điểm kết thúc
+    quizEndTime = Date.now() + (durationMinutes * 60 * 1000); // Thời điểm hiện tại + thời gian làm bài (tính bằng ms)
+    
+    // 3. Cập nhật Timer mỗi giây
+    function updateTimer() {
+        const timeRemainingMs = quizEndTime - Date.now();
+        const timeRemainingSeconds = Math.max(0, Math.floor(timeRemainingMs / 1000));
+
+        if (timeRemainingSeconds <= 0) {
+            clearInterval(timerInterval);
+            timerDisplayElement.textContent = formatTime(0);
+            
+            // Xử lý nộp bài tự động khi hết giờ
+            showMessageBox("Hết Giờ", "Bài thi đã được tự động nộp do hết thời gian làm bài.");
+            submitQuiz(true); // Gửi tham số để chỉ ra là tự động nộp
+            return;
+        }
+
+        timerDisplayElement.textContent = formatTime(timeRemainingSeconds);
+        
+        // Cảnh báo thời gian còn lại (Ví dụ: dưới 5 phút)
+        if (timeRemainingSeconds <= 300) {
+            timerDisplayElement.classList.add('text-danger');
+            timerDisplayElement.classList.remove('text-warning');
+        } else {
+            timerDisplayElement.classList.remove('text-danger');
+            timerDisplayElement.classList.add('text-warning');
+        }
+    }
+    
+    // Chạy lần đầu ngay lập tức
+    updateTimer();
+    
+    // Lặp lại mỗi giây
+    timerInterval = setInterval(updateTimer, 1000);
+}
+
+// Hàm để xóa/dừng timer khi thoát/nộp bài thủ công
+function stopQuizTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
+
+function confirmExitQuiz() {
+    // Sử dụng hàm confirmBoxAsync (sẽ được định nghĩa ở bước B)
+    if (typeof confirmBoxAsync === 'function') {
+        // Hỏi người dùng xác nhận
+        confirmBoxAsync("Xác nhận Thoát", "Bạn có chắc chắn muốn thoát bài làm? Mọi câu trả lời chưa nộp sẽ bị mất.", "Thoát", "Làm tiếp")
+            .then(confirmed => {
+                if (confirmed) {
+                    stopQuizTimer(); // Dừng bộ đếm ngược
+                    if (quizModalInstance) {
+                        quizModalInstance.hide(); // Ẩn modal
+                    }
+                    // Thêm logic xóa câu trả lời tạm thời nếu cần
+                }
+            })
+            .catch(() => { /* Người dùng hủy bỏ */ });
+    } else {
+        // Trường hợp khẩn cấp nếu confirmBoxAsync chưa kịp tải/định nghĩa
+        if (confirm("Bạn có chắc chắn muốn thoát bài làm? Mọi câu trả lời chưa nộp sẽ bị mất.")) {
+             stopQuizTimer();
+             if (quizModalInstance) quizModalInstance.hide();
+        }
+    }
+}
+
+
+function confirmBoxAsync(title, message, confirmText = 'OK', cancelText = 'Hủy') {
+    return new Promise(resolve => {
+        // Giả định bạn có một Modal/Logic tùy chỉnh để hiển thị hộp xác nhận
+        // Nếu không, tạm thời dùng confirm() của trình duyệt để khắc phục ReferenceError
+        const result = confirm(title + "\n\n" + message);
+        resolve(result);
+    });
+}
+
 
 async function submitQuiz(isTimeout = false) {
     if (!currentQuiz || !currentAssignmentId) {
@@ -1348,39 +1576,38 @@ async function submitQuiz(isTimeout = false) {
         if (!confirmSubmit) return;
     }
 
-    clearInterval(timerInterval); // Dừng timer ngay lập tức
+    if (typeof timerInterval !== 'undefined') {
+        clearInterval(timerInterval);
+    }
 
-    // 1. Thu thập câu trả lời
+    // 1️⃣ Thu thập câu trả lời
     const answers = currentQuiz.map(q => {
-        const answerElement = qs(`.answer-area[data-question-id="${q.id}"]`);
-        let studentAnswer = null;
+        const container = document.querySelector(`.card[data-question-id="${q.id}"]`);
+        if (!container) return { questionId: q.id, type: q.type, answer: null };
 
-        if (q.type === 'multiple_choice') {
-            // Trắc nghiệm: Tìm radio button được chọn
-            const selected = answerElement.querySelector(`input[name="q_${q.id}"]:checked`);
-            if (selected) {
-                studentAnswer = parseInt(selected.value);
-            }
+        let studentAnswer = null;
+        if (q.type === 'multiple_choice' || q.type === 'mc') {
+            const selected = container.querySelector(`input[name="q_${q.id}"]:checked`);
+            if (selected) studentAnswer = selected.value;
         } else if (q.type === 'essay') {
-            // Tự luận: Lấy giá trị từ textarea
-            studentAnswer = answerElement.querySelector('textarea').value.trim();
+            studentAnswer = container.querySelector('textarea.essay-answer')?.value?.trim() || null;
         }
-        
-        return { 
-            questionId: q.id, 
-            type: q.type, 
-            answer: studentAnswer || null // Gửi null nếu không trả lời
-        };
+
+        return { questionId: q.id, type: q.type, answer: studentAnswer };
     });
 
-    // 2. Gửi dữ liệu lên Backend
+    const submitButton = document.getElementById('btn-submit-quiz'); 
     try {
-        qs('btn-submit-quiz').disabled = true;
-        
+        if (submitButton) submitButton.disabled = true;
+
+        const testId = currentQuiz[0]?.testId || currentAssignmentId;
+        const studentId = currentUser?.id;
+        if (!testId || !studentId) throw new Error("Không thể xác định ID bài thi hoặc học sinh.");
+
         const resultPayload = {
-            studentId: currentUser.id,
+            studentId,
             assignmentId: currentAssignmentId,
-            testId: currentQuiz[0].testId, // Hoặc lấy từ biến global nếu có
+            testId,
             studentAnswers: answers,
             submittedAt: new Date().toISOString()
         };
@@ -1391,90 +1618,186 @@ async function submitQuiz(isTimeout = false) {
             body: JSON.stringify(resultPayload)
         });
 
-        // 3. Hiển thị kết quả (Dựa trên phản hồi từ server)
-        displayQuizResults(result); 
+        displayQuizResults(result);
 
-    } catch (e) {
-        console.error("Lỗi nộp bài:", e);
-        showMessageBox("Lỗi Nộp bài", "Không thể nộp bài. Vui lòng kiểm tra kết nối.");
+    } catch (err) {
+        console.error("Lỗi nộp bài:", err);
+        showMessageBox("Lỗi", "Không thể nộp bài: " + (err.message || 'Không xác định'));
     } finally {
-        qs('btn-submit-quiz').disabled = false;
-        // Tải lại danh sách bài tập để cập nhật trạng thái
-        loadAssignments(); 
+        if (submitButton) submitButton.disabled = false;
+        loadAssignments();
     }
 }
+
+
+
 
 function showMessageBox(title, message) {
-    // Tùy chọn 1: Dùng alert đơn giản (Nếu bạn chưa xây dựng modal)
-    // alert(`${title}: ${message}`); 
+    // Tùy chọn 1: Dùng alert đơn giản (hoạt động tốt)
+    alert(`${title}: ${message}`); 
     
-    // Tùy chọn 2: Nếu bạn đã có Bootstrap Modal
-    // Giả sử modal có ID là #messageModal
-    document.getElementById('messageModalLabel').textContent = title;
-    document.getElementById('messageModalBody').textContent = message;
-    new bootstrap.Modal(document.getElementById('messageModal')).show();
+    // Tùy chọn 2: Nếu bạn đã có Bootstrap Modal với ID là 'errorModal'
+    /*
+    const modalElement = document.getElementById('errorModal');
+    if (modalElement) {
+        document.getElementById('errorModalTitle').textContent = title;
+        document.getElementById('errorModalBody').textContent = message;
+        new bootstrap.Modal(modalElement).show();
+    } else {
+        alert(`${title}: ${message}`);
+    }
+    */
 }
 
-function displayQuizResults(result) {
-    // Dữ liệu giả định: Backend đã tính điểm trắc nghiệm
-    const questions = currentQuiz;
-    const summaryEl = qs('quiz-results-summary');
-    const container = qs('quiz-questions-container');
 
-    // Ẩn nút nộp bài và chặn tương tác với câu hỏi
-    qs('btn-submit-quiz').classList.add('d-none');
-    container.style.pointerEvents = 'none';
+async function displayQuizResults(result) {
+    console.log("Kết quả server trả về:", result);
 
-    let totalScore = result.calculatedScore || 0;
-    let totalQuestions = questions.length;
-    let correctCount = result.correctCount || 0; // Giả sử Backend trả về
-    let autoGradedScore = 0;
+    const details = result.detailedResults || [];
+    if (!details.length) {
+        showMessageBox("Thông báo", "Không có dữ liệu kết quả để hiển thị.");
+        return;
+    }
 
-    // Cập nhật tóm tắt kết quả
-    summaryEl.innerHTML = `
-        <h5 class="text-center text-primary">KẾT QUẢ BÀI LÀM</h5>
-        <div class="alert alert-info">
-            Điểm Trắc nghiệm (Tự động chấm): <strong>${totalScore} / 10</strong> (Giả định)
-            <br>
-            Số câu trắc nghiệm đúng: <strong>${correctCount} / ${totalQuestions}</strong>
-            <br>
-            Kết quả cuối cùng sẽ được cập nhật sau khi Giáo viên chấm điểm tự luận.
-        </div>
-    `;
-    summaryEl.classList.remove('d-none');
+    // 🔹 Thống kê điểm và số lượng câu hỏi
+    let correctCount = 0;
+    let totalQuestions = details.length;
+    let totalEssay = 0;
+    let totalMc = 0;
+    let autoScore = 0;
+    let maxScore = 0;
 
-    // Hiển thị phản hồi từng câu hỏi
-    questions.forEach((q, index) => {
-        const answerArea = qs(`.answer-area[data-question-id="${q.id}"]`);
-        if (!answerArea) return;
+    details.forEach(d => {
+        const qtype = (d.type || 'mc').toLowerCase();
+        if (qtype === 'essay') totalEssay++;
+        else totalMc++;
 
-        // Giả định: Backend trả về kết quả từng câu trong result.questionResults
-        const qResult = (result.questionResults || []).find(qr => qr.questionId === q.id);
-        const isCorrect = qResult ? qResult.isCorrect : false;
-
-        let feedbackHtml = '';
-        if (q.type === 'multiple_choice') {
-            const icon = isCorrect ? `<i class="bi bi-check-circle-fill text-success"></i> Đúng` : `<i class="bi bi-x-circle-fill text-danger"></i> Sai`;
-            feedbackHtml = `<div class="mt-2 p-2 rounded ${isCorrect ? 'bg-light-green' : 'bg-light-red'}">
-                ${icon}. Đáp án đúng: ${q.correctAnswer}
-            </div>`;
-        } else if (q.type === 'essay') {
-            feedbackHtml = `<div class="mt-2 p-2 rounded bg-light-yellow">
-                <i class="bi bi-clock-history"></i> **Đang chờ Giáo viên chấm điểm.**
-            </div>`;
-        }
-        answerArea.insertAdjacentHTML('afterend', feedbackHtml);
+        if (d.isCorrect) correctCount++;
+        autoScore += d.pointsGained || 0;
+        maxScore += d.maxPoints || 0;
     });
-    
-    // Đặt tên nút Thoát thành Đóng
-    const exitButton = qs('btn-exit-quiz');
-    if (exitButton) {
-        exitButton.textContent = 'Đóng';
-        exitButton.onclick = () => quizModalInstance.hide(); // Đóng ngay, không cần confirm
+
+    // 🔹 Hiển thị phần kết quả tổng hợp
+    const summaryBox = document.getElementById("quiz-results-summary");
+    if (summaryBox) {
+        summaryBox.classList.remove("d-none");
+        summaryBox.innerHTML = `
+            <div class="alert alert-info mt-3">
+                <h5 class="text-primary mb-2">KẾT QUẢ BÀI LÀM TẠM THỜI</h5>
+                <p>
+                    Tổng số câu: <strong>${totalQuestions}</strong><br>
+                    Số câu trắc nghiệm: <strong>${totalMc}</strong><br>
+                    Số câu tự luận: <strong>${totalEssay}</strong><br>
+                    Số câu đúng: <strong>${correctCount}</strong><br>
+                    Điểm trắc nghiệm: <strong>${autoScore}/${maxScore}</strong><br>
+                    <span class="text-danger">Tổng điểm bài thi (tạm tính): <strong>${autoScore}</strong></span>
+                </p>
+                <small class="text-muted fst-italic">
+                    * Điểm tự luận sẽ được cộng thêm sau khi giáo viên chấm.
+                </small>
+            </div>
+        `;
+    }
+
+    // 🔹 Disable toàn bộ input trong các câu hỏi
+    document.querySelectorAll('.card[data-question-id]').forEach(card => {
+        card.querySelectorAll('input, textarea').forEach(i => i.disabled = true);
+    });
+
+    // 🔹 Highlight từng câu hỏi
+    details.forEach(d => {
+        const qid = d.questionId;
+        const card = document.querySelector(`.card[data-question-id="${qid}"]`);
+        if (!card) return;
+
+        const studentAns = (d.studentAnswer ?? "").toString().trim().toLowerCase();
+        const correctAns = (d.correctAnswer ?? "").toString().trim().toLowerCase();
+
+        card.querySelectorAll('.form-check').forEach(opt => {
+            const input = opt.querySelector('input[type="radio"]');
+            if (!input) return;
+
+            const val = input.value.toString().trim().toLowerCase();
+            input.style.visibility = "hidden"; // ẩn radio để tránh click
+
+            // Xóa style cũ
+            opt.classList.remove('bg-success-subtle', 'bg-warning-subtle', 'border-success', 'border-danger', 'fw-bold');
+
+            // ✅ Đáp án đúng — xanh
+            if (val === correctAns) {
+                opt.classList.add('bg-success-subtle', 'border', 'border-success');
+            }
+
+            // ⚠️ HS chọn sai — cam
+            if (val === studentAns && val !== correctAns) {
+                opt.classList.add('bg-warning-subtle', 'border', 'border-danger');
+            }
+
+            // 💚 HS chọn đúng — xanh đậm
+            if (val === studentAns && val === correctAns) {
+                opt.classList.add('bg-success-subtle', 'border', 'border-success', 'fw-bold');
+            }
+        });
+    });
+
+    // 🔹 Ẩn nút Nộp bài, đổi nút thoát thành “Đóng”
+    const submitBtn = document.getElementById("btn-submit-quiz");
+    const exitBtn = document.getElementById("btn-exit-quiz");
+    if (submitBtn) submitBtn.classList.add("d-none");
+
+    // 🔹 Gỡ bỏ confirmExitQuiz() và mọi listener cảnh báo
+    const quizModal = document.getElementById('quizModal');
+    if (exitBtn) exitBtn.replaceWith(exitBtn.cloneNode(true)); // xoá listener onclick cũ
+    const newExitBtn = document.getElementById("btn-exit-quiz");
+
+    if (quizModal) {
+        // clone để xóa toàn bộ listener hide.bs.modal, confirm, v.v.
+        quizModal.replaceWith(quizModal.cloneNode(true)); 
+    }
+
+    if (newExitBtn) {
+        newExitBtn.textContent = "Đóng";
+        newExitBtn.classList.remove("btn-danger");
+        newExitBtn.classList.add("btn-secondary");
+        newExitBtn.onclick = () => {
+            stopQuizTimer?.(); // Dừng đồng hồ (nếu còn chạy)
+            quizModalInstance?.hide?.(); // Ẩn modal không confirm
+        };
     }
 }
 
+
+
+async function getTestName(testId) {
+    if (!testId || testId === 'N/A') return 'Không rõ tên';
     
+    let foundName = `ID: ${testId}`;
+
+    // 1. Ưu tiên tìm tên trong currentQuiz (nếu đã tải)
+    if (currentQuiz && currentQuiz.length > 0) {
+        const firstQ = currentQuiz[0];
+        if (firstQ.testName) return firstQ.testName;
+        if (firstQ.quizName) return firstQ.quizName;
+    }
+
+    // 2. Gọi API. Backend đã FIX để tìm thấy tên đề thi
+    try {
+        // Gọi API. Nó sẽ trả về doc (FULL QUIZ OBJECT) từ hàm get_test của bạn.
+        let data = await fetchJson(`${serverUrl}/api/quizzes/${testId}`); 
+        
+        // KIỂM TRA VÀ LẤY TRƯỜNG 'name' TỪ ĐỐI TƯỢNG ĐẦY ĐỦ
+        if (data && data.name) {
+            foundName = data.name;
+        } else if (data && data.message) {
+            foundName = `ID: ${testId} (Lỗi API)`;
+        }
+        
+    } catch (e) {
+        // Bắt lỗi 404.
+    }
+    
+    return foundName;
+}
 
 // THAY THẾ TOÀN BỘ HÀM openQuestionModal NÀY
 
@@ -3244,6 +3567,7 @@ async function confirmAssign() {
     async function loadResultsTestFilter(){ try{ const tests = await fetchJson(`${serverUrl}/api/tests`); const sel = qs('results-test-filter'); if(sel){ sel.innerHTML = '<option value="">-- Tất cả --</option>'; tests.forEach(t=>{ const o = document.createElement('option'); o.value = t.id || t._id; o.textContent = t.name; sel.appendChild(o); }); } } catch(e){ /* ignore */ } }
     async function loadResults(){ const testId = qs('results-test-filter')? qs('results-test-filter').value : ''; const q = testId? `?testId=${encodeURIComponent(testId)}` : ''; const tbody = qs('results-tbody'); tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải kết quả...</div></div></td></tr>'; try{ const assigns = await fetchJson(`${serverUrl}/api/assigns${q}`); if(!Array.isArray(assigns) || assigns.length===0){ tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không có kết quả</td></tr>'; return; } const users = await fetchJson(`${serverUrl}/api/users`); const frag = document.createDocumentFragment(); assigns.forEach(a=>{ const st = (users||[]).find(u=> (u.id||u._id) === a.studentId) || { user: a.studentId }; const tr = document.createElement('tr'); tr.innerHTML = `<td>${escapeHtml(st.user)}</td><td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.status)}</td><td>${escapeHtml(a.score||'')}</td><td>${escapeHtml(a.submittedAt||'')}</td>`; frag.appendChild(tr); }); tbody.innerHTML=''; tbody.appendChild(frag); } catch(e){ tbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Lỗi tải kết quả</td></tr>'; } }
 
+
     // ---------- STUDENT functions ----------
     // -------------------- HÀM XỬ LÝ ASSIGNMENTS (HỌC SINH) --------------------
 
@@ -3403,6 +3727,8 @@ function viewResult(resultId) {
     alert('Chức năng Xem kết quả chi tiết chưa được triển khai. ID kết quả: ' + resultId);
     // window.location.href = `test.html?resultId=${encodeURIComponent(resultId)}&review=1`;
 }
+
+
 
 
 
