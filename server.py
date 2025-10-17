@@ -384,6 +384,9 @@ def get_test(test_id):
 
     if not doc:
         return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+    question_list = doc.get("questions", [])
+    if not question_list:
+         return jsonify(doc) 
     
     # 1. PHÂN LOẠI DỮ LIỆU VÀ XÁC ĐỊNH ID CẦN BÙ ĐẮP
     ids_to_resolve = []
@@ -864,7 +867,10 @@ def create_result():
         points_gained = 0
         
         # Lấy điểm tối đa một cách an toàn (Mặc định 1 điểm)
-        max_points = q_original.get("points", 1) if q_original else 0
+        try:
+            max_points = int(q_original.get("points", 1)) if q_original else 0
+        except ValueError:
+            max_points = 1 # Fallback nếu points không phải số
         
         if q_original and ans["answer"] is not None:
             # Ưu tiên correct_answer, nếu không có thì dùng correctAnswer
