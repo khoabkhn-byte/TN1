@@ -490,6 +490,14 @@ def get_test(test_id):
 
     # Gán lại questions và trả
     doc["questions"] = final_questions
+    # 🔹 BỔ SUNG: Đảm bảo mọi câu hỏi đều có field 'type'
+    for q in doc.get("questions", []):
+        # Nếu chưa có type, tự xác định
+        if "type" not in q or not q["type"]:
+            if q.get("options") and len(q["options"]) > 0:
+                q["type"] = "mc"  # trắc nghiệm
+            else:
+                q["type"] = "essay"  # tự luận
     return jsonify(doc)
 
 @app.route("/tests", methods=["POST"])
