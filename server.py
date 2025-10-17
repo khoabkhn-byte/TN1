@@ -882,6 +882,7 @@ def create_result():
 
         detailed.append({
             "questionId": qid,
+            "type": q_type,
             "studentAnswer": student_ans,
             "isCorrect": is_correct,
             "pointsGained": points,
