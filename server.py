@@ -9,15 +9,12 @@ from werkzeug.exceptions import HTTPException
 import datetime
 import json
 from werkzeug.utils import secure_filename
+from gridfs import GridFS
 
-# Định nghĩa thư mục lưu trữ file ảnh
-UPLOAD_FOLDER = 'static/uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER) 
 # Load .env in local; Render provides env vars automatically
 load_dotenv()
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(__name__)
 # Allow all origins so frontend on any domain can call this API
 CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -40,6 +37,7 @@ except Exception as e:
     raise
 
 db = client[DB_NAME]
+fs = GridFS(db)
 print(f"✅ Connected to MongoDB database: {DB_NAME}")
 
 def remove_id(doc):
@@ -207,6 +205,15 @@ def delete_user(user_id):
     return jsonify({"message": "Người dùng không tìm thấy."}), 404
 
 # --------------------- QUESTIONS ---------------------
+@app.route("/questions/image/<file_id>", methods=["GET"])
+def get_question_image(file_id):
+    """Trả ảnh từ GridFS"""
+    try:
+        file_obj = fs.get(ObjectId(file_id))
+        return send_file(file_obj, mimetype=file_obj.content_type, as_attachment=False, download_name=file_obj.filename)
+    except Exception as e:
+        return jsonify({"message": f"File not found: {str(e)}"}), 404
+
 @app.route("/questions", methods=["GET"])
 @app.route("/api/questions", methods=["GET"])
 def list_questions():
@@ -241,14 +248,13 @@ def create_question():
     data = request.form
     image_file = request.files.get('image')
 
-    # 1. Xử lý File Upload
+    # 1. Xử lý File Upload lên GridFS
     image_url = None
     if image_file:
         # Tạo tên file duy nhất và an toàn
         filename = secure_filename(image_file.filename)
-        file_ext = os.path.splitext(filename)[1]
-        unique_filename = f"{uuid4()}{file_ext}"
-        save_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+        content_type = image_file.mimetype
+        image_id = fs.put(image_file, filename=filename, content_type=content_type)
         
         try:
             image_file.save(save_path)
@@ -277,7 +283,8 @@ def create_question():
         "answer": answer
     }
     db.questions.insert_one(newq)
-    to_return = newq.copy(); to_return.pop("_id", None)
+    to_return = newq.copy(); 
+    to_return.pop("_id", None)
     return jsonify(to_return), 201
 
 @app.route("/questions/<q_id>", methods=["GET"])
@@ -313,17 +320,18 @@ def update_question(q_id):
 
     # 3. Xử lý File Upload Mới
     if image_file:
-        # Tạo tên file duy nhất và an toàn
+        # Xóa file cũ nếu đã có
+        old_q = db.questions.find_one({"id": q_id})
+        if old_q and old_q.get("imageId"):
+            try:
+                fs.delete(ObjectId(old_q["imageId"]))
+            except:
+                pass
+        # Lưu file mới
         filename = secure_filename(image_file.filename)
-        file_ext = os.path.splitext(filename)[1]
-        unique_filename = f"{uuid4()}{file_ext}"
-        save_path = os.path.join(UPLOAD_FOLDER, unique_filename)
-        
-        try:
-            image_file.save(save_path)
-            update_fields["imageUrl"] = f"/{UPLOAD_FOLDER}/{unique_filename}"
-        except Exception as e:
-            return jsonify({"message": f"Lỗi lưu file: {str(e)}"}), 500
+        content_type = image_file.mimetype
+        image_id = fs.put(image_file, filename=filename, content_type=content_type)
+        update_fields["imageId"] = str(image_id)
     
     # 4. Cập nhật vào MongoDB
     res = db.questions.update_one({"id": q_id}, {"$set": update_fields})
