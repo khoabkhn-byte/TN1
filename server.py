@@ -250,7 +250,7 @@ def create_question():
     remove_old = data.get("removeOldImage", "false") == "true"
 
     # 1. Xử lý File Upload lên GridFS
-     image_id = None
+    image_id = None
 
     if image_file:
         # Tạo tên file duy nhất và an toàn
