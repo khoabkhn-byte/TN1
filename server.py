@@ -255,13 +255,6 @@ def create_question():
         filename = secure_filename(image_file.filename)
         content_type = image_file.mimetype
         image_id = fs.put(image_file, filename=filename, content_type=content_type)
-        
-        try:
-            image_file.save(save_path)
-            # URL phải tương ứng với thư mục static đã định nghĩa
-            image_url = f"/{UPLOAD_FOLDER}/{unique_filename}"
-        except Exception as e:
-            return jsonify({"message": f"Lỗi lưu file: {str(e)}"}), 500
 
     # 2. Parse các trường JSON string (options, answer)
     try:
