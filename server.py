@@ -468,7 +468,22 @@ def get_test(test_id):
 
     full_questions = []
     if or_clauses:
-        full_questions = list(db.questions.find({"$or": or_clauses}, {"_id": 1, "id": 1, "q": 1, "options": 1, "points": 1, "imageUrl": 1}))
+        full_questions = list(db.questions.find(
+    {"$or": or_clauses},
+    {
+        "_id": 1,
+        "id": 1,
+        "q": 1,
+        "options": 1,
+        "points": 1,
+        "type": 1,
+        "subject": 1,
+        "level": 1,
+        "difficulty": 1,
+        "answer": 1,
+        "imageId": 1, 
+    }
+))
 
     # Map bằng cả id (uuid) và str(_id)
     id_map = {}
