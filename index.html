@@ -122,8 +122,8 @@
 }
 
 #quiz-questions-container .question-image img {
-    max-width: 150px;
-    max-height: 150px;
+    max-width: 300px;
+    max-height: 200px;
     object-fit: contain;
     border-radius: 10px;
     border: 1px solid #ccc;
@@ -133,7 +133,9 @@
 }
 
 #quiz-questions-container .question-image img:hover {
-    transform: scale(1.05);
+    transform: scale(1.3);
+    z-index: 10;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
 }
 
 /* Responsive nhỏ gọn cho tablet/mobile */
