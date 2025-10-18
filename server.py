@@ -244,21 +244,21 @@ def list_questions():
 @app.route("/questions", methods=["POST"])
 @app.route("/api/questions", methods=["POST"])
 def create_question():
-    # SỬA: Lấy dữ liệu từ request.form (text) và request.files (file)
     data = request.form
-    image_file = request.files.get('image')
-    remove_old = data.get("removeOldImage", "false") == "true"
+    image_file = request.files.get("image")
 
-    # 1. Xử lý File Upload lên GridFS
     image_id = None
 
+    # 1. Upload ảnh lên GridFS nếu có
     if image_file:
-        # Tạo tên file duy nhất và an toàn
         filename = secure_filename(image_file.filename)
         content_type = image_file.mimetype
-        image_id = fs.put(image_file, filename=filename, content_type=content_type)
+        try:
+            image_id = fs.put(image_file, filename=filename, content_type=content_type)
+        except Exception as e:
+            return jsonify({"message": f"Lỗi lưu file: {str(e)}"}), 500
 
-    # 2. Parse các trường JSON string (options, answer)
+    # 2. Parse options/answer
     try:
         options = json.loads(data.get("options", "[]"))
         answer = data.get("answer", "")
@@ -268,7 +268,6 @@ def create_question():
     newq = {
         "id": str(uuid4()),
         "q": data.get("q"),
-        "imageUrl": image_url, # Sử dụng URL đã tạo
         "type": data.get("type"),
         "points": int(data.get("points", 1)),
         "subject": data.get("subject"),
@@ -276,10 +275,11 @@ def create_question():
         "difficulty": data.get("difficulty", "medium"),
         "options": options,
         "answer": answer,
-        "imageId": image_id,
+        "imageId": str(image_id) if image_id else None
     }
+
     db.questions.insert_one(newq)
-    to_return = newq.copy(); 
+    to_return = newq.copy()
     to_return.pop("_id", None)
     return jsonify(to_return), 201
 
@@ -293,39 +293,43 @@ def get_question(q_id):
 @app.route("/questions/<q_id>", methods=["PUT"])
 @app.route("/api/questions/<q_id>", methods=["PUT"])
 def update_question(q_id):
-    # SỬA: Lấy dữ liệu từ request.form (text) và request.files (file)
     data = request.form
-    image_file = request.files.get('image')
+    image_file = request.files.get("image")
     remove_old = data.get("removeOldImage", "false") == "true"
+
+    # 1. Lấy câu hỏi hiện tại
     question = db.questions.find_one({"id": q_id})
     if not question:
         return jsonify({"message": "Không tìm thấy câu hỏi"}), 404
 
     image_id = question.get("imageId")
 
-    # Xóa ảnh cũ nếu có flag
+    # 2. Xóa ảnh cũ nếu user bấm remove
     if remove_old and image_id:
         try:
             fs.delete(ObjectId(image_id))
-        except:
+        except Exception:
             pass
         image_id = None
 
-    # Nếu upload file mới, thêm vào GridFS
+    # 3. Upload ảnh mới nếu có
     if image_file:
-        filename = secure_filename(image_file.filename)
-        content_type = image_file.mimetype
-        image_id = str(fs.put(image_file, filename=filename, content_type=content_type))
+        try:
+            filename = secure_filename(image_file.filename)
+            content_type = image_file.mimetype
+            new_image_id = fs.put(image_file, filename=filename, content_type=content_type)
+            image_id = str(new_image_id)
+        except Exception as e:
+            return jsonify({"message": f"Lỗi upload ảnh mới: {str(e)}"}), 500
 
-    # Parse options
+    # 4. Parse options/answer
     try:
         options = json.loads(data.get("options", "[]"))
         answer = data.get("answer", "")
-    except Exception as e:
-        return jsonify({"message": "Lỗi định dạng options/answer"}), 400
-    
+    except json.JSONDecodeError:
+        return jsonify({"message": "Lỗi định dạng dữ liệu Options hoặc Answer."}), 400
 
-    # 1. Chuẩn bị dữ liệu cập nhật
+    # 5. Chuẩn bị dữ liệu update
     update_fields = {
         "q": data.get("q"),
         "type": data.get("type"),
@@ -333,38 +337,19 @@ def update_question(q_id):
         "subject": data.get("subject"),
         "level": data.get("level"),
         "difficulty": data.get("difficulty", "medium"),
+        "options": options,
+        "answer": answer,
+        "imageId": image_id
     }
-    
-    # 2. Parse các trường JSON string
-    try:
-        update_fields["options"] = json.loads(data.get("options", "[]"))
-        update_fields["answer"] = data.get("answer", "")
-    except json.JSONDecodeError:
-        return jsonify({"message": "Lỗi định dạng dữ liệu Options hoặc Answer."}), 400
 
-    # 3. Xử lý File Upload Mới
-    if image_file:
-        # Xóa file cũ nếu đã có
-        old_q = db.questions.find_one({"id": q_id})
-        if old_q and old_q.get("imageId"):
-            try:
-                fs.delete(ObjectId(old_q["imageId"]))
-            except:
-                pass
-        # Lưu file mới
-        filename = secure_filename(image_file.filename)
-        content_type = image_file.mimetype
-        image_id = fs.put(image_file, filename=filename, content_type=content_type)
-        update_fields["imageId"] = str(image_id)
-    
-    # 4. Cập nhật vào MongoDB
+    # 6. Cập nhật MongoDB
     res = db.questions.update_one({"id": q_id}, {"$set": update_fields})
-    
-    if res.matched_count > 0:
-        updated = db.questions.find_one({"id": q_id}, {"_id": 0})
-        return jsonify(updated)
-    
-    return jsonify({"message": "Câu hỏi không tồn tại."}), 404
+    if res.matched_count == 0:
+        return jsonify({"message": "Câu hỏi không tồn tại."}), 404
+
+    updated = db.questions.find_one({"id": q_id}, {"_id": 0})
+    return jsonify(updated), 200
+
 
 @app.route("/questions/<q_id>", methods=["DELETE"])
 @app.route("/api/questions/<q_id>", methods=["DELETE"])
