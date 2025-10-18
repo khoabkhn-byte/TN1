@@ -99,6 +99,63 @@
   border-radius: 0.3rem;
 }
 
+/* ==== Quiz Question Layout ==== */
+#quiz-questions-container .card {
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    transition: all 0.2s ease-in-out;
+}
+
+#quiz-questions-container .card:hover {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* Phần text và ảnh trong mỗi câu hỏi */
+#quiz-questions-container .question-text {
+    flex: 1;
+    min-width: 55%;
+}
+
+#quiz-questions-container .question-image {
+    max-width: 40%;
+    text-align: right;
+}
+
+#quiz-questions-container .question-image img {
+    max-width: 150px;
+    max-height: 150px;
+    object-fit: contain;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    background-color: #f8f9fa;
+    padding: 3px;
+    transition: transform 0.2s;
+}
+
+#quiz-questions-container .question-image img:hover {
+    transform: scale(1.05);
+}
+
+/* Responsive nhỏ gọn cho tablet/mobile */
+@media (max-width: 768px) {
+    #quiz-questions-container .d-flex {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+
+    #quiz-questions-container .question-image {
+        text-align: center;
+        margin-top: 10px;
+        width: 100%;
+    }
+
+    #quiz-questions-container .question-image img {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+
 
   </style>
 </head>
@@ -1043,6 +1100,9 @@
   civic: "GDCD",
   it: "Tin học"
 };
+
+
+
   // ... (state.tests, state.questions, v.v.)
 let manualState = {
     selectedQuestions: [], // Mảng lưu các câu hỏi đã chọn trong đề thủ công
@@ -1140,12 +1200,36 @@ function addQuestionOption(text = '', isCorrect = false) {
     const PAGE_SIZE = 20;
     let currentUser = null;
 	
+	// =================== HÀM TIỆN ÍCH CHUNG ===================
+function qs(selector) {
+    if (!selector) return null;
+
+    // Nếu truyền sẵn element → trả luôn
+    if (selector instanceof Element) return selector;
+
+    if (typeof selector === 'string') {
+        const s = selector.trim();
+        // Nếu không chứa ký tự đặc biệt thì lấy theo ID
+        if (!/[ .#\[\]>:+]/.test(s)) {
+            return document.getElementById(s);
+        }
+        // Nếu bắt đầu bằng # (ID selector)
+        if (s.startsWith('#') && !s.includes(' ')) {
+            return document.getElementById(s.slice(1));
+        }
+        // Trường hợp phức tạp: class, tag, hoặc nested selector
+        return document.querySelector(s);
+    }
+
+    return null;
+}
+	
 
     // Pagination state
     const state = { questions: { list: [], page:1, total:0 }, tests: { list: [], page:1, total:0 }, students: { list: [], page:1, total:0 } };
 
     
-	const qs = id => document.getElementById(id);
+	//const qs = id => document.getElementById(id);
 	
 
     async function fetchJson(url, opts){ try { const r = await fetch(url, opts); if(r.status === 204) return null; return await r.json(); } catch(e){ console.error('fetch error', e); throw e; } }
@@ -1488,57 +1572,49 @@ function renderQuizInterface(questions) {
         const questionText = q.q || q.question || 'Nội dung câu hỏi không xác định.'; 
         const options = q.options || [];
         const qId = q.id || q._id;
-        // Xác định loại câu hỏi an toàn (mặc định trắc nghiệm nếu có options)
         const qType = q.type || (options.length > 0 ? 'multiple_choice' : 'essay'); 
 
-        // 1. XỬ LÝ HÌNH ẢNH (ĐÃ SỬA LỖI file:///C:/...)
+        // 🔹 Xử lý ảnh câu hỏi (ưu tiên imageId, fallback imageUrl)
         let imageHtml = '';
-        if (q.imageUrl) {
-            let safeImageUrl = q.imageUrl;
-            
-            // Tìm và cắt chuỗi từ vị trí '/static/uploads/' (hoặc '/static/')
-            const staticIndex = safeImageUrl.indexOf('/static/');
-            
-            if (staticIndex !== -1) {
-                // Lấy phần đường dẫn tương đối (ví dụ: /static/uploads/image.jpg)
-                safeImageUrl = safeImageUrl.substring(staticIndex);
-            } else if (!safeImageUrl.startsWith('/')) {
-                 // Nếu URL là "static/uploads/...", thêm / vào đầu
-                 safeImageUrl = '/' + safeImageUrl;
-            } else {
-                 // Nếu không thể xác định đường dẫn tương đối (ví dụ: vẫn là C:/), vô hiệu hóa ảnh
-                 safeImageUrl = null;
-            }
+        let finalImageUrl = '';
 
-            if (safeImageUrl) {
-                 imageHtml = `
-                    <div class="my-3 text-center">
-                       <img src="${serverUrl}/images/${escapeHtml(safeImageId)}" alt="Hình ảnh câu hỏi">
-                            onerror="this.onerror=null; this.src='https://placehold.co/400x200/cccccc/333333?text=Không+thể+tải+ảnh';" 
-                            style="max-width: 100%; height: auto; border-radius: 8px;">
-                    </div>
-                `;
+        if (q.imageId) {
+            finalImageUrl = `${serverUrl}/images/${q.imageId}`;
+        } else if (q.imageUrl) {
+            // Chuẩn hóa lại đường dẫn
+            let safeUrl = q.imageUrl;
+            if (safeUrl.includes('/static/')) {
+                safeUrl = safeUrl.substring(safeUrl.indexOf('/static/'));
             }
+            finalImageUrl = `${serverUrl}${safeUrl}`;
         }
-        
-        // 2. XỬ LÝ VÙNG NHẬP LIỆU (Tự luận vs Trắc nghiệm)
+
+        if (finalImageUrl) {
+            imageHtml = `
+                <div class="question-image text-end ms-3 flex-shrink-0" style="max-width: 40%;">
+                    <img src="${finalImageUrl}" 
+                        alt="Hình minh họa câu hỏi" 
+                        onerror="this.onerror=null;this.src='https://placehold.co/300x200?text=Không+thể+tải+ảnh';"
+                        class="img-fluid rounded border shadow-sm">
+                </div>
+            `;
+        }
+
+        // 🔹 Trắc nghiệm / Tự luận
         let inputAreaHtml = '';
 
         if (qType === 'essay') {
-            // Vùng nhập tự luận (textarea)
             inputAreaHtml = `
                 <div class="form-group mt-3">
-                    <label for="essay_${qId}" class="form-label text-muted">Vui lòng nhập câu trả lời của bạn vào ô bên dưới:</label>
-                    <textarea id="essay_${qId}" class="form-control essay-answer" rows="6" placeholder="Viết câu trả lời tự luận..."></textarea>
+                    <label for="essay_${qId}" class="form-label text-muted">Nhập câu trả lời của bạn:</label>
+                    <textarea id="essay_${qId}" class="form-control essay-answer" rows="6" placeholder="Viết câu trả lời..."></textarea>
                 </div>
             `;
         } else {
-            // Vùng trắc nghiệm (radio buttons)
             let optionsHtml = '';
             options.forEach((opt, optIndex) => {
                 const optLetter = String.fromCharCode(65 + optIndex);
                 const optValue = opt.value || opt.text || opt; 
-
                 const inputName = `q_${qId}`;
                 const inputId = `${inputName}_${optIndex}`;
                 
@@ -1551,29 +1627,32 @@ function renderQuizInterface(questions) {
                     </div>
                 `;
             });
-            inputAreaHtml = `<div class="options-container">${optionsHtml}</div>`;
+            inputAreaHtml = `<div class="options-container mt-2">${optionsHtml}</div>`;
         }
-        
-        // 3. Xây dựng thẻ CARD chính (Chứa data-question-id và data-question-type)
+
+        // 🔹 Bố cục card câu hỏi (ảnh bên phải)
         questionsHtml += `
             <div class="card p-4 mb-4 shadow-sm" data-question-id="${qId}" data-question-type="${qType}">
-                <h6 class="mb-3 text-primary">Câu ${qNumber}:</h6>
-                
-                ${imageHtml}
-                <div class="mb-4 question-content">${questionText}</div> 
-                ${inputAreaHtml}
-                
+                <div class="d-flex flex-wrap align-items-start justify-content-between">
+                    <div class="question-text flex-grow-1" style="min-width: 55%;">
+                        <h6 class="mb-3 text-primary">Câu ${qNumber}:</h6>
+                        <div class="mb-3 question-content">${escapeHtml(questionText)}</div> 
+                        ${inputAreaHtml}
+                    </div>
+                    ${imageHtml}
+                </div>
             </div>
         `;
     });
 
     container.innerHTML = questionsHtml;
     
-    // Gọi hàm thống kê (nếu tồn tại)
+    // 🔹 Nếu có hàm thống kê
     if (typeof renderQuestionStats === 'function') {
         renderQuestionStats(questions); 
     }
 }
+
 
 function startQuizTimer(durationMinutes) {
     const timerDisplayElement = qs('quiz-timer');
