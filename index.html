@@ -99,6 +99,7 @@
   border-radius: 0.3rem;
 }
 
+
   </style>
 </head>
 <body>
@@ -429,26 +430,77 @@
 
         <!-- RESULTS -->
         <div class="tab-pane fade" id="tab-results">
-          <div class="d-flex justify-content-between mb-2">
-            <h5>Kết quả</h5>
-            <div>
-              <select id="results-test-filter" class="form-select form-select-sm" style="width:260px; display:inline-block" onchange="loadResults()"></select>
-              <button class="btn btn-outline-primary ms-2" onclick="loadResults()">Tải lại</button>
-            </div>
-          </div>
-          <div class="card p-3">
-            <div class="table-wrap">
-              <table class="table table-sm table-hover">
-                <thead><tr><th>Học sinh</th><th>Bài thi</th><th>Trạng thái</th><th>Điểm</th><th>Thời gian nộp</th></tr></thead>
-                <tbody id="results-tbody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-      </div>
+    <h5>Quản lý Kết quả Bài thi</h5>
+    
+    <div id="results-stats-container" class="alert alert-light py-2 mb-3" role="alert">
+        <strong>Thống kê:</strong> 
+        <span id="results-stats-info">Đang tải...</span>
     </div>
+    
+    <div class="card p-3 mb-3">
+        <h6>Bộ lọc và Sắp xếp</h6>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="filter-result-status" class="form-label small">Trạng thái chấm</label>
+                <select id="filter-result-status" class="form-select form-select-sm" onchange="loadResults()">
+                    <option value="">-- Tất cả --</option>
+                    <option value="Chưa Chấm">Chưa Chấm</option>
+                    <option value="Đã Chấm">Đã Chấm</option>
+                    <option value="Tự động hoàn tất">Hoàn tất tự động</option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label for="filter-result-class" class="form-label small">Lớp học</label>
+                <input type="text" id="filter-result-class" class="form-control form-control-sm" placeholder="Nhập tên lớp..." onkeyup="debounceLoadResults()">
+            </div>
+            
+            <div class="col-md-3">
+                <label for="search-result-student" class="form-label small">Tìm kiếm Học sinh</label>
+                <input type="text" id="search-result-student" class="form-control form-control-sm" placeholder="Nhập Họ tên..." onkeyup="debounceLoadResults()">
+            </div>
+            
+            <div class="col-md-3">
+                <label for="sort-result-time" class="form-label small">Sắp xếp theo</label>
+                <select id="sort-result-time" class="form-select form-select-sm" onchange="loadResults()">
+                    <option value="submittedAt_desc">Thời gian nộp (Mới nhất)</option>
+                    <option value="submittedAt_asc">Thời gian nộp (Cũ nhất)</option>
+                    <option value="totalScore_desc">Điểm số (Cao nhất)</option>
+                    <option value="totalScore_asc">Điểm số (Thấp nhất)</option>
+                </select>
+            </div>
 
+            <div class="col-md-12 text-end">
+                <button class="btn btn-sm btn-outline-primary me-2" onclick="loadResults(true)">Tải lại Dữ liệu</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="clearResultFilters()">Xóa Lọc</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card p-3">
+        <div class="table-wrap">
+            <table class="table table-sm table-hover table-bordered">
+                <thead>
+                    <tr>
+                        <th style="width: 4%;" class="text-center">STT</th>
+                        <th style="width: 22%;"class="text-center">Bài thi</th>
+                        <th style="width: 12%;"class="text-center">Học sinh</th>
+                        <th style="width: 8%;"class="text-center">Lớp</th>
+                        <th style="width: 14%;"class="text-center">Thời gian nộp</th>
+                        <th style="width: 14%;" class="text-center">Trạng thái chấm</th>
+                        <th style="width: 8%;" class="text-center">Điểm</th>
+                        <th style="width: 18%;" class="text-center">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="results-tbody">
+                    <tr><td colspan="8" class="text-center text-muted">Vui lòng bấm Tải lại để xem kết quả.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</div>
+</div>
     <!-- STUDENT APP -->
     <div id="student-app">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -488,7 +540,7 @@
       </div>
     </div>
 
-  </div>
+ 
 
   <!-- MODALS (teacher re-used from original) -->
   <!-- Question modal -->
@@ -1011,7 +1063,7 @@ let currentAssignmentId = null; // Lưu Assignment ID hiện tại
 let timerInterval = null; // Biến lưu trữ interval của bộ đếm ngược
 let quizEndTime = null; // Thời điểm kết thúc bài làm
 let reviewQuizModalInstance;
-
+let allResultsData = []; // Lưu trữ dữ liệu gốc đã tải từ API
 document.addEventListener("DOMContentLoaded", () => {
   const reviewModalEl = document.getElementById("modalReviewQuiz");
   if (reviewModalEl) {
@@ -1325,36 +1377,31 @@ function renderQuestions(items){
 }
 	
     function openQuestionModalFromRow(qStr){ 
-    try{ 
+    try { 
         const q = JSON.parse(decodeURIComponent(qStr)); 
         openQuestionModal(q);
-    } catch(e){ 
-        // Nếu lỗi parse, mở modal trống để thêm mới
+    } catch(e) { 
+        console.error("Lỗi parse question từ row:", e);
         openQuestionModal(); 
-			} 
-	}
-	
-	function openQuestionModalById(qId) {
+    } 
+}
+
+function openQuestionModalById(qId) {
     if (!qId) { 
         openQuestionModal(); 
         return; 
     }
     
-    // Kiểm tra dữ liệu chung
     if (!state.questions || !state.questions.list) { 
         alert("Lỗi: Dữ liệu câu hỏi chưa được tải."); 
         return; 
     }
     
-    // 1. Tìm câu hỏi trong danh sách
     const question = state.questions.list.find(q => (q.id || q._id) === qId);
-
-    // 2. PHẢI TRUYỀN DỮ LIỆU CÂU HỎI VÀO openQuestionModal
     if (question) { 
-        openQuestionModal(question); // <--- Lỗi nằm ở đây: Phải truyền 'question'
+        openQuestionModal(question); 
     } else { 
-        // Nếu không tìm thấy, thông báo lỗi thay vì mở form rỗng
-        alert("Lỗi: Không tìm thấy câu hỏi này trong danh sách hiện tại.");
+        alert("Lỗi: Không tìm thấy câu hỏi trong danh sách.");
     }
 }
 
@@ -1466,7 +1513,7 @@ function renderQuizInterface(questions) {
             if (safeImageUrl) {
                  imageHtml = `
                     <div class="my-3 text-center">
-                        <img src="${escapeHtml(safeImageUrl)}" alt="Hình ảnh câu hỏi" 
+                       <img src="${serverUrl}/images/${escapeHtml(safeImageId)}" alt="Hình ảnh câu hỏi">
                             onerror="this.onerror=null; this.src='https://placehold.co/400x200/cccccc/333333?text=Không+thể+tải+ảnh';" 
                             style="max-width: 100%; height: auto; border-radius: 8px;">
                     </div>
@@ -1936,14 +1983,46 @@ function renderDoneAssignments(completed) {
 
 
 
+// Gọi hàm loadResults khi tab được kích hoạt
+// (Giả định bạn đã có logic kích hoạt tab)
+// Ví dụ: Sau khi người dùng đăng nhập hoặc khi chuyển tab
+// document.addEventListener('DOMContentLoaded', () => {
+//     if (currentUser.role === 'teacher') {
+//         loadResults(true); // Tải dữ liệu ban đầu
+//     }
+// });
 
-// THAY THẾ TOÀN BỘ HÀM openQuestionModal NÀY
+// Hàm giả định cho bước tiếp theo (chấm điểm chi tiết)
+function openResultDetail(resultId) {
+    alert('Mở màn hình chi tiết kết quả ID: ' + resultId + '. Tính năng chấm điểm chi tiết sẽ được phát triển sau khi hoàn thành mục này.');
+}
 
-function openQuestionModal(q){ 
-    const modalEl = qs('modalQuestion'); 
-    const modal = new bootstrap.Modal(modalEl); 
+// Debounce để tránh load quá nhiều khi gõ phím
+//const debounceLoadResults = debounce(loadResults, 300);
+
+// Xóa lọc
+function clearResultFilters() {
+    if(qs('#filter-result-status')) qs('#filter-result-status').value = '';
+    if(qs('#filter-result-class')) qs('#filter-result-class').value = '';
+    if(qs('#search-result-student')) qs('#search-result-student').value = '';
     
-    // PHẢI CÓ KHAI BÁO CÁC INPUT NÀY
+    // Sử dụng if để tránh lỗi nếu #sort-result-time không tồn tại
+    const sortElement = qs('#sort-result-time');
+    if (sortElement) {
+        sortElement.value = 'submittedAt_desc';
+    }
+    
+    loadResults(); // Tải lại sau khi xóa bộ lọc
+}
+
+
+
+
+// ====================== OPEN QUESTION MODAL ======================
+function openQuestionModal(q) {
+    const modalEl = qs('modalQuestion'); 
+    const modal = new bootstrap.Modal(modalEl);
+
     const inputId = qs('m-q-id');
     const inputQ = qs('m-q-q');
     const inputSubject = qs('m-q-subject');
@@ -1951,131 +2030,173 @@ function openQuestionModal(q){
     const inputType = qs('m-q-type');
     const inputPoints = qs('m-q-points');
     const inputDifficulty = qs('add-question-difficulty');
-    
-    // LẤY CÁC PHẦN TỬ LIÊN QUAN ĐẾN ĐÁP ÁN VÀ HÌNH ẢNH
     const inputOptionsContainer = qs('m-q-options-container');
     const inputEssayAnswer = qs('m-q-essay-answer');
     const imageFileEl = qs('q-image-file');       
     const imagePreviewEl = qs('q-image-preview'); 
     const btnRemoveImage = qs('btn-remove-image'); 
-    
-    // Gán sự kiện change cho dropdown Loại
-    if (inputType) { inputType.onchange = toggleOptionFields; }
 
-    // KIỂM TRA LỖI TOÀN BỘ CÁC PHẦN TỬ BẮT BUỘC
-    if (!inputId || !inputQ || !inputOptionsContainer || !inputEssayAnswer || !imageFileEl || !imagePreviewEl || !btnRemoveImage) { 
-        console.error("Lỗi nghiêm trọng: Các phần tử Modal không tìm thấy. Vui lòng kiểm tra HTML IDs.");
-        alert("Lỗi: Không thể mở form sửa câu hỏi do lỗi cấu trúc HTML.");
-        return; // Dừng hàm để tránh crash
+    if (!inputId || !inputQ || !inputOptionsContainer || !inputEssayAnswer || !imageFileEl || !imagePreviewEl || !btnRemoveImage) {
+        console.error("Modal element missing");
+        return;
     }
-    
-    // Reset trạng thái chung
+
+    // Reset modal
     inputOptionsContainer.innerHTML = '';
-    nextOptionIndex = 0;
-    inputEssayAnswer.value = ''; 
-    if(inputDifficulty) inputDifficulty.value = 'medium';
-    
-    // RESET VÀ ẨN ẢNH CŨ/FILE CHỌN
-    imageFileEl.value = ''; 
-    imagePreviewEl.innerHTML = ''; 
+    inputEssayAnswer.value = '';
+    inputDifficulty && (inputDifficulty.value = 'medium');
+    imageFileEl.value = '';
+    imagePreviewEl.innerHTML = '';
     imagePreviewEl.style.display = 'none';
-    btnRemoveImage.style.display = 'none'; // Ẩn nút xóa
+    btnRemoveImage.style.display = 'none';
+    imageFileEl.dataset.removeOldImage = 'false';
 
-    // Thêm một thuộc tính tạm thời để theo dõi việc xóa ảnh cũ
-    imageFileEl.dataset.removeOldImage = 'false'; 
-
-    if(q){
-        // Gán dữ liệu câu hỏi cũ
+    if (q) {
         inputId.value = q.id || q._id || '';
-        inputQ.value = q.q || q.question || '';
+        inputQ.value = q.q || '';
         inputSubject.value = q.subject || '';
         inputLevel.value = q.level || '1';
         inputType.value = q.type || 'mc';
         inputPoints.value = q.points || 1;
-        if(inputDifficulty) inputDifficulty.value = q.difficulty || 'medium';
-        
-        // HIỂN THỊ ẢNH CŨ VÀ NÚT XÓA (Nếu có imageUrl)
-        if (q.imageUrl) {
-            // Sửa URL tại đây để đảm bảo đường dẫn tuyệt đối (serverUrl phải được khai báo)
-            const finalImageUrl = q.imageUrl.startsWith('/') 
-                                  ? serverUrl + q.imageUrl 
-                                  : q.imageUrl;
+        inputDifficulty && (inputDifficulty.value = q.difficulty || 'medium');
 
-            imagePreviewEl.innerHTML = `<img src="${finalImageUrl}" class="img-fluid" style="object-fit: contain;">`;
+        // Hiển thị ảnh cũ nếu có
+        if (q.imageId) {
+            imagePreviewEl.innerHTML = `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid" style="object-fit: contain;">`;
             imagePreviewEl.style.display = 'block';
-            btnRemoveImage.style.display = 'inline-block'; 
+            btnRemoveImage.style.display = 'inline-block';
         }
 
-        // Tải đáp án dựa trên loại câu hỏi
+        // Load đáp án
         if (q.type === 'mc' && Array.isArray(q.options) && q.options.length > 0) {
             q.options.forEach(opt => addQuestionOption(opt.text, opt.correct));
         } else if (q.type === 'essay') {
             inputEssayAnswer.value = q.answer || '';
         } else {
-            addQuestionOption(); 
-            addQuestionOption(); 
+            addQuestionOption();
+            addQuestionOption();
         }
-        
     } else {
-        // Reset cho form thêm mới
         inputId.value = '';
         inputQ.value = '';
         inputSubject.value = '';
         inputLevel.value = '1';
         inputType.value = 'mc';
         inputPoints.value = 1;
-        if(inputDifficulty) inputDifficulty.value = 'medium';
-        
-        addQuestionOption(); 
-        addQuestionOption(); 
+        inputDifficulty && (inputDifficulty.value = 'medium');
+        addQuestionOption();
+        addQuestionOption();
     }
-    
-    // Logic cho nút Xóa Ảnh cũ
+
+    // Nút xóa ảnh
     btnRemoveImage.onclick = () => {
-        // Đánh dấu cần xóa ảnh cũ
-        imageFileEl.dataset.removeOldImage = 'true'; 
-        
-        // Ẩn preview và nút xóa
+        imageFileEl.dataset.removeOldImage = 'true';
         imagePreviewEl.innerHTML = 'Ảnh cũ sẽ bị xóa khi lưu.';
         imagePreviewEl.style.display = 'block';
         btnRemoveImage.style.display = 'none';
-        imageFileEl.value = ''; 
+        imageFileEl.value = '';
     };
-    
-    // Kích hoạt xem trước ảnh khi người dùng chọn file mới (và xử lý nút Cancel)
+
+    // Preview ảnh khi chọn file mới
     imageFileEl.onchange = (e) => {
         const file = e.target.files[0];
-        // Đặt lại cờ xóa ảnh khi chọn file mới
-        imageFileEl.dataset.removeOldImage = 'false'; 
-        
+        imageFileEl.dataset.removeOldImage = 'false';
         if (file) {
             const reader = new FileReader();
             reader.onload = (event) => {
                 imagePreviewEl.innerHTML = `<img src="${event.target.result}" class="img-fluid" style="object-fit: contain;">`;
                 imagePreviewEl.style.display = 'block';
-                btnRemoveImage.style.display = 'none'; // Ẩn nút xóa nếu chọn file mới
+                btnRemoveImage.style.display = 'none';
             };
             reader.readAsDataURL(file);
-        } else { 
-            // Xử lý khi người dùng bấm Cancel trong hộp thoại chọn file
-            if (q && q.imageUrl) {
-                // Hiển thị lại ảnh cũ (chỉ khi có ảnh cũ và không có lệnh xóa ảnh)
-                const finalImageUrl = q.imageUrl.startsWith('/') ? serverUrl + q.imageUrl : q.imageUrl;
-                imagePreviewEl.innerHTML = `<img src="${finalImageUrl}" class="img-fluid" style="object-fit: contain;">`;
-                imagePreviewEl.style.display = 'block';
-                btnRemoveImage.style.display = 'inline-block';
-            } else {
-                // Không có ảnh cũ HOẶC đã bấm xóa -> ẩn preview
-                imagePreviewEl.innerHTML = '';
-                imagePreviewEl.style.display = 'none';
-                btnRemoveImage.style.display = 'none';
-            }
+        } else if (q && q.imageId && imageFileEl.dataset.removeOldImage !== 'true') {
+            // hiển thị lại ảnh cũ nếu cancel
+            imagePreviewEl.innerHTML = `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid" style="object-fit: contain;">`;
+            imagePreviewEl.style.display = 'block';
+            btnRemoveImage.style.display = 'inline-block';
+        } else {
+            imagePreviewEl.innerHTML = '';
+            imagePreviewEl.style.display = 'none';
+            btnRemoveImage.style.display = 'none';
         }
     };
-    
-    toggleOptionFields(); 
+
+    inputType.onchange = toggleOptionFields;
+    toggleOptionFields();
     modal.show();
 }
+
+
+
+// ====================== SAVE QUESTION ======================
+async function saveQuestion(){ 
+    const id = qs('m-q-id').value; 
+    const type = qs('m-q-type').value; 
+    const difficulty = qs('add-question-difficulty') ? qs('add-question-difficulty').value : 'medium';
+    const imageFileEl = qs('q-image-file');
+    const removeOld = imageFileEl.dataset.removeOldImage === 'true';
+    const isNew = !id;
+    const method = isNew ? 'POST' : 'PUT';
+    const url = isNew ? `${serverUrl}/api/questions` : `${serverUrl}/api/questions/${id}`;
+
+    let collectedOptions = [];
+    let essayAnswer = '';
+
+    if (type === 'mc') {
+        const optionsContainer = qs('m-q-options-container');
+        const optionInputs = optionsContainer.querySelectorAll('input[type="text"]');
+        optionInputs.forEach(input => {
+            const index = input.getAttribute('data-index');
+            const checkbox = optionsContainer.querySelector(`input[type="checkbox"][data-index="${index}"]`);
+            if (input.value.trim()) {
+                collectedOptions.push({
+                    text: input.value.trim(),
+                    correct: checkbox ? checkbox.checked : false
+                });
+            }
+        });
+    } else if (type === 'essay') {
+        essayAnswer = qs('m-q-essay-answer').value.trim();
+    }
+
+    const formData = new FormData();
+    formData.append('q', qs('m-q-q').value); 
+    formData.append('subject', qs('m-q-subject').value); 
+    formData.append('level', qs('m-q-level').value); 
+    formData.append('type', type); 
+    formData.append('points', Number(qs('m-q-points').value) || 1); 
+    formData.append('difficulty', difficulty);
+    formData.append('options', JSON.stringify(collectedOptions)); 
+    formData.append('answer', essayAnswer); 
+    formData.append('removeOldImage', removeOld);
+
+    if (imageFileEl && imageFileEl.files && imageFileEl.files.length > 0) {
+        formData.append('image', imageFileEl.files[0]); 
+    }
+
+    if (!isNew) {
+        formData.append('id', id);
+    }
+
+    try{ 
+        const response = await fetch(url, { method: method, body: formData });
+        if (!response.ok) {
+            let errorBody = 'Lỗi không xác định';
+            try { errorBody = (await response.json()).message || errorBody; } catch(e){}
+            throw new Error(`Lưu thất bại: ${response.status} - ${errorBody}`);
+        }
+
+        bootstrap.Modal.getInstance(qs('modalQuestion')).hide(); 
+        await loadQuestions(); 
+        showToast('Lưu câu hỏi thành công!');
+    } catch(e){ 
+        console.error("Lỗi lưu câu hỏi:", e);
+        showToast('Lỗi lưu câu hỏi: ' + e.message, 'danger');
+    } 
+}
+
+
+
 
 function clearAllQuestionFilters() {
     // 1. Reset Môn học
@@ -2098,106 +2219,7 @@ function clearAllQuestionFilters() {
     loadQuestions(true); 
 }	
 
-    // CHỈNH SỬA HÀM saveQuestion()
-async function saveQuestion(){ 
-    const id = qs('m-q-id').value; 
-    const type = qs('m-q-type').value; 
-    const difficulty = qs('add-question-difficulty') ? qs('add-question-difficulty').value : 'medium';
-    
-    // Lấy trường File Input và ID câu hỏi
-    const imageFileEl = qs('q-image-file');
-    const isNew = !id;
-    const method = isNew ? 'POST' : 'PUT';
-    const url = isNew ? `${serverUrl}/api/questions` : `${serverUrl}/api/questions/${id}`;
 
-    let collectedOptions = [];
-    let essayAnswer = '';
-    
-    // 1. Thu thập đáp án (Logic này giữ nguyên)
-    if (type === 'mc') {
-        const optionsContainer = qs('m-q-options-container');
-        const optionInputs = optionsContainer.querySelectorAll('input[type="text"]');
-        
-        optionInputs.forEach(input => {
-            const index = input.getAttribute('data-index');
-            const checkbox = optionsContainer.querySelector(`input[type="checkbox"][data-index="${index}"]`);
-            
-            if (input.value.trim()) {
-                collectedOptions.push({
-                    text: input.value.trim(),
-                    correct: checkbox ? checkbox.checked : false
-                });
-            }
-        });
-    } else if (type === 'essay') {
-        essayAnswer = qs('m-q-essay-answer').value.trim();
-    }
-    
-    // 2. Tạo đối tượng FormData
-    const formData = new FormData();
-    
-    // 3. Thêm các trường dữ liệu TEXT vào FormData
-    formData.append('q', qs('m-q-q').value); 
-    formData.append('subject', qs('m-q-subject').value); 
-    formData.append('level', qs('m-q-level').value); 
-    formData.append('type', type); 
-    formData.append('points', Number(qs('m-q-points').value) || 1); 
-    formData.append('difficulty', difficulty);
-    
-    // Gửi đáp án dưới dạng chuỗi JSON
-    formData.append('options', JSON.stringify(collectedOptions)); 
-    formData.append('answer', essayAnswer); 
-
-    // 4. Thêm File Hình ảnh (nếu có file được chọn)
-    if (imageFileEl && imageFileEl.files && imageFileEl.files.length > 0) {
-        // Tên trường 'image' phải khớp với tên server API mong đợi
-        formData.append('image', imageFileEl.files[0]); 
-    }
-    
-    // 5. Thêm ID nếu là sửa
-    if (!isNew) {
-        formData.append('id', id);
-    }
-    
-    try{ 
-        // 1. Gửi yêu cầu với FormData
-        const response = await fetch(url, { 
-            method: method, 
-            body: formData, // Gửi FormData
-            // Thêm các headers cần thiết khác (ví dụ: Authorization) nếu có
-        }); 
-
-        // 2. KIỂM TRA PHẢN HỒI THÀNH CÔNG/THẤT BẠI
-        if (!response.ok) {
-            // Server trả về lỗi (4xx hoặc 5xx). Cần đọc lỗi TỪ body
-            let errorBody = 'Lỗi không xác định.';
-            try {
-                // Thử đọc lỗi dưới dạng JSON (nếu server có gửi JSON lỗi)
-                const errorData = await response.json();
-                errorBody = errorData.message || JSON.stringify(errorData);
-            } catch (e) {
-                // Nếu server không trả JSON, đọc lỗi dưới dạng văn bản
-                errorBody = await response.text();
-            }
-            
-            // Ném ra lỗi để bị bắt bởi khối catch
-            throw new Error(`Lưu thất bại: ${response.status} - ${errorBody.substring(0, 150)}`);
-        }
-        
-        // 3. Xử lý sau khi lưu thành công (Chỉ chạy khi response.ok là true)
-        // Nếu API có trả về dữ liệu câu hỏi đã lưu, bạn có thể đọc nó ở đây:
-        // const savedQuestion = await response.json(); 
-        
-        bootstrap.Modal.getInstance(qs('modalQuestion')).hide(); 
-        await loadQuestions(); 
-        showToast('Lưu câu hỏi thành công!');
-        
-    } catch(e){ 
-        console.error("Lỗi lưu câu hỏi:", e);
-        // Hiển thị thông báo lỗi chi tiết hơn
-        showToast('Lỗi lưu câu hỏi: ' + e.message, 'danger');
-    } 
-}
 
 // Giả định bạn có hàm showToast để hiển thị thông báo
 function showToast(message, type = 'success') {
@@ -3787,11 +3809,212 @@ async function confirmAssign() {
   }
 }
 
+//RESULT TAB GIÁO VIÊN
+// =============================================================
+// HELPER FUNCTIONS CHO KẾT QUẢ
+// =============================================================
+
+function debounce(func, delay) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            func.apply(this, args);
+        }, delay);
+    };
+}
+
+const debounceLoadResults = debounce(loadResults, 300);
+
+function clearResultFilters() {
+    qs('#filter-result-status').value = '';
+    qs('#filter-result-class').value = '';
+    qs('#search-result-student').value = '';
+    qs('#sort-result-time').value = 'submittedAt_desc';
+    loadResults(); // Tải lại sau khi xóa bộ lọc
+}
 
 
-    // RESULTS (teacher)
-    async function loadResultsTestFilter(){ try{ const tests = await fetchJson(`${serverUrl}/api/tests`); const sel = qs('results-test-filter'); if(sel){ sel.innerHTML = '<option value="">-- Tất cả --</option>'; tests.forEach(t=>{ const o = document.createElement('option'); o.value = t.id || t._id; o.textContent = t.name; sel.appendChild(o); }); } } catch(e){ /* ignore */ } }
-    async function loadResults(){ const testId = qs('results-test-filter')? qs('results-test-filter').value : ''; const q = testId? `?testId=${encodeURIComponent(testId)}` : ''; const tbody = qs('results-tbody'); tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải kết quả...</div></div></td></tr>'; try{ const assigns = await fetchJson(`${serverUrl}/api/assigns${q}`); if(!Array.isArray(assigns) || assigns.length===0){ tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không có kết quả</td></tr>'; return; } const users = await fetchJson(`${serverUrl}/api/users`); const frag = document.createDocumentFragment(); assigns.forEach(a=>{ const st = (users||[]).find(u=> (u.id||u._id) === a.studentId) || { user: a.studentId }; const tr = document.createElement('tr'); tr.innerHTML = `<td>${escapeHtml(st.user)}</td><td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.status)}</td><td>${escapeHtml(a.score||'')}</td><td>${escapeHtml(a.submittedAt||'')}</td>`; frag.appendChild(tr); }); tbody.innerHTML=''; tbody.appendChild(frag); } catch(e){ tbody.innerHTML = '<tr><td colspan="5" class="text-danger text-center">Lỗi tải kết quả</td></tr>'; } }
+
+async function loadResults(isReload = false) {
+    // Sử dụng qs('#results-tbody') vì qs được định nghĩa là document.querySelector
+    const tbody = qs('#results-tbody');
+    
+    // THÊM KIỂM TRA NULL ĐẦU TIÊN (Đã có trong code của bạn, rất tốt)
+    if (!tbody) {
+        console.error("Không tìm thấy phần tử #results-tbody. Dừng hàm.");
+        return; 
+    }
+    
+    // 1. Hiển thị trạng thái đang tải
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center spinner-row"><div class="spinner-border spinner-border-sm"></div> Đang tải kết quả...</td></tr>';
+    
+    // 2. Tải dữ liệu gốc nếu cần
+    if (isReload || allResultsData.length === 0) {
+        try {
+            const [data, stats] = await Promise.all([
+                fetchJson(`${serverUrl}/api/results_summary`),
+                fetchJson(`${serverUrl}/api/assignment_stats`)
+            ]);
+            allResultsData = data;
+            renderResultsStats(stats);
+        } catch(e) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Lỗi tải dữ liệu kết quả. Vui lòng kiểm tra console log.</td></tr>';
+            console.error("Lỗi tải kết quả:", e);
+            return;
+        }
+    }
+    
+    // 3. Kiểm tra dữ liệu sau khi tải lần đầu
+    if (allResultsData.length === 0 && !isReload) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không có dữ liệu bài nộp.</td></tr>';
+        return;
+    }
+    
+    // 4. Lọc dữ liệu (Sử dụng ?.value || '' để an toàn hơn)
+    let filteredResults = allResultsData;
+    const statusFilter = qs('#filter-result-status')?.value || '';
+    const classFilter = qs('#filter-result-class')?.value.toLowerCase().trim() || '';
+    const studentSearch = qs('#search-result-student')?.value.toLowerCase().trim() || '';
+    
+    if (statusFilter) {
+        filteredResults = filteredResults.filter(r => r.gradingStatus === statusFilter);
+    }
+    if (classFilter) {
+        filteredResults = filteredResults.filter(r => (r.className || '').toLowerCase().includes(classFilter));
+    }
+    if (studentSearch) {
+        filteredResults = filteredResults.filter(r => (r.studentName || '').toLowerCase().includes(studentSearch));
+    }
+    
+    // 5. Sắp xếp dữ liệu
+    const sortValue = qs('#sort-result-time')?.value || 'submittedAt_desc';
+    const sort = sortValue.split('_'); 
+    const sortField = sort[0];
+    const sortDirection = sort[1] === 'desc' ? -1 : 1;
+    
+    filteredResults.sort((a, b) => {
+        let valA = a[sortField];
+        let valB = b[sortField];
+        
+        if (sortField === 'totalScore') {
+            valA = parseFloat(valA) || 0;
+            valB = parseFloat(valB) || 0;
+        } else if (sortField === 'submittedAt') {
+            if (!valA) return sortDirection; 
+            if (!valB) return -sortDirection; 
+        }
+        
+        if (valA < valB) return -1 * sortDirection;
+        if (valA > valB) return 1 * sortDirection;
+        return 0;
+    });
+
+    // 6. Hiển thị bảng
+    renderResultsTable(filteredResults);
+}
+
+function renderResultsStats(stats) {
+    const totalStudents = stats.totalStudents;
+    const totalResults = stats.totalResultsSubmitted;
+    const totalAssigned = stats.totalTestsAssigned;
+    
+    const info = `
+        <strong>Tổng Bài thi Đã Tạo:</strong> ${totalAssigned} | 
+        <strong>Tổng Bài Đã Nộp:</strong> ${totalResults} | 
+        <strong>Tổng Học sinh:</strong> ${totalStudents}
+    `;
+    
+    qs('#results-stats-info').innerHTML = info;
+}
+
+
+function renderResultsTable(results) {
+    const tbody = qs('#results-tbody');
+    let html = '';
+    
+    if (results.length === 0) {
+        // Đảm bảo colspan là 8 để che hết 8 cột
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không tìm thấy kết quả phù hợp.</td></tr>'; 
+        return;
+    }
+    
+    results.forEach((r, index) => {
+        const globalIndex = index + 1;
+        
+        // Dữ liệu được lấy từ API /api/results_summary
+        const testName = r.testName || 'Bài thi [Đã xóa]';
+        const studentName = r.studentName || 'Học sinh [Đã xóa]';
+        const className = r.className || 'N/A';
+        const submittedAt = formatTime(r.submittedAt);
+        const gradingStatus = r.gradingStatus || 'Lỗi trạng thái';
+        const score = `${r.totalScore !== undefined ? r.totalScore : 'N/A'}`;
+        
+        // Logic cho Trạng thái chấm và Nút Hành động
+        let statusBadge = '';
+        let buttonClass = 'btn-success'; 
+        let buttonDisabled = '';
+        let buttonText = 'Xem';
+        
+        if (gradingStatus === 'Chưa Chấm') {
+            statusBadge = `<span class="badge bg-danger">Chờ Chấm Tay</span>`;
+            buttonClass = 'btn-danger'; 
+            buttonText = 'Xem và Chấm';
+            buttonDisabled = ''; // Cho phép bấm để chấm
+        } else if (gradingStatus === 'Đã Chấm') {
+            statusBadge = `<span class="badge bg-primary">Đã Chấm</span>`;
+            buttonClass = 'btn-secondary'; 
+            buttonDisabled = 'disabled'; 
+            buttonText = 'Đã Chấm (Xem)';
+        } else {
+            statusBadge = `<span class="badge bg-success">Hoàn tất tự động</span>`;
+            buttonClass = 'btn-success';
+            buttonText = 'Xem';
+            buttonDisabled = ''; // Cho phép bấm để xem
+        }
+
+        // Đảm bảo 8 ô <td> khớp với thứ tự 8 cột trong <thead>
+        // <thead>: STT | Bài thi | Học sinh | Lớp | Thời gian nộp | Trạng thái chấm | Điểm | Hành động
+        html += `
+            <tr>
+                <td class="text-center">${globalIndex}</td>                                   <td>${testName}</td>                                                       <td>${studentName}</td>                                                    <td>${className}</td>                                                      <td>${submittedAt}</td>                                                    <td class="text-center">${statusBadge}</td>                               <td class="text-center fw-bold">${score}</td>                             <td class="text-center">                                                  <button class="btn btn-sm ${buttonClass}" 
+                            ${buttonDisabled}
+                            onclick="openResultDetail('${r.id}')">
+                        ${buttonText}
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+   /*RESULTS (teacher)
+    async function loadResultsTestFilter(){ 
+	try{ const tests = await fetchJson(`${serverUrl}/api/tests`); 
+	const sel = qs('results-test-filter'); 
+	if(sel){ sel.innerHTML = '<option value="">-- Tất cả --</option>'; 
+	tests.forEach(t=>{ const o = document.createElement('option'); 
+	o.value = t.id || t._id; 
+	o.textContent = t.name; sel.appendChild(o); }); } } 
+	catch(e){ /* ignore *//* } }*/
+	
+    /*async function loadResults(){ 
+	const testId = qs('results-test-filter')? qs('results-test-filter').value : ''; 
+	const q = testId? `?testId=${encodeURIComponent(testId)}` : ''; 
+	const tbody = qs('results-tbody'); 
+	tbody.innerHTML = '<tr><td colspan="5" class="text-center"><div class="spinner-row"><div class="spinner-border text-success" role="status"></div><div>Đang tải kết quả...</div></div></td></tr>'; 
+	try{ const assigns = await fetchJson(`${serverUrl}/api/assigns${q}`); 
+	if(!Array.isArray(assigns) || assigns.length===0){ tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không có kết quả</td></tr>'; return; } 
+	const users = await fetchJson(`${serverUrl}/api/users`); 
+	const frag = document.createDocumentFragment(); 
+	assigns.forEach(a=>{ const st = (users||[]).find(u=> (u.id||u._id) === a.studentId) || { user: a.studentId }; 
+	const tr = document.createElement('tr'); 
+	tr.innerHTML = `<td>${escapeHtml(st.user)}</td><td>${escapeHtml(a.testName||a.testId)}</td><td>${escapeHtml(a.status)}</td><td>${escapeHtml(a.score||'')}</td><td>${escapeHtml(a.submittedAt||'')}</td>`; 
+	frag.appendChild(tr); }); 
+	tbody.innerHTML=''; tbody.appendChild(frag); } 
+	catch(e){ tbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Lỗi tải kết quả</td></tr>'; } }*/
 
 
     // ---------- STUDENT functions ----------
@@ -4011,7 +4234,7 @@ function renderReviewQuiz(result, quiz) {
       <div class="card-body">
         <h5 class="card-title">Câu ${idx + 1}</h5>
         <p>${escapeHtml(q.q || '')}</p>
-        ${q.imageUrl ? `<img src="${q.imageUrl}" class="img-fluid mb-2 rounded">` : ''}
+        ${q.imageId ? `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid mb-2 rounded">` : ''}
         <div class="mt-3">
           ${q.type === 'mc'
             ? q.options.map(opt => {
@@ -4396,7 +4619,34 @@ function removeQuestionFromPreview(qId) {
     renderManualPreview();
     renderManualQuestionBank();
 }
+// ĐOẠN CODE NÀY PHẢI ĐƯỢC ĐẶT SAU CÁC ĐỊNH NGHĨA HÀM loadResults VÀ qs
 
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Lắng nghe sự kiện khi Tab Kết quả được hiển thị
+    // ID của phần nội dung tab là #tab-results (theo HTML của bạn)
+    const resultsTabElement = qs('#tab-results'); 
+    
+    if (resultsTabElement) {
+        // 'shown.bs.tab' là sự kiện chuẩn của Bootstrap khi tab được mở
+        resultsTabElement.addEventListener('shown.bs.tab', (event) => {
+            // Gọi hàm loadResults() để tự động tải dữ liệu.
+            // Vì isReload mặc định là false, nó sẽ chỉ tải dữ liệu gốc từ API 
+            // nếu mảng allResultsData chưa có dữ liệu.
+            loadResults();
+        });
+    }
+
+    // 2. Tải lần đầu nếu tab Kết quả là tab mặc định khi trang tải
+    // Nếu tab Kết quả là tab được hiển thị mặc định (có class 'active show' trong HTML ban đầu), 
+    // bạn cần bỏ chặn đoạn code này.
+    /*
+    if (resultsTabElement && resultsTabElement.classList.contains('active')) {
+        loadResults();
+    }
+    */
+    
+    // NẾU CÓ CÁC KHỞI TẠO HOẶC GÁN SỰ KIỆN KHÁC CHO TRANG, HÃY ĐẶT TẠI ĐÂY
+});
 
 </script>
 
