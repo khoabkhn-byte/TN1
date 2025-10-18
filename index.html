@@ -1556,10 +1556,10 @@ if (closeBtn) closeBtn.onclick = confirmExitQuiz;
 // ==================== HÀM HIỂN THỊ GIAO DIỆN LÀM BÀI (SỬA LỖI ẢNH) ====================
 
 function renderQuizInterface(questions) {
-    const container = document.getElementById('quiz-questions-container'); 
+    const container = document.getElementById('quiz-questions-container');
     if (!container) return;
-    
-    container.innerHTML = ''; 
+    container.innerHTML = '';
+
     if (!questions || questions.length === 0) {
         container.innerHTML = '<p class="text-danger">Không có câu hỏi nào được tìm thấy.</p>';
         return;
@@ -1569,89 +1569,70 @@ function renderQuizInterface(questions) {
 
     questions.forEach((q, index) => {
         const qNumber = index + 1;
-        const questionText = q.q || q.question || 'Nội dung câu hỏi không xác định.'; 
+        const questionText = q.q || q.question || 'Nội dung câu hỏi không xác định.';
         const options = q.options || [];
         const qId = q.id || q._id;
-        const qType = q.type || (options.length > 0 ? 'multiple_choice' : 'essay'); 
+        const qType = q.type || (options.length > 0 ? 'multiple_choice' : 'essay');
+		
+		console.log(`🖼️ Câu ${qNumber}:`, qId, " | imageId =", q.imageId);
 
-        // 🔹 Xử lý ảnh câu hỏi (ưu tiên imageId, fallback imageUrl)
+        // ✅ Xử lý hình ảnh từ GridFS (ưu tiên imageId)
         let imageHtml = '';
-        let finalImageUrl = '';
-
         if (q.imageId) {
-            finalImageUrl = `${serverUrl}/images/${q.imageId}`;
-        } else if (q.imageUrl) {
-            // Chuẩn hóa lại đường dẫn
-            let safeUrl = q.imageUrl;
-            if (safeUrl.includes('/static/')) {
-                safeUrl = safeUrl.substring(safeUrl.indexOf('/static/'));
-            }
-            finalImageUrl = `${serverUrl}${safeUrl}`;
-        }
-
-        if (finalImageUrl) {
             imageHtml = `
-                <div class="question-image text-end ms-3 flex-shrink-0" style="max-width: 40%;">
-                    <img src="${finalImageUrl}" 
-                        alt="Hình minh họa câu hỏi" 
-                        onerror="this.onerror=null;this.src='https://placehold.co/300x200?text=Không+thể+tải+ảnh';"
-                        class="img-fluid rounded border shadow-sm">
-                </div>
-            `;
+                <div class="question-image ms-3" style="flex:0 0 180px; text-align:center;">
+                    <img src="${serverUrl}/images/${q.imageId}" 
+                        alt="Ảnh câu hỏi"
+                        class="img-fluid rounded shadow-sm border"
+                        onerror="this.onerror=null; this.src='https://placehold.co/180x120/cccccc/333333?text=Không+thể+tải+ảnh';"
+                        style="object-fit:contain; max-height:150px;">
+                </div>`;
         }
 
-        // 🔹 Trắc nghiệm / Tự luận
+        // ✅ Xử lý phần chọn đáp án
         let inputAreaHtml = '';
-
         if (qType === 'essay') {
             inputAreaHtml = `
                 <div class="form-group mt-3">
                     <label for="essay_${qId}" class="form-label text-muted">Nhập câu trả lời của bạn:</label>
-                    <textarea id="essay_${qId}" class="form-control essay-answer" rows="6" placeholder="Viết câu trả lời..."></textarea>
-                </div>
-            `;
+                    <textarea id="essay_${qId}" class="form-control essay-answer" rows="5" placeholder="Viết câu trả lời..."></textarea>
+                </div>`;
         } else {
             let optionsHtml = '';
             options.forEach((opt, optIndex) => {
                 const optLetter = String.fromCharCode(65 + optIndex);
-                const optValue = opt.value || opt.text || opt; 
+                const optValue = opt.value || opt.text || opt;
                 const inputName = `q_${qId}`;
                 const inputId = `${inputName}_${optIndex}`;
-                
                 optionsHtml += `
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="radio" name="${inputName}" id="${inputId}" value="${escapeHtml(optValue)}">
                         <label class="form-check-label" for="${inputId}">
                             <strong>${optLetter}.</strong> ${escapeHtml(optValue)}
                         </label>
-                    </div>
-                `;
+                    </div>`;
             });
             inputAreaHtml = `<div class="options-container mt-2">${optionsHtml}</div>`;
         }
 
-        // 🔹 Bố cục card câu hỏi (ảnh bên phải)
+        // ✅ Kết hợp phần text + ảnh
         questionsHtml += `
-            <div class="card p-4 mb-4 shadow-sm" data-question-id="${qId}" data-question-type="${qType}">
-                <div class="d-flex flex-wrap align-items-start justify-content-between">
-                    <div class="question-text flex-grow-1" style="min-width: 55%;">
-                        <h6 class="mb-3 text-primary">Câu ${qNumber}:</h6>
-                        <div class="mb-3 question-content">${escapeHtml(questionText)}</div> 
-                        ${inputAreaHtml}
-                    </div>
-                    ${imageHtml}
+            <div class="card p-3 mb-4 shadow-sm d-flex flex-row align-items-start" 
+                 data-question-id="${qId}" data-question-type="${qType}">
+                 
+                <div class="question-text flex-grow-1">
+                    <h6 class="text-primary mb-3">Câu ${qNumber}:</h6>
+                    <div class="question-content mb-3">${questionText}</div>
+                    ${inputAreaHtml}
                 </div>
-            </div>
-        `;
+
+                ${imageHtml}
+            </div>`;
     });
 
     container.innerHTML = questionsHtml;
-    
-    // 🔹 Nếu có hàm thống kê
-    if (typeof renderQuestionStats === 'function') {
-        renderQuestionStats(questions); 
-    }
 }
+
 
 
 function startQuizTimer(durationMinutes) {
