@@ -350,6 +350,16 @@ def delete_question(q_id):
         return "", 204
     return jsonify({"message": "Câu hỏi không tìm thấy."}), 404
 
+@app.route("/images/<image_id>", methods=["GET"])
+def get_image(image_id):
+    try:
+        file_obj = fs.get(ObjectId(image_id))
+        return app.response_class(file_obj.read(), mimetype=file_obj.content_type)
+    except Exception as e:
+        return jsonify({"message": "Không tìm thấy ảnh", "error": str(e)}), 404
+
+
+
 # --------------------- TESTS & QUIZ ---------------------
 @app.route('/test.html')
 def serve_test_html():
