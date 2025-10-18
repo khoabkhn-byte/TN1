@@ -275,8 +275,8 @@ def create_question():
         "level": data.get("level"),
         "difficulty": data.get("difficulty", "medium"),
         "options": options,
-        "answer": answer
-        "imageId": image_id
+        "answer": answer,
+        "imageId": image_id,
     }
     db.questions.insert_one(newq)
     to_return = newq.copy(); 
