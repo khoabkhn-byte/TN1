@@ -930,14 +930,111 @@ def create_result():
     return jsonify(new_result), 201
 
 
-
-
 @app.route("/results/<result_id>", methods=["GET"])
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result(result_id):
     doc = db.results.find_one({"id": result_id}, {"_id": 0})
     if not doc: return jsonify({"message": "Kết quả không tìm thấy."}), 404
     return jsonify(doc)
+    
+def _calculate_grading_status(detailed_results):
+    """
+    Xác định trạng thái chấm bài dựa trên detailedResults.
+    "Chưa Chấm" nếu có bất kỳ câu hỏi 'essay' nào có pointsGained == 0.
+    """
+    has_essay = False
+    is_awaiting_manual_grade = False
+    
+    for detail in detailed_results:
+        q_type = detail.get("type", "").lower()
+        if q_type in ["essay", "tu_luan"]:
+            has_essay = True
+            # Nếu điểm nhận được là 0 VÀ maxPoints > 0, coi như chưa chấm
+            if detail.get("pointsGained", 0) == 0 and detail.get("maxPoints", 0) > 0:
+                is_awaiting_manual_grade = True
+                break
+    
+    if is_awaiting_manual_grade:
+        return "Chưa Chấm" # Cần giáo viên chấm tay
+    elif has_essay:
+        return "Đã Chấm" # Đã có câu tự luận nhưng đã được chấm điểm (pointsGained > 0)
+    else:
+        return "Tự động hoàn tất" # Không có câu tự luận
+
+# API mới để lấy danh sách kết quả tổng hợp cho giáo viên (Yêu cầu 1)
+@app.route("/api/results_summary", methods=["GET"])
+def get_results_summary():
+    
+    # 1. Truy vấn Aggregation để join dữ liệu
+    pipeline = [
+        # Giai đoạn 1: Join với collection 'users' để lấy thông tin học sinh
+        {
+            "$lookup": {
+                "from": "users",
+                "localField": "studentId",
+                "foreignField": "id",
+                "as": "student_info"
+            }
+        },
+        # Giai đoạn 2: Giả định chỉ có 1 học sinh khớp, lấy phần tử đầu tiên
+        {"$unwind": {"path": "$student_info", "preserveNullAndEmptyArrays": True}},
+        
+        # Giai đoạn 3: Join với collection 'tests' để lấy tên bài thi
+        {
+            "$lookup": {
+                "from": "tests",
+                "localField": "testId",
+                "foreignField": "id",
+                "as": "test_info"
+            }
+        },
+        # Giai đoạn 4: Giả định chỉ có 1 bài thi khớp
+        {"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}},
+
+        # Giai đoạn 5: Project (chọn và định hình) các trường cần thiết
+        {
+            "$project": {
+                "_id": 0, # Loại bỏ _id
+                "id": "$id",
+                "studentId": "$studentId",
+                "testId": "$testId",
+                "totalScore": "$totalScore",
+                "detailedResults": "$detailedResults", # Cần để tính trạng thái chấm
+                "submittedAt": "$submittedAt",
+                
+                # Thông tin đã Join
+                "testName": {"$ifNull": ["$test_info.name", "Đã Xóa"]},
+                "studentName": {"$ifNull": ["$student_info.fullName", "Ẩn danh"]},
+                "className": {"$ifNull": ["$student_info.className", "N/A"]},
+            }
+        }
+    ]
+    
+    docs = list(db.results.aggregate(pipeline))
+    
+    # 2. Xử lý logic nghiệp vụ (Tính trạng thái chấm)
+    for doc in docs:
+        detailed = doc.pop("detailedResults", []) # Bỏ detailedResults khỏi response cuối cùng để giảm tải
+        doc["gradingStatus"] = _calculate_grading_status(detailed)
+        # Chuyển đổi totalScore thành float/chuỗi định dạng
+        doc["totalScore"] = round(doc.get("totalScore", 0.0), 2)
+        
+    return jsonify(docs)
+
+# API mới để thống kê bài giao (Yêu cầu 3)
+@app.route("/api/assignment_stats", methods=["GET"])
+def get_assignment_stats():
+    # Giả định thống kê tổng quan:
+    total_tests_assigned = db.tests.count_documents({})
+    total_results_submitted = db.results.count_documents({})
+    total_students = db.users.count_documents({"role": "student"})
+        
+    return jsonify({
+        "totalTestsAssigned": total_tests_assigned,
+        "totalResultsSubmitted": total_results_submitted,
+        "totalStudents": total_students,
+        "note": "Cần dữ liệu Assignment để tính chính xác số HS chưa nộp."
+    })    
 
 # Serve frontend files (unchanged)
 @app.route("/", methods=["GET"])
