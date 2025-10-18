@@ -247,9 +247,11 @@ def create_question():
     # SỬA: Lấy dữ liệu từ request.form (text) và request.files (file)
     data = request.form
     image_file = request.files.get('image')
+    remove_old = data.get("removeOldImage", "false") == "true"
 
     # 1. Xử lý File Upload lên GridFS
-    image_url = None
+     image_id = None
+
     if image_file:
         # Tạo tên file duy nhất và an toàn
         filename = secure_filename(image_file.filename)
@@ -274,6 +276,7 @@ def create_question():
         "difficulty": data.get("difficulty", "medium"),
         "options": options,
         "answer": answer
+        "imageId": image_id
     }
     db.questions.insert_one(newq)
     to_return = newq.copy(); 
@@ -293,7 +296,35 @@ def update_question(q_id):
     # SỬA: Lấy dữ liệu từ request.form (text) và request.files (file)
     data = request.form
     image_file = request.files.get('image')
+    remove_old = data.get("removeOldImage", "false") == "true"
+    question = db.questions.find_one({"id": q_id})
+    if not question:
+        return jsonify({"message": "Không tìm thấy câu hỏi"}), 404
+
+    image_id = question.get("imageId")
+
+    # Xóa ảnh cũ nếu có flag
+    if remove_old and image_id:
+        try:
+            fs.delete(ObjectId(image_id))
+        except:
+            pass
+        image_id = None
+
+    # Nếu upload file mới, thêm vào GridFS
+    if image_file:
+        filename = secure_filename(image_file.filename)
+        content_type = image_file.mimetype
+        image_id = str(fs.put(image_file, filename=filename, content_type=content_type))
+
+    # Parse options
+    try:
+        options = json.loads(data.get("options", "[]"))
+        answer = data.get("answer", "")
+    except Exception as e:
+        return jsonify({"message": "Lỗi định dạng options/answer"}), 400
     
+
     # 1. Chuẩn bị dữ liệu cập nhật
     update_fields = {
         "q": data.get("q"),
