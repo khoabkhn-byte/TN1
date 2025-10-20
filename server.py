@@ -18,6 +18,9 @@ app = Flask(__name__)
 # Allow all origins so frontend on any domain can call this API
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+# Allow all origins so frontend on any domain can call this API
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 # THÊM DÒNG NÀY: Tăng giới hạn dữ liệu request lên 25MB (25 * 1024 * 1024 bytes)
 app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024 
 
