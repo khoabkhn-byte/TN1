@@ -1155,14 +1155,23 @@ def get_result_detail(result_id):
     print("✅ Tìm thấy kết quả:", result.get("studentName"), "-", result.get("testName"))
     # ------------------ BẮT ĐẦU PHẦN SỬA LỖI ------------------
     student_id = result.get("studentId")
-    student_info = None
+    student_name = "Không rõ tên"
+    class_name = "N/A"
 
     # 1. Truy vấn collection 'users' bằng studentId để lấy thông tin mới nhất
     if student_id:
         try:
-            # Tìm kiếm thông tin học sinh trong collection 'users'
-            # Giả định studentId trong results là ID dạng string (uuid) và ID trong users cũng là trường 'id'
-            student_info = db.users.find_one({"id": student_id})
+            # Tên trường trong collection users CÓ THỂ LÀ 'id' (theo cấu trúc user của bạn)
+            # Tên trường TÊN ĐẦY ĐỦ trong users CÓ THỂ LÀ 'fullName' HOẶC 'name'
+            student_info = db.users.find_one({"id": student_id}) 
+            
+            if student_info:
+                # Đảm bảo bạn đang sử dụng TÊN TRƯỜNG ĐÚNG trong collection 'users'
+                # Nếu trường tên là 'name' thay vì 'fullName', bạn phải sửa ở đây!
+                student_name = student_info.get("fullName", student_info.get("name", "Không rõ tên"))
+                class_name = student_info.get("className", "N/A")
+                
+                print(f"✅ Đã tìm thấy User: {student_name} - {class_name}")
         except Exception as e:
             print(f"Lỗi khi tìm user (ID: {student_id}): {e}")
             pass
