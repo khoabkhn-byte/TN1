@@ -1139,6 +1139,65 @@ def get_results_summary():
         
     return jsonify(docs)
 
+@app.route("/api/results/<result_id>", methods=["GET"])
+def get_result_detail(result_id):
+    from bson import ObjectId
+
+    result = mongo.db.results.find_one({"id": result_id})
+    if not result:
+        return jsonify({"error": "Không tìm thấy kết quả"}), 404
+
+    # Lấy đề thi tương ứng để biết danh sách câu hỏi
+    test = mongo.db.tests.find_one({"id": result.get("testId")}) or {}
+    q_ids = []
+    for q in test.get("questions", []):
+        if isinstance(q, dict) and "id" in q:
+            q_ids.append(q["id"])
+        elif isinstance(q, str):
+            q_ids.append(q)
+
+    # Truy vấn câu hỏi từ collection questions
+    question_map = {}
+    if q_ids:
+        questions = list(mongo.db.questions.find({"id": {"$in": q_ids}}))
+        for q in questions:
+            question_map[q["id"]] = {
+                "id": q["id"],
+                "q": q.get("q"),
+                "type": q.get("type"),
+                "points": q.get("points", 0),
+                "imageId": q.get("imageId"),
+                "options": q.get("options", [])
+            }
+
+    # Ghép câu hỏi với câu trả lời
+    answers = []
+    for ans in result.get("answers", []):
+        q = question_map.get(ans.get("questionId"), {})
+        answers.append({
+            "question": q,
+            "answer": ans.get("answer"),
+            "isCorrect": ans.get("isCorrect"),
+            "autoScore": ans.get("autoScore"),
+            "teacherScore": ans.get("teacherScore"),
+            "teacherNote": ans.get("teacherNote")
+        })
+
+    detail = {
+        "id": result.get("id"),
+        "studentName": result.get("studentName"),
+        "className": result.get("className"),
+        "testName": test.get("name", ""),
+        "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
+        "totalScore": result.get("totalScore", 0),
+        "submittedAt": result.get("submittedAt"),
+        "answers": answers
+    }
+
+    return jsonify(detail)
+
+
+
 # API mới để thống kê bài giao (Yêu cầu 3)
 @app.route("/api/assignment_stats", methods=["GET"])
 def get_assignment_stats():
