@@ -1141,21 +1141,52 @@ def get_results_summary():
 
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
+    print("🔍 [DEBUG] Gọi API /api/results/<result_id>")
+    print("➡️  result_id nhận được từ URL:", result_id)
+
+    # Tìm kết quả theo id
     result = mongo.db.results.find_one({"id": result_id})
     if not result:
+        print("❌ [DEBUG] Không tìm thấy result trong Mongo theo id:", result_id)
+        # In danh sách id hiện có để đối chiếu nhanh
+        all_ids = [r.get("id") for r in mongo.db.results.find({}, {"id": 1})]
+        print("📋 [DEBUG] Danh sách ID có trong DB (tối đa 10):", all_ids[:10])
         return jsonify({"error": "Không tìm thấy kết quả"}), 404
+
+    print("✅ [DEBUG] Đã tìm thấy result:", result.get("id"), "-", result.get("studentName"))
+    print("🧩 [DEBUG] testId =", result.get("testId"))
 
     # Lấy đề thi tương ứng
     test = mongo.db.tests.find_one({"id": result.get("testId")})
-    questions = []
-    if test:
-        q_ids = [q["id"] if isinstance(q, dict) else q for q in test.get("questions", [])]
-        questions = list(mongo.db.questions.find({"id": {"$in": q_ids}}))
+    if not test:
+        print("⚠️ [DEBUG] Không tìm thấy test tương ứng với testId:", result.get("testId"))
+    else:
+        print("✅ [DEBUG] Đã tìm thấy test:", test.get("name"))
 
-    # Ghép câu hỏi với câu trả lời
+    # Lấy danh sách id câu hỏi trong đề thi
+    questions = []
+    q_ids = []
+    if test:
+        for q in test.get("questions", []):
+            if isinstance(q, dict) and "id" in q:
+                q_ids.append(q["id"])
+            elif isinstance(q, str):
+                q_ids.append(q)
+        print("📚 [DEBUG] Tổng số question_id trong test:", len(q_ids))
+
+        if q_ids:
+            questions = list(mongo.db.questions.find({"id": {"$in": q_ids}}))
+            print("✅ [DEBUG] Tìm thấy", len(questions), "câu hỏi trong Mongo")
+
+    # Ghép câu hỏi với câu trả lời của học sinh
     answers = []
     for ans in result.get("answers", []):
         q = next((qq for qq in questions if qq["id"] == ans.get("questionId")), {})
+        if not q:
+            print(f"⚠️ [DEBUG] Không tìm thấy questionId {ans.get('questionId')} trong danh sách câu hỏi")
+        else:
+            print(f"🧠 [DEBUG] Ghép được câu hỏi: {q.get('q')[:50]}...")
+
         answers.append({
             "question": {
                 "id": q.get("id"),
@@ -1171,6 +1202,8 @@ def get_result_detail(result_id):
             "teacherNote": ans.get("teacherNote")
         })
 
+    print("📦 [DEBUG] Tổng số câu trả lời trong result:", len(answers))
+
     detail = {
         "id": result["id"],
         "studentName": result.get("studentName"),
@@ -1180,7 +1213,10 @@ def get_result_detail(result_id):
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
         "answers": answers
     }
+
+    print("✅ [DEBUG] API trả về dữ liệu đầy đủ cho frontend.\n")
     return jsonify(detail)
+
 
 
 # API mới để thống kê bài giao (Yêu cầu 3)
