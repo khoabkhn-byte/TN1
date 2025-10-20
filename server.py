@@ -1155,8 +1155,8 @@ def get_result_detail(result_id):
     print("✅ Tìm thấy kết quả:", result.get("studentName"), "-", result.get("testName"))
     # ------------------ BẮT ĐẦU PHẦN SỬA LỖI ------------------
     student_id = result.get("studentId")
-    student_name = "Không rõ tên"
-    class_name = "N/A"
+    student_name = result.get("studentName", "Không rõ tên") # Giá trị mặc định (fallback)
+    class_name = result.get("className", "N/A")               # Giá trị mặc định (fallback)
 
     # 1. Truy vấn collection 'users' bằng studentId để lấy thông tin mới nhất
     if student_id:
@@ -1166,22 +1166,15 @@ def get_result_detail(result_id):
             student_info = db.users.find_one({"id": student_id}) 
             
             if student_info:
-                # Đảm bảo bạn đang sử dụng TÊN TRƯỜNG ĐÚNG trong collection 'users'
-                # Nếu trường tên là 'name' thay vì 'fullName', bạn phải sửa ở đây!
-                student_name = student_info.get("fullName", student_info.get("name", "Không rõ tên"))
-                class_name = student_info.get("className", "N/A")
-                
-                print(f"✅ Đã tìm thấy User: {student_name} - {class_name}")
-        except Exception as e:
-            print(f"Lỗi khi tìm user (ID: {student_id}): {e}")
-            pass
-
-    # 2. Định nghĩa tên học sinh và lớp để sử dụng
-    # Ưu tiên lấy từ collection 'users', nếu không có thì dùng giá trị cũ trong 'result'
-    # Giả định tên học sinh được lưu là 'fullName' trong collection users
-    student_name = student_info.get("fullName") if student_info else result.get("studentName", "Không rõ tên")
-    class_name = student_info.get("className") if student_info else result.get("className", "N/A")
-
+                # CẬP NHẬT BIẾN CHỈ MỘT LẦN VÀ DÙNG student_info
+                student_name = student_info.get("fullName", student_info.get("name", student_name))
+                class_name = student_info.get("className", class_name)
+                
+                print(f"✅ Đã tìm thấy User: {student_name} - {class_name}")
+        except Exception as e:
+            print(f"Lỗi khi tìm user (ID: {student_id}): {e}")
+            pass
+  
     print(f"👤 Thông tin tìm được - Tên HS: {student_name}, Lớp: {class_name}")
     # ------------------ KẾT THÚC PHẦN SỬA LỖI ------------------
 
