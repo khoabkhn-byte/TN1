@@ -1047,6 +1047,43 @@
   </div>
 </div>
 
+<!-- Modal Xem & Chấm -->
+<div class="modal fade" id="modalGrading" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">Chấm bài thi</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Bảng thông tin tổng -->
+        <div id="grading-summary" class="border rounded p-3 mb-3 bg-light">
+          <div><strong>Đề thi:</strong> <span id="sum-testName">-</span></div>
+          <div><strong>Học sinh:</strong> <span id="sum-studentName">-</span></div>
+          <div><strong>Lớp:</strong> <span id="sum-className">-</span></div>
+          <div><strong>Thời gian nộp:</strong> <span id="sum-submittedAt">-</span></div>
+          <div class="mt-2">
+            <strong>Điểm trắc nghiệm:</strong> <span id="sum-autoScore">0</span> |
+            <strong>Điểm tự luận:</strong> <span id="sum-essayScore">0</span> |
+            <strong>Tổng điểm:</strong> <span id="sum-totalScore">0</span>
+          </div>
+        </div>
+
+        <!-- Danh sách câu hỏi -->
+        <div id="grading-questions-container"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-success" id="btn-save-grading" onclick="saveGrading()">💾 Lưu chấm</button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 
 
   <!-- Assign modal -->
@@ -1137,17 +1174,19 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Hàm tiện ích để hiển thị thời gian HH:MM:SS
-function formatTime(seconds) {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    
-    // Nếu > 1 giờ, hiển thị HH:MM:SS, nếu không hiển thị MM:SS
-    if (h > 0) {
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    }
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+// Dùng cho thời lượng (số giây) — KHÔNG DÙNG cho submittedAt
+function formatDuration(seconds) {
+  if (seconds === null || seconds === undefined || isNaN(seconds)) return '-';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) {
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
+
+
 
 // Hàm khởi tạo instance của Modal
 document.addEventListener('DOMContentLoaded', () => {
@@ -1162,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-// -------------------- KẾT THÚC BIẾN TOÀN CỤC CHO QUIZ --------------------
+
 
 
 
@@ -1234,8 +1273,36 @@ function qs(selector) {
 	//const qs = id => document.getElementById(id);
 	
 
-    async function fetchJson(url, opts){ try { const r = await fetch(url, opts); if(r.status === 204) return null; return await r.json(); } catch(e){ console.error('fetch error', e); throw e; } }
+   async function fetchJson(url, opts){ 
+	try { 
+		const r = await fetch(url, opts); 
+		if(r.status === 204) return null; 
+		return await r.json(); 
+	} 
+	catch(e){ 
+		console.error('fetch error', e); 
+		throw e; 
+	} 
+}
 
+function formatSubmittedAt(ts) {
+  if (!ts) return '-';
+  // Nếu frontend có khi nào gửi số giây (number), hỗ trợ luôn:
+  if (typeof ts === 'number') {
+    const d = new Date(ts * 1000);
+    if (isNaN(d)) return '-';
+    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  }
+  // Nếu là ISO string
+  try {
+    const d = new Date(ts);
+    if (isNaN(d)) return '-';
+    // dd/mm/yyyy HH:MM (giờ:phút)
+    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return '-';
+  }
+}
    
 
 
@@ -1655,7 +1722,7 @@ function startQuizTimer(durationMinutes) {
 
         if (timeRemainingSeconds <= 0) {
             clearInterval(timerInterval);
-            timerDisplayElement.textContent = formatTime(0);
+            timerDisplayElement.textContent = formatDuration(0);
             
             // Xử lý nộp bài tự động khi hết giờ
             showMessageBox("Hết Giờ", "Bài thi đã được tự động nộp do hết thời gian làm bài.");
@@ -1663,7 +1730,7 @@ function startQuizTimer(durationMinutes) {
             return;
         }
 
-        timerDisplayElement.textContent = formatTime(timeRemainingSeconds);
+        timerDisplayElement.textContent = formatDuration(timeRemainingSeconds);
         
         // Cảnh báo thời gian còn lại (Ví dụ: dưới 5 phút)
         if (timeRemainingSeconds <= 300) {
@@ -2055,9 +2122,242 @@ function renderDoneAssignments(completed) {
 // });
 
 // Hàm giả định cho bước tiếp theo (chấm điểm chi tiết)
-function openResultDetail(resultId) {
-    alert('Mở màn hình chi tiết kết quả ID: ' + resultId + '. Tính năng chấm điểm chi tiết sẽ được phát triển sau khi hoàn thành mục này.');
+
+async function buildAnswersFromResult(data) {
+  // Nếu backend đã trả 'answers' (đã ghép question) thì dùng luôn
+  if (Array.isArray(data.answers) && data.answers.length) {
+    return data.answers.map(a => ({
+      questionId: a.question?.id || a.questionId || null,
+      question: a.question || null,
+      studentAnswer: a.answer || a.studentAnswer || a.student_answer || '',
+      isCorrect: a.isCorrect ?? a.is_correct ?? false,
+      autoScore: a.autoScore ?? a.pointsGained ?? a.auto_score ?? 0,
+      teacherScore: a.teacherScore ?? a.teacher_score ?? null,
+      teacherNote: a.teacherNote ?? a.teacher_note ?? '',
+      maxPoints: a.maxPoints ?? (a.question?.points || 0),
+      type: a.question?.type || a.type || 'mc'
+    }));
+  }
+
+  // Nếu backend trả detailedResults + studentAnswers
+  const detailed = Array.isArray(data.detailedResults) ? data.detailedResults : [];
+  const studentAnswers = Array.isArray(data.studentAnswers) ? data.studentAnswers : [];
+
+  const dmap = {};
+  detailed.forEach(d => dmap[d.questionId] = d);
+
+  let answers = studentAnswers.map(sa => {
+    const qid = sa.questionId || sa.question_id;
+    const d = dmap[qid] || {};
+    return {
+      questionId: qid,
+      question: null,
+      studentAnswer: sa.answer || '',
+      isCorrect: d.isCorrect ?? false,
+      autoScore: d.pointsGained ?? 0,
+      teacherScore: d.teacherScore ?? null,
+      teacherNote: d.teacherNote ?? '',
+      maxPoints: d.maxPoints ?? 0,
+      type: sa.type || d.type || 'mc',
+      correctAnswer: d.correctAnswer ?? null
+    };
+  });
+
+  // Nếu thiếu nội dung câu hỏi → lấy từ test
+  let questionMap = {};
+  if (data.testId) {
+    try {
+      const testApi1 = `${serverUrl}/api/quizzes/${data.testId}`;
+      const testApi2 = `${serverUrl}/api/tests/${data.testId}`;
+      let testData = null;
+      try { testData = await fetchJson(testApi1); } catch (e) {}
+      if (!testData) try { testData = await fetchJson(testApi2); } catch (e) {}
+
+      if (testData?.questions?.length) {
+        testData.questions.forEach(q => { questionMap[q.id] = q; });
+        if (!data.testName) data.testName = testData.name;
+      }
+    } catch (err) {
+      console.warn('Không lấy được test data:', err);
+    }
+  }
+
+  // Gắn thông tin câu hỏi
+  answers = answers.map(a => {
+    const q = questionMap[a.questionId];
+    if (q) {
+      a.question = {
+        id: q.id,
+        q: q.q || q.text || '',
+        type: q.type || a.type,
+        points: q.points ?? a.maxPoints,
+        options: q.options || [],
+        imageId: q.imageId || null
+      };
+    }
+    return a;
+  });
+
+  return answers;
 }
+
+
+
+async function openResultDetail(resultId) {
+  try {
+    console.log('🔍 Gọi API kết quả:', `${serverUrl}/api/results/${resultId}`);
+    const data = await fetchJson(`${serverUrl}/api/results/${resultId}`);
+    console.log('✅ Dữ liệu kết quả nhận được (raw):', data);
+
+    // Lưu bản gốc để dùng lại sau save (prevent data loss)
+    const modalEl = document.getElementById('modalGrading');
+    if (!modalEl) {
+      console.error('Modal #modalGrading không tồn tại trong DOM!');
+      return;
+    }
+    modalEl._lastLoadedData = data;
+
+    // render modal (dùng data hiện có)
+    await renderResultDetailModal(data);
+
+    modalEl.dataset.resultId = resultId;
+    new bootstrap.Modal(modalEl).show();
+  } catch (err) {
+    console.error('❌ Lỗi khi mở chi tiết:', err);
+    alert('Lỗi khi mở chi tiết: ' + (err.message || err));
+  }
+}
+window.openResultDetail = openResultDetail;
+
+
+
+
+async function renderResultDetailModal(data) {
+  console.log('🧠 Bắt đầu render modal kết quả...');
+
+	const container = document.getElementById('grading-questions-container');
+    const sumTest = document.getElementById('sum-testName');
+    const sumStudent = document.getElementById('sum-studentName');
+    const sumClass = document.getElementById('sum-className');
+const sumSubmitted = document.getElementById('sum-submittedAt');
+const sumAuto = document.getElementById('sum-autoScore');
+const sumEssay = document.getElementById('sum-essayScore');
+const sumTotal = document.getElementById('sum-totalScore');
+
+  const answers = await buildAnswersFromResult(data);
+
+  let autoScore = 0, essayScore = 0;
+  answers.forEach(a => {
+    autoScore += Number(a.autoScore || 0);
+    essayScore += Number(a.teacherScore || 0);
+  });
+
+  sumTest.innerText = data.testName || '-';
+  sumStudent.innerText = data.studentName || '-';
+  sumClass.innerText = data.className || '-';
+  sumSubmitted.innerText = data.submittedAt ? new Date(data.submittedAt).toLocaleString('vi-VN') : '-';
+  sumAuto.innerText = autoScore.toFixed(1);
+  sumEssay.innerText = essayScore.toFixed(1);
+  sumTotal.innerText = (autoScore + essayScore).toFixed(1);
+
+  container.innerHTML = '';
+
+  answers.forEach((ans, i) => {
+    const q = ans.question || {};
+    const isEssay = q.type === 'essay';
+
+    // Highlight các option đúng/sai
+    const options = (q.options || []).map(opt => {
+      const cls =
+        opt.correct ? 'bg-success-subtle border-success' :
+        (opt.text === ans.studentAnswer ? 'bg-danger-subtle border-danger' : '');
+      return `<div class="border rounded p-2 my-1 ${cls}">${opt.text}</div>`;
+    }).join('');
+
+    const essayFields = isEssay ? `
+      <div class="mt-2">
+        <label class="form-label small">Nhận xét GV</label>
+        <textarea class="form-control" id="note-${q.id}" rows="2">${ans.teacherNote || ''}</textarea>
+        <label class="form-label small mt-2">Điểm (tối đa ${q.points || 0})</label>
+        <input type="number" class="form-control w-25" id="score-${q.id}" min="0" max="${q.points || 0}" step="0.5" value="${ans.teacherScore || ''}">
+      </div>` : '';
+
+    container.innerHTML += `
+      <div class="border rounded p-3 mb-3">
+        <div><strong>Câu ${i + 1} (${q.points || 0} điểm)</strong></div>
+        <div>${q.q || '(Không có nội dung)'}</div>
+        ${q.imageId ? `<img src="${serverUrl}/images/${q.imageId}" class="mt-2" style="max-width:300px;">` : ''}
+        <div class="mt-2"><strong>Trả lời của HS:</strong> ${ans.studentAnswer || '(chưa trả lời)'}</div>
+        ${options}
+        ${essayFields}
+      </div>`;
+  });
+
+  console.log('✅ Hoàn tất render modal kết quả.');
+}
+
+
+async function saveGrading() {
+  const modal = document.getElementById('modalGrading'); // ✅ đúng ID
+  if (!modal) {
+    alert("Không tìm thấy modal để lưu chấm!");
+    return;
+  }
+
+  const resultId = modal.dataset.resultId;
+  if (!resultId) {
+    alert("Thiếu resultId để lưu chấm!");
+    return;
+  }
+
+  const scores = [...document.querySelectorAll('[id^="score-"]')];
+  const essayUpdates = scores.map(input => ({
+    questionId: input.id.replace('score-', ''),
+    score: parseFloat(input.value || 0),
+    note: qs(`#note-${input.id.replace('score-', '')}`)?.value || ''
+  }));
+
+  const payload = { essays: essayUpdates };
+  console.log("📤 Gửi payload chấm:", payload);
+
+  const res = await fetch(`${serverUrl}/api/results/${resultId}/grade`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (res.ok) {
+    alert('✅ Đã lưu điểm chấm.');
+    loadResults(); // refresh bảng
+    bootstrap.Modal.getInstance(modal).hide();
+  } else {
+    const err = await res.text();
+    alert('❌ Lưu không thành công: ' + err);
+  }
+}
+
+
+// Đảm bảo có thể gọi được từ onclick trong HTML
+window.saveGrading = saveGrading;
+
+
+function updateResultButtonStatus(resultId, status) {
+  const btn = document.querySelector(`button[onclick*="${resultId}"]`);
+  if (!btn) return;
+
+  if (status === 'Đã Chấm') {
+    btn.classList.remove('btn-danger', 'btn-warning');
+    btn.classList.add('btn-primary');
+    btn.textContent = 'Xem & Chấm (Lần 2)';
+  }
+
+  if (status === 'Hoàn tất') {
+    btn.classList.remove('btn-primary', 'btn-danger');
+    btn.classList.add('btn-success');
+    btn.textContent = 'Xem';
+  }
+}
+
 
 // Debounce để tránh load quá nhiều khi gõ phím
 //const debounceLoadResults = debounce(loadResults, 300);
@@ -2076,6 +2376,10 @@ function clearResultFilters() {
     
     loadResults(); // Tải lại sau khi xóa bộ lọc
 }
+
+
+
+
 
 
 
@@ -4008,7 +4312,7 @@ function renderResultsTable(results) {
         const testName = r.testName || 'Bài thi [Đã xóa]';
         const studentName = r.studentName || 'Học sinh [Đã xóa]';
         const className = r.className || 'N/A';
-        const submittedAt = formatTime(r.submittedAt);
+        const submittedAt = formatSubmittedAt(r.submittedAt);
         const gradingStatus = r.gradingStatus || 'Lỗi trạng thái';
         const score = `${r.totalScore !== undefined ? r.totalScore : 'N/A'}`;
         
@@ -4017,18 +4321,30 @@ function renderResultsTable(results) {
         let buttonClass = 'btn-success'; 
         let buttonDisabled = '';
         let buttonText = 'Xem';
+		
+		const regradeCount = r.regradeCount || 0; // nếu chưa có trường thì mặc định 0
         
         if (gradingStatus === 'Chưa Chấm') {
-            statusBadge = `<span class="badge bg-danger">Chờ Chấm Tay</span>`;
+            statusBadge = `<span class="badge bg-danger">Chờ chấm TL</span>`;
             buttonClass = 'btn-danger'; 
             buttonText = 'Xem và Chấm';
             buttonDisabled = ''; // Cho phép bấm để chấm
-        } else if (gradingStatus === 'Đã Chấm') {
-            statusBadge = `<span class="badge bg-primary">Đã Chấm</span>`;
-            buttonClass = 'btn-secondary'; 
-            buttonDisabled = 'disabled'; 
-            buttonText = 'Đã Chấm (Xem)';
-        } else {
+        } 
+        else if (gradingStatus === 'Đã Chấm') {
+            // Cho phép chấm lại 1 lần nếu regradeCount < 1
+            if (regradeCount < 1) {
+                statusBadge = `<span class="badge bg-success">Đã Chấm</span>`;
+                buttonClass = 'btn-warning'; 
+                buttonText = 'Xem & Chấm Lại';
+                buttonDisabled = ''; // cho phép bấm (regrade)
+            } else {
+                statusBadge = `<span class="badge bg-primary">Đã Chấm</span>`;
+                buttonClass = 'btn-secondary'; 
+                buttonDisabled = 'disabled'; 
+                buttonText = 'Đã Chấm (Xem)';
+            }
+        } 
+        else {
             statusBadge = `<span class="badge bg-success">Hoàn tất tự động</span>`;
             buttonClass = 'btn-success';
             buttonText = 'Xem';
@@ -4039,7 +4355,15 @@ function renderResultsTable(results) {
         // <thead>: STT | Bài thi | Học sinh | Lớp | Thời gian nộp | Trạng thái chấm | Điểm | Hành động
         html += `
             <tr>
-                <td class="text-center">${globalIndex}</td>                                   <td>${testName}</td>                                                       <td>${studentName}</td>                                                    <td>${className}</td>                                                      <td>${submittedAt}</td>                                                    <td class="text-center">${statusBadge}</td>                               <td class="text-center fw-bold">${score}</td>                             <td class="text-center">                                                  <button class="btn btn-sm ${buttonClass}" 
+                <td class="text-center">${globalIndex}</td>
+                <td>${testName}</td>
+                <td>${studentName}</td>
+                <td>${className}</td>
+                <td>${submittedAt}</td>
+                <td class="text-center">${statusBadge}</td>
+                <td class="text-center fw-bold">${score}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm ${buttonClass}" 
                             ${buttonDisabled}
                             onclick="openResultDetail('${r.id}')">
                         ${buttonText}
@@ -4051,6 +4375,7 @@ function renderResultsTable(results) {
     
     tbody.innerHTML = html;
 }
+
 
    /*RESULTS (teacher)
     async function loadResultsTestFilter(){ 
