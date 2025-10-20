@@ -1147,13 +1147,14 @@ def get_result_detail(result_id):
     result = mongo.db.results.find_one({"id": result_id})
     if not result:
         print("❌ Không tìm thấy result:", result_id)
-        all_ids = [r.get("id") for r in mongo.db.results.find({}, {"id": 1})]
-        print("📋 ID trong DB:", all_ids[:10])
+        # Bỏ qua việc tìm kiếm all_ids để giảm log, nhưng vẫn giữ logic báo lỗi
+        # all_ids = [r.get("id") for r in mongo.db.results.find({}, {"id": 1})]
+        # print("📋 ID trong DB:", all_ids[:10])
         return jsonify({"error": "Không tìm thấy kết quả"}), 404
 
     print("✅ Tìm thấy kết quả:", result.get("studentName"), "-", result.get("testName"))
 
-    # Lấy đề thi tương ứng
+    # Lấy đề thi tương ứng (để xác định danh sách câu hỏi theo thứ tự)
     test = mongo.db.tests.find_one({"id": result.get("testId")})
     q_ids = []
     if test:
@@ -1164,48 +1165,65 @@ def get_result_detail(result_id):
                 q_ids.append(q)
     print("📚 Tổng số câu hỏi trong test:", len(q_ids))
 
-    # Lấy thông tin chi tiết câu hỏi
+    # Lấy thông tin chi tiết câu hỏi (từ collection 'questions')
     question_map = {}
     if q_ids:
+        # Lấy tất cả thông tin cần thiết, bao gồm cả correctAnswer và points
         questions = list(mongo.db.questions.find({"id": {"$in": q_ids}}))
         for q in questions:
             question_map[q["id"]] = {
                 "id": q["id"],
                 "q": q.get("q"),
                 "type": q.get("type"),
-                "points": q.get("points", 0),
+                "points": q.get("points", 0), # Điểm tối đa của câu hỏi
                 "imageId": q.get("imageId"),
-                "options": q.get("options", [])
+                "options": q.get("options", []),
+                # *** BỔ SUNG TRƯỜNG ĐÁP ÁN ĐÚNG ***
+                "correctAnswer": q.get("correctAnswer"), 
             }
 
-    # Dữ liệu học sinh trả lời
+    # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
     student_answers = result.get("studentAnswers", [])
     detailed_results = result.get("detailedResults", [])
 
     # Chuyển detailedResults thành map để dễ tìm
     detail_map = {d["questionId"]: d for d in detailed_results}
 
-    # Ghép dữ liệu
+    # Ghép dữ liệu và chuẩn bị cấu trúc trả về
     answers = []
     for ans in student_answers:
         qid = ans.get("questionId")
         q = question_map.get(qid, {})
         d = detail_map.get(qid, {})
+        
+        # Lấy điểm tối đa từ question
+        max_score = q.get("points", 0) 
+        
+        # Xác định điểm đạt được thực tế (ưu tiên điểm giáo viên, sau đó là điểm tự động)
+        gained_score = d.get("teacherScore")
+        if gained_score is None:
+             gained_score = d.get("pointsGained", 0) 
+
         answers.append({
-            "question": q,
-            "answer": ans.get("answer"),
-            "isCorrect": d.get("isCorrect"),
-            "autoScore": d.get("pointsGained", 0),
-            "teacherScore": d.get("teacherScore"),
+            "questionId": qid,
+            "question": q, # Bao gồm nội dung câu hỏi (q), loại câu hỏi (type), options...
+            "userAnswer": ans.get("answer"),
+            
+            # --- CÁC TRƯỜNG CHẤM ĐIỂM VÀ HIỂN THỊ CẦN THIẾT ---
+            "maxScore": max_score, 
+            "gainedScore": gained_score, 
+            "correctAnswer": q.get("correctAnswer"), # Dùng cho Frontend so sánh và hiển thị
+            "isAutoCorrect": d.get("isCorrect"), # Kết quả chấm tự động (Đ/S)
             "teacherNote": d.get("teacherNote")
         })
 
     print("🧩 Ghép được", len(answers), "câu trả lời")
 
+    # Cấu trúc JSON cuối cùng trả về Frontend
     detail = {
         "id": result["id"],
-        "studentName": result.get("studentName"),
-        "className": result.get("className"),
+        "studentName": result.get("studentName"), # <<< TRƯỜNG TÊN HỌC SINH
+        "className": result.get("className"),     # <<< TRƯỜNG LỚP
         "testName": test.get("name") if test else "",
         "totalScore": result.get("totalScore", 0),
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
@@ -1215,6 +1233,7 @@ def get_result_detail(result_id):
 
     print("✅ [DEBUG] Trả về dữ liệu chi tiết bài làm.\n")
     return jsonify(detail)
+
 
 
 # API mới để thống kê bài giao (Yêu cầu 3)
