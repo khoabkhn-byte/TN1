@@ -159,6 +159,7 @@
 
 
 
+
   </style>
 </head>
 <body>
@@ -2124,7 +2125,6 @@ function renderDoneAssignments(completed) {
 // Hàm giả định cho bước tiếp theo (chấm điểm chi tiết)
 
 async function buildAnswersFromResult(data) {
-  // Nếu backend đã trả 'answers' (đã ghép question) thì dùng luôn
   if (Array.isArray(data.answers) && data.answers.length) {
     return data.answers.map(a => ({
       questionId: a.question?.id || a.questionId || null,
@@ -2139,7 +2139,6 @@ async function buildAnswersFromResult(data) {
     }));
   }
 
-  // Nếu backend trả detailedResults + studentAnswers
   const detailed = Array.isArray(data.detailedResults) ? data.detailedResults : [];
   const studentAnswers = Array.isArray(data.studentAnswers) ? data.studentAnswers : [];
 
@@ -2163,29 +2162,25 @@ async function buildAnswersFromResult(data) {
     };
   });
 
-  // Nếu thiếu nội dung câu hỏi → lấy từ test
+  // Lấy dữ liệu test nếu thiếu nội dung câu hỏi
   let questionMap = {};
   if (data.testId) {
     try {
-      const testApi1 = `${serverUrl}/api/quizzes/${data.testId}`;
-      const testApi2 = `${serverUrl}/api/tests/${data.testId}`;
       let testData = null;
-      try { testData = await fetchJson(testApi1); } catch (e) {}
-      if (!testData) try { testData = await fetchJson(testApi2); } catch (e) {}
+      try { testData = await fetchJson(`${serverUrl}/api/quizzes/${data.testId}`); } catch(e){}
+      if(!testData) try { testData = await fetchJson(`${serverUrl}/api/tests/${data.testId}`); } catch(e){}
 
-      if (testData?.questions?.length) {
+      if(testData?.questions?.length) {
         testData.questions.forEach(q => { questionMap[q.id] = q; });
-        if (!data.testName) data.testName = testData.name;
+        if(!data.testName) data.testName = testData.name;
       }
-    } catch (err) {
-      console.warn('Không lấy được test data:', err);
-    }
+    } catch(err){ console.warn('Không lấy được test data:', err); }
   }
 
   // Gắn thông tin câu hỏi
   answers = answers.map(a => {
     const q = questionMap[a.questionId];
-    if (q) {
+    if(q){
       a.question = {
         id: q.id,
         q: q.q || q.text || '',
@@ -2233,23 +2228,21 @@ window.openResultDetail = openResultDetail;
 
 
 async function renderResultDetailModal(data) {
-  console.log('🧠 Bắt đầu render modal kết quả...');
-
-	const container = document.getElementById('grading-questions-container');
-    const sumTest = document.getElementById('sum-testName');
-    const sumStudent = document.getElementById('sum-studentName');
-    const sumClass = document.getElementById('sum-className');
-const sumSubmitted = document.getElementById('sum-submittedAt');
-const sumAuto = document.getElementById('sum-autoScore');
-const sumEssay = document.getElementById('sum-essayScore');
-const sumTotal = document.getElementById('sum-totalScore');
+  const container = document.getElementById('grading-questions-container');
+  const sumTest = document.getElementById('sum-testName');
+  const sumStudent = document.getElementById('sum-studentName');
+  const sumClass = document.getElementById('sum-className');
+  const sumSubmitted = document.getElementById('sum-submittedAt');
+  const sumAuto = document.getElementById('sum-autoScore');
+  const sumEssay = document.getElementById('sum-essayScore');
+  const sumTotal = document.getElementById('sum-totalScore');
 
   const answers = await buildAnswersFromResult(data);
 
   let autoScore = 0, essayScore = 0;
   answers.forEach(a => {
     autoScore += Number(a.autoScore || 0);
-    essayScore += Number(a.teacherScore || 0);
+    essayScore += Number(a.teacherScore ?? 0);
   });
 
   sumTest.innerText = data.testName || '-';
@@ -2265,80 +2258,145 @@ const sumTotal = document.getElementById('sum-totalScore');
   answers.forEach((ans, i) => {
     const q = ans.question || {};
     const isEssay = q.type === 'essay';
+    const studentAnswerText = ans.studentAnswer || '(chưa trả lời)';
 
-    // Highlight các option đúng/sai
-    const options = (q.options || []).map(opt => {
-      const cls =
-        opt.correct ? 'bg-success-subtle border-success' :
-        (opt.text === ans.studentAnswer ? 'bg-danger-subtle border-danger' : '');
-      return `<div class="border rounded p-2 my-1 ${cls}">${opt.text}</div>`;
-    }).join('');
+    // Stick
+    let stickText = '';
+    let stickStyle = '';
+    if (!isEssay) {
+      stickText = ans.correctAnswer === ans.studentAnswer ? 'Đ' : 'S';
+      stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
+        text-align:center;font-weight:bold;border-radius:50%;
+        color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
+        background-color:${stickText==='Đ'?'#28a745':'#dc3545'};`;
+    } else {
+      if(ans.teacherScore === null || ans.teacherScore === undefined){
+        stickText = '…';
+        stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
+          text-align:center;font-weight:bold;border-radius:50%;
+          color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
+          background-color:orange;`;
+        ans.teacherScore = 0;
+      } else {
+        stickText = ans.teacherScore>0?'Đ':'S';
+        stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
+          text-align:center;font-weight:bold;border-radius:50%;
+          color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
+          background-color:${stickText==='Đ'?'#28a745':'#dc3545'};`;
+      }
+    }
 
+    const stickHtml = `<span data-question-id="${q.id}" style="${stickStyle}">${stickText}</span>`;
+
+    // Options MC
+    let optionsHtml = '';
+    if(q.type==='mc'){
+      optionsHtml = (q.options||[]).map(opt=>{
+        const isCorrect = opt.text === ans.correctAnswer;
+        const isSelected = opt.text === ans.studentAnswer;
+        const cls = isCorrect ? 'bg-success-subtle border-success' : (isSelected?'bg-danger-subtle border-danger':'');
+        return `<div class="border rounded p-2 my-1 ${cls}">${opt.text}</div>`;
+      }).join('');
+    }
+
+    // Tự luận input
     const essayFields = isEssay ? `
       <div class="mt-2">
         <label class="form-label small">Nhận xét GV</label>
-        <textarea class="form-control" id="note-${q.id}" rows="2">${ans.teacherNote || ''}</textarea>
-        <label class="form-label small mt-2">Điểm (tối đa ${q.points || 0})</label>
-        <input type="number" class="form-control w-25" id="score-${q.id}" min="0" max="${q.points || 0}" step="0.5" value="${ans.teacherScore || ''}">
+        <textarea class="form-control" id="note-${q.id}" rows="2">${ans.teacherNote||''}</textarea>
+        <label class="form-label small mt-2">Điểm (tối đa ${q.points||0})</label>
+        <input type="number" class="form-control w-25" id="score-${q.id}" min="0" max="${q.points||0}" step="0.5" value="${ans.teacherScore??''}">
       </div>` : '';
 
     container.innerHTML += `
       <div class="border rounded p-3 mb-3">
-        <div><strong>Câu ${i + 1} (${q.points || 0} điểm)</strong></div>
+        <div><strong>Câu ${i+1} (${q.points||0} điểm)</strong>${stickHtml}</div>
         <div>${q.q || '(Không có nội dung)'}</div>
         ${q.imageId ? `<img src="${serverUrl}/images/${q.imageId}" class="mt-2" style="max-width:300px;">` : ''}
-        <div class="mt-2"><strong>Trả lời của HS:</strong> ${ans.studentAnswer || '(chưa trả lời)'}</div>
-        ${options}
+        <div class="mt-2"><strong>Trả lời của HS:</strong> ${studentAnswerText}</div>
+        ${optionsHtml}
         ${essayFields}
       </div>`;
   });
-
-  console.log('✅ Hoàn tất render modal kết quả.');
 }
 
 
+
+
 async function saveGrading() {
-  const modal = document.getElementById('modalGrading'); // ✅ đúng ID
-  if (!modal) {
-    alert("Không tìm thấy modal để lưu chấm!");
-    return;
-  }
+  const modal = document.getElementById('modalGrading');
+  if(!modal){ alert("Không tìm thấy modal để lưu chấm!"); return; }
 
   const resultId = modal.dataset.resultId;
-  if (!resultId) {
-    alert("Thiếu resultId để lưu chấm!");
-    return;
-  }
+  if(!resultId){ alert("Thiếu resultId để lưu chấm!"); return; }
 
   const scores = [...document.querySelectorAll('[id^="score-"]')];
-  const essayUpdates = scores.map(input => ({
-    questionId: input.id.replace('score-', ''),
-    score: parseFloat(input.value || 0),
-    note: qs(`#note-${input.id.replace('score-', '')}`)?.value || ''
+  const essayUpdates = scores.map(input=>({
+    questionId: input.id.replace('score-',''),
+    score: parseFloat(input.value||0),
+    note: document.querySelector(`#note-${input.id.replace('score-','')}`)?.value||''
   }));
 
   const payload = { essays: essayUpdates };
   console.log("📤 Gửi payload chấm:", payload);
 
-  const res = await fetch(`${serverUrl}/api/results/${resultId}/grade`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
+  try{
+    const res = await fetch(`${serverUrl}/api/results/${resultId}/grade`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    if(!res.ok){
+      const err = await res.text();
+      alert('❌ Lưu không thành công: '+err);
+      return;
+    }
 
-  if (res.ok) {
     alert('✅ Đã lưu điểm chấm.');
-    loadResults(); // refresh bảng
-    bootstrap.Modal.getInstance(modal).hide();
-  } else {
-    const err = await res.text();
-    alert('❌ Lưu không thành công: ' + err);
+
+    // Update modal trực tiếp
+    essayUpdates.forEach(e=>{
+      if(e.questionId==='display') return; // bỏ qua câu ảo
+
+      const scoreInput = document.querySelector(`#score-${e.questionId}`);
+      const parentDiv = scoreInput?.closest('.border.rounded.p-3');
+      if(!parentDiv){ console.warn('Không tìm thấy container cho questionId:',e.questionId); return; }
+
+      const stickSpan = parentDiv.querySelector(`span[data-question-id="${e.questionId}"]`);
+      if(!stickSpan){ console.warn('Không tìm thấy stickSpan cho questionId:',e.questionId); return; }
+
+      const teacherScore = e.score;
+      if(teacherScore>0){
+        stickSpan.textContent='Đ';
+        stickSpan.style.backgroundColor='#28a745';
+      }else{
+        stickSpan.textContent='S';
+        stickSpan.style.backgroundColor='#dc3545';
+      }
+
+      // Cập nhật input value
+      scoreInput.value = teacherScore;
+    });
+
+    // Update tổng điểm essay & total
+    let sumEssay=0;
+    document.querySelectorAll('[id^="score-"]').forEach(inp=>{ sumEssay+=parseFloat(inp.value||0); });
+    document.getElementById('sum-essayScore').innerText = sumEssay.toFixed(1);
+    const sumAuto = parseFloat(document.getElementById('sum-autoScore').innerText||0);
+    document.getElementById('sum-totalScore').innerText = (sumAuto+sumEssay).toFixed(1);
+
+  }catch(err){
+    console.error('❌ Lỗi khi lưu chấm:',err);
+    alert('Lỗi khi lưu chấm: '+(err.message||err));
   }
 }
 
 
+
 // Đảm bảo có thể gọi được từ onclick trong HTML
 window.saveGrading = saveGrading;
+window.renderResultDetailModal = renderResultDetailModal;
+window.buildAnswersFromResult = buildAnswersFromResult;
 
 
 function updateResultButtonStatus(resultId, status) {
