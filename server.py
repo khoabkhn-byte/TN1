@@ -970,6 +970,31 @@ def create_result():
     db.results.insert_one(new_result)
     new_result.pop("_id", None)
     return jsonify(new_result), 201
+# Chám bài tự luận
+@app.route("/api/results/<result_id>/grade", methods=["POST"])
+def grade_result(result_id):
+    data = request.get_json() or {}
+    essays = data.get("essays", [])
+
+    result = db.results.find_one({"id": result_id})
+    if not result:
+        return jsonify({"message": "Không tìm thấy kết quả."}), 404
+
+    total_extra = 0
+    for e in essays:
+        for ans in result.get("answers", []):
+            if ans.get("question", {}).get("id") == e["questionId"]:
+                ans["teacherScore"] = e.get("score", 0)
+                ans["teacherNote"] = e.get("note", "")
+                total_extra += e.get("score", 0)
+
+    total_mc = result.get("autoScore", 0)
+    result["totalScore"] = total_mc + total_extra
+    result["status"] = "Đã Chấm"
+    result["gradedAt"] = datetime.datetime.now().isoformat()
+
+    db.results.update_one({"id": result_id}, {"$set": result})
+    return jsonify({"success": True, "totalScore": result["totalScore"]})
 
 
 @app.route("/results/<result_id>", methods=["GET"])
