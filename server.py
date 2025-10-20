@@ -970,31 +970,79 @@ def create_result():
     db.results.insert_one(new_result)
     new_result.pop("_id", None)
     return jsonify(new_result), 201
-# Chám bài tự luận
+    
+# Chấm bài tự luận
+from flask import abort
+
 @app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
     data = request.get_json() or {}
-    essays = data.get("essays", [])
+    essays = data.get("essays", [])  # list of { questionId, score, note }
 
     result = db.results.find_one({"id": result_id})
     if not result:
-        return jsonify({"message": "Không tìm thấy kết quả."}), 404
+        return jsonify({"message": "Result not found."}), 404
 
-    total_extra = 0
+    # init if missing
+    if "answers" not in result:
+        result["answers"] = []
+
+    # compute extra points from teacher (for essay)
+    total_teacher = 0.0
     for e in essays:
-        for ans in result.get("answers", []):
-            if ans.get("question", {}).get("id") == e["questionId"]:
-                ans["teacherScore"] = e.get("score", 0)
-                ans["teacherNote"] = e.get("note", "")
-                total_extra += e.get("score", 0)
+        qid = e.get("questionId")
+        score = float(e.get("score") or 0)
+        note = e.get("note") or ""
 
-    total_mc = result.get("autoScore", 0)
-    result["totalScore"] = total_mc + total_extra
-    result["status"] = "Đã Chấm"
+        # find the corresponding answer entry in result["answers"]
+        matched = False
+        for ans in result["answers"]:
+            qobj = ans.get("question") or {}
+            # compare by id or _id
+            if qobj.get("id") == qid or str(qobj.get("_id")) == str(qid) or ans.get("questionId") == qid:
+                ans["teacherScore"] = score
+                ans["teacherNote"] = note
+                matched = True
+                break
+        if not matched:
+            # nếu không tìm thấy entry, thêm mới (phòng trường hợp)
+            result["answers"].append({
+                "questionId": qid,
+                "answer": "",
+                "teacherScore": score,
+                "teacherNote": note
+            })
+        total_teacher += score
+
+    # Lấy điểm tự động từ field autoScore hoặc tính tổng autoScore từ answers
+    auto_score = result.get("autoScore")
+    if auto_score is None:
+        auto_score = sum([ (a.get("autoScore") or 0) for a in result.get("answers", []) ])
+
+    # cập nhật tổng điểm
+    result["totalScore"] = auto_score + total_teacher
+
+    # trạng thái chấm
+    previous_status = result.get("gradingStatus")
+    result["gradingStatus"] = "Đã Chấm"
     result["gradedAt"] = datetime.datetime.now().isoformat()
 
-    db.results.update_one({"id": result_id}, {"$set": result})
-    return jsonify({"success": True, "totalScore": result["totalScore"]})
+    # regradeCount: nếu trước đó đã chấm 1 lần (dịch vụ muốn allow 1 lần chấm lại)
+    rc = result.get("regradeCount", 0)
+    # Nếu đang chấm lại, tăng count; nếu muốn ngăn chấm lại nhiều hơn 1, bạn có thể block client
+    # Ở đây tăng lên 1 nếu trước đó đã >=1 thì vẫn tăng (server-side bạn có thể check)
+    result["regradeCount"] = rc + 1
+
+    # Lưu về DB: cập nhật chỉ những trường cần thiết
+    db.results.update_one({"id": result_id}, {"$set": {
+        "answers": result["answers"],
+        "totalScore": result["totalScore"],
+        "gradingStatus": result["gradingStatus"],
+        "gradedAt": result["gradedAt"],
+        "regradeCount": result["regradeCount"]
+    }})
+
+    return jsonify({"success": True, "totalScore": result["totalScore"], "regradeCount": result["regradeCount"]})
 
 
 @app.route("/results/<result_id>", methods=["GET"])
