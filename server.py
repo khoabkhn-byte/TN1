@@ -1144,7 +1144,7 @@ def get_result_detail(result_id):
     print("🔍 [DEBUG] /api/results/<result_id> =", result_id)
 
     # Tìm kết quả
-    result = mongo.db.results.find_one({"id": result_id})
+    result = db.results.find_one({"id": result_id})
     if not result:
         print("❌ Không tìm thấy result:", result_id)
         # Bỏ qua việc tìm kiếm all_ids để giảm log, nhưng vẫn giữ logic báo lỗi
@@ -1153,9 +1153,31 @@ def get_result_detail(result_id):
         return jsonify({"error": "Không tìm thấy kết quả"}), 404
 
     print("✅ Tìm thấy kết quả:", result.get("studentName"), "-", result.get("testName"))
+    # ------------------ BẮT ĐẦU PHẦN SỬA LỖI ------------------
+    student_id = result.get("studentId")
+    student_info = None
+
+    # 1. Truy vấn collection 'users' bằng studentId để lấy thông tin mới nhất
+    if student_id:
+        try:
+            # Tìm kiếm thông tin học sinh trong collection 'users'
+            # Giả định studentId trong results là ID dạng string (uuid) và ID trong users cũng là trường 'id'
+            student_info = db.users.find_one({"id": student_id})
+        except Exception as e:
+            print(f"Lỗi khi tìm user (ID: {student_id}): {e}")
+            pass
+
+    # 2. Định nghĩa tên học sinh và lớp để sử dụng
+    # Ưu tiên lấy từ collection 'users', nếu không có thì dùng giá trị cũ trong 'result'
+    # Giả định tên học sinh được lưu là 'fullName' trong collection users
+    student_name = student_info.get("fullName") if student_info else result.get("studentName", "Không rõ tên")
+    class_name = student_info.get("className") if student_info else result.get("className", "N/A")
+
+    print(f"👤 Thông tin tìm được - Tên HS: {student_name}, Lớp: {class_name}")
+    # ------------------ KẾT THÚC PHẦN SỬA LỖI ------------------
 
     # Lấy đề thi tương ứng (để xác định danh sách câu hỏi theo thứ tự)
-    test = mongo.db.tests.find_one({"id": result.get("testId")})
+    test = db.tests.find_one({"id": result.get("testId")})
     q_ids = []
     if test:
         for q in test.get("questions", []):
