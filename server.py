@@ -1141,31 +1141,27 @@ def get_results_summary():
 
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
-    print("🔍 [DEBUG] /api/results/<result_id> =", result_id)
+    print("🔍 [DEBUG] /api/results/<result_id> =", result_id)
 
-    # Tìm kết quả
-    result = db.results.find_one({"id": result_id})
-    if not result:
-        print("❌ Không tìm thấy result:", result_id)
-        # Bỏ qua việc tìm kiếm all_ids để giảm log, nhưng vẫn giữ logic báo lỗi
-        # all_ids = [r.get("id") for r in mongo.db.results.find({}, {"id": 1})]
-        # print("📋 ID trong DB:", all_ids[:10])
-        return jsonify({"error": "Không tìm thấy kết quả"}), 404
+    # Tìm kết quả
+    result = db.results.find_one({"id": result_id})
+    if not result:
+        print("❌ Không tìm thấy result:", result_id)
+        return jsonify({"error": "Không tìm thấy kết quả"}), 404
 
-    print("✅ Tìm thấy kết quả:", result.get("studentName"), "-", result.get("testName"))
-    # ------------------ BẮT ĐẦU PHẦN SỬA LỖI ------------------
-    student_id = result.get("studentId")
-    student_name = result.get("studentName", "Không rõ tên") # Giá trị mặc định (fallback)
-    class_name = result.get("className", "N/A")               # Giá trị mặc định (fallback)
+    print("✅ Tìm thấy kết quả:", result.get("studentName"), "-", result.get("testName"))
+    # ------------------ BẮT ĐẦU PHẦN SỬA LỖI ------------------
+    student_id = result.get("studentId")
+    # Giữ nguyên: Giá trị mặc định (fallback)
+    student_name = result.get("studentName", "Không rõ tên") 
+    class_name = result.get("className", "N/A")
 
-    # 1. Truy vấn collection 'users' bằng studentId để lấy thông tin mới nhất
-    if student_id:
-        try:
-            # Tên trường trong collection users CÓ THỂ LÀ 'id' (theo cấu trúc user của bạn)
-            # Tên trường TÊN ĐẦY ĐỦ trong users CÓ THỂ LÀ 'fullName' HOẶC 'name'
-            student_info = db.users.find_one({"id": student_id}) 
-            
-            if student_info:
+    # 1. Truy vấn collection 'users' bằng studentId để lấy thông tin mới nhất
+    if student_id:
+        try:
+            student_info = db.users.find_one({"id": student_id}) 
+            
+            if student_info:
                 # CẬP NHẬT BIẾN CHỈ MỘT LẦN VÀ DÙNG student_info
                 student_name = student_info.get("fullName", student_info.get("name", student_name))
                 class_name = student_info.get("className", class_name)
@@ -1174,89 +1170,89 @@ def get_result_detail(result_id):
         except Exception as e:
             print(f"Lỗi khi tìm user (ID: {student_id}): {e}")
             pass
-  
-    print(f"👤 Thông tin tìm được - Tên HS: {student_name}, Lớp: {class_name}")
-    # ------------------ KẾT THÚC PHẦN SỬA LỖI ------------------
+  
+    print(f"👤 Thông tin tìm được - Tên HS: {student_name}, Lớp: {class_name}")
+    # ------------------ KẾT THÚC PHẦN SỬA LỖI ------------------
 
-    # Lấy đề thi tương ứng (để xác định danh sách câu hỏi theo thứ tự)
-    test = db.tests.find_one({"id": result.get("testId")})
-    q_ids = []
-    if test:
-        for q in test.get("questions", []):
-            if isinstance(q, dict) and "id" in q:
-                q_ids.append(q["id"])
-            elif isinstance(q, str):
-                q_ids.append(q)
-    print("📚 Tổng số câu hỏi trong test:", len(q_ids))
+    # Lấy đề thi tương ứng (để xác định danh sách câu hỏi theo thứ tự)
+    test = db.tests.find_one({"id": result.get("testId")})
+    q_ids = []
+    if test:
+        for q in test.get("questions", []):
+            if isinstance(q, dict) and "id" in q:
+                q_ids.append(q["id"])
+            elif isinstance(q, str):
+                q_ids.append(q)
+    print("📚 Tổng số câu hỏi trong test:", len(q_ids))
 
-    # Lấy thông tin chi tiết câu hỏi (từ collection 'questions')
-    question_map = {}
-    if q_ids:
-        # Lấy tất cả thông tin cần thiết, bao gồm cả correctAnswer và points
-        questions = list(mongo.db.questions.find({"id": {"$in": q_ids}}))
-        for q in questions:
-            question_map[q["id"]] = {
-                "id": q["id"],
-                "q": q.get("q"),
-                "type": q.get("type"),
-                "points": q.get("points", 0), # Điểm tối đa của câu hỏi
-                "imageId": q.get("imageId"),
-                "options": q.get("options", []),
-                # *** BỔ SUNG TRƯỜNG ĐÁP ÁN ĐÚNG ***
-                "correctAnswer": q.get("correctAnswer"), 
-            }
+    # Lấy thông tin chi tiết câu hỏi (từ collection 'questions')
+    question_map = {}
+    if q_ids:
+        # Lấy tất cả thông tin cần thiết, bao gồm cả correctAnswer và points
+        questions = list(mongo.db.questions.find({"id": {"$in": q_ids}}))
+        for q in questions:
+            question_map[q["id"]] = {
+                "id": q["id"],
+                "q": q.get("q"),
+                "type": q.get("type"),
+                "points": q.get("points", 0), # Điểm tối đa của câu hỏi
+                "imageId": q.get("imageId"),
+                "options": q.get("options", []),
+                # *** BỔ SUNG TRƯỜNG ĐÁP ÁN ĐÚNG ***
+                "correctAnswer": q.get("correctAnswer"), 
+            }
 
-    # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
-    student_answers = result.get("studentAnswers", [])
-    detailed_results = result.get("detailedResults", [])
+    # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
+    student_answers = result.get("studentAnswers", [])
+    detailed_results = result.get("detailedResults", [])
 
-    # Chuyển detailedResults thành map để dễ tìm
-    detail_map = {d["questionId"]: d for d in detailed_results}
+    # Chuyển detailedResults thành map để dễ tìm
+    detail_map = {d["questionId"]: d for d in detailed_results}
 
-    # Ghép dữ liệu và chuẩn bị cấu trúc trả về
-    answers = []
-    for ans in student_answers:
-        qid = ans.get("questionId")
-        q = question_map.get(qid, {})
-        d = detail_map.get(qid, {})
-        
-        # Lấy điểm tối đa từ question
-        max_score = q.get("points", 0) 
-        
-        # Xác định điểm đạt được thực tế (ưu tiên điểm giáo viên, sau đó là điểm tự động)
-        gained_score = d.get("teacherScore")
-        if gained_score is None:
-             gained_score = d.get("pointsGained", 0) 
+    # Ghép dữ liệu và chuẩn bị cấu trúc trả về
+    answers = []
+    for ans in student_answers:
+        qid = ans.get("questionId")
+        q = question_map.get(qid, {})
+        d = detail_map.get(qid, {})
+        
+        # Lấy điểm tối đa từ question
+        max_score = q.get("points", 0) 
+        
+        # Xác định điểm đạt được thực tế (ưu tiên điểm giáo viên, sau đó là điểm tự động)
+        gained_score = d.get("teacherScore")
+        if gained_score is None:
+             gained_score = d.get("pointsGained", 0) 
 
-        answers.append({
-            "questionId": qid,
-            "question": q, # Bao gồm nội dung câu hỏi (q), loại câu hỏi (type), options...
-            "userAnswer": ans.get("answer"),
-            
-            # --- CÁC TRƯỜNG CHẤM ĐIỂM VÀ HIỂN THỊ CẦN THIẾT ---
-            "maxScore": max_score, 
-            "gainedScore": gained_score, 
-            "correctAnswer": q.get("correctAnswer"), # Dùng cho Frontend so sánh và hiển thị
-            "isAutoCorrect": d.get("isCorrect"), # Kết quả chấm tự động (Đ/S)
-            "teacherNote": d.get("teacherNote")
-        })
+        answers.append({
+            "questionId": qid,
+            "question": q, # Bao gồm nội dung câu hỏi (q), loại câu hỏi (type), options...
+            "userAnswer": ans.get("answer"),
+            
+            # --- CÁC TRƯỜNG CHẤM ĐIỂM VÀ HIỂN THỊ CẦN THIẾT ---
+            "maxScore": max_score, 
+            "gainedScore": gained_score, 
+            "correctAnswer": q.get("correctAnswer"), # Dùng cho Frontend so sánh và hiển thị
+            "isAutoCorrect": d.get("isCorrect"), # Kết quả chấm tự động (Đ/S)
+            "teacherNote": d.get("teacherNote")
+        })
 
-    print("🧩 Ghép được", len(answers), "câu trả lời")
+    print("🧩 Ghép được", len(answers), "câu trả lời")
 
-    # Cấu trúc JSON cuối cùng trả về Frontend
-    detail = {
-        "id": result["id"],
-        "studentName": result.get("studentName"), # <<< TRƯỜNG TÊN HỌC SINH
-        "className": result.get("className"),     # <<< TRƯỜNG LỚP
-        "testName": test.get("name") if test else "",
-        "totalScore": result.get("totalScore", 0),
-        "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
-        "submittedAt": result.get("submittedAt"),
-        "answers": answers
-    }
+    # Cấu trúc JSON cuối cùng trả về Frontend
+    detail = {
+        "id": result["id"],
+        "studentName": student_name, # <<< ĐÃ SỬA: SỬ DỤNG BIẾN ĐÃ CẬP NHẬT!
+        "className": class_name,     # <<< ĐÃ SỬA: SỬ DỤNG BIẾN ĐÃ CẬP NHẬT!
+        "testName": test.get("name") if test else "",
+        "totalScore": result.get("totalScore", 0),
+        "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
+        "submittedAt": result.get("submittedAt"),
+        "answers": answers
+    }
 
-    print("✅ [DEBUG] Trả về dữ liệu chi tiết bài làm.\n")
-    return jsonify(detail)
+    print("✅ [DEBUG] Trả về dữ liệu chi tiết bài làm.\n")
+    return jsonify(detail)
 
 
 
