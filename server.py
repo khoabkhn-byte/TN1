@@ -1015,7 +1015,8 @@ def grade_result(result_id):
     """
     Giáo viên chấm điểm bài làm học sinh.
     - Giới hạn tối đa 2 lần chấm (lần 1 và 1 lần chấm lại)
-    - Mỗi lần chấm cập nhật điểm + trạng thái + regradeCount
+    - Không làm mất dữ liệu câu trả lời của học sinh
+    - Đồng bộ giờ theo múi giờ Việt Nam (UTC+7)
     """
     data = request.json
     essays = data.get("essays", [])
@@ -1032,32 +1033,43 @@ def grade_result(result_id):
             "error": "Bài này đã được chấm tối đa 2 lần, không thể chấm lại."
         }), 403
 
-    # --- Lấy dữ liệu câu trả lời gốc của học sinh ---
-    updated_answers = (
+    # --- Lấy dữ liệu câu trả lời gốc ---
+    raw_answers = (
         result.get("answers")
         or result.get("studentAnswers")
         or result.get("detailedResults")
         or []
     )
 
-    total_teacher_score = 0
+    # --- Chuẩn hóa dữ liệu: ép về cùng key questionId ---
+    updated_answers = []
+    for ans in raw_answers:
+        qid = ans.get("questionId") or ans.get("id")
+        if not qid:
+            continue
+        updated_answers.append({
+            "questionId": qid,
+            "answer": ans.get("answer", ""),
+            "teacherScore": ans.get("teacherScore", 0),
+            "teacherNote": ans.get("teacherNote", "")
+        })
 
-    # --- Duyệt các câu tự luận được chấm ---
+    # --- Ghi điểm mới của giáo viên ---
+    total_teacher_score = 0
     for essay in essays:
         qid = essay.get("questionId")
         teacher_score = float(essay.get("teacherScore", 0))
         teacher_note = essay.get("teacherNote", "")
         total_teacher_score += teacher_score
 
+        # Cập nhật hoặc thêm mới điểm tự luận
         found = False
         for ans in updated_answers:
-            if ans.get("questionId") == qid:
+            if ans["questionId"] == qid:
                 ans["teacherScore"] = teacher_score
                 ans["teacherNote"] = teacher_note
                 found = True
                 break
-
-        # Nếu chưa có thì thêm mới (đề phòng cấu trúc cũ thiếu field)
         if not found:
             updated_answers.append({
                 "questionId": qid,
@@ -1066,8 +1078,8 @@ def grade_result(result_id):
                 "teacherNote": teacher_note
             })
 
-    # --- Giờ Việt Nam ---
-    graded_at = now_vn_iso()
+    # --- Tính giờ Việt Nam (UTC+7) ---
+    graded_at = now_vn_iso()  # dùng hàm bạn đã định nghĩa sẵn
 
     # --- Cập nhật DB ---
     new_regrade = current_regrade + 1
@@ -1077,7 +1089,7 @@ def grade_result(result_id):
         {"id": result_id},
         {
             "$set": {
-                "answers": updated_answers,  # cập nhật nhưng không mất field khác
+                "answers": updated_answers,
                 "gradedAt": graded_at,
                 "gradingStatus": new_status,
                 "regradeCount": new_regrade
