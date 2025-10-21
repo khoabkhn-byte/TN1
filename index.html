@@ -69,6 +69,9 @@
 .border-success { border: 2px solid #28a745 !important; }
 .border-danger { border: 2px solid #dc3545 !important; }
 .border-warning { border: 2px solid #ffc107 !important; }
+.text-warning { 
+        color: #ffc107 !important; 
+    }
 
 /* Màu nền nhẹ cho vùng feedback */
 .bg-light-gray { background-color: #f8f9fa; } 
@@ -2124,77 +2127,125 @@ function renderDoneAssignments(completed) {
 
 // Hàm giả định cho bước tiếp theo (chấm điểm chi tiết)
 
-async function buildAnswersFromResult(data) {
-  if (Array.isArray(data.answers) && data.answers.length) {
-    return data.answers.map(a => ({
-      questionId: a.question?.id || a.questionId || null,
-      question: a.question || null,
-      studentAnswer: a.answer || a.studentAnswer || a.student_answer || '',
-      isCorrect: a.isCorrect ?? a.is_correct ?? false,
-      autoScore: a.autoScore ?? a.pointsGained ?? a.auto_score ?? 0,
-      teacherScore: a.teacherScore ?? a.teacher_score ?? null,
-      teacherNote: a.teacherNote ?? a.teacher_note ?? '',
-      maxPoints: a.maxPoints ?? (a.question?.points || 0),
-      type: a.question?.type || a.type || 'mc'
-    }));
-  }
+async function buildAnswersFromResult(data, prevAnswers = null) {
+  // --- Truy ngược assignment nếu chưa có testId ---
+  if (!data.testId && data.assignmentId) {
+    try {
+      const asg = await fetchJson(`${serverUrl}/api/assignments/${data.assignmentId}`);
+      if (asg?.testId) {
+        data.testId = asg.testId;
+        console.log('✅ Lấy testId từ assignment:', data.testId);
+      }
+    } catch (e) {
+      console.warn('⚠️ Lỗi khi tải assignment:', e);
+    }
+  }
 
-  const detailed = Array.isArray(data.detailedResults) ? data.detailedResults : [];
-  const studentAnswers = Array.isArray(data.studentAnswers) ? data.studentAnswers : [];
+  // --- Ưu tiên answers ---
+  const hasAnswers = Array.isArray(data.answers) && data.answers.length;
+  const hasDetailed = Array.isArray(data.detailedResults) && data.detailedResults.length;
+  const useAnswers = hasAnswers && (!hasDetailed || data.answers.length >= data.detailedResults.length);
 
-  const dmap = {};
-  detailed.forEach(d => dmap[d.questionId] = d);
+  if (useAnswers) {
+    console.log('📄 Dùng data.answers (Đã được chuẩn hóa từ Backend)');
+    return data.answers.map((a, i) => {
+      const old = prevAnswers?.[i] || {};
+      return {
+        questionId: a.question?.id || a.questionId || old.questionId || null,
+        question: a.question || old.question || null,
+        studentAnswer: a.answer || a.studentAnswer || old.studentAnswer || '',
+        
+        // === FIX 1: Ánh xạ isCorrect, isEssay và gainedScore từ Backend đã sửa ===
+        // Lấy isCorrect trực tiếp để bảo toàn giá trị 'null' (trạng thái chờ chấm)
+        isCorrect: a.isCorrect, 
+        // Lấy isEssay trực tiếp từ Backend
+        isEssay: a.isEssay,     
+        gainedScore: a.gainedScore ?? a.pointsGained ?? 0, // Điểm đạt được cuối cùng
 
-  let answers = studentAnswers.map(sa => {
-    const qid = sa.questionId || sa.question_id;
-    const d = dmap[qid] || {};
-    return {
-      questionId: qid,
-      question: null,
-      studentAnswer: sa.answer || '',
-      isCorrect: d.isCorrect ?? false,
-      autoScore: d.pointsGained ?? 0,
-      teacherScore: d.teacherScore ?? null,
-      teacherNote: d.teacherNote ?? '',
-      maxPoints: d.maxPoints ?? 0,
-      type: sa.type || d.type || 'mc',
-      correctAnswer: d.correctAnswer ?? null
-    };
-  });
+        // Các trường cũ (chỉ cần đảm bảo không bị mất):
+        autoScore: a.autoScore ?? a.pointsGained ?? a.auto_score ?? old.autoScore ?? 0, 
+        teacherScore: a.teacherScore ?? a.teacher_score ?? old.teacherScore ?? null,
+        teacherNote: a.teacherNote ?? a.teacher_note ?? old.teacherNote ?? '',
+        maxPoints: a.maxPoints ?? (a.question?.points || old.maxPoints || 0),
+        correctAnswer: a.correctAnswer ?? a.question?.correctAnswer ?? old.correctAnswer ?? null,
+        type: a.question?.type || a.type || old.type || 'mc'
+      };
+    });
+  }
 
-  // Lấy dữ liệu test nếu thiếu nội dung câu hỏi
-  let questionMap = {};
-  if (data.testId) {
-    try {
-      let testData = null;
-      try { testData = await fetchJson(`${serverUrl}/api/quizzes/${data.testId}`); } catch(e){}
-      if(!testData) try { testData = await fetchJson(`${serverUrl}/api/tests/${data.testId}`); } catch(e){}
+  // --- Nếu không có answers, tạo từ detailedResults + studentAnswers (Dữ liệu cũ) ---
+  const detailed = Array.isArray(data.detailedResults) ? data.detailedResults : [];
+  const studentAnswers = Array.isArray(data.studentAnswers) && data.studentAnswers.length
+    ? data.studentAnswers
+    : detailed.map(d => ({ questionId: d.questionId, answer: d.studentAnswer, type: d.type }));
 
-      if(testData?.questions?.length) {
-        testData.questions.forEach(q => { questionMap[q.id] = q; });
-        if(!data.testName) data.testName = testData.name;
-      }
-    } catch(err){ console.warn('Không lấy được test data:', err); }
-  }
+  const dmap = {};
+  detailed.forEach(d => dmap[d.questionId] = d);
 
-  // Gắn thông tin câu hỏi
-  answers = answers.map(a => {
-    const q = questionMap[a.questionId];
-    if(q){
-      a.question = {
-        id: q.id,
-        q: q.q || q.text || '',
-        type: q.type || a.type,
-        points: q.points ?? a.maxPoints,
-        options: q.options || [],
-        imageId: q.imageId || null
-      };
-    }
-    return a;
-  });
+  let answers = studentAnswers.map(sa => {
+    const qid = sa.questionId || sa.question_id;
+    const d = dmap[qid] || {};
+    return {
+      questionId: qid,
+      question: null,
+      studentAnswer: sa.answer || '',
+      
+      // FIX 2: Thêm trường isEssay cho dữ liệu cũ (để logic render stick có thể kiểm tra)
+      isEssay: sa.type === 'essay' || d.type === 'essay', 
+      isCorrect: d.isCorrect ?? false,
+      autoScore: d.pointsGained ?? 0,
+      teacherScore: d.teacherScore ?? null,
+      teacherNote: d.teacherNote ?? '',
+      maxPoints: d.maxPoints ?? 0,
+      correctAnswer: d.correctAnswer ?? null,
+      type: sa.type || d.type || 'mc'
+    };
+  });
 
-  return answers;
+  // --- Tải test (không thay đổi) ---
+  let questionMap = {};
+  if (data.testId) {
+    try {
+      let testData = await fetchJson(`${serverUrl}/api/quizzes/${data.testId}`)
+        .catch(() => fetchJson(`${serverUrl}/api/tests/${data.testId}`));
+      if (testData?.questions?.length) {
+        testData.questions.forEach(q => { questionMap[q.id] = q; });
+        data.testName ||= testData.name;
+        console.log(`📘 Đã tải ${testData.questions.length} câu hỏi từ testId ${data.testId}`);
+      }
+    } catch (err) {
+      console.warn('⚠️ Không lấy được test data:', err);
+    }
+  }
+
+  // --- Gắn question info (không thay đổi) ---
+  answers = answers.map(a => {
+    const q = questionMap[a.questionId];
+    if (q) {
+      a.question = {
+        id: q.id,
+        q: q.q || q.text || '',
+        type: q.type || a.type,
+        points: q.points ?? a.maxPoints,
+        options: q.options || [],
+        imageId: q.imageId || null
+      };
+      a.correctAnswer = a.correctAnswer ?? q.correctAnswer ?? null;
+    } else {
+      a.question = {
+        id: a.questionId,
+        q: '(Không có nội dung)',
+        type: a.type,
+        points: a.maxPoints,
+        options: []
+      };
+    }
+    return a;
+  });
+
+  return answers;
 }
+
 
 
 
@@ -2263,27 +2314,38 @@ async function renderResultDetailModal(data) {
     // Stick
     let stickText = '';
     let stickStyle = '';
-    if (!isEssay) {
-      stickText = ans.correctAnswer === ans.studentAnswer ? 'Đ' : 'S';
-      stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
-        text-align:center;font-weight:bold;border-radius:50%;
-        color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
-        background-color:${stickText==='Đ'?'#28a745':'#dc3545'};`;
-    } else {
-      if(ans.teacherScore === null || ans.teacherScore === undefined){
+    
+    // Logic mới: Sử dụng trường isCorrect (có thể là null) và gainedScore từ Backend đã sửa.
+    
+    // Xác định trạng thái Đúng/Sai cho tất cả các loại câu hỏi
+    // ans.isCorrect sẽ là:
+    // - true/false (Trắc nghiệm đã chấm tự động)
+    // - true/false (Tự luận đã chấm, dựa trên điểm > 0)
+    // - null (Tự luận chưa chấm)
+    
+    if (ans.isCorrect === null && isEssay) {
+        // Trạng thái ĐANG ĐỢI CHẤM (Màu cam)
         stickText = '…';
         stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
           text-align:center;font-weight:bold;border-radius:50%;
           color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
           background-color:orange;`;
-        ans.teacherScore = 0;
-      } else {
-        stickText = ans.teacherScore>0?'Đ':'S';
+          
+    } else if (ans.isCorrect === true) {
+        // Trạng thái ĐÚNG (Màu xanh)
+        stickText = 'Đ';
         stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
           text-align:center;font-weight:bold;border-radius:50%;
           color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
-          background-color:${stickText==='Đ'?'#28a745':'#dc3545'};`;
-      }
+          background-color:#28a745;`; // Màu xanh lá
+          
+    } else { // ans.isCorrect === false
+        // Trạng thái SAI (Màu đỏ)
+        stickText = 'S';
+        stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
+          text-align:center;font-weight:bold;border-radius:50%;
+          color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
+          background-color:#dc3545;`; // Màu đỏ
     }
 
     const stickHtml = `<span data-question-id="${q.id}" style="${stickStyle}">${stickText}</span>`;
@@ -2325,76 +2387,81 @@ async function renderResultDetailModal(data) {
 
 async function saveGrading() {
   const modal = document.getElementById('modalGrading');
-  if(!modal){ alert("Không tìm thấy modal để lưu chấm!"); return; }
+  const resultId = modal?.dataset?.resultId || window.currentResultId;
+  if (!resultId) return alert("❌ Không xác định được bài làm hiện tại.");
 
-  const resultId = modal.dataset.resultId;
-  if(!resultId){ alert("Thiếu resultId để lưu chấm!"); return; }
-
-  const scores = [...document.querySelectorAll('[id^="score-"]')];
-  const essayUpdates = scores.map(input=>({
-    questionId: input.id.replace('score-',''),
-    score: parseFloat(input.value||0),
-    note: document.querySelector(`#note-${input.id.replace('score-','')}`)?.value||''
-  }));
-
-  const payload = { essays: essayUpdates };
-  console.log("📤 Gửi payload chấm:", payload);
-
-  try{
-    const res = await fetch(`${serverUrl}/api/results/${resultId}/grade`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
-    });
-    if(!res.ok){
-      const err = await res.text();
-      alert('❌ Lưu không thành công: '+err);
+  try {
+    if (!window.currentResultData) {
+      alert("❌ Không có dữ liệu bài làm hiện tại. Vui lòng tải lại.");
       return;
     }
 
-    alert('✅ Đã lưu điểm chấm.');
+    // --- Build payload từ dữ liệu hiện tại, giữ nguyên MC ---
+    const answers = await buildAnswersFromResult(window.currentResultData);
 
-    // Update modal trực tiếp
-    essayUpdates.forEach(e=>{
-      if(e.questionId==='display') return; // bỏ qua câu ảo
-
-      const scoreInput = document.querySelector(`#score-${e.questionId}`);
-      const parentDiv = scoreInput?.closest('.border.rounded.p-3');
-      if(!parentDiv){ console.warn('Không tìm thấy container cho questionId:',e.questionId); return; }
-
-      const stickSpan = parentDiv.querySelector(`span[data-question-id="${e.questionId}"]`);
-      if(!stickSpan){ console.warn('Không tìm thấy stickSpan cho questionId:',e.questionId); return; }
-
-      const teacherScore = e.score;
-      if(teacherScore>0){
-        stickSpan.textContent='Đ';
-        stickSpan.style.backgroundColor='#28a745';
-      }else{
-        stickSpan.textContent='S';
-        stickSpan.style.backgroundColor='#dc3545';
-      }
-
-      // Cập nhật input value
-      scoreInput.value = teacherScore;
+    const essays = answers.map(a => {
+      const scoreVal = document.querySelector(`#score-${a.questionId}`)?.value;
+      const teacherScore = Number.isFinite(parseFloat(scoreVal)) ? parseFloat(scoreVal) : (a.teacherScore ?? 0);
+      const teacherNote = document.querySelector(`#note-${a.questionId}`)?.value || (a.teacherNote ?? '');
+      return {
+        questionId: a.questionId,
+        answer: a.studentAnswer ?? '',
+        isCorrect: a.isCorrect ?? false,
+        correctAnswer: a.correctAnswer ?? null,
+        teacherScore,
+        teacherNote
+      };
     });
 
-    // Update tổng điểm essay & total
-    let sumEssay=0;
-    document.querySelectorAll('[id^="score-"]').forEach(inp=>{ sumEssay+=parseFloat(inp.value||0); });
-    document.getElementById('sum-essayScore').innerText = sumEssay.toFixed(1);
-    const sumAuto = parseFloat(document.getElementById('sum-autoScore').innerText||0);
-    document.getElementById('sum-totalScore').innerText = (sumAuto+sumEssay).toFixed(1);
+    const payload = { essays };
+    console.log("📤 Gửi payload chấm:", payload);
 
-  }catch(err){
-    console.error('❌ Lỗi khi lưu chấm:',err);
-    alert('Lỗi khi lưu chấm: '+(err.message||err));
+    // --- Kiểm tra số lần chấm ---
+    const resCheck = await fetch(`${serverUrl}/api/results/${resultId}`);
+    const currentResult = await resCheck.json();
+    if ((currentResult.regradeCount || 0) >= 2) {
+      alert("⚠️ Bài này đã được chấm 2 lần, không thể chấm lại nữa.");
+      return;
+    }
+
+    // --- Gửi yêu cầu chấm lên backend ---
+    const res = await fetch(`${serverUrl}/api/results/${resultId}/grade`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("❌ Lỗi khi chấm:", data);
+      alert(data.error || data.message || "Lỗi khi lưu chấm điểm!");
+      return;
+    }
+
+    console.log("✅ Dữ liệu chấm đã được cập nhật:", data);
+    alert(data.message || "Đã lưu chấm điểm thành công!");
+
+    // --- Tải lại kết quả mới nhất ---
+    const refreshed = await fetch(`${serverUrl}/api/results/${resultId}`);
+    const updated = await refreshed.json();
+    window.currentResultData = updated; // cập nhật cache
+
+    // --- Render lại modal ---
+    if (typeof renderResultDetailModal === 'function') {
+      await renderResultDetailModal(updated);
+    }
+
+  } catch (err) {
+    console.error("🔥 Lỗi hệ thống khi chấm điểm:", err);
+    alert("Lỗi khi lưu chấm điểm. Vui lòng thử lại.");
   }
 }
 
 
 
-// Đảm bảo có thể gọi được từ onclick trong HTML
 window.saveGrading = saveGrading;
+
+
 window.renderResultDetailModal = renderResultDetailModal;
 window.buildAnswersFromResult = buildAnswersFromResult;
 
@@ -4342,9 +4409,11 @@ function renderResultsStats(stats) {
     const totalStudents = stats.totalStudents;
     const totalResults = stats.totalResultsSubmitted;
     const totalAssigned = stats.totalTestsAssigned;
-    
+    const totalconfirmed = stats.totaconfirmAssign;
+	
     const info = `
-        <strong>Tổng Bài thi Đã Tạo:</strong> ${totalAssigned} | 
+        <strong>Tổng Bài thi Đã Tạo:</strong> ${totalAssigned} |
+		<strong>Tổng Bài thi Đã Giao:</strong> ${totalconfirmed} | 
         <strong>Tổng Bài Đã Nộp:</strong> ${totalResults} | 
         <strong>Tổng Học sinh:</strong> ${totalStudents}
     `;
@@ -4667,33 +4736,81 @@ function renderReviewQuiz(result, quiz) {
     const res = detailed.find(r => r.questionId === q.id);
     const studentAns = res?.studentAnswer ?? null;
     const correctAns = res?.correctAnswer ?? null;
-    const isCorrect = res?.isCorrect ?? false;
+    // Bỏ mặc định ?? false. Chỉ lấy giá trị nếu nó tồn tại.
+    // Nếu res.isCorrect không có/null/undefined, isCorrectRaw sẽ là undefined.
+    const isCorrectRaw = res?.isCorrect; 
+    const isCorrect = isCorrectRaw ?? false; // Giữ lại cho logic trắc nghiệm cũ
+
     const gained = res?.pointsGained ?? 0;
     const max = res?.maxPoints ?? q.points ?? 1;
 
     totalScore += gained;
 
+    // --- LOGIC MỚI: XÁC ĐỊNH BORDER & BADGE ---
+    const qType = (q.type || 'mc').toLowerCase();
+    let borderClass = '';
+    let badgeClass = '';
+    let badgeText = '';
+
+    if (qType === 'essay' || qType === 'tu_luan') {
+        // Tự luận (Chấm thủ công)
+        
+        // KIỂM TRA ĐÃ CHẤM HAY CHƯA? (Nếu isCorrectRaw là undefined/null tức là CHƯA CHẤM)
+        if (isCorrectRaw === undefined || isCorrectRaw === null) {
+            // 1. CHƯA CHẤM: isCorrectRaw không tồn tại (hoặc là null)
+            borderClass = 'border-warning'; 
+            badgeClass = 'bg-warning text-dark';
+            badgeText = 'Chờ Chấm'; 
+            
+        } else if (isCorrectRaw === true || gained > 0) {
+            // 2. ĐÃ CHẤM: ĐÚNG (isCorrectRaw là true hoặc đã có điểm)
+            borderClass = 'border-success'; 
+            badgeClass = 'bg-success';
+            badgeText = 'Đã Chấm (Đ)';
+            
+        } else if (isCorrectRaw === false) { 
+            // 3. ĐÃ CHẤM: SAI (isCorrectRaw là false và 0 điểm)
+            borderClass = 'border-danger'; 
+            badgeClass = 'bg-danger';
+            badgeText = 'Đã Chấm (S)';
+        }
+    } else {
+        // Trắc nghiệm (Chấm tự động) - Vẫn dùng isCorrect đã gán mặc định false
+        borderClass = isCorrect ? 'border-success' : 'border-danger';
+        badgeClass = isCorrect ? 'bg-success' : 'bg-danger';
+        badgeText = isCorrect ? 'Đ' : 'S';
+    }
+    // --- KẾT THÚC LOGIC ---
+    
+    // ... (Phần còn lại của hàm không thay đổi so với phiên bản trước đó)
+    // Tách logic hiển thị câu trả lời ra khỏi chuỗi lớn (cần giữ lại để tránh lỗi trắng màn hình)
+    let answerHtml = '';
+    
+    if (q.type === 'mc') {
+        answerHtml = q.options.map(opt => {
+            let cls = '';
+            if (opt.text === correctAns) cls = 'bg-success text-white';
+            else if (opt.text === studentAns && !isCorrect) cls = 'bg-warning';
+            return `<div class="p-2 border rounded mb-1 ${cls}">${escapeHtml(opt.text)}</div>`;
+        }).join('');
+    } else {
+        answerHtml = `<textarea class="form-control" disabled>${escapeHtml(studentAns || '')}</textarea>`;
+    }
+    
     const card = document.createElement('div');
-    card.className = `card mb-3 ${isCorrect ? 'border-success' : 'border-danger'}`;
+    card.className = `card mb-3 ${borderClass}`; 
     card.innerHTML = `
       <div class="card-body">
         <h5 class="card-title">Câu ${idx + 1}</h5>
         <p>${escapeHtml(q.q || '')}</p>
         ${q.imageId ? `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid mb-2 rounded">` : ''}
         <div class="mt-3">
-          ${q.type === 'mc'
-            ? q.options.map(opt => {
-                let cls = '';
-                if (opt.text === correctAns) cls = 'bg-success text-white';
-                else if (opt.text === studentAns && !isCorrect) cls = 'bg-warning';
-                return `<div class="p-2 border rounded mb-1 ${cls}">${escapeHtml(opt.text)}</div>`;
-              }).join('')
-            : `<textarea class="form-control" disabled>${escapeHtml(studentAns || '')}</textarea>`}
+            ${answerHtml}
         </div>
 
         <div class="mt-3 d-flex justify-content-between align-items-center">
           <div>
-            <span class="badge ${isCorrect ? 'bg-success' : 'bg-danger'}">${isCorrect ? 'Đ' : 'S'}</span>
+            <span class="badge ${badgeClass}">${badgeText}</span>
             <span class="ms-2 small">Điểm: ${gained}/${max}</span>
           </div>
         </div>
@@ -4708,10 +4825,7 @@ function renderReviewQuiz(result, quiz) {
 
 
 
-
-
-
-// Thêm hàm thống kê này vào khối <script>
+// Thêm hàm thống kê này vào khối
 function renderQuestionStats(questions) {
     const statsContainer = qs('question-stats-container');
     if (!statsContainer) return;
