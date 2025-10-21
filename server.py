@@ -906,7 +906,7 @@ def list_results():
 @app.route("/api/results", methods=["POST"])
 def create_result():
     data = request.get_json() or {}
-    student_answers = data.get("studentAnswers", [])  # expecting list of {questionId, answer, type?}
+    student_answers = data.get("studentAnswers", [])
     test_id = data.get("testId")
 
     # Lấy danh sách ID câu hỏi
@@ -923,13 +923,14 @@ def create_result():
     for ans in student_answers:
         qid = ans.get("questionId")
         q = question_map.get(qid)
+        
         if not q:
             # Nếu không tìm thấy câu hỏi — lưu entry nhưng đánh dấu missing
             detailed.append({
                 "questionId": qid,
                 "type": ans.get("type", "mc"),
                 "studentAnswer": ans.get("answer"),
-                "isCorrect": False,
+                "isCorrect": False, # GIỮ LẠI isCorrect: False cho trường hợp câu hỏi bị thiếu
                 "pointsGained": 0,
                 "maxPoints": 0,
                 "correctAnswer": None,
@@ -969,26 +970,32 @@ def create_result():
                 # giữ nguyên student_ans_text
                 pass
 
-        # so sánh (bỏ whitespace, so sánh string)
-        is_correct = False
+        # Bắt đầu Logic chấm điểm/lưu trữ MỚI
+        is_correct = None # Khởi tạo là None, chỉ có giá trị True/False nếu là MC
+        points = 0
+        
         if q_type == "mc":
+            # Chấm điểm cho trắc nghiệm
             is_correct = (str(student_ans_text).strip() == str(correct_ans).strip()) if correct_ans is not None else False
-        else:
-            # cho các loại khác (essay) mặc định false, chờ chấm tay
-            is_correct = False
-
-        points = max_points if is_correct else 0
+            points = max_points if is_correct else 0
+        # NOTE: Nếu không phải MC (essay), is_correct vẫn là None, points vẫn là 0.
+        
         total_score += points
 
-        detailed.append({
+        detailed_entry = {
             "questionId": qid,
             "type": q_type,
             "studentAnswer": student_ans_text,
-            "isCorrect": is_correct,
-            "pointsGained": points,
+            "pointsGained": points, # 0 cho essay (chờ chấm tay) hoặc điểm cho MC
             "maxPoints": max_points,
-            "correctAnswer": correct_ans
-        })
+            "correctAnswer": correct_ans # None cho essay
+        }
+        
+        # ✅ SỬA LỖI 1: CHỈ THÊM TRƯỜNG isCorrect NẾU LÀ CÂU TRẮC NGHIỆM
+        if q_type == "mc":
+             detailed_entry["isCorrect"] = is_correct
+
+        detailed.append(detailed_entry)
 
     new_result = {
         "id": str(uuid4()),
@@ -998,8 +1005,9 @@ def create_result():
         "studentAnswers": student_answers,
         "detailedResults": detailed,
         "totalScore": total_score,
-        #"submittedAt": now_vn_iso()
-        "submittedAt": datetime.now(timezone(timedelta(hours=7)))  # UTC+7
+        
+        # ✅ SỬA LỖI 2: Sử dụng hàm chuẩn now_vn_iso()
+        "submittedAt": now_vn_iso()
     }
 
     db.results.insert_one(new_result)
