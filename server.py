@@ -656,7 +656,7 @@ def create_test_auto():
         if level:
             q["level"] = level
         # KHÔNG LOẠI BỎ _id: Cần có _id để truy vấn sau này
-        all_q = list(db.questions.find(q)) 
+        all_q = list(db.questions.find(q))
         import random
         random.shuffle(all_q)
         return all_q[:count]
@@ -690,32 +690,23 @@ def create_test_auto():
 
     selected = selected[:total]
 
-    # ✅ BƯỚC SỬA LỖI QUAN TRỌNG: Tạo đối tượng rút gọn để lưu trữ
+    # 👇 BƯỚC SỬA LỖI QUAN TRỌNG: CHỈ LƯU TRỮ DANH SÁCH ID CÂU HỎI
     questions_for_db = []
     for q in selected:
-        # Chuyển đổi ObjectId sang chuỗi ID
-        q_id_str = str(q.get("_id"))
-        
-        # Lấy các trường cần thiết cho việc hiển thị ở frontend
-        q_to_save = {
-            # Sử dụng '_id' thay vì 'id' nếu frontend dùng _id
-            "id": q_id_str, 
-            "question": q.get("question"), # Nội dung câu hỏi
-            "answers": q.get("answers"), 
-            "difficulty": q.get("difficulty"),
-            "level": q.get("level"),
-            "subject": q.get("subject")
-        }
-        questions_for_db.append(q_to_save)
-    
-    
+        # Ưu tiên lấy trường "id" (UUID string) nếu có, nếu không thì dùng _id (ObjectId string)
+        # Bắt buộc chuyển về chuỗi ID để nhất quán với hàm update_test (chỉ lưu chuỗi ID)
+        q_id_str = q.get("id") or str(q.get("_id"))
+        if q_id_str:
+            questions_for_db.append(q_id_str)
+    # 👆 Kết thúc phần sửa lỗi
+
     newt = {
         "id": str(uuid4()),
         "name": name,
         "time": time,
         "subject": subject,
         "level": level,
-        "questions": questions_for_db, # <-- LƯU TRỮ ĐỐI TƯỢNG RÚT GỌN ĐẦY ĐỦ
+        "questions": questions_for_db, # <-- CHỈ LƯU TRỮ DANH SÁCH ID (STRING) ĐỂ TỐI ƯU DATABASE
         "count": len(questions_for_db),
         "teacherId": data.get("teacherId"),
         "createdAt": now_vn_iso(),
