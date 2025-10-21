@@ -987,7 +987,7 @@ def grade_result(result_id):
     data = request.json
     essays = data.get("essays", [])
     
-    result = mongo.db.results.find_one({"id": result_id})
+    result = db.results.find_one({"id": result_id})
     if not result:
         return jsonify({"error": "Không tìm thấy bài làm"}), 404
 
@@ -1028,7 +1028,7 @@ def grade_result(result_id):
     new_regrade = current_regrade + 1
     new_status = "Đã Chấm" if new_regrade == 1 else "Đã Chấm Lại"
 
-    mongo.db.results.update_one(
+    db.results.update_one(
         {"id": result_id},
         {
             "$set": {
@@ -1143,18 +1143,18 @@ def get_result_detail(result_id):
     print("🔍 [DEBUG] /api/results/<result_id> =", result_id)
 
     # Tìm kết quả
-    result = mongo.db.results.find_one({"id": result_id})
+    result = db.results.find_one({"id": result_id})
     if not result:
         print("❌ Không tìm thấy result:", result_id)
         # Bỏ qua việc tìm kiếm all_ids để giảm log, nhưng vẫn giữ logic báo lỗi
-        # all_ids = [r.get("id") for r in mongo.db.results.find({}, {"id": 1})]
+        # all_ids = [r.get("id") for r in db.results.find({}, {"id": 1})]
         # print("📋 ID trong DB:", all_ids[:10])
         return jsonify({"error": "Không tìm thấy kết quả"}), 404
 
     print("✅ Tìm thấy kết quả:", result.get("studentName"), "-", result.get("testName"))
 
     # Lấy đề thi tương ứng (để xác định danh sách câu hỏi theo thứ tự)
-    test = mongo.db.tests.find_one({"id": result.get("testId")})
+    test = db.tests.find_one({"id": result.get("testId")})
     q_ids = []
     if test:
         for q in test.get("questions", []):
@@ -1168,7 +1168,7 @@ def get_result_detail(result_id):
     question_map = {}
     if q_ids:
         # Lấy tất cả thông tin cần thiết, bao gồm cả correctAnswer và points
-        questions = list(mongo.db.questions.find({"id": {"$in": q_ids}}))
+        questions = list(db.questions.find({"id": {"$in": q_ids}}))
         for q in questions:
             question_map[q["id"]] = {
                 "id": q["id"],
