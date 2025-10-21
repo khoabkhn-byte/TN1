@@ -1043,18 +1043,18 @@ def grade_result(result_id):
 
     # --- Chuẩn hóa dữ liệu: ép về cùng key questionId ---
     updated_answers = []
-for ans in raw_answers:
-    qid = ans.get("questionId") or ans.get("id")
-    if not qid:
-        continue
-    updated_answers.append({
-        "questionId": qid,
-        "answer": ans.get("answer", ""),
-        "isCorrect": ans.get("isCorrect", False),
-        "correctAnswer": ans.get("correctAnswer", None),
-        "teacherScore": ans.get("teacherScore", 0),
-        "teacherNote": ans.get("teacherNote", "")
-    })
+    for ans in raw_answers:
+        qid = ans.get("questionId") or ans.get("id")
+        if not qid:
+            continue
+        updated_answers.append({
+            "questionId": qid,
+            "answer": ans.get("answer", ""),
+            "isCorrect": ans.get("isCorrect", False),
+            "correctAnswer": ans.get("correctAnswer", None),
+            "teacherScore": ans.get("teacherScore", 0),
+            "teacherNote": ans.get("teacherNote", "")
+        })
 
     # --- Ghi điểm mới của giáo viên ---
     total_teacher_score = 0
