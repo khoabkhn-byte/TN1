@@ -1014,14 +1014,14 @@ from flask import abort
 def grade_result(result_id):
     """
     Giáo viên chấm điểm bài làm học sinh.
-    - Giới hạn tối đa 2 lần chấm (lần 1 và 1 lần chấm lại)
+    - Giới hạn tối đa 2 lần chấm
     - Không làm mất dữ liệu câu trả lời của học sinh
-    - Đồng bộ giờ theo múi giờ Việt Nam (UTC+7)
+    - Đồng bộ giờ Việt Nam (UTC+7)
     """
     data = request.json
     essays = data.get("essays", [])
 
-    # --- Lấy bài làm học sinh ---
+    # --- Lấy bài làm ---
     result = db.results.find_one({"id": result_id})
     if not result:
         return jsonify({"error": "Không tìm thấy bài làm"}), 404
@@ -1029,61 +1029,38 @@ def grade_result(result_id):
     # --- Giới hạn số lần chấm ---
     current_regrade = int(result.get("regradeCount", 0))
     if current_regrade >= 2:
-        return jsonify({
-            "error": "Bài này đã được chấm tối đa 2 lần, không thể chấm lại."
-        }), 403
+        return jsonify({"error": "Bài đã chấm tối đa 2 lần"}), 403
 
-    # --- Lấy dữ liệu câu trả lời gốc ---
-    raw_answers = (
-        result.get("answers")
-        or result.get("studentAnswers")
-        or result.get("detailedResults")
-        or []
-    )
+    # --- Lấy answers gốc ---
+    answers = result.get("answers") or result.get("studentAnswers") or []
+    
+    # --- Tạo map để dễ cập nhật ---
+    ans_map = {a.get("questionId") or a.get("id"): a for a in answers}
 
-    # --- Chuẩn hóa dữ liệu: ép về cùng key questionId ---
-    updated_answers = []
-    for ans in raw_answers:
-        qid = ans.get("questionId") or ans.get("id")
-        if not qid:
-            continue
-        updated_answers.append({
-            "questionId": qid,
-            "answer": ans.get("answer", ""),
-            "isCorrect": ans.get("isCorrect", False),
-            "correctAnswer": ans.get("correctAnswer", None),
-            "teacherScore": ans.get("teacherScore", 0),
-            "teacherNote": ans.get("teacherNote", "")
-        })
-
-    # --- Ghi điểm mới của giáo viên ---
-    total_teacher_score = 0
+    # --- Cập nhật teacherScore / teacherNote ---
     for essay in essays:
         qid = essay.get("questionId")
+        if not qid:
+            continue
         teacher_score = float(essay.get("teacherScore") or 0)
-        teacher_note = essay.get("teacherNote", "")
-        total_teacher_score += teacher_score
+        teacher_note = essay.get("teacherNote") or ""
 
-        # Cập nhật hoặc thêm mới điểm tự luận
-        found = False
-        for ans in updated_answers:
-            if ans["questionId"] == qid:
-                ans["teacherScore"] = teacher_score
-                ans["teacherNote"] = teacher_note
-                found = True
-                break
-        if not found:
-            updated_answers.append({
+        if qid in ans_map:
+            ans_map[qid]["teacherScore"] = teacher_score
+            ans_map[qid]["teacherNote"] = teacher_note
+        else:
+            # Chỉ thêm mới nếu là câu tự luận chưa có
+            ans_map[qid] = {
                 "questionId": qid,
                 "answer": "",
                 "teacherScore": teacher_score,
                 "teacherNote": teacher_note
-            })
+            }
 
-    # --- Tính giờ Việt Nam (UTC+7) ---
-    graded_at = now_vn_iso()  # dùng hàm bạn đã định nghĩa sẵn
+    # --- Tính giờ VN ---
+    graded_at = now_vn_iso()
 
-    # --- Cập nhật DB ---
+    # --- Update DB ---
     new_regrade = current_regrade + 1
     new_status = "Đã Chấm" if new_regrade == 1 else "Đã Chấm Lại"
 
@@ -1091,7 +1068,7 @@ def grade_result(result_id):
         {"id": result_id},
         {
             "$set": {
-                "answers": updated_answers,
+                "answers": list(ans_map.values()),
                 "gradedAt": graded_at,
                 "gradingStatus": new_status,
                 "regradeCount": new_regrade
@@ -1104,6 +1081,7 @@ def grade_result(result_id):
         "message": f"{new_status} thành công",
         "regradeCount": new_regrade
     })
+
 
 
 
