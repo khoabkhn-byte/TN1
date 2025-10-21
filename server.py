@@ -1176,27 +1176,40 @@ def get_results_summary():
         
     return jsonify(docs)
 
+from flask import jsonify
+# Giả định db (MongoDB client) đã được định nghĩa và khởi tạo
+# Ví dụ: from app import db
+
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
+    """
+    Lấy thông tin chi tiết của một bài làm (Result) bao gồm:
+    - Thông tin người làm, bài thi.
+    - Nội dung từng câu hỏi và đáp án đúng.
+    - Câu trả lời của học sinh.
+    - Kết quả chấm điểm (tự động và thủ công) cho từng câu.
+    """
     print("🔍 [DEBUG] /api/results/<result_id> =", result_id)
 
-    # Tìm kết quả
+    # 1. Tìm kết quả (Result)
     result = db.results.find_one({"id": result_id})
     if not result:
         print("❌ Không tìm thấy result:", result_id)
         return jsonify({"error": "Không tìm thấy kết quả"}), 404
 
-    # Lấy thông tin user và test
-    # (Giả định thông tin này chưa được lưu trong result, cần query)
-    user = db.users.find_one({"id": result.get("studentId")}, {"fullName": 1, "className": 1, "_id": 0})
-    test = db.tests.find_one({"id": result.get("testId")})
-    
+    # 2. Lấy thông tin User và Test
+    student_id = result.get("studentId")
+    test_id = result.get("testId")
+
+    user = db.users.find_one({"id": student_id}, {"fullName": 1, "className": 1, "_id": 0})
+    test = db.tests.find_one({"id": test_id})
+
+    # Cập nhật các trường thông tin chung
     student_name = user.get("fullName", "Ẩn danh") if user else "Ẩn danh"
     class_name = user.get("className", "N/A") if user else "N/A"
     test_name = test.get("name") if test else "Bài thi đã xóa"
 
-
-    # Lấy danh sách ID câu hỏi từ đề thi (để đảm bảo thứ tự)
+    # 3. Lấy danh sách ID câu hỏi từ đề thi (để đảm bảo thứ tự)
     q_ids = []
     if test:
         for q in test.get("questions", []):
@@ -1205,13 +1218,12 @@ def get_result_detail(result_id):
             elif isinstance(q, str):
                 q_ids.append(q)
 
-    # Lấy thông tin chi tiết câu hỏi (từ collection 'questions')
+    # 4. Lấy thông tin chi tiết câu hỏi (từ collection 'questions')
     question_map = {}
     if q_ids:
-        # Lấy tất cả câu hỏi liên quan từ DB
         questions = list(db.questions.find({"id": {"$in": q_ids}}))
         for q in questions:
-            # Lấy đáp án đúng từ options (trắc nghiệm)
+            # Xác định đáp án đúng (cho trắc nghiệm)
             correct_ans_from_options = None
             if q.get("type") == "mc" and q.get("options"):
                 for opt in q["options"]:
@@ -1219,6 +1231,7 @@ def get_result_detail(result_id):
                         correct_ans_from_options = opt.get("text")
                         break
             
+            # Xây dựng bản đồ thông tin câu hỏi
             question_map[q["id"]] = {
                 "id": q["id"],
                 "q": q.get("q"),
@@ -1230,14 +1243,13 @@ def get_result_detail(result_id):
                 "correctAnswer": q.get("answer") or correct_ans_from_options, 
             }
 
-    # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
+    # 5. Ghép dữ liệu trả lời của học sinh (studentAnswers) và kết quả chấm (detailedResults)
     student_answers = result.get("studentAnswers", [])
     detailed_results = result.get("detailedResults", [])
 
-    # Chuyển detailedResults thành map để dễ tìm
-    detail_map = {d["questionId"]: d for d in detailed_results}
-
-    # Ghép dữ liệu và chuẩn bị cấu trúc trả về
+    # Chuyển detailedResults thành map để dễ tìm (key: questionId)
+    detail_map = {d["questionId"]: d for d in detailed_results if "questionId" in d}
+    
     answers = []
     for ans in student_answers:
         qid = ans.get("questionId")
@@ -1248,46 +1260,52 @@ def get_result_detail(result_id):
         max_score = q.get("points", 0) 
         q_type = q.get("type", "").lower()
         
-        # === LOGIC CHUẨN HÓA KẾT QUẢ ĐỂ HIỂN THỊ TẠI FRONTEND ===
-        # Ưu tiên lấy điểm giáo viên chấm
+        # --- LOGIC CHUẨN HÓA KẾT QUẢ ĐỂ HIỂN THỊ TẠI FRONTEND ---
+        
+        # Ưu tiên lấy điểm chấm thủ công (teacherScore từ detailedResults)
+        # Nếu teacherScore có giá trị (khác None), tức là đã chấm thủ công.
         gained_score = d.get("teacherScore")
-        if gained_score is None:
-            gained_score = ans.get("teacherScore") # Kiểm tra trong studentAnswer
-        
-        is_correct_for_display = None # Mặc định là 'Đang đợi chấm'
-        
+        is_graded_manually = gained_score is not None
+
+        is_correct_for_display = None # Giá trị mặc định: Chưa xác định/Đang đợi chấm
+
         if q_type in ["essay", "tự luận"]:
-            is_graded_manually = gained_score is not None
-            
             if is_graded_manually:
-                # Nếu đã chấm thủ công, xác định Đúng/Sai dựa trên điểm
-                is_correct_for_display = gained_score > 0
+                # Nếu đã chấm thủ công, True/False dựa trên điểm đạt được
+                is_correct_for_display = gained_score == max_score # Đúng tuyệt đối (full điểm)
             else:
-                # Nếu chưa chấm thủ công, is_correct_for_display vẫn là None
-                gained_score = d.get("pointsGained", 0) # Lấy điểm tự động (thường là 0)
+                # Nếu chưa chấm thủ công, điểm hiển thị là điểm tự động (thường là 0)
+                gained_score = d.get("pointsGained", 0) 
+                is_correct_for_display = None # Chưa chấm xong
                 
         else: # Câu trắc nghiệm (mc)
-            # Nếu không có điểm giáo viên, lấy điểm tự động
-            if gained_score is None:
+            if is_graded_manually:
+                # Nếu giáo viên chấm lại, dùng điểm thủ công
+                is_correct_for_display = gained_score == max_score
+            else:
+                # Dùng kết quả chấm tự động
                 gained_score = d.get("pointsGained", 0)
+                is_correct_for_display = d.get("isCorrect")
+        
+        # Nếu gained_score vẫn là None (trắc nghiệm chưa chấm lại, chưa có điểm tự động), 
+        # dùng điểm tự động mặc định (0)
+        if gained_score is None:
+            gained_score = d.get("pointsGained", 0)
             
-            # Lấy kết quả chấm tự động cho trắc nghiệm
-            is_correct_for_display = d.get("isCorrect")
         # ===============================================
 
         answers.append({
             "questionId": qid,
-            "question": q, # Bao gồm nội dung câu hỏi (q), loại câu hỏi (type), options...
+            "question": q, # Nội dung câu hỏi, loại câu hỏi, options...
             "userAnswer": ans.get("answer"),
             
-            # --- CÁC TRƯỜNG CHẤM ĐIỂM VÀ HIỂN THỊ CẦN THIẾT ---
             "maxScore": max_score, 
             "gainedScore": gained_score, 
             "correctAnswer": q.get("correctAnswer"), 
             
             # TRƯỜNG QUAN TRỌNG: isCorrect có thể là True/False/None
             "isCorrect": is_correct_for_display, 
-            "isEssay": q_type in ["essay", "tự luận"], # Trường bổ sung để Frontend dễ kiểm tra
+            "isEssay": q_type in ["essay", "tự luận"], 
             
             # Lấy ghi chú giáo viên
             "teacherNote": d.get("teacherNote") or ans.get("teacherNote")
@@ -1295,12 +1313,13 @@ def get_result_detail(result_id):
 
     print("🧩 Ghép được", len(answers), "câu trả lời")
 
-    # Cấu trúc JSON cuối cùng trả về Frontend
-    # Tôi giữ lại cách lấy studentName/className như bạn đã có trong file gốc:
+    # 6. Cấu trúc JSON cuối cùng trả về Frontend
+    # Lưu ý: Các trường studentName/className trong 'result' có thể được lưu trữ lúc nộp bài
+    # nên ta ưu tiên lấy từ 'result' trước, sau đó fallback về user/class name đã query ở bước 2.
     detail = {
         "id": result["id"],
-        "studentName": result.get("studentName"), 
-        "className": result.get("className"),     
+        "studentName": result.get("studentName") or student_name, 
+        "className": result.get("className") or class_name,    
         "testName": test_name,
         "totalScore": result.get("totalScore", 0),
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
@@ -1310,6 +1329,7 @@ def get_result_detail(result_id):
 
     print("✅ [DEBUG] Trả về dữ liệu chi tiết bài làm.\n")
     return jsonify(detail)
+
 
 # API mới để thống kê bài giao (Yêu cầu 3)
 @app.route("/api/assignment_stats", methods=["GET"])
