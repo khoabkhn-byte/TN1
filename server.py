@@ -1060,7 +1060,7 @@ def grade_result(result_id):
     total_teacher_score = 0
     for essay in essays:
         qid = essay.get("questionId")
-        teacher_score = float(essay.get("teacherScore", 0))
+        teacher_score = float(essay.get("teacherScore") or 0)
         teacher_note = essay.get("teacherNote", "")
         total_teacher_score += teacher_score
 
