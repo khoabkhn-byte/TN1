@@ -1019,7 +1019,8 @@ def grade_result(result_id):
     """
     data = request.json
     essays = data.get("essays", [])
-    
+
+    # --- Lấy bài làm học sinh ---
     result = db.results.find_one({"id": result_id})
     if not result:
         return jsonify({"error": "Không tìm thấy bài làm"}), 404
@@ -1031,17 +1032,23 @@ def grade_result(result_id):
             "error": "Bài này đã được chấm tối đa 2 lần, không thể chấm lại."
         }), 403
 
-    # --- Cập nhật điểm tự luận ---
-    updated_answers = result.get("answers", [])
+    # --- Lấy dữ liệu câu trả lời gốc của học sinh ---
+    updated_answers = (
+        result.get("answers")
+        or result.get("studentAnswers")
+        or result.get("detailedResults")
+        or []
+    )
+
     total_teacher_score = 0
 
+    # --- Duyệt các câu tự luận được chấm ---
     for essay in essays:
         qid = essay.get("questionId")
         teacher_score = float(essay.get("teacherScore", 0))
         teacher_note = essay.get("teacherNote", "")
         total_teacher_score += teacher_score
 
-        # tìm câu tương ứng trong answers (nếu chưa có thì thêm mới)
         found = False
         for ans in updated_answers:
             if ans.get("questionId") == qid:
@@ -1049,6 +1056,8 @@ def grade_result(result_id):
                 ans["teacherNote"] = teacher_note
                 found = True
                 break
+
+        # Nếu chưa có thì thêm mới (đề phòng cấu trúc cũ thiếu field)
         if not found:
             updated_answers.append({
                 "questionId": qid,
@@ -1057,8 +1066,8 @@ def grade_result(result_id):
                 "teacherNote": teacher_note
             })
 
-    # --- Thời gian theo giờ Việt Nam ---
-    graded_at = now_vn_iso()  # dùng hàm bạn đã định nghĩa
+    # --- Giờ Việt Nam ---
+    graded_at = now_vn_iso()
 
     # --- Cập nhật DB ---
     new_regrade = current_regrade + 1
@@ -1068,8 +1077,8 @@ def grade_result(result_id):
         {"id": result_id},
         {
             "$set": {
-                "answers": updated_answers,
-                "gradedAt": graded_at,  # lưu ISO string UTC+7
+                "answers": updated_answers,  # cập nhật nhưng không mất field khác
+                "gradedAt": graded_at,
                 "gradingStatus": new_status,
                 "regradeCount": new_regrade
             }
