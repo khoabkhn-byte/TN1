@@ -633,8 +633,8 @@ def create_test():
         return jsonify({"message": "Không thể tạo đề thi.", "error": str(e)}), 500
 
 
-from uuid import uuid4
-import datetime
+#from uuid import uuid4
+#import datetime
 from flask import request, jsonify
 
 @app.route("/tests/auto", methods=["POST"])
