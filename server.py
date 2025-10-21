@@ -979,73 +979,72 @@ from flask import abort
 
 @app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
-    data = request.get_json() or {}
-    essays = data.get("essays", [])  # list of { questionId, score, note }
-
-    result = db.results.find_one({"id": result_id})
+    """
+    Giáo viên chấm điểm bài làm học sinh.
+    - Giới hạn tối đa 2 lần chấm (lần 1 và 1 lần chấm lại)
+    - Mỗi lần chấm cập nhật điểm + trạng thái + regradeCount
+    """
+    data = request.json
+    essays = data.get("essays", [])
+    
+    result = mongo.db.results.find_one({"id": result_id})
     if not result:
-        return jsonify({"message": "Result not found."}), 404
+        return jsonify({"error": "Không tìm thấy bài làm"}), 404
 
-    # init if missing
-    if "answers" not in result:
-        result["answers"] = []
+    # --- Giới hạn số lần chấm ---
+    current_regrade = int(result.get("regradeCount", 0))
+    if current_regrade >= 2:
+        return jsonify({
+            "error": "Bài này đã được chấm tối đa 2 lần, không thể chấm lại."
+        }), 403
 
-    # compute extra points from teacher (for essay)
-    total_teacher = 0.0
-    for e in essays:
-        qid = e.get("questionId")
-        score = float(e.get("score") or 0)
-        note = e.get("note") or ""
+    # --- Cập nhật điểm tự luận ---
+    updated_answers = result.get("answers", [])
+    total_teacher_score = 0
 
-        # find the corresponding answer entry in result["answers"]
-        matched = False
-        for ans in result["answers"]:
-            qobj = ans.get("question") or {}
-            # compare by id or _id
-            if qobj.get("id") == qid or str(qobj.get("_id")) == str(qid) or ans.get("questionId") == qid:
-                ans["teacherScore"] = score
-                ans["teacherNote"] = note
-                matched = True
+    for essay in essays:
+        qid = essay.get("questionId")
+        teacher_score = float(essay.get("teacherScore", 0))
+        teacher_note = essay.get("teacherNote", "")
+        total_teacher_score += teacher_score
+
+        # tìm câu tương ứng trong answers (nếu chưa có thì thêm mới)
+        found = False
+        for ans in updated_answers:
+            if ans.get("questionId") == qid:
+                ans["teacherScore"] = teacher_score
+                ans["teacherNote"] = teacher_note
+                found = True
                 break
-        if not matched:
-            # nếu không tìm thấy entry, thêm mới (phòng trường hợp)
-            result["answers"].append({
+        if not found:
+            updated_answers.append({
                 "questionId": qid,
                 "answer": "",
-                "teacherScore": score,
-                "teacherNote": note
+                "teacherScore": teacher_score,
+                "teacherNote": teacher_note
             })
-        total_teacher += score
 
-    # Lấy điểm tự động từ field autoScore hoặc tính tổng autoScore từ answers
-    auto_score = result.get("autoScore")
-    if auto_score is None:
-        auto_score = sum([ (a.get("autoScore") or 0) for a in result.get("answers", []) ])
+    # --- Cập nhật DB ---
+    new_regrade = current_regrade + 1
+    new_status = "Đã Chấm" if new_regrade == 1 else "Đã Chấm Lại"
 
-    # cập nhật tổng điểm
-    result["totalScore"] = auto_score + total_teacher
+    mongo.db.results.update_one(
+        {"id": result_id},
+        {
+            "$set": {
+                "answers": updated_answers,
+                "gradedAt": datetime.utcnow(),
+                "gradingStatus": new_status,
+                "regradeCount": new_regrade
+            }
+        }
+    )
 
-    # trạng thái chấm
-    previous_status = result.get("gradingStatus")
-    result["gradingStatus"] = "Đã Chấm"
-    result["gradedAt"] = datetime.datetime.now().isoformat()
-
-    # regradeCount: nếu trước đó đã chấm 1 lần (dịch vụ muốn allow 1 lần chấm lại)
-    rc = result.get("regradeCount", 0)
-    # Nếu đang chấm lại, tăng count; nếu muốn ngăn chấm lại nhiều hơn 1, bạn có thể block client
-    # Ở đây tăng lên 1 nếu trước đó đã >=1 thì vẫn tăng (server-side bạn có thể check)
-    result["regradeCount"] = rc + 1
-
-    # Lưu về DB: cập nhật chỉ những trường cần thiết
-    db.results.update_one({"id": result_id}, {"$set": {
-        "answers": result["answers"],
-        "totalScore": result["totalScore"],
-        "gradingStatus": result["gradingStatus"],
-        "gradedAt": result["gradedAt"],
-        "regradeCount": result["regradeCount"]
-    }})
-
-    return jsonify({"success": True, "totalScore": result["totalScore"], "regradeCount": result["regradeCount"]})
+    return jsonify({
+        "success": True,
+        "message": f"{new_status} thành công",
+        "regradeCount": new_regrade
+    })
 
 
 @app.route("/results/<result_id>", methods=["GET"])
