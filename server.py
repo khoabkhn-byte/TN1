@@ -52,17 +52,44 @@ def remove_id(doc):
 def remove_id_from_list(docs):
     return [remove_id(d) for d in docs]
 
-# Generic error handler
+# ------------------ GENERIC ERROR HANDLER ------------------
 @app.errorhandler(Exception)
 def handle_exception(e):
+    """
+    Xử lý lỗi toàn cục — luôn trả về JSON thay vì HTML
+    """
     if isinstance(e, HTTPException):
-        return jsonify({"message": e.description}), e.code
-    return jsonify({"message": "Internal server error", "error": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "message": e.description
+        }), e.code
 
-# Health
+    return jsonify({
+        "success": False,
+        "message": "Internal server error",
+        "error": str(e)
+    }), 500
+
+
+# ------------------ HEALTH CHECK ------------------
 @app.route("/healthz", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "db": DB_NAME})
+    """
+    Kiểm tra tình trạng server và kết nối MongoDB.
+    """
+    try:
+        db_stats = db.command("ping")
+        db_status = "connected" if db_stats.get("ok") == 1.0 else "error"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+
+    return jsonify({
+        "status": "ok",
+        "timezone": "UTC+7",
+        "db": DB_NAME,
+        "db_status": db_status
+    })
+
 
 # --------------------- AUTH ---------------------
 @app.route("/login", methods=["POST"])
@@ -976,6 +1003,7 @@ def create_result():
     
 # Chấm bài tự luận
 from flask import abort
+from datetime import datetime, timedelta
 
 @app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
@@ -1024,6 +1052,9 @@ def grade_result(result_id):
                 "teacherNote": teacher_note
             })
 
+    # --- Tính giờ Việt Nam (UTC+7) ---
+    now_vn = datetime.utcnow() + timedelta(hours=7)
+
     # --- Cập nhật DB ---
     new_regrade = current_regrade + 1
     new_status = "Đã Chấm" if new_regrade == 1 else "Đã Chấm Lại"
@@ -1033,7 +1064,7 @@ def grade_result(result_id):
         {
             "$set": {
                 "answers": updated_answers,
-                "gradedAt": datetime.utcnow(),
+                "gradedAt": now_vn,
                 "gradingStatus": new_status,
                 "regradeCount": new_regrade
             }
@@ -1045,6 +1076,7 @@ def grade_result(result_id):
         "message": f"{new_status} thành công",
         "regradeCount": new_regrade
     })
+
 
 
 @app.route("/results/<result_id>", methods=["GET"])
