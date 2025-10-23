@@ -994,8 +994,8 @@ def create_result():
         
     # 🌟 XÁC ĐỊNH TRẠNG THÁI BAN ĐẦU 🌟
     # Nếu có tự luận -> Bắt buộc phải chấm tay -> "Đang Chấm"
-    # Nếu không có tự luận -> Tự động hoàn tất -> "Tự động hoàn tất"
-    grading_status = "Đang Chấm" if has_essay else "Tự động hoàn tất"
+    # Nếu không có tự luận -> Hoàn tất -> "Hoàn tất"
+    grading_status = "Đang Chấm" if has_essay else "Hoàn tất"
 
     new_result = {
         "id": str(uuid4()),
@@ -1148,7 +1148,7 @@ def _calculate_grading_status(detailed_results):
     elif has_essay:
         return "Đã Chấm" # Đã có câu tự luận nhưng đã được chấm điểm (pointsGained > 0)
     else:
-        return "Tự động hoàn tất" # Không có câu tự luận
+        return "hoàn tất" # Không có câu tự luận
 
 # API mới để lấy danh sách kết quả tổng hợp cho giáo viên (Yêu cầu 1)
 @app.route("/api/results_summary", methods=["GET"])
