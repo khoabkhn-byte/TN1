@@ -1246,7 +1246,8 @@ def get_result_detail(result_id):
             }
 
     # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
-    student_answers = result.get("studentAnswers", [])
+    # ❌ FIX LỖI MẤT CÂU TRẢ LỜI: Ưu tiên lấy từ "answers", sau đó mới đến "studentAnswers"
+    student_answers = result.get("answers") or result.get("studentAnswers", [])
     detailed_results = result.get("detailedResults", [])
 
     # Chuyển detailedResults thành map để dễ tìm
@@ -1278,20 +1279,22 @@ def get_result_detail(result_id):
                 q_type = "essay"
         q["type"] = q_type 
         
-        # --- LOGIC XÁC ĐỊNH ĐIỂM ĐẠT ĐƯỢC (gained_score) ---
+        # --- LOGIC XÁC ĐỊNH ĐIỂM ĐẠT ĐƯỢC VÀ PHÂN LOẠI (gained_score) ---
         teacher_score_from_detail = d.get("teacherScore") 
         gained_score = 0.0 # KHỞI TẠO LẠI BẰNG 0.0
         is_correct_for_display = None 
 
         if q_type in ["essay", "tự luận"]:
             
-            # ✅ Nếu đã có điểm chấm tay (teacherScore), sử dụng nó
-            if teacher_score_from_detail is not None and teacher_score_from_detail != '':
-                 # Đảm bảo chuyển sang float trước khi sử dụng
+            # ❌ FIX LỖI TÍNH ĐIỂM TỰ LUẬN BỊ NHẦM
+            is_graded = teacher_score_from_detail is not None and teacher_score_from_detail != ''
+            
+            if is_graded:
+                # Nếu đã chấm tay, dùng điểm chấm tay
                 gained_score = float(teacher_score_from_detail)
             else:
-                # Nếu chưa chấm tay, lấy điểm tự động (thường là 0 sau khi nộp)
-                gained_score = d.get("pointsGained", 0.0)
+                # Nếu chưa chấm tay, điểm tự luận là 0 (để ngăn pointsGained bị cộng nhầm)
+                gained_score = 0.0 
             
             is_correct_for_display = gained_score > 0
             
@@ -1299,7 +1302,7 @@ def get_result_detail(result_id):
             essay_score_gained += gained_score
             
         else: # Câu trắc nghiệm (mc)
-            # ✅ Lấy điểm tự động cho MC (pointsGained)
+            # Lấy điểm tự động cho MC (pointsGained)
             gained_score = d.get("pointsGained", 0.0)
             is_correct_for_display = d.get("isCorrect")
             teacher_score_from_detail = None # Reset teacherScore cho MC
@@ -1312,7 +1315,7 @@ def get_result_detail(result_id):
         answers.append({
             "questionId": qid,
             "question": q, 
-            "userAnswer": ans.get("answer"),
+            "userAnswer": ans.get("answer"), # FIX 2B: Lấy câu trả lời từ map đã sửa
             "maxScore": max_score, 
             "gainedScore": gained_score, 
             "correctAnswer": q.get("correctAnswer"), 
@@ -1343,7 +1346,6 @@ def get_result_detail(result_id):
 
     print("✅ [DEBUG] Trả về dữ liệu chi tiết bài làm.\n")
     return jsonify(detail)
-
 
 # API mới để thống kê bài giao (Yêu cầu 3)
 @app.route("/api/assignment_stats", methods=["GET"])
