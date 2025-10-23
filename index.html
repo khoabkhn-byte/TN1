@@ -509,7 +509,7 @@
                     <option value="">-- Tất cả --</option>
                     <option value="Chưa Chấm">Chưa Chấm</option>
                     <option value="Đã Chấm">Đã Chấm</option>
-                    <option value="Tự động hoàn tất">Hoàn tất tự động</option>
+                    <option value="Tự động hoàn tất">Hoàn tất</option>
                 </select>
             </div>
             
@@ -594,9 +594,16 @@
           <div class="card p-3">
             <div class="table-wrap">
               <table class="table table-sm table-hover">
-                <thead><tr><th>Tên</th><th>Môn</th><th>Trạng thái</th><th>Điểm</th><th>Hành động</th></tr></thead>
-                <tbody id="done-tbody"></tbody>
-              </table>
+  <thead>
+    <tr>
+      <th>STT</th>
+      <th>Bài thi</th>
+      <th>Thời gian nộp</th>
+      <th>Trạng thái chấm</th>
+      <th class="text-center">Giáo viên (Điểm TL)</th> <th class="text-center">Điểm (Tổng)</th> <th class="text-center">Ngày chấm</th> <th class="text-center">Hành động</th>
+    </tr>
+  </thead>
+  <tbody id="done-tbody"></tbody> </table>
             </div>
           </div>
         </div>
@@ -2250,28 +2257,31 @@ async function buildAnswersFromResult(data, prevAnswers = null) {
 
 
 async function openResultDetail(resultId) {
-  try {
-    console.log('🔍 Gọi API kết quả:', `${serverUrl}/api/results/${resultId}`);
-    const data = await fetchJson(`${serverUrl}/api/results/${resultId}`);
-    console.log('✅ Dữ liệu kết quả nhận được (raw):', data);
+  try {
+    console.log('🔍 Gọi API kết quả:', `${serverUrl}/api/results/${resultId}`);
+    const data = await fetchJson(`${serverUrl}/api/results/${resultId}`);
+    console.log('✅ Dữ liệu kết quả nhận được (raw):', data);
 
-    // Lưu bản gốc để dùng lại sau save (prevent data loss)
-    const modalEl = document.getElementById('modalGrading');
-    if (!modalEl) {
-      console.error('Modal #modalGrading không tồn tại trong DOM!');
-      return;
-    }
-    modalEl._lastLoadedData = data;
+    // [QUAN TRỌNG] KHẮC PHỤC LỖI SAVE
+    window.currentResultData = data; 
+    
+    // Lưu bản gốc để dùng lại sau save (prevent data loss)
+    const modalEl = document.getElementById('modalGrading');
+    if (!modalEl) {
+      console.error('Modal #modalGrading không tồn tại trong DOM!');
+      return;
+    }
+    modalEl._lastLoadedData = data;
 
-    // render modal (dùng data hiện có)
-    await renderResultDetailModal(data);
+    // render modal (dùng data hiện có)
+    await renderResultDetailModal(data);
 
-    modalEl.dataset.resultId = resultId;
-    new bootstrap.Modal(modalEl).show();
-  } catch (err) {
-    console.error('❌ Lỗi khi mở chi tiết:', err);
-    alert('Lỗi khi mở chi tiết: ' + (err.message || err));
-  }
+    modalEl.dataset.resultId = resultId;
+    new bootstrap.Modal(modalEl).show();
+  } catch (err) {
+    console.error('❌ Lỗi khi mở chi tiết:', err);
+    alert('Lỗi khi mở chi tiết: ' + (err.message || err));
+  }
 }
 window.openResultDetail = openResultDetail;
 
@@ -2279,188 +2289,240 @@ window.openResultDetail = openResultDetail;
 
 
 async function renderResultDetailModal(data) {
-  const container = document.getElementById('grading-questions-container');
-  const sumTest = document.getElementById('sum-testName');
-  const sumStudent = document.getElementById('sum-studentName');
-  const sumClass = document.getElementById('sum-className');
-  const sumSubmitted = document.getElementById('sum-submittedAt');
-  const sumAuto = document.getElementById('sum-autoScore');
-  const sumEssay = document.getElementById('sum-essayScore');
-  const sumTotal = document.getElementById('sum-totalScore');
-
-  const answers = await buildAnswersFromResult(data);
-
-  let autoScore = 0, essayScore = 0;
-  answers.forEach(a => {
-    autoScore += Number(a.autoScore || 0);
-    essayScore += Number(a.teacherScore ?? 0);
-  });
-
-  sumTest.innerText = data.testName || '-';
-  sumStudent.innerText = data.studentName || '-';
-  sumClass.innerText = data.className || '-';
-  sumSubmitted.innerText = data.submittedAt ? new Date(data.submittedAt).toLocaleString('vi-VN') : '-';
-  sumAuto.innerText = autoScore.toFixed(1);
-  sumEssay.innerText = essayScore.toFixed(1);
-  sumTotal.innerText = (autoScore + essayScore).toFixed(1);
-
-  container.innerHTML = '';
-
-  answers.forEach((ans, i) => {
-    const q = ans.question || {};
-    const isEssay = q.type === 'essay';
-    const studentAnswerText = ans.studentAnswer || '(chưa trả lời)';
-
-    // Stick
-    let stickText = '';
-    let stickStyle = '';
+    // Luôn đảm bảo lưu dữ liệu hiện tại để dùng cho hàm saveGrading
+    window.currentResultData = data; 
     
-    // Logic mới: Sử dụng trường isCorrect (có thể là null) và gainedScore từ Backend đã sửa.
+    const container = document.getElementById('grading-questions-container');
+    const sumTest = document.getElementById('sum-testName');
+    const sumStudent = document.getElementById('sum-studentName');
+    const sumClass = document.getElementById('sum-className');
+    const sumSubmitted = document.getElementById('sum-submittedAt');
+    const sumAuto = document.getElementById('sum-autoScore');
+    const sumEssay = document.getElementById('sum-essayScore');
+    const sumTotal = document.getElementById('sum-totalScore');
+
+    // Chờ buildAnswersFromResult(data) chạy, hàm này cần thiết nếu bạn gộp data sau khi fetch.
+    const answers = await buildAnswersFromResult(data);
+
+    // ==========================================================
+    // ✅ HIỂN THỊ ĐIỂM (Chờ Backend sửa mcScore/essayScore)
+    // ==========================================================
+    // Sử dụng toán tử ?? để mặc định là 0.0 nếu Backend trả về null/undefined/thiếu trường.
+    // Nếu Backend đã được sửa, các giá trị này sẽ chính xác.
+    const finalAutoScore = data.mcScore ?? 0.0; 
+    const finalEssayScore = data.essayScore ?? 0.0;
+    const finalTotalScore = data.totalScore ?? 0.0; 
+
+    sumTest.innerText = data.testName || '-';
+    sumStudent.innerText = data.studentName || '-';
+    sumClass.innerText = data.className || '-';
+    sumSubmitted.innerText = data.submittedAt ? new Date(data.submittedAt).toLocaleString('vi-VN') : '-';
     
-    // Xác định trạng thái Đúng/Sai cho tất cả các loại câu hỏi
-    // ans.isCorrect sẽ là:
-    // - true/false (Trắc nghiệm đã chấm tự động)
-    // - true/false (Tự luận đã chấm, dựa trên điểm > 0)
-    // - null (Tự luận chưa chấm)
+    // Đổ dữ liệu điểm đã tính sẵn (toFixed(1) để hiển thị 1 chữ số thập phân)
+    sumAuto.innerText = finalAutoScore.toFixed(1);
+    sumEssay.innerText = finalEssayScore.toFixed(1);
+    sumTotal.innerText = finalTotalScore.toFixed(1);
     
-    if (ans.isCorrect === null && isEssay) {
-        // Trạng thái ĐANG ĐỢI CHẤM (Màu cam)
-        stickText = '…';
-        stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
-          text-align:center;font-weight:bold;border-radius:50%;
-          color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
-          background-color:orange;`;
-          
-    } else if (ans.isCorrect === true) {
-        // Trạng thái ĐÚNG (Màu xanh)
-        stickText = 'Đ';
-        stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
-          text-align:center;font-weight:bold;border-radius:50%;
-          color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
-          background-color:#28a745;`; // Màu xanh lá
-          
-    } else { // ans.isCorrect === false
-        // Trạng thái SAI (Màu đỏ)
-        stickText = 'S';
-        stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
-          text-align:center;font-weight:bold;border-radius:50%;
-          color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
-          background-color:#dc3545;`; // Màu đỏ
-    }
+    container.innerHTML = '';
 
-    const stickHtml = `<span data-question-id="${q.id}" style="${stickStyle}">${stickText}</span>`;
+    answers.forEach((ans, i) => {
+        const q = ans.question || {};
+        
+        // ✅ FIX LỖI MẤT NỘI DUNG CÂU HỎI: Dùng q.q hoặc q.question
+        const questionContent = q.q || q.question || data.questions?.find(item => item.id === q.id)?.q || '(Không có nội dung)'; 
 
-    // Options MC
-    let optionsHtml = '';
-    if(q.type==='mc'){
-      optionsHtml = (q.options||[]).map(opt=>{
-        const isCorrect = opt.text === ans.correctAnswer;
-        const isSelected = opt.text === ans.studentAnswer;
-        const cls = isCorrect ? 'bg-success-subtle border-success' : (isSelected?'bg-danger-subtle border-danger':'');
-        return `<div class="border rounded p-2 my-1 ${cls}">${opt.text}</div>`;
-      }).join('');
-    }
+        const isEssay = (q.type || '').toLowerCase() === 'essay' || (q.type || '').toLowerCase() === 'tự luận';
+        
+        // ✅ FIX LỖI MẤT CÂU TRẢ LỜI: Gán an toàn (sử dụng String() để đảm bảo là chuỗi)
+        const studentAnswerText = String(ans.userAnswer || ans.studentAnswer || ''); 
+        const displayAnswer = studentAnswerText || '(chưa trả lời)';
 
-    // Tự luận input
-    const essayFields = isEssay ? `
-      <div class="mt-2">
-        <label class="form-label small">Nhận xét GV</label>
-        <textarea class="form-control" id="note-${q.id}" rows="2">${ans.teacherNote||''}</textarea>
-        <label class="form-label small mt-2">Điểm (tối đa ${q.points||0})</label>
-        <input type="number" class="form-control w-25" id="score-${q.id}" min="0" max="${q.points||0}" step="0.5" value="${ans.teacherScore??''}">
-      </div>` : '';
+        const teacherScore = ans.teacherScore; 
+        
+        // Stick (Đ, S, ...)
+        let stickText = '';
+        let stickStyle = '';
+        
+        if (isEssay) {
+            // LOGIC CHO CÂU TỰ LUẬN (Kiểm tra teacherScore)
+            if (teacherScore !== undefined && teacherScore !== null && teacherScore !== '') {
+                // ĐÃ CHẤM THỦ CÔNG
+                const isCorrectByScore = Number(teacherScore) > 0;
+                stickText = isCorrectByScore ? 'Đ' : 'S';
+                stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
+                  text-align:center;font-weight:bold;border-radius:50%;
+                  color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
+                  background-color:${isCorrectByScore ? '#28a745' : '#dc3545'};`; 
+            } else {
+                // CHƯA CHẤM THỦ CÔNG
+                stickText = '…';
+                stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
+                  text-align:center;font-weight:bold;border-radius:50%;
+                  color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
+                  background-color:orange;`; // Màu cam: Chờ chấm
+            }
+        } else {
+            // LOGIC CHO CÂU TRẮC NGHIỆM (Kiểm tra ans.isCorrect)
+            if (ans.isCorrect === true) {
+                stickText = 'Đ';
+                stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
+                  text-align:center;font-weight:bold;border-radius:50%;
+                  color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
+                  background-color:#28a745;`; 
+            } else {
+                stickText = 'S';
+                stickStyle = `display:inline-block;width:24px;height:24px;line-height:24px;
+                  text-align:center;font-weight:bold;border-radius:50%;
+                  color:#fff;margin-left:10px;font-size:14px;vertical-align:middle;
+                  background-color:#dc3545;`; 
+            }
+        }
 
-    container.innerHTML += `
-      <div class="border rounded p-3 mb-3">
-        <div><strong>Câu ${i+1} (${q.points||0} điểm)</strong>${stickHtml}</div>
-        <div>${q.q || '(Không có nội dung)'}</div>
-        ${q.imageId ? `<img src="${serverUrl}/images/${q.imageId}" class="mt-2" style="max-width:300px;">` : ''}
-        <div class="mt-2"><strong>Trả lời của HS:</strong> ${studentAnswerText}</div>
-        ${optionsHtml}
-        ${essayFields}
-      </div>`;
-  });
+        const stickHtml = `<span data-question-id="${q.id}" style="${stickStyle}">${stickText}</span>`;
+
+        // Options MC
+        let optionsHtml = '';
+        if((q.type||'').toLowerCase()==='mc'){
+            optionsHtml = (q.options||[]).map(opt=>{
+                const isCorrect = opt.text === ans.correctAnswer;
+                // Dùng studentAnswerText đã gán
+                const isSelected = opt.text === studentAnswerText; 
+                // Bổ sung cls để không bị mất màu
+                const cls = isCorrect ? 'bg-success-subtle border-success' : (isSelected?'bg-danger-subtle border-danger':'');
+                return `<div class="border rounded p-2 my-1 ${cls}">${opt.text}</div>`;
+            }).join('');
+        }
+        
+        // Hiển thị câu trả lời (textarea cho Tự luận, strong cho khác)
+        const answerDisplay = isEssay ? 
+          `<textarea class="form-control" rows="3" readonly>${studentAnswerText}</textarea>` :
+          `<strong>${displayAnswer}</strong>`;
+
+
+        // Tự luận input
+        const essayFields = isEssay ? `
+          <div class="mt-2">
+            <label class="form-label small">Nhận xét GV</label>
+            <textarea class="form-control" id="note-${q.id}" rows="2">${ans.teacherNote||''}</textarea>
+            <label class="form-label small mt-2">Điểm (tối đa ${q.points||0})</label>
+            <input type="number" class="form-control w-25" id="score-${q.id}" min="0" max="${q.points||0}" step="0.5" value="${ans.teacherScore??''}">
+          </div>` : '';
+
+        container.innerHTML += `
+          <div class="border rounded p-3 mb-3">
+            <div><strong>Câu ${i+1} (${q.points||0} điểm)</strong>${stickHtml}</div>
+            <div>${questionContent}</div> ${q.imageId ? `<img src="${serverUrl}/images/${q.imageId}" class="mt-2" style="max-width:300px;">` : ''}
+            <div class="mt-2"><strong>Trả lời của HS:</strong></div>
+            <div class="mb-2">${answerDisplay}</div>
+            ${optionsHtml}
+            ${essayFields}
+          </div>`;
+    });
 }
 
 
 
+// Đảm bảo bạn có dòng này ở đầu file HTML/JS của bạn:
+// const serverUrl = 'https://quiz-to21.onrender.com';
 
 async function saveGrading() {
-  const modal = document.getElementById('modalGrading');
-  const resultId = modal?.dataset?.resultId || window.currentResultId;
-  if (!resultId) return alert("❌ Không xác định được bài làm hiện tại.");
+    const modal = document.getElementById('modalGrading');
+    const resultId = modal?.dataset?.resultId || window.currentResultId;
+    if (!resultId) return alert("❌ Không xác định được bài làm hiện tại.");
 
-  try {
-    if (!window.currentResultData) {
-      alert("❌ Không có dữ liệu bài làm hiện tại. Vui lòng tải lại.");
-      return;
+    // ✅ SỬ DỤNG serverUrl TRỰC TIẾP
+    // CHÚ Ý: Biến serverUrl PHẢI ĐƯỢC KHAI BÁO (const serverUrl = '...') Ở PHẠM VI TRUY CẬP ĐƯỢC.
+    if (typeof serverUrl === 'undefined') {
+        return alert("❌ Lỗi cấu hình: Biến serverUrl không được định nghĩa.");
     }
+    
+    try {
+        if (!window.currentResultData) {
+            alert("❌ Không có dữ liệu bài làm hiện tại. Vui lòng tải lại.");
+            return;
+        }
 
-    // --- Build payload từ dữ liệu hiện tại, giữ nguyên MC ---
-    const answers = await buildAnswersFromResult(window.currentResultData);
+        // --- 1. Chuẩn bị Payload (Chỉ GỒM CÁC CÂU TỰ LUẬN) ---
+        const answers = await buildAnswersFromResult(window.currentResultData);
+        
+        const essays = answers
+            .filter(a => (a.question?.type || '').toLowerCase() === 'essay' || (a.question?.type || '').toLowerCase() === 'tu_luan')
+            .map(a => {
+                const scoreEl = document.querySelector(`#score-${a.questionId}`);
+                const noteEl = document.querySelector(`#note-${a.questionId}`);
+                
+                const scoreVal = scoreEl?.value;
+                const teacherScore = Number.isFinite(parseFloat(scoreVal)) ? parseFloat(scoreVal) : (a.teacherScore ?? 0);
+                const teacherNote = noteEl?.value || (a.teacherNote ?? '');
+                
+                const isCorrect = teacherScore > 0;
 
-    const essays = answers.map(a => {
-      const scoreVal = document.querySelector(`#score-${a.questionId}`)?.value;
-      const teacherScore = Number.isFinite(parseFloat(scoreVal)) ? parseFloat(scoreVal) : (a.teacherScore ?? 0);
-      const teacherNote = document.querySelector(`#note-${a.questionId}`)?.value || (a.teacherNote ?? '');
-      return {
-        questionId: a.questionId,
-        answer: a.studentAnswer ?? '',
-        isCorrect: a.isCorrect ?? false,
-        correctAnswer: a.correctAnswer ?? null,
-        teacherScore,
-        teacherNote
-      };
-    });
+                return {
+                    questionId: a.questionId,
+                    answer: a.studentAnswer ?? '',
+                    isCorrect: isCorrect, 
+                    correctAnswer: a.correctAnswer ?? null, 
+                    teacherScore,
+                    teacherNote
+                };
+            });
 
-    const payload = { essays };
-    console.log("📤 Gửi payload chấm:", payload);
+        const payload = { essays };
+        console.log("📤 Gửi payload chấm:", payload);
 
-    // --- Kiểm tra số lần chấm ---
-    const resCheck = await fetch(`${serverUrl}/api/results/${resultId}`);
-    const currentResult = await resCheck.json();
-    if ((currentResult.regradeCount || 0) >= 2) {
-      alert("⚠️ Bài này đã được chấm 2 lần, không thể chấm lại nữa.");
-      return;
+        // --- 2. Kiểm tra Số lần chấm (Fetch 1 - SỬ DỤNG serverUrl CỦA BẠN) ---
+        const resCheck = await fetch(`${serverUrl}/api/results/${resultId}`);
+        const currentResult = await resCheck.json();
+        
+        if ((currentResult.regradeCount || 0) >= 2) {
+            alert("⚠️ Bài này đã được chấm 2 lần, không thể chấm lại nữa.");
+            return;
+        }
+
+        // --- 3. Gửi yêu cầu chấm lên Backend (Fetch 2 - SỬ DỤNG serverUrl CỦA BẠN) ---
+        const res = await fetch(`${serverUrl}/api/results/${resultId}/grade`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            console.error("❌ Lỗi khi chấm:", data);
+            alert(data.error || data.message || "Lỗi khi lưu chấm điểm!");
+            return;
+        }
+
+        console.log("✅ Dữ liệu chấm đã được cập nhật:", data);
+        alert(data.message || "Đã lưu chấm điểm thành công!");
+
+        // ==============================================
+        // 🎯 FIX LỖI TRẠNG THÁI: Cập nhật giao diện tổng thể
+        // ==============================================
+        
+        // 1. Cập nhật BẢNG DANH SÁCH TỔNG (loadResults)
+        if (typeof loadResults === 'function') {
+            await loadResults(true); 
+            console.log("✅ Cập nhật trạng thái thành công: Đã gọi loadResults để tải lại bảng tổng.");
+        } else {
+            console.error("❌ Lỗi: Hàm loadResults không tồn tại. Không thể cập nhật bảng tổng.");
+        }
+
+        // 2. Tải lại kết quả chi tiết mới nhất và render modal (Fetch 3 - SỬ DỤNG serverUrl CỦA BẠN)
+        const refreshed = await fetch(`${serverUrl}/api/results/${resultId}`);
+        const updated = await refreshed.json();
+        window.currentResultData = updated; 
+        
+        if (typeof renderResultDetailModal === 'function') {
+            await renderResultDetailModal(updated);
+        }
+
+    } catch (err) {
+        console.error("🔥 Lỗi hệ thống khi chấm điểm:", err);
+        alert("Lỗi khi lưu chấm điểm. Vui lòng thử lại.");
     }
-
-    // --- Gửi yêu cầu chấm lên backend ---
-    const res = await fetch(`${serverUrl}/api/results/${resultId}/grade`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error("❌ Lỗi khi chấm:", data);
-      alert(data.error || data.message || "Lỗi khi lưu chấm điểm!");
-      return;
-    }
-
-    console.log("✅ Dữ liệu chấm đã được cập nhật:", data);
-    alert(data.message || "Đã lưu chấm điểm thành công!");
-
-    // --- Tải lại kết quả mới nhất ---
-    const refreshed = await fetch(`${serverUrl}/api/results/${resultId}`);
-    const updated = await refreshed.json();
-    window.currentResultData = updated; // cập nhật cache
-
-    // --- Render lại modal ---
-    if (typeof renderResultDetailModal === 'function') {
-      await renderResultDetailModal(updated);
-    }
-
-  } catch (err) {
-    console.error("🔥 Lỗi hệ thống khi chấm điểm:", err);
-    alert("Lỗi khi lưu chấm điểm. Vui lòng thử lại.");
-  }
 }
-
-
-
 window.saveGrading = saveGrading;
-
 
 window.renderResultDetailModal = renderResultDetailModal;
 window.buildAnswersFromResult = buildAnswersFromResult;
@@ -4427,59 +4489,57 @@ function renderResultsTable(results) {
     let html = '';
     
     if (results.length === 0) {
-        // Đảm bảo colspan là 8 để che hết 8 cột
         tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không tìm thấy kết quả phù hợp.</td></tr>'; 
         return;
     }
-    
+
     results.forEach((r, index) => {
         const globalIndex = index + 1;
         
-        // Dữ liệu được lấy từ API /api/results_summary
         const testName = r.testName || 'Bài thi [Đã xóa]';
         const studentName = r.studentName || 'Học sinh [Đã xóa]';
         const className = r.className || 'N/A';
         const submittedAt = formatSubmittedAt(r.submittedAt);
-        const gradingStatus = r.gradingStatus || 'Lỗi trạng thái';
+        
+        // Trạng thái từ backend đã được chuẩn hóa (Hoàn tất, Đã Chấm, Đang Chấm)
+        const gradingStatus = r.gradingStatus || 'Đang Chấm';
         const score = `${r.totalScore !== undefined ? r.totalScore : 'N/A'}`;
-        
-        // Logic cho Trạng thái chấm và Nút Hành động
+
+        // --- LOGIC HIỂN THỊ ĐÃ KHẮC PHỤC ---
         let statusBadge = '';
-        let buttonClass = 'btn-success'; 
+        let buttonClass = 'btn-secondary'; 
         let buttonDisabled = '';
-        let buttonText = 'Xem';
-		
-		const regradeCount = r.regradeCount || 0; // nếu chưa có trường thì mặc định 0
+        let buttonText = 'Xem chi tiết';
         
-        if (gradingStatus === 'Chưa Chấm') {
-            statusBadge = `<span class="badge bg-danger">Chờ chấm TL</span>`;
+        // 1. HOÀN TẤT (Không cần chấm thêm, dù là tự động hay thủ công)
+        if (gradingStatus === 'Hoàn tất') {
+            // ✅ Trạng thái: Xanh Lá (bg-success)
+            statusBadge = `<span class="badge bg-success">Hoàn tất</span>`; 
+            
+            // ✅ Nút Hành động: Xám (Chỉ Xem)
+            buttonClass = 'btn-secondary'; 
+            buttonText = 'Xem';
+        } 
+        // 2. ĐÃ CHẤM (Cần chấm lại lần 2)
+        else if (gradingStatus === 'Đã Chấm') {
+            // ✅ Trạng thái: Xanh Dương (bg-info)
+            statusBadge = `<span class="badge bg-info text-dark">Đã Chấm</span>`; 
+            
+            // ✅ Nút Hành động: Vàng (Chấm Lại)
+            buttonClass = 'btn-warning'; 
+            buttonText = 'Xem & Chấm Lại';
+        } 
+        // 3. ĐANG CHẤM (Cần chấm lần 1)
+        else { 
+            // ✅ Trạng thái: Vàng (bg-warning)
+            statusBadge = `<span class="badge bg-warning text-dark">Đang Chấm</span>`; 
+            
+            // ✅ Nút Hành động: Đỏ (Chấm)
             buttonClass = 'btn-danger'; 
             buttonText = 'Xem và Chấm';
-            buttonDisabled = ''; // Cho phép bấm để chấm
-        } 
-        else if (gradingStatus === 'Đã Chấm') {
-            // Cho phép chấm lại 1 lần nếu regradeCount < 1
-            if (regradeCount < 1) {
-                statusBadge = `<span class="badge bg-success">Đã Chấm</span>`;
-                buttonClass = 'btn-warning'; 
-                buttonText = 'Xem & Chấm Lại';
-                buttonDisabled = ''; // cho phép bấm (regrade)
-            } else {
-                statusBadge = `<span class="badge bg-primary">Đã Chấm</span>`;
-                buttonClass = 'btn-secondary'; 
-                buttonDisabled = 'disabled'; 
-                buttonText = 'Đã Chấm (Xem)';
-            }
-        } 
-        else {
-            statusBadge = `<span class="badge bg-success">Hoàn tất tự động</span>`;
-            buttonClass = 'btn-success';
-            buttonText = 'Xem';
-            buttonDisabled = ''; // Cho phép bấm để xem
         }
 
-        // Đảm bảo 8 ô <td> khớp với thứ tự 8 cột trong <thead>
-        // <thead>: STT | Bài thi | Học sinh | Lớp | Thời gian nộp | Trạng thái chấm | Điểm | Hành động
+        // Cấu trúc HTML
         html += `
             <tr>
                 <td class="text-center">${globalIndex}</td>
@@ -4491,8 +4551,8 @@ function renderResultsTable(results) {
                 <td class="text-center fw-bold">${score}</td>
                 <td class="text-center">
                     <button class="btn btn-sm ${buttonClass}" 
-                            ${buttonDisabled}
-                            onclick="openResultDetail('${r.id}')">
+                                ${buttonDisabled}
+                                onclick="openResultDetail('${r.id}')">
                         ${buttonText}
                     </button>
                 </td>
