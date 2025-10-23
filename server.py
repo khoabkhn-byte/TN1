@@ -1154,7 +1154,7 @@ def _calculate_grading_status(detailed_results):
 @app.route("/api/results_summary", methods=["GET"])
 def get_results_summary():
     
-    # 1. Truy vấn Aggregation để join dữ liệu
+    # 1. Truy vấn Aggregation để join dữ liệu (Giữ nguyên Pipeline của bạn)
     pipeline = [
         # Giai đoạn 1: Join với collection 'users'
         {
@@ -1186,17 +1186,16 @@ def get_results_summary():
                 "studentId": "$studentId",
                 "testId": "$testId",
                 
-                # ✅ TRƯỜNG MỚI: ĐIỂM VÀ TRẠNG THÁI
+                # ✅ ĐIỂM VÀ TRẠNG THÁI
                 "totalScore": {"$ifNull": ["$totalScore", 0.0]},
                 "mcScore": {"$ifNull": ["$mcScore", 0.0]},
                 "essayScore": {"$ifNull": ["$essayScore", 0.0]},
                 "gradingStatus": {"$ifNull": ["$gradingStatus", "Đang Chấm"]},
-                "gradedAt": {"$ifNull": ["$gradedAt", None]}, # ✅ THÊM TRƯỜNG NGÀY CHẤM VÀO RESPONSE
+                "gradedAt": {"$ifNull": ["$gradedAt", None]}, 
                 
                 "submittedAt": "$submittedAt",
                 
                 # Thông tin đã Join
-                # Ưu tiên lấy từ trường đã lưu trong result (nếu đã được lưu bởi create_result mới)
                 "testName": {"$ifNull": ["$test_info.name", "Đã Xóa"]},
                 "studentName": {"$ifNull": ["$studentName", "$student_info.fullName", "Ẩn danh"]},
                 "className": {"$ifNull": ["$className", "$student_info.className", "N/A"]},
@@ -1206,18 +1205,24 @@ def get_results_summary():
     
     docs = list(db.results.aggregate(pipeline))
     
-    # 2. Xử lý logic nghiệp vụ (Làm tròn điểm)
+    # 2. Xử lý logic nghiệp vụ (CHUẨN HÓA TRẠNG THÁI CHO FRONTEND)
     for doc in docs:
-        # Xóa detailedResults vì đã không còn trong Project, chỉ để đảm bảo nếu có
         doc.pop("detailedResults", None) 
         
-        # Nếu chưa có gradingStatus trong DB, tính toán lại (Sử dụng hàm calculate_grading_status)
-        if "gradingStatus" not in doc:
-             # Cần phải fetch lại detailedResults nếu trường này không có trong DB
-             result_full = db.results.find_one({"id": doc["id"]}, {"detailedResults": 1, "_id": 0})
-             detailed = result_full.get("detailedResults", []) if result_full else []
-             doc["gradingStatus"] = _calculate_grading_status(detailed)
-
+        status_from_db = doc.get("gradingStatus")
+        
+        # 1. Trạng thái Hoàn tất (Đảm bảo tất cả các trạng thái đã xong đều là Hoàn tất)
+        if status_from_db in ["Hoàn tất", "Tự động hoàn tất", "Đã Chấm Lại"]:
+            doc["gradingStatus"] = "Hoàn tất"
+        
+        # 2. Trạng thái đã chấm (Lần 1)
+        elif status_from_db == "Đã Chấm":
+             doc["gradingStatus"] = "Đã Chấm" 
+             
+        # 3. Trạng thái Đang Chấm (Bao gồm Chưa Chấm, Lỗi, hoặc bất kỳ giá trị không hợp lệ nào)
+        else:
+             doc["gradingStatus"] = "Đang Chấm"
+        
         # Chuyển đổi và làm tròn điểm
         doc["totalScore"] = round(doc.get("totalScore", 0.0), 2)
         doc["mcScore"] = round(doc.get("mcScore", 0.0), 2)
