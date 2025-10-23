@@ -1196,6 +1196,7 @@ from flask import jsonify
 # Giả định db (MongoDB client) đã được định nghĩa và khởi tạo
 # Ví dụ: from app import db
 
+
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
     print("🔍 [DEBUG] /api/results/<result_id> =", result_id)
@@ -1235,10 +1236,15 @@ def get_result_detail(result_id):
                         correct_ans_from_options = opt.get("text")
                         break
                 
+            # Đảm bảo field 'type' luôn có, nếu không tự xác định
+            q_type = (q.get("type") or "").lower()
+            if not q_type:
+                q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
+
             question_map[q["id"]] = {
                 "id": q["id"],
                 "q": q.get("q"),
-                "type": q.get("type"),
+                "type": q_type, # Dùng type đã chuẩn hóa
                 "points": q.get("points", 0),
                 "imageId": q.get("imageId"),
                 "options": q.get("options", []),
@@ -1253,7 +1259,7 @@ def get_result_detail(result_id):
     # Chuyển detailedResults thành map để dễ tìm (cho điểm trắc nghiệm)
     detail_map = {d["questionId"]: d for d in detailed_results if "questionId" in d}
 
-    # Chuyển studentAnswers thành map để dễ tìm (cho câu trả lời, điểm chấm tay)
+    # Chuyển studentAnswers/answers thành map để dễ tìm (cho câu trả lời, điểm chấm tay)
     answer_map = {}
     for ans in student_answers_source:
         if ans.get("questionId"):
@@ -1278,19 +1284,21 @@ def get_result_detail(result_id):
         max_score = q.get("points", 0) 
         q_type = (q.get("type") or "").lower()
         if not q_type:
-             q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
+            q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
             
         # --- LOGIC XÁC ĐỊNH ĐIỂM ĐẠT ĐƯỢC VÀ PHÂN LOẠI ---
-        teacher_score_from_detail = ans_data.get("teacherScore")
+        # Ưu tiên lấy điểm từ studentAnswers_source (nếu giáo viên đã chấm)
+        teacher_score_from_ans_source = ans_data.get("teacherScore")
         gained_score = 0.0
         is_correct_for_display = None
 
         if q_type in ["essay", "tự luận"]:
-            is_graded_manually = teacher_score_from_detail is not None and teacher_score_from_detail != ''
+            is_graded_manually = teacher_score_from_ans_source is not None and teacher_score_from_ans_source != ''
             
             if is_graded_manually:
                 try:
-                    gained_score = float(teacher_score_from_detail)
+                    # Lấy điểm chấm thủ công
+                    gained_score = float(teacher_score_from_ans_source)
                 except (ValueError, TypeError):
                     gained_score = 0.0
                 # isCorrect sẽ là True/False dựa trên điểm > 0
@@ -1308,7 +1316,7 @@ def get_result_detail(result_id):
             gained_score = d.get("pointsGained", 0.0)
             is_correct_for_display = d.get("isCorrect")
             # KHÔNG LẤY teacherScore cho trắc nghiệm
-            teacher_score_from_detail = None 
+            teacher_score_from_ans_source = None 
 
             # ✅ CỘNG ĐIỂM TRẮC NGHIỆM
             mc_score_gained += gained_score
@@ -1341,14 +1349,15 @@ def get_result_detail(result_id):
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
         "submittedAt": result.get("submittedAt"),
         
-        # ✅ TRƯỜNG ĐIỂM ĐÃ SỬA LỖI - ĐÂY LÀ PHẦN THIẾU
-        "mcScore": 99.9, # ĐIỂM TẠM THỜI
-        "essayScore": 1.1, # ĐIỂM TẠM THỜI
+        # ✅ PHIÊN BẢN SỬA LỖI CUỐI CÙNG (Dùng round(score, 2) cho độ chính xác)
+        "mcScore": round(mc_score_gained, 2), 
+        "essayScore": round(essay_score_gained, 2), 
         
         "answers": answers
     }
 
-    # ✅ BỔ SUNG LOG IN RA ĐỂ BẠN KIỂM TRA
+    # BỔ SUNG LOG IN RA ĐỂ BẠN KIỂM TRA
+    # Sử dụng log_detail để tránh làm quá tải log với mảng answers lớn
     log_detail = {k: v for k, v in detail.items() if k != 'answers'}
     log_detail['answers_count'] = len(detail['answers'])
     
