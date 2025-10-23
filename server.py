@@ -1148,7 +1148,7 @@ def _calculate_grading_status(detailed_results):
     elif has_essay:
         return "Đã Chấm" # Đã có câu tự luận nhưng đã được chấm điểm (pointsGained > 0)
     else:
-        return "hoàn tất" # Không có câu tự luận
+        return "Hoàn tất" # Không có câu tự luận
 
 # API mới để lấy danh sách kết quả tổng hợp cho giáo viên (Yêu cầu 1)
 @app.route("/api/results_summary", methods=["GET"])
