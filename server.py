@@ -901,7 +901,7 @@ def create_result():
     student_answers = data.get("studentAnswers", [])
     test_id = data.get("testId")
 
-    # Lấy danh sách ID câu hỏi
+    # ... (Code lấy questions và question_map không đổi) ...
     q_ids = [a.get("questionId") for a in student_answers if "questionId" in a]
     questions = list(db.questions.find(
         {"id": {"$in": q_ids}},
@@ -911,18 +911,22 @@ def create_result():
     question_map = {q["id"]: q for q in questions}
     total_score = 0
     detailed = []
+    
+    # 🌟 KHỞI TẠO ĐIỂM PHÂN LOẠI 🌟
+    mc_score_gained = 0.0
+    essay_score_gained = 0.0
 
     for ans in student_answers:
         qid = ans.get("questionId")
         q = question_map.get(qid)
         
         if not q:
-            # Nếu không tìm thấy câu hỏi — lưu entry nhưng đánh dấu missing
+            # ... (Logic câu hỏi không tìm thấy không đổi) ...
             detailed.append({
                 "questionId": qid,
                 "type": ans.get("type", "mc"),
                 "studentAnswer": ans.get("answer"),
-                "isCorrect": False, # GIỮ LẠI isCorrect: False cho trường hợp câu hỏi bị thiếu
+                "isCorrect": False,
                 "pointsGained": 0,
                 "maxPoints": 0,
                 "correctAnswer": None,
@@ -934,15 +938,14 @@ def create_result():
         student_ans = ans.get("answer")
         max_points = int(q.get("points", 1))
 
+        # ... (Logic tìm correct_ans và student_ans_text không đổi) ...
         correct_ans = None
-        # Lấy đáp án đúng từ options[]
         if q_type == "mc" and q.get("options"):
             for opt in q["options"]:
                 if opt.get("correct") is True:
                     correct_ans = opt.get("text")
                     break
 
-        # Nếu student_ans là số (index), convert sang text khi có options
         student_ans_text = student_ans
         if q_type == "mc" and q.get("options"):
             try:
@@ -957,22 +960,26 @@ def create_result():
                         idx = int(student_ans)
                         if 0 <= idx < len(q["options"]):
                             student_ans_text = q["options"][idx].get("text")
-                    # nếu student_ans là object id của option hoặc giá trị nào khác, giữ nguyên
             except Exception:
-                # giữ nguyên student_ans_text
                 pass
 
+
         # Bắt đầu Logic chấm điểm/lưu trữ MỚI
-        is_correct = None # Khởi tạo là None, chỉ có giá trị True/False nếu là MC
+        is_correct = None
         points = 0
         
         if q_type == "mc":
             # Chấm điểm cho trắc nghiệm
             is_correct = (str(student_ans_text).strip() == str(correct_ans).strip()) if correct_ans is not None else False
             points = max_points if is_correct else 0
-        # NOTE: Nếu không phải MC (essay), is_correct vẫn là None, points vẫn là 0.
-        
-        total_score += points
+            
+            # ✅ CỘNG ĐIỂM TRẮC NGHIỆM TẠI ĐÂY
+            mc_score_gained += points 
+        else:
+            # ✅ CỘNG ĐIỂM TỰ LUẬN TẠI ĐÂY (BAN ĐẦU LÀ 0)
+            essay_score_gained += 0 
+            
+        total_score += points # total_score chỉ là tổng điểm trắc nghiệm ban đầu
 
         detailed_entry = {
             "questionId": qid,
@@ -980,12 +987,11 @@ def create_result():
             "studentAnswer": student_ans_text,
             "pointsGained": points, # 0 cho essay (chờ chấm tay) hoặc điểm cho MC
             "maxPoints": max_points,
-            "correctAnswer": correct_ans # None cho essay
+            "correctAnswer": correct_ans
         }
         
-        # ✅ SỬA LỖI 1: CHỈ THÊM TRƯỜNG isCorrect NẾU LÀ CÂU TRẮC NGHIỆM
         if q_type == "mc":
-             detailed_entry["isCorrect"] = is_correct
+              detailed_entry["isCorrect"] = is_correct
 
         detailed.append(detailed_entry)
 
@@ -998,7 +1004,10 @@ def create_result():
         "detailedResults": detailed,
         "totalScore": total_score,
         
-        # ✅ SỬA LỖI 2: Sử dụng hàm chuẩn now_vn_iso()
+        # 🎯 LƯU HAI TRƯỜNG ĐIỂM MỚI VÀO DB LẦN 1
+        "mcScore": round(mc_score_gained, 2),
+        "essayScore": round(essay_score_gained, 2),
+        
         "submittedAt": now_vn_iso()
     }
 
@@ -1016,7 +1025,7 @@ def grade_result(result_id):
     """
     Giáo viên chấm điểm bài làm học sinh.
     - Cập nhật điểm và ghi chú vào detailedResults gốc.
-    - Tính toán lại totalScore.
+    - Tính toán lại totalScore, mcScore, và essayScore.
     - Giới hạn tối đa 2 lần chấm.
     """
     data = request.json
@@ -1033,7 +1042,6 @@ def grade_result(result_id):
         return jsonify({"error": "Bài đã chấm tối đa 2 lần"}), 403
 
     # --- 1. Lấy detailedResults gốc và chuyển thành map để dễ cập nhật ---
-    # Đây là nguồn dữ liệu duy nhất chứa tất cả điểm (MC tự động và Essay chờ chấm)
     detailed_results_list = result.get("detailedResults", [])
     detailed_map = {d["questionId"]: d for d in detailed_results_list if "questionId" in d}
     
@@ -1043,7 +1051,6 @@ def grade_result(result_id):
         if not qid or qid not in detailed_map:
             continue
         
-        # Đảm bảo điểm là float
         try:
             teacher_score = float(essay.get("teacherScore") or 0.0)
         except ValueError:
@@ -1054,33 +1061,41 @@ def grade_result(result_id):
         # CẬP NHẬT TRỰC TIẾP VÀO detailed_map
         detail = detailed_map[qid]
         
-        # Cập nhật các trường chấm tay
         detail["teacherScore"] = teacher_score
         detail["teacherNote"] = teacher_note
-        
-        # ✅ QUAN TRỌNG: Cập nhật pointsGained là điểm cuối cùng (cho Essay)
-        detail["pointsGained"] = teacher_score 
-        
-        # ✅ Cập nhật trạng thái
+        detail["pointsGained"] = teacher_score # QUAN TRỌNG: điểm cuối cùng cho Essay
         detail["isCorrect"] = teacher_score > 0
-        
-    # --- 3. Tính toán lại totalScore MỚI ---
+            
+    # --- 3. TÍNH TOÁN LẠI TẤT CẢ ĐIỂM MỚI ---
     new_total_score = 0.0
+    new_mc_score = 0.0
+    new_essay_score = 0.0
+    
     for detail in detailed_map.values():
-        # Lấy điểm đã cập nhật (cho Essay) hoặc điểm tự động (cho MC)
-        new_total_score += detail.get("pointsGained", 0.0)
+        # Lấy điểm đạt được (đã được cập nhật nếu là essay)
+        gained_score = float(detail.get("pointsGained", 0.0))
+        q_type = detail.get("type", "mc").lower()
         
+        new_total_score += gained_score # Tính tổng điểm chung
+        
+        if q_type in ["essay", "tự luận"]:
+            new_essay_score += gained_score
+        else:
+            new_mc_score += gained_score # Điểm trắc nghiệm không đổi
+
     # --- 4. Chuẩn bị thông tin cập nhật và LƯU vào DB ---
     graded_at = now_vn_iso()
     new_regrade = current_regrade + 1
     new_status = "Đã Chấm" if new_regrade == 1 else "Đã Chấm Lại"
     
     update_data = {
-        # ✅ LƯU LẠI TOÀN BỘ MẢNG detailedResults ĐÃ CẬP NHẬT
         "detailedResults": list(detailed_map.values()), 
-        # ✅ CẬP NHẬT TỔNG ĐIỂM
-        "totalScore": new_total_score,
-        # ✅ CẬP NHẬT TRẠNG THÁI
+        "totalScore": round(new_total_score, 2), # CẬP NHẬT TỔNG ĐIỂM
+        
+        # 🎯 LƯU HAI TRƯỜNG ĐIỂM MỚI VÀO DB LẦN 2
+        "mcScore": round(new_mc_score, 2),
+        "essayScore": round(new_essay_score, 2),
+        
         "gradingStatus": new_status,
         "gradedAt": graded_at,
     }
@@ -1089,8 +1104,7 @@ def grade_result(result_id):
         {"id": result_id},
         {
             "$set": update_data,
-            "$inc": {"regradeCount": 1} # Tăng biến đếm
-            # Lưu ý: Xóa bỏ "$set": {"answers": list(ans_map.values())} cũ
+            "$inc": {"regradeCount": 1}
         }
     )
 
@@ -1138,7 +1152,7 @@ def get_results_summary():
     
     # 1. Truy vấn Aggregation để join dữ liệu
     pipeline = [
-        # Giai đoạn 1: Join với collection 'users' để lấy thông tin học sinh
+        # Giai đoạn 1: Join với collection 'users'
         {
             "$lookup": {
                 "from": "users",
@@ -1147,10 +1161,10 @@ def get_results_summary():
                 "as": "student_info"
             }
         },
-        # Giai đoạn 2: Giả định chỉ có 1 học sinh khớp, lấy phần tử đầu tiên
+        # Giai đoạn 2: Giả định chỉ có 1 học sinh khớp
         {"$unwind": {"path": "$student_info", "preserveNullAndEmptyArrays": True}},
         
-        # Giai đoạn 3: Join với collection 'tests' để lấy tên bài thi
+        # Giai đoạn 3: Join với collection 'tests'
         {
             "$lookup": {
                 "from": "tests",
@@ -1165,12 +1179,17 @@ def get_results_summary():
         # Giai đoạn 5: Project (chọn và định hình) các trường cần thiết
         {
             "$project": {
-                "_id": 0, # Loại bỏ _id
+                "_id": 0, 
                 "id": "$id",
                 "studentId": "$studentId",
                 "testId": "$testId",
                 "totalScore": "$totalScore",
-                "detailedResults": "$detailedResults", # Cần để tính trạng thái chấm
+                
+                # ✅ THÊM TRƯỜNG MỚI ĐÃ LƯU TỪ DB
+                "mcScore": {"$ifNull": ["$mcScore", 0.0]},
+                "essayScore": {"$ifNull": ["$essayScore", 0.0]},
+                
+                "detailedResults": "$detailedResults", 
                 "submittedAt": "$submittedAt",
                 
                 # Thông tin đã Join
@@ -1186,9 +1205,16 @@ def get_results_summary():
     # 2. Xử lý logic nghiệp vụ (Tính trạng thái chấm)
     for doc in docs:
         detailed = doc.pop("detailedResults", []) # Bỏ detailedResults khỏi response cuối cùng để giảm tải
-        doc["gradingStatus"] = _calculate_grading_status(detailed)
-        # Chuyển đổi totalScore thành float/chuỗi định dạng
+        
+        # Nếu không có gradingStatus, tính toán lại
+        doc["gradingStatus"] = doc.get("gradingStatus") or _calculate_grading_status(detailed)
+        
+        # Chuyển đổi và làm tròn điểm
         doc["totalScore"] = round(doc.get("totalScore", 0.0), 2)
+        
+        # ✅ Làm tròn điểm mới lấy từ DB
+        doc["mcScore"] = round(doc.get("mcScore", 0.0), 2)
+        doc["essayScore"] = round(doc.get("essayScore", 0.0), 2)
         
     return jsonify(docs)
 
@@ -1199,16 +1225,26 @@ from flask import jsonify
 
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
-    # Dùng print() để log trực tiếp ra Render Console
     print("🔍 [DEBUG] /api/results/<result_id> =", result_id)
 
-    # Tìm kết quả
+    # 1. TÌM KẾT QUẢ VÀ LẤY ĐIỂM TỪ DB
     result = db.results.find_one({"id": result_id})
     if not result:
         print("❌ Không tìm thấy result:", result_id)
         return jsonify({"error": "Không tìm thấy kết quả"}), 404
-
-    # Lấy thông tin user và test
+        
+    # ✅ LẤY ĐIỂM TRỰC TIẾP TỪ DB (mcScore, essayScore đã được lưu từ hàm create/grade_result)
+    try:
+        db_mc_score = float(result.get("mcScore", 0.0))
+    except (TypeError, ValueError):
+        db_mc_score = 0.0
+        
+    try:
+        db_essay_score = float(result.get("essayScore", 0.0))
+    except (TypeError, ValueError):
+        db_essay_score = 0.0
+    
+    # 2. Lấy thông tin user và test
     user = db.users.find_one({"id": result.get("studentId")}, {"fullName": 1, "className": 1, "_id": 0})
     test = db.tests.find_one({"id": result.get("testId")})
     
@@ -1216,7 +1252,7 @@ def get_result_detail(result_id):
     class_name = user.get("className", "N/A") if user else "N/A"
     test_name = test.get("name") if test else "Bài thi đã xóa"
 
-    # Lấy danh sách ID câu hỏi từ đề thi (để đảm bảo thứ tự)
+    # 3. Lấy danh sách ID câu hỏi và question_map
     q_ids = []
     if test:
         for q in test.get("questions", []):
@@ -1225,7 +1261,6 @@ def get_result_detail(result_id):
             elif isinstance(q, str):
                 q_ids.append(q)
 
-    # Lấy thông tin chi tiết câu hỏi (từ collection 'questions')
     question_map = {}
     if q_ids:
         questions = list(db.questions.find({"id": {"$in": q_ids}}))
@@ -1236,8 +1271,7 @@ def get_result_detail(result_id):
                     if opt.get("correct") is True:
                         correct_ans_from_options = opt.get("text")
                         break
-                
-            # Đảm bảo field 'type' luôn có, nếu không tự xác định
+            
             q_type = (q.get("type") or "").lower()
             if not q_type:
                 q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
@@ -1245,21 +1279,17 @@ def get_result_detail(result_id):
             question_map[q["id"]] = {
                 "id": q["id"],
                 "q": q.get("q"),
-                "type": q_type, # Dùng type đã chuẩn hóa
+                "type": q_type, 
                 "points": q.get("points", 0),
                 "imageId": q.get("imageId"),
                 "options": q.get("options", []),
                 "correctAnswer": q.get("answer") or correct_ans_from_options, 
             }
-
-    # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
+            
+    # 4. Tính toán chi tiết câu trả lời (answers) - Lấy điểm chi tiết
     student_answers_source = result.get("answers") or result.get("studentAnswers", [])
     detailed_results = result.get("detailedResults", [])
-
-    # Chuyển detailedResults thành map để dễ tìm (cho điểm trắc nghiệm)
     detail_map = {d.get("questionId"): d for d in detailed_results if d.get("questionId")}
-
-    # Chuyển studentAnswers/answers thành map để dễ tìm (cho câu trả lời, điểm chấm tay)
     answer_map = {}
     for ans in student_answers_source:
         if ans.get("questionId"):
@@ -1268,13 +1298,8 @@ def get_result_detail(result_id):
                 "teacherScore": ans.get("teacherScore"), 
                 "teacherNote": ans.get("teacherNote")
             }
-
+            
     answers = []
-    
-    # ✅ KHỞI TẠO VÀ TÍNH TỔNG ĐIỂM PHÂN LOẠI
-    mc_score_gained = 0.0
-    essay_score_gained = 0.0
-    
     for qid in q_ids: 
         q = question_map.get(qid, {})
         d = detail_map.get(qid, {})
@@ -1285,80 +1310,54 @@ def get_result_detail(result_id):
         if not q_type:
             q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
             
-        # --- LOGIC XÁC ĐỊNH ĐIỂM ĐẠT ĐƯỢC VÀ PHÂN LOẠI ---
         teacher_score_from_ans_source = ans_data.get("teacherScore")
-        gained_score = 0.0
-        is_correct_for_display = None
+        gained_score = d.get("pointsGained", 0.0) 
+        is_correct_for_display = d.get("isCorrect")
 
+        # Logic để đảm bảo hiển thị đúng điểm tự luận đã chấm (Ưu tiên teacherScore)
         if q_type in ["essay", "tự luận"]:
-            is_graded_manually = teacher_score_from_ans_source is not None and teacher_score_from_ans_source != ''
-            
-            if is_graded_manually:
+            if teacher_score_from_ans_source is not None and teacher_score_from_ans_source != '':
                 try:
-                    # Lấy điểm chấm thủ công
                     gained_score = float(teacher_score_from_ans_source)
                 except (ValueError, TypeError):
                     gained_score = 0.0
-                # isCorrect sẽ là True/False dựa trên điểm > 0
                 is_correct_for_display = gained_score > 0
             else:
-                gained_score = 0.0 
-                is_correct_for_display = None # None để Frontend hiển thị "Đợi Chấm"
-                
-            # ✅ CỘNG ĐIỂM TỰ LUẬN
-            essay_score_gained += gained_score
-            
-        else: # Câu trắc nghiệm (mc)
-            # Trắc nghiệm dùng điểm tự động (từ detailedResults)
-            raw_gained_score = d.get("pointsGained", 0.0)
-            
-            # ⚠️ FIX LỖI BSON: Xử lý định dạng số MongoDB ($numberInt, $numberDouble)
-            if isinstance(raw_gained_score, dict):
-                if '$numberInt' in raw_gained_score:
-                    gained_score = float(raw_gained_score['$numberInt'])
-                elif '$numberDouble' in raw_gained_score:
-                    gained_score = float(raw_gained_score['$numberDouble'])
-            elif isinstance(raw_gained_score, (int, float)):
-                 gained_score = float(raw_gained_score)
-            else:
+                 gained_score = 0.0
+                 is_correct_for_display = None
+        else:
+            # Xử lý BSON cho điểm trắc nghiệm (vẫn cần cho gainedScore chi tiết)
+            if isinstance(gained_score, dict):
+                gained_score = float(gained_score.get('$numberInt') or gained_score.get('$numberDouble') or 0.0)
+            elif not isinstance(gained_score, (int, float)):
                 gained_score = 0.0
-
-            is_correct_for_display = d.get("isCorrect")
-            teacher_score_from_ans_source = None 
-
-            # ✅ CỘNG ĐIỂM TRẮC NGHIỆM
-            mc_score_gained += gained_score
-            
-        # ===============================================
-
+        
         answers.append({
             "questionId": qid,
             "question": q, 
             "userAnswer": ans_data.get("answer"),
-            
             "maxScore": max_score, 
-            "gainedScore": gained_score, 
+            "gainedScore": round(gained_score, 2), # Làm tròn điểm chi tiết
             "correctAnswer": q.get("correctAnswer"), 
             "isCorrect": is_correct_for_display, 
             "isEssay": q_type in ["essay", "tự luận"], 
-            
             "teacherScore": ans_data.get("teacherScore"), 
             "teacherNote": ans_data.get("teacherNote")
         })
 
-    # Cấu trúc JSON cuối cùng trả về Frontend
+    # 5. Cấu trúc JSON cuối cùng trả về Frontend
     detail = {
         "id": result["id"],
         "studentName": result.get("studentName") or student_name,
         "className": result.get("className") or class_name, 
         "testName": test_name,
-        "totalScore": result.get("totalScore", 0), # totalScore gốc của bài thi
+        "totalScore": result.get("totalScore", 0),
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
         "submittedAt": result.get("submittedAt"),
         
-        # ✅ TRƯỜNG ĐIỂM TỰ TÍNH (Đã được sửa lỗi)
-        "mcScore": round(mc_score_gained, 2), 
-        "essayScore": round(essay_score_gained, 2), 
+        # ✅ LẤY TRỰC TIẾP TỪ DB (Đã sửa lỗi)
+        "mcScore": round(db_mc_score, 2), 
+        "essayScore": round(db_essay_score, 2), 
         
         "answers": answers
     }
@@ -1367,8 +1366,6 @@ def get_result_detail(result_id):
     log_detail = {k: v for k, v in detail.items() if k != 'answers'}
     log_detail['answers_count'] = len(detail['answers'])
     
-    # Dùng json.dumps() cần đảm bảo đã import 'json' ở đầu file
-    # import json
     print(f"✅ [DEBUG] JSON Response Summary:\n{json.dumps(log_detail, indent=2)}\n")
     
     return jsonify(detail)
