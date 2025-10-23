@@ -1199,6 +1199,7 @@ from flask import jsonify
 
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
+    # Dùng print() để log trực tiếp ra Render Console
     print("🔍 [DEBUG] /api/results/<result_id> =", result_id)
 
     # Tìm kết quả
@@ -1252,18 +1253,16 @@ def get_result_detail(result_id):
             }
 
     # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
-    # LƯU Ý: Lấy từ trường 'answers' nếu có, nếu không lấy từ 'studentAnswers'
     student_answers_source = result.get("answers") or result.get("studentAnswers", [])
     detailed_results = result.get("detailedResults", [])
 
     # Chuyển detailedResults thành map để dễ tìm (cho điểm trắc nghiệm)
-    detail_map = {d["questionId"]: d for d in detailed_results if "questionId" in d}
+    detail_map = {d.get("questionId"): d for d in detailed_results if d.get("questionId")}
 
     # Chuyển studentAnswers/answers thành map để dễ tìm (cho câu trả lời, điểm chấm tay)
     answer_map = {}
     for ans in student_answers_source:
         if ans.get("questionId"):
-            # Lấy teacherScore/Note từ studentAnswers_source (nếu đã chấm thủ công, nó nằm ở đây)
             answer_map[ans["questionId"]] = {
                 "answer": ans.get("answer") or ans.get("studentAnswer"),
                 "teacherScore": ans.get("teacherScore"), 
@@ -1287,7 +1286,6 @@ def get_result_detail(result_id):
             q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
             
         # --- LOGIC XÁC ĐỊNH ĐIỂM ĐẠT ĐƯỢC VÀ PHÂN LOẠI ---
-        # Ưu tiên lấy điểm từ studentAnswers_source (nếu giáo viên đã chấm)
         teacher_score_from_ans_source = ans_data.get("teacherScore")
         gained_score = 0.0
         is_correct_for_display = None
@@ -1304,7 +1302,6 @@ def get_result_detail(result_id):
                 # isCorrect sẽ là True/False dựa trên điểm > 0
                 is_correct_for_display = gained_score > 0
             else:
-                # Nếu chưa chấm tay, điểm tự luận phải là 0
                 gained_score = 0.0 
                 is_correct_for_display = None # None để Frontend hiển thị "Đợi Chấm"
                 
@@ -1313,9 +1310,20 @@ def get_result_detail(result_id):
             
         else: # Câu trắc nghiệm (mc)
             # Trắc nghiệm dùng điểm tự động (từ detailedResults)
-            gained_score = d.get("pointsGained", 0.0)
+            raw_gained_score = d.get("pointsGained", 0.0)
+            
+            # ⚠️ FIX LỖI BSON: Xử lý định dạng số MongoDB ($numberInt, $numberDouble)
+            if isinstance(raw_gained_score, dict):
+                if '$numberInt' in raw_gained_score:
+                    gained_score = float(raw_gained_score['$numberInt'])
+                elif '$numberDouble' in raw_gained_score:
+                    gained_score = float(raw_gained_score['$numberDouble'])
+            elif isinstance(raw_gained_score, (int, float)):
+                 gained_score = float(raw_gained_score)
+            else:
+                gained_score = 0.0
+
             is_correct_for_display = d.get("isCorrect")
-            # KHÔNG LẤY teacherScore cho trắc nghiệm
             teacher_score_from_ans_source = None 
 
             # ✅ CỘNG ĐIỂM TRẮC NGHIỆM
@@ -1334,7 +1342,6 @@ def get_result_detail(result_id):
             "isCorrect": is_correct_for_display, 
             "isEssay": q_type in ["essay", "tự luận"], 
             
-            # Sử dụng giá trị gốc từ DB (có thể là None)
             "teacherScore": ans_data.get("teacherScore"), 
             "teacherNote": ans_data.get("teacherNote")
         })
@@ -1349,18 +1356,19 @@ def get_result_detail(result_id):
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
         "submittedAt": result.get("submittedAt"),
         
-        # ✅ PHIÊN BẢN SỬA LỖI CUỐI CÙNG (Dùng round(score, 2) cho độ chính xác)
+        # ✅ TRƯỜNG ĐIỂM TỰ TÍNH (Đã được sửa lỗi)
         "mcScore": round(mc_score_gained, 2), 
         "essayScore": round(essay_score_gained, 2), 
         
         "answers": answers
     }
 
-    # BỔ SUNG LOG IN RA ĐỂ BẠN KIỂM TRA
-    # Sử dụng log_detail để tránh làm quá tải log với mảng answers lớn
+    # Log summary để kiểm tra
     log_detail = {k: v for k, v in detail.items() if k != 'answers'}
     log_detail['answers_count'] = len(detail['answers'])
     
+    # Dùng json.dumps() cần đảm bảo đã import 'json' ở đầu file
+    # import json
     print(f"✅ [DEBUG] JSON Response Summary:\n{json.dumps(log_detail, indent=2)}\n")
     
     return jsonify(detail)
