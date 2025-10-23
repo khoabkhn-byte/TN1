@@ -1213,6 +1213,7 @@ def get_result_detail(result_id):
     class_name = user.get("className", "N/A") if user else "N/A"
     test_name = test.get("name") if test else "Bài thi đã xóa"
 
+
     # Lấy danh sách ID câu hỏi từ đề thi (để đảm bảo thứ tự)
     q_ids = []
     if test:
@@ -1234,11 +1235,11 @@ def get_result_detail(result_id):
                     if opt.get("correct") is True:
                         correct_ans_from_options = opt.get("text")
                         break
-            
+                
             question_map[q["id"]] = {
                 "id": q["id"],
                 "q": q.get("q"),
-                "type": q.get("type"), # Lấy type gốc
+                "type": q.get("type"),
                 "points": q.get("points", 0),
                 "imageId": q.get("imageId"),
                 "options": q.get("options", []),
@@ -1246,18 +1247,25 @@ def get_result_detail(result_id):
             }
 
     # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
-    # ❌ FIX LỖI MẤT CÂU TRẢ LỜI: Ưu tiên lấy từ "answers", sau đó mới đến "studentAnswers"
+    # ❌ LƯU Ý: LẤY CÂU TRẢ LỜI TỪ TRƯỜNG 'answers' TRƯỚC, RỒI MỚI ĐẾN 'studentAnswers'
+    # Lấy câu trả lời sau khi chấm bài (nếu có)
     student_answers = result.get("answers") or result.get("studentAnswers", [])
     detailed_results = result.get("detailedResults", [])
 
     # Chuyển detailedResults thành map để dễ tìm
-    detail_map = {d["questionId"]: d for d in detailed_results if "questionId" in d} 
-    answer_map = {ans["questionId"]: ans for ans in student_answers if "questionId" in ans}
+    detail_map = {d["questionId"]: d for d in detailed_results if "questionId" in d} # Thêm check để tránh lỗi key
+
+    # Chuyển studentAnswers thành map để dễ tìm
+    # Cần đảm bảo rằng dù là 'answers' hay 'studentAnswers', key câu trả lời vẫn là 'answer'
+    answer_map = {}
+    for ans in student_answers:
+        if ans.get("questionId"):
+             # Ưu tiên 'answer', sau đó là 'studentAnswer'
+            answer_map[ans["questionId"]] = {"answer": ans.get("answer") or ans.get("studentAnswer")}
 
     # Ghép dữ liệu và chuẩn bị cấu trúc trả về
     answers = []
-    
-    # Bổ sung: Tính điểm Trắc nghiệm và Tự luận (để trả về Frontend)
+    # KHỞI TẠO BIẾN TÍNH TỔNG ĐIỂM
     mc_score_gained = 0.0
     essay_score_gained = 0.0
     
@@ -1269,45 +1277,38 @@ def get_result_detail(result_id):
         
         # Lấy điểm tối đa
         max_score = q.get("points", 0) 
-        
-        # 💡 LOGIC CHUẨN HÓA Q_TYPE
-        q_type = q.get("type", "").lower()
+        # CẦN ĐẢM BẢO Q_TYPE ĐÃ CÓ VÀ ĐÚNG
+        q_type = q.get("type", "").lower() 
         if not q_type:
-            if q.get("options") and len(q["options"]) > 0:
-                q_type = "mc" 
-            else:
-                q_type = "essay"
-        q["type"] = q_type 
-        
-        # --- LOGIC XÁC ĐỊNH ĐIỂM ĐẠT ĐƯỢC VÀ PHÂN LOẠI (gained_score) ---
+            q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
+            
+        # --- LOGIC CHUẨN HÓA KẾT QUẢ VÀ TÍNH TỔNG ĐIỂM ---
         teacher_score_from_detail = d.get("teacherScore") 
-        gained_score = 0.0 # KHỞI TẠO LẠI BẰNG 0.0
-        is_correct_for_display = None 
+        gained_score = 0.0
+        is_correct_for_display = None # Mặc định là 'Đang đợi chấm'
 
         if q_type in ["essay", "tự luận"]:
+            is_graded_manually = teacher_score_from_detail is not None
             
-            # ❌ FIX LỖI TÍNH ĐIỂM TỰ LUẬN BỊ NHẦM
-            is_graded = teacher_score_from_detail is not None and teacher_score_from_detail != ''
-            
-            if is_graded:
-                # Nếu đã chấm tay, dùng điểm chấm tay
+            if is_graded_manually:
+                # Đã chấm thủ công (0.0 hoặc > 0)
                 gained_score = float(teacher_score_from_detail)
+                is_correct_for_display = gained_score > 0
             else:
-                # Nếu chưa chấm tay, điểm tự luận là 0 (để ngăn pointsGained bị cộng nhầm)
+                # Chưa chấm thủ công: Bắt buộc điểm = 0 (tránh cộng nhầm)
                 gained_score = 0.0 
-            
-            is_correct_for_display = gained_score > 0
-            
-            # ✅ CỘNG ĐIỂM VÀO TỔNG TỰ LUẬN
+                is_correct_for_display = None # BẮT BUỘC LÀ None
+                
+            # ✅ CỘNG ĐIỂM TỰ LUẬN
             essay_score_gained += gained_score
             
         else: # Câu trắc nghiệm (mc)
-            # Lấy điểm tự động cho MC (pointsGained)
+            # Trắc nghiệm luôn dùng điểm tự động (pointsGained)
             gained_score = d.get("pointsGained", 0.0)
             is_correct_for_display = d.get("isCorrect")
-            teacher_score_from_detail = None # Reset teacherScore cho MC
-            
-            # ✅ CỘNG ĐIỂM VÀO TỔNG TRẮC NGHIỆM
+            teacher_score_from_detail = None # Không cần teacherScore cho trắc nghiệm
+
+            # ✅ CỘNG ĐIỂM TRẮC NGHIỆM
             mc_score_gained += gained_score
             
         # ===============================================
@@ -1315,7 +1316,7 @@ def get_result_detail(result_id):
         answers.append({
             "questionId": qid,
             "question": q, 
-            "userAnswer": ans.get("answer"), # FIX 2B: Lấy câu trả lời từ map đã sửa
+            "userAnswer": ans.get("answer"), # Lấy từ map đã chuẩn hóa
             "maxScore": max_score, 
             "gainedScore": gained_score, 
             "correctAnswer": q.get("correctAnswer"), 
@@ -1330,14 +1331,14 @@ def get_result_detail(result_id):
     # Cấu trúc JSON cuối cùng trả về Frontend
     detail = {
         "id": result["id"],
-        "studentName": result.get("studentName") or student_name, 
+        "studentName": result.get("studentName") or student_name,
         "className": result.get("className") or class_name, 
         "testName": test_name,
-        "totalScore": result.get("totalScore", 0), # Lấy tổng điểm chính xác từ DB
+        "totalScore": result.get("totalScore", 0),
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
         "submittedAt": result.get("submittedAt"),
         
-        # ✅ BỔ SUNG ĐIỂM ĐÃ TÍNH ĐÚNG PHÂN LOẠI
+        # ✅ BỔ SUNG ĐIỂM TRẮC NGHIỆM/TỰ LUẬN ĐÃ TÍNH TOÁN
         "mcScore": round(mc_score_gained, 2),
         "essayScore": round(essay_score_gained, 2),
         
