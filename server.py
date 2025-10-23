@@ -1247,25 +1247,20 @@ def get_result_detail(result_id):
             }
 
     # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
-    # ❌ LƯU Ý: LẤY CÂU TRẢ LỜI TỪ TRƯỜNG 'answers' TRƯỚC, RỒI MỚI ĐẾN 'studentAnswers'
-    # Lấy câu trả lời sau khi chấm bài (nếu có)
+    # 💡 Lấy từ 'answers' (sau chấm) nếu có, nếu không lấy từ 'studentAnswers' (gốc)
     student_answers = result.get("answers") or result.get("studentAnswers", [])
     detailed_results = result.get("detailedResults", [])
 
     # Chuyển detailedResults thành map để dễ tìm
-    detail_map = {d["questionId"]: d for d in detailed_results if "questionId" in d} # Thêm check để tránh lỗi key
+    detail_map = {d["questionId"]: d for d in detailed_results if "questionId" in d}
 
     # Chuyển studentAnswers thành map để dễ tìm
-    # Cần đảm bảo rằng dù là 'answers' hay 'studentAnswers', key câu trả lời vẫn là 'answer'
-    answer_map = {}
-    for ans in student_answers:
-        if ans.get("questionId"):
-             # Ưu tiên 'answer', sau đó là 'studentAnswer'
-            answer_map[ans["questionId"]] = {"answer": ans.get("answer") or ans.get("studentAnswer")}
+    answer_map = {ans["questionId"]: ans for ans in student_answers if "questionId" in ans}
 
     # Ghép dữ liệu và chuẩn bị cấu trúc trả về
     answers = []
-    # KHỞI TẠO BIẾN TÍNH TỔNG ĐIỂM
+    
+    # ✅ KHỞI TẠO BIẾN TÍNH TỔNG ĐIỂM PHÂN LOẠI
     mc_score_gained = 0.0
     essay_score_gained = 0.0
     
@@ -1275,29 +1270,29 @@ def get_result_detail(result_id):
         d = detail_map.get(qid, {}) # detailedResults cho câu hỏi này
         ans = answer_map.get(qid, {}) # studentAnswer cho câu hỏi này
         
-        # Lấy điểm tối đa
         max_score = q.get("points", 0) 
-        # CẦN ĐẢM BẢO Q_TYPE ĐÃ CÓ VÀ ĐÚNG
-        q_type = q.get("type", "").lower() 
-        if not q_type:
-            q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
-            
-        # --- LOGIC CHUẨN HÓA KẾT QUẢ VÀ TÍNH TỔNG ĐIỂM ---
-        teacher_score_from_detail = d.get("teacherScore") 
+        q_type = q.get("type", "").lower()
+        
+        # --- LOGIC XÁC ĐỊNH ĐIỂM ĐẠT ĐƯỢC VÀ PHÂN LOẠI ---
+        teacher_score_from_detail = ans.get("teacherScore") # Lấy teacherScore từ field `answers`
+        
         gained_score = 0.0
-        is_correct_for_display = None # Mặc định là 'Đang đợi chấm'
+        is_correct_for_display = None
 
         if q_type in ["essay", "tự luận"]:
-            is_graded_manually = teacher_score_from_detail is not None
+            is_graded_manually = teacher_score_from_detail is not None and teacher_score_from_detail != ''
             
             if is_graded_manually:
-                # Đã chấm thủ công (0.0 hoặc > 0)
-                gained_score = float(teacher_score_from_detail)
+                # Đã chấm thủ công (dùng điểm giáo viên)
+                try:
+                    gained_score = float(teacher_score_from_detail)
+                except ValueError:
+                    gained_score = 0.0 # Bắt lỗi nếu giáo viên nhập ký tự
                 is_correct_for_display = gained_score > 0
             else:
-                # Chưa chấm thủ công: Bắt buộc điểm = 0 (tránh cộng nhầm)
+                # Chưa chấm thủ công, điểm = 0
                 gained_score = 0.0 
-                is_correct_for_display = None # BẮT BUỘC LÀ None
+                is_correct_for_display = None
                 
             # ✅ CỘNG ĐIỂM TỰ LUẬN
             essay_score_gained += gained_score
@@ -1316,14 +1311,17 @@ def get_result_detail(result_id):
         answers.append({
             "questionId": qid,
             "question": q, 
-            "userAnswer": ans.get("answer"), # Lấy từ map đã chuẩn hóa
+            "userAnswer": ans.get("answer"),
+            
             "maxScore": max_score, 
             "gainedScore": gained_score, 
             "correctAnswer": q.get("correctAnswer"), 
             "isCorrect": is_correct_for_display, 
             "isEssay": q_type in ["essay", "tự luận"], 
+            
+            # GIÁ TRỊ GỐC: teacherScore từ answers[]
             "teacherScore": teacher_score_from_detail, 
-            "teacherNote": d.get("teacherNote") 
+            "teacherNote": ans.get("teacherNote") # Lấy teacherNote từ field `answers`
         })
 
     print("🧩 Ghép được", len(answers), "câu trả lời")
@@ -1338,7 +1336,7 @@ def get_result_detail(result_id):
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
         "submittedAt": result.get("submittedAt"),
         
-        # ✅ BỔ SUNG ĐIỂM TRẮC NGHIỆM/TỰ LUẬN ĐÃ TÍNH TOÁN
+        # ✅ BỔ SUNG ĐIỂM ĐÃ PHÂN LOẠI
         "mcScore": round(mc_score_gained, 2),
         "essayScore": round(essay_score_gained, 2),
         
