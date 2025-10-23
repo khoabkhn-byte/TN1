@@ -1009,13 +1009,14 @@ def create_result():
 from flask import abort
 #from datetime import datetime, timedelta
 
+# FIX: Cập nhật hàm grade_result
 @app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
     """
     Giáo viên chấm điểm bài làm học sinh.
-    - Giới hạn tối đa 2 lần chấm
-    - Không làm mất dữ liệu câu trả lời của học sinh
-    - Đồng bộ giờ Việt Nam (UTC+7)
+    - Cập nhật điểm và ghi chú vào detailedResults gốc.
+    - Tính toán lại totalScore.
+    - Giới hạn tối đa 2 lần chấm.
     """
     data = request.json
     essays = data.get("essays", [])
@@ -1030,58 +1031,73 @@ def grade_result(result_id):
     if current_regrade >= 2:
         return jsonify({"error": "Bài đã chấm tối đa 2 lần"}), 403
 
-    # --- Lấy answers gốc ---
-    answers = result.get("answers") or result.get("studentAnswers") or []
+    # --- 1. Lấy detailedResults gốc và chuyển thành map để dễ cập nhật ---
+    # Đây là nguồn dữ liệu duy nhất chứa tất cả điểm (MC tự động và Essay chờ chấm)
+    detailed_results_list = result.get("detailedResults", [])
+    detailed_map = {d["questionId"]: d for d in detailed_results_list if "questionId" in d}
     
-    # --- Tạo map để dễ cập nhật ---
-    ans_map = {a.get("questionId") or a.get("id"): a for a in answers}
-
-    # --- Cập nhật teacherScore / teacherNote ---
+    # --- 2. Duyệt qua essays gửi lên và cập nhật vào detailed_map ---
     for essay in essays:
         qid = essay.get("questionId")
-        if not qid:
+        if not qid or qid not in detailed_map:
             continue
-        teacher_score = float(essay.get("teacherScore") or 0)
+        
+        # Đảm bảo điểm là float
+        try:
+            teacher_score = float(essay.get("teacherScore") or 0.0)
+        except ValueError:
+            teacher_score = 0.0
+            
         teacher_note = essay.get("teacherNote") or ""
 
-        if qid in ans_map:
-            ans_map[qid]["teacherScore"] = teacher_score
-            ans_map[qid]["teacherNote"] = teacher_note
-        else:
-            # Chỉ thêm mới nếu là câu tự luận chưa có
-            ans_map[qid] = {
-                "questionId": qid,
-                "answer": "",
-                "teacherScore": teacher_score,
-                "teacherNote": teacher_note
-            }
-
-    # --- Tính giờ VN ---
+        # CẬP NHẬT TRỰC TIẾP VÀO detailed_map
+        detail = detailed_map[qid]
+        
+        # Cập nhật các trường chấm tay
+        detail["teacherScore"] = teacher_score
+        detail["teacherNote"] = teacher_note
+        
+        # ✅ QUAN TRỌNG: Cập nhật pointsGained là điểm cuối cùng (cho Essay)
+        detail["pointsGained"] = teacher_score 
+        
+        # ✅ Cập nhật trạng thái
+        detail["isCorrect"] = teacher_score > 0
+        
+    # --- 3. Tính toán lại totalScore MỚI ---
+    new_total_score = 0.0
+    for detail in detailed_map.values():
+        # Lấy điểm đã cập nhật (cho Essay) hoặc điểm tự động (cho MC)
+        new_total_score += detail.get("pointsGained", 0.0)
+        
+    # --- 4. Chuẩn bị thông tin cập nhật và LƯU vào DB ---
     graded_at = now_vn_iso()
-
-    # --- Update DB ---
     new_regrade = current_regrade + 1
     new_status = "Đã Chấm" if new_regrade == 1 else "Đã Chấm Lại"
+    
+    update_data = {
+        # ✅ LƯU LẠI TOÀN BỘ MẢNG detailedResults ĐÃ CẬP NHẬT
+        "detailedResults": list(detailed_map.values()), 
+        # ✅ CẬP NHẬT TỔNG ĐIỂM
+        "totalScore": new_total_score,
+        # ✅ CẬP NHẬT TRẠNG THÁI
+        "gradingStatus": new_status,
+        "gradedAt": graded_at,
+    }
 
     db.results.update_one(
         {"id": result_id},
         {
-            "$set": {
-                "answers": list(ans_map.values()),
-                "gradedAt": graded_at,
-                "gradingStatus": new_status,
-                "regradeCount": new_regrade
-            }
+            "$set": update_data,
+            "$inc": {"regradeCount": 1} # Tăng biến đếm
+            # Lưu ý: Xóa bỏ "$set": {"answers": list(ans_map.values())} cũ
         }
     )
 
     return jsonify({
         "success": True,
-        "message": f"{new_status} thành công",
+        "message": f"{new_status} thành công (Điểm mới: {new_total_score:.2f})",
         "regradeCount": new_regrade
     })
-
-
 
 
 @app.route("/results/<result_id>", methods=["GET"])
