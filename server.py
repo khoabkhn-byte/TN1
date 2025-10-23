@@ -1245,7 +1245,8 @@ def get_result_detail(result_id):
             }
 
     # Dữ liệu học sinh trả lời (studentAnswers) và kết quả chấm (detailedResults)
-    student_answers = result.get("answers") or result.get("studentAnswers", [])
+    # LƯU Ý: Lấy từ trường 'answers' nếu có, nếu không lấy từ 'studentAnswers'
+    student_answers_source = result.get("answers") or result.get("studentAnswers", [])
     detailed_results = result.get("detailedResults", [])
 
     # Chuyển detailedResults thành map để dễ tìm (cho điểm trắc nghiệm)
@@ -1253,8 +1254,9 @@ def get_result_detail(result_id):
 
     # Chuyển studentAnswers thành map để dễ tìm (cho câu trả lời, điểm chấm tay)
     answer_map = {}
-    for ans in student_answers:
+    for ans in student_answers_source:
         if ans.get("questionId"):
+            # Lấy teacherScore/Note từ studentAnswers_source (nếu đã chấm thủ công, nó nằm ở đây)
             answer_map[ans["questionId"]] = {
                 "answer": ans.get("answer") or ans.get("studentAnswer"),
                 "teacherScore": ans.get("teacherScore"), 
@@ -1276,7 +1278,7 @@ def get_result_detail(result_id):
         q_type = (q.get("type") or "").lower()
         if not q_type:
              q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
-        
+            
         # --- LOGIC XÁC ĐỊNH ĐIỂM ĐẠT ĐƯỢC VÀ PHÂN LOẠI ---
         teacher_score_from_detail = ans_data.get("teacherScore")
         gained_score = 0.0
@@ -1288,13 +1290,14 @@ def get_result_detail(result_id):
             if is_graded_manually:
                 try:
                     gained_score = float(teacher_score_from_detail)
-                except ValueError:
+                except (ValueError, TypeError):
                     gained_score = 0.0
+                # isCorrect sẽ là True/False dựa trên điểm > 0
                 is_correct_for_display = gained_score > 0
             else:
                 # Nếu chưa chấm tay, điểm tự luận phải là 0
                 gained_score = 0.0 
-                is_correct_for_display = None
+                is_correct_for_display = None # None để Frontend hiển thị "Đợi Chấm"
                 
             # ✅ CỘNG ĐIỂM TỰ LUẬN
             essay_score_gained += gained_score
@@ -1303,7 +1306,8 @@ def get_result_detail(result_id):
             # Trắc nghiệm dùng điểm tự động (từ detailedResults)
             gained_score = d.get("pointsGained", 0.0)
             is_correct_for_display = d.get("isCorrect")
-            teacher_score_from_detail = None
+            # KHÔNG LẤY teacherScore cho trắc nghiệm
+            teacher_score_from_detail = None 
 
             # ✅ CỘNG ĐIỂM TRẮC NGHIỆM
             mc_score_gained += gained_score
@@ -1321,6 +1325,7 @@ def get_result_detail(result_id):
             "isCorrect": is_correct_for_display, 
             "isEssay": q_type in ["essay", "tự luận"], 
             
+            # Sử dụng giá trị gốc từ DB (có thể là None)
             "teacherScore": ans_data.get("teacherScore"), 
             "teacherNote": ans_data.get("teacherNote")
         })
@@ -1331,11 +1336,11 @@ def get_result_detail(result_id):
         "studentName": result.get("studentName") or student_name,
         "className": result.get("className") or class_name, 
         "testName": test_name,
-        "totalScore": result.get("totalScore", 0),
+        "totalScore": result.get("totalScore", 0), # totalScore gốc của bài thi
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
         "submittedAt": result.get("submittedAt"),
         
-        # ✅ TRƯỜNG ĐIỂM ĐÃ SỬA LỖI
+        # ✅ TRƯỜNG ĐIỂM ĐÃ SỬA LỖI - ĐÂY LÀ PHẦN THIẾU
         "mcScore": round(mc_score_gained, 2),
         "essayScore": round(essay_score_gained, 2),
         
@@ -1343,7 +1348,6 @@ def get_result_detail(result_id):
     }
 
     # ✅ BỔ SUNG LOG IN RA ĐỂ BẠN KIỂM TRA
-    # In ra detail, nhưng chỉ in các trường tổng hợp (vì answers quá lớn)
     log_detail = {k: v for k, v in detail.items() if k != 'answers'}
     log_detail['answers_count'] = len(detail['answers'])
     
