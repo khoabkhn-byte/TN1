@@ -901,7 +901,6 @@ def create_result():
     student_answers = data.get("studentAnswers", [])
     test_id = data.get("testId")
 
-    # ... (Code lấy questions và question_map không đổi) ...
     q_ids = [a.get("questionId") for a in student_answers if "questionId" in a]
     questions = list(db.questions.find(
         {"id": {"$in": q_ids}},
@@ -909,32 +908,36 @@ def create_result():
     ))
 
     question_map = {q["id"]: q for q in questions}
-    total_score = 0
-    detailed = []
     
-    # 🌟 KHỞI TẠO ĐIỂM PHÂN LOẠI 🌟
+    # Lấy thông tin studentName và className (BƯỚC CẦN THÊM)
+    student_id = data.get("studentId")
+    student_info = db.users.find_one({"id": student_id}, {"fullName": 1, "className": 1, "_id": 0})
+    student_name = student_info.get("fullName", "Ẩn danh") if student_info else "Ẩn danh"
+    class_name = student_info.get("className", "N/A") if student_info else "N/A"
+    
+    # 🌟 KHỞI TẠO ĐIỂM BAN ĐẦU
     mc_score_gained = 0.0
-    essay_score_gained = 0.0
+    essay_score_gained = 0.0 # Luôn là 0 ban đầu
+    total_score = 0.0
+    has_essay = False
+    
+    detailed = []
 
     for ans in student_answers:
         qid = ans.get("questionId")
         q = question_map.get(qid)
         
         if not q:
-            # ... (Logic câu hỏi không tìm thấy không đổi) ...
+            # ... (Logic câu hỏi không tìm thấy) ...
             detailed.append({
-                "questionId": qid,
-                "type": ans.get("type", "mc"),
-                "studentAnswer": ans.get("answer"),
-                "isCorrect": False,
-                "pointsGained": 0,
-                "maxPoints": 0,
-                "correctAnswer": None,
+                "questionId": qid, "type": ans.get("type", "mc"),
+                "studentAnswer": ans.get("answer"), "isCorrect": False,
+                "pointsGained": 0, "maxPoints": 0, "correctAnswer": None,
                 "note": "question-not-found"
             })
             continue
 
-        q_type = q.get("type")
+        q_type = (q.get("type") or "mc").lower() # Chuẩn hóa type
         student_ans = ans.get("answer")
         max_points = int(q.get("points", 1))
 
@@ -948,20 +951,16 @@ def create_result():
 
         student_ans_text = student_ans
         if q_type == "mc" and q.get("options"):
-            try:
-                # số nguyên (index)
-                if isinstance(student_ans, int):
-                    idx = student_ans
+             try:
+                # Logic chuyển index sang text
+                if isinstance(student_ans, int) and 0 <= student_ans < len(q["options"]):
+                    student_ans_text = q["options"][student_ans].get("text")
+                elif isinstance(student_ans, str) and student_ans.isdigit():
+                    idx = int(student_ans)
                     if 0 <= idx < len(q["options"]):
                         student_ans_text = q["options"][idx].get("text")
-                else:
-                    # có thể là chuỗi số "2"
-                    if isinstance(student_ans, str) and student_ans.isdigit():
-                        idx = int(student_ans)
-                        if 0 <= idx < len(q["options"]):
-                            student_ans_text = q["options"][idx].get("text")
-            except Exception:
-                pass
+             except Exception:
+                 pass
 
 
         # Bắt đầu Logic chấm điểm/lưu trữ MỚI
@@ -969,44 +968,49 @@ def create_result():
         points = 0
         
         if q_type == "mc":
-            # Chấm điểm cho trắc nghiệm
             is_correct = (str(student_ans_text).strip() == str(correct_ans).strip()) if correct_ans is not None else False
             points = max_points if is_correct else 0
-            
-            # ✅ CỘNG ĐIỂM TRẮC NGHIỆM TẠI ĐÂY
-            mc_score_gained += points 
+            mc_score_gained += points # ✅ CỘNG ĐIỂM TRẮC NGHIỆM
         else:
-            # ✅ CỘNG ĐIỂM TỰ LUẬN TẠI ĐÂY (BAN ĐẦU LÀ 0)
-            essay_score_gained += 0 
-            
-        total_score += points # total_score chỉ là tổng điểm trắc nghiệm ban đầu
+            has_essay = True
+            # essay_score_gained += 0 # Điểm 0 ban đầu, không cần cộng thêm
+
+        total_score += points # Tổng điểm ban đầu = điểm trắc nghiệm
 
         detailed_entry = {
             "questionId": qid,
             "type": q_type,
             "studentAnswer": student_ans_text,
-            "pointsGained": points, # 0 cho essay (chờ chấm tay) hoặc điểm cho MC
+            "pointsGained": points, 
             "maxPoints": max_points,
-            "correctAnswer": correct_ans
+            "correctAnswer": correct_ans,
+            "isEssay": has_essay and q_type in ["essay", "tự luận"] # Đánh dấu là tự luận
         }
         
         if q_type == "mc":
               detailed_entry["isCorrect"] = is_correct
 
         detailed.append(detailed_entry)
+        
+    # 🌟 XÁC ĐỊNH TRẠNG THÁI BAN ĐẦU 🌟
+    # Nếu có tự luận -> Bắt buộc phải chấm tay -> "Đang Chấm"
+    # Nếu không có tự luận -> Tự động hoàn tất -> "Tự động hoàn tất"
+    grading_status = "Đang Chấm" if has_essay else "Tự động hoàn tất"
 
     new_result = {
         "id": str(uuid4()),
-        "studentId": data.get("studentId"),
+        "studentId": student_id,
+        "studentName": student_name, # ✅ LƯU THÔNG TIN HỌC SINH/LỚP
+        "className": class_name,     # ✅ LƯU THÔNG TIN HỌC SINH/LỚP
         "testId": test_id,
         "assignmentId": data.get("assignmentId"),
         "studentAnswers": student_answers,
         "detailedResults": detailed,
-        "totalScore": total_score,
         
-        # 🎯 LƯU HAI TRƯỜNG ĐIỂM MỚI VÀO DB LẦN 1
+        "totalScore": round(total_score, 2),
         "mcScore": round(mc_score_gained, 2),
         "essayScore": round(essay_score_gained, 2),
+        "gradingStatus": grading_status, # ✅ LƯU TRẠNG THÁI BAN ĐẦU
         
         "submittedAt": now_vn_iso()
     }
@@ -1161,10 +1165,9 @@ def get_results_summary():
                 "as": "student_info"
             }
         },
-        # Giai đoạn 2: Giả định chỉ có 1 học sinh khớp
         {"$unwind": {"path": "$student_info", "preserveNullAndEmptyArrays": True}},
         
-        # Giai đoạn 3: Join với collection 'tests'
+        # Giai đoạn 2: Join với collection 'tests'
         {
             "$lookup": {
                 "from": "tests",
@@ -1173,46 +1176,50 @@ def get_results_summary():
                 "as": "test_info"
             }
         },
-        # Giai đoạn 4: Giả định chỉ có 1 bài thi khớp
         {"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}},
 
-        # Giai đoạn 5: Project (chọn và định hình) các trường cần thiết
+        # Giai đoạn 3: Project (chọn và định hình) các trường cần thiết
         {
             "$project": {
                 "_id": 0, 
                 "id": "$id",
                 "studentId": "$studentId",
                 "testId": "$testId",
-                "totalScore": "$totalScore",
                 
-                # ✅ THÊM TRƯỜNG MỚI ĐÃ LƯU TỪ DB
+                # ✅ TRƯỜNG MỚI: ĐIỂM VÀ TRẠNG THÁI
+                "totalScore": {"$ifNull": ["$totalScore", 0.0]},
                 "mcScore": {"$ifNull": ["$mcScore", 0.0]},
                 "essayScore": {"$ifNull": ["$essayScore", 0.0]},
+                "gradingStatus": {"$ifNull": ["$gradingStatus", "Đang Chấm"]},
+                "gradedAt": {"$ifNull": ["$gradedAt", None]}, # ✅ THÊM TRƯỜNG NGÀY CHẤM VÀO RESPONSE
                 
-                "detailedResults": "$detailedResults", 
                 "submittedAt": "$submittedAt",
                 
                 # Thông tin đã Join
+                # Ưu tiên lấy từ trường đã lưu trong result (nếu đã được lưu bởi create_result mới)
                 "testName": {"$ifNull": ["$test_info.name", "Đã Xóa"]},
-                "studentName": {"$ifNull": ["$student_info.fullName", "Ẩn danh"]},
-                "className": {"$ifNull": ["$student_info.className", "N/A"]},
+                "studentName": {"$ifNull": ["$studentName", "$student_info.fullName", "Ẩn danh"]},
+                "className": {"$ifNull": ["$className", "$student_info.className", "N/A"]},
             }
         }
     ]
     
     docs = list(db.results.aggregate(pipeline))
     
-    # 2. Xử lý logic nghiệp vụ (Tính trạng thái chấm)
+    # 2. Xử lý logic nghiệp vụ (Làm tròn điểm)
     for doc in docs:
-        detailed = doc.pop("detailedResults", []) # Bỏ detailedResults khỏi response cuối cùng để giảm tải
+        # Xóa detailedResults vì đã không còn trong Project, chỉ để đảm bảo nếu có
+        doc.pop("detailedResults", None) 
         
-        # Nếu không có gradingStatus, tính toán lại
-        doc["gradingStatus"] = doc.get("gradingStatus") or _calculate_grading_status(detailed)
-        
+        # Nếu chưa có gradingStatus trong DB, tính toán lại (Sử dụng hàm calculate_grading_status)
+        if "gradingStatus" not in doc:
+             # Cần phải fetch lại detailedResults nếu trường này không có trong DB
+             result_full = db.results.find_one({"id": doc["id"]}, {"detailedResults": 1, "_id": 0})
+             detailed = result_full.get("detailedResults", []) if result_full else []
+             doc["gradingStatus"] = _calculate_grading_status(detailed)
+
         # Chuyển đổi và làm tròn điểm
         doc["totalScore"] = round(doc.get("totalScore", 0.0), 2)
-        
-        # ✅ Làm tròn điểm mới lấy từ DB
         doc["mcScore"] = round(doc.get("mcScore", 0.0), 2)
         doc["essayScore"] = round(doc.get("essayScore", 0.0), 2)
         
