@@ -1213,7 +1213,7 @@ def get_result_detail(result_id):
     class_name = user.get("className", "N/A") if user else "N/A"
     test_name = test.get("name") if test else "Bài thi đã xóa"
 
-    # Lấy danh sách ID câu hỏi từ đề thi
+    # Lấy danh sách ID câu hỏi từ đề thi (để đảm bảo thứ tự)
     q_ids = []
     if test:
         for q in test.get("questions", []):
@@ -1248,10 +1248,10 @@ def get_result_detail(result_id):
     student_answers = result.get("answers") or result.get("studentAnswers", [])
     detailed_results = result.get("detailedResults", [])
 
-    # Chuyển detailedResults thành map để dễ tìm
+    # Chuyển detailedResults thành map để dễ tìm (cho điểm trắc nghiệm)
     detail_map = {d["questionId"]: d for d in detailed_results if "questionId" in d}
 
-    # Chuyển studentAnswers thành map để dễ tìm (lấy cả câu trả lời và điểm chấm tay/ghi chú)
+    # Chuyển studentAnswers thành map để dễ tìm (cho câu trả lời, điểm chấm tay)
     answer_map = {}
     for ans in student_answers:
         if ans.get("questionId"):
@@ -1263,20 +1263,19 @@ def get_result_detail(result_id):
 
     answers = []
     
-    # ✅ KHỞI TẠO BIẾN TÍNH TỔNG ĐIỂM PHÂN LOẠI
+    # ✅ KHỞI TẠO VÀ TÍNH TỔNG ĐIỂM PHÂN LOẠI
     mc_score_gained = 0.0
     essay_score_gained = 0.0
     
-    # Duyệt qua danh sách ID câu hỏi để đảm bảo thứ tự
     for qid in q_ids: 
         q = question_map.get(qid, {})
         d = detail_map.get(qid, {})
         ans_data = answer_map.get(qid, {})
 
         max_score = q.get("points", 0) 
-        q_type = q.get("type", "").lower()
+        q_type = (q.get("type") or "").lower()
         if not q_type:
-            q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
+             q_type = "mc" if q.get("options") and len(q["options"]) > 0 else "essay"
         
         # --- LOGIC XÁC ĐỊNH ĐIỂM ĐẠT ĐƯỢC VÀ PHÂN LOẠI ---
         teacher_score_from_detail = ans_data.get("teacherScore")
@@ -1301,7 +1300,7 @@ def get_result_detail(result_id):
             essay_score_gained += gained_score
             
         else: # Câu trắc nghiệm (mc)
-            # Trắc nghiệm dùng điểm tự động
+            # Trắc nghiệm dùng điểm tự động (từ detailedResults)
             gained_score = d.get("pointsGained", 0.0)
             is_correct_for_display = d.get("isCorrect")
             teacher_score_from_detail = None
@@ -1326,8 +1325,6 @@ def get_result_detail(result_id):
             "teacherNote": ans_data.get("teacherNote")
         })
 
-    print("🧩 Ghép được", len(answers), "câu trả lời")
-
     # Cấu trúc JSON cuối cùng trả về Frontend
     detail = {
         "id": result["id"],
@@ -1338,15 +1335,22 @@ def get_result_detail(result_id):
         "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
         "submittedAt": result.get("submittedAt"),
         
-        # ✅ TRẢ VỀ ĐIỂM ĐÃ PHÂN LOẠI (Lỗi của bạn nằm ở đây)
+        # ✅ TRƯỜNG ĐIỂM ĐÃ SỬA LỖI
         "mcScore": round(mc_score_gained, 2),
         "essayScore": round(essay_score_gained, 2),
         
         "answers": answers
     }
 
-    print("✅ [DEBUG] Trả về dữ liệu chi tiết bài làm.\n")
+    # ✅ BỔ SUNG LOG IN RA ĐỂ BẠN KIỂM TRA
+    # In ra detail, nhưng chỉ in các trường tổng hợp (vì answers quá lớn)
+    log_detail = {k: v for k, v in detail.items() if k != 'answers'}
+    log_detail['answers_count'] = len(detail['answers'])
+    
+    print(f"✅ [DEBUG] JSON Response Summary:\n{json.dumps(log_detail, indent=2)}\n")
+    
     return jsonify(detail)
+    
 # API mới để thống kê bài giao (Yêu cầu 3)
 @app.route("/api/assignment_stats", methods=["GET"])
 def get_assignment_stats():
