@@ -1381,6 +1381,48 @@ def get_result_detail(result_id):
     print(f"✅ [DEBUG] JSON Response Summary:\n{json.dumps(log_detail, indent=2)}\n")
     
     return jsonify(detail)
+
+# API mới để lấy danh sách bài được giao cho học sinh
+@app.route("/api/student/assignments", methods=["GET"])
+def get_student_assignments():
+    # Giả định: Lấy tất cả các bài kiểm tra từ DB, sắp xếp theo ngày tạo mới nhất.
+    # Trong ứng dụng thực tế, cần lọc theo UserID, nhưng ở đây ta mô phỏng việc lấy danh sách.
+    
+    # Lọc và sắp xếp theo ngày tạo mới nhất
+    all_tests = db.tests.find().sort("createdAt", -1)
+    assignments_list = []
+    
+    for test in all_tests:
+        # Đếm số câu hỏi TL và TN
+        mc_count = 0
+        essay_count = 0
+        
+        # Giả định cấu trúc questions: type là 'mc' hoặc 'essay'
+        questions = test.get("questions", [])
+        for q in questions:
+            q_type = q.get("type", "mc") # Giả định type mặc định là mc
+            if q_type == "essay":
+                essay_count += 1
+            elif q_type == "mc":
+                mc_count += 1
+                
+        # Lấy ngày giao (sử dụng createdAt)
+        created_date = test.get("createdAt")
+        # Định dạng ngày theo DD/MM/YYYY
+        date_str = created_date.strftime("%d/%m/%Y") if isinstance(created_date, datetime) else "N/A"
+        
+        assignments_list.append({
+            "_id": str(test["_id"]),
+            "subject": test.get("subject", "Chưa xác định"), # Môn
+            "title": test.get("title", "Không có tiêu đề"), # Tên đề
+            "mcCount": mc_count, # Số câu TN
+            "essayCount": essay_count, # Số câu TL
+            "durationMinutes": test.get("durationMinutes", 60), # Thời gian đề
+            "assignedDate": date_str, # Ngày giao
+        })
+        
+    return jsonify(assignments_list)
+
     
 # API mới để thống kê bài giao (Yêu cầu 3)
 @app.route("/api/assignment_stats", methods=["GET"])
