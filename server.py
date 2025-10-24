@@ -788,7 +788,7 @@ def list_assigns():
     
     pipeline = []
     
-    # 1. Lọc theo studentId (Nếu có)
+    # 1. Lọc theo studentId
     if studentId: 
         pipeline.append({"$match": {"studentId": studentId}})
 
@@ -796,16 +796,26 @@ def list_assigns():
     pipeline.append({
         "$lookup": {
             "from": "tests",         # Tên bộ sưu tập đề thi
-            "localField": "testId",  # Trường ID đề thi trong bộ sưu tập 'assigns'
-            "foreignField": "id",    # Trường ID đề thi trong bộ sưu tập 'tests'
-            "as": "testInfo"         # Đặt kết quả vào trường 'testInfo'
+            "localField": "testId",  
+            "foreignField": "id",    
+            "as": "testInfo"         
         }
     })
 
     # 3. Bước Unwind: Biến mảng 'testInfo' thành đối tượng
     pipeline.append({"$unwind": {"path": "$testInfo", "preserveNullAndEmptyArrays": True}})
 
-    # 4. Bước Projection: Định hình lại và chọn các trường cần thiết
+    # 🔥 BƯỚC MỚI (4): JOIN VỚI questions ĐỂ LẤY CHI TIẾT CÂU HỎI
+    pipeline.append({
+        "$lookup": {
+            "from": "questions",
+            "localField": "testInfo.questions", # Mảng IDs câu hỏi từ 'tests'
+            "foreignField": "id",
+            "as": "questionDetails"
+        }
+    })
+
+    # 5. Bước Projection: Định hình lại và chọn các trường cần thiết (Nâng cấp)
     pipeline.append({
         "$project": {
             "_id": 0,
@@ -814,21 +824,55 @@ def list_assigns():
             "studentId": "$studentId",
             "deadline": "$deadline",
             "status": "$status",
-            "timeAssigned": "$timeAssigned",
+            "timeAssigned": "$timeAssigned", # Ngày giao (Giữ nguyên tên cũ)
             
-            # Lấy tên đề thi (Trường 'name' từ 'tests')
+            # Lấy tên đề thi, Môn học, Thời gian (Giữ nguyên tên cũ)
             "testName": "$testInfo.name", 
-            
-            # Lấy môn học (Trường 'subject' từ 'tests')
             "subject": "$testInfo.subject", 
+            "time": "$testInfo.time", # Thời gian làm bài (phút)
             
-            # Lấy thời gian làm bài (Trường 'time' từ 'tests')
-            "time": "$testInfo.time" 
+            # 🔥 TRƯỜNG MỚI: Tính toán số lượng câu hỏi Trắc nghiệm (mc)
+            "mcCount": {
+                "$size": {
+                    "$filter": {
+                        "input": "$questionDetails",
+                        "as": "q",
+                        "cond": {
+                            "$or": [
+                                {"$eq": [{"$toLower": "$$q.type"}, "mc"]},
+                                {"$and": [
+                                    {"$not": "$$q.type"},
+                                    {"$gt": [{"$size": {"$ifNull": ["$$q.options", []]}}, 0]}
+                                ]}
+                            ]
+                        }
+                    }
+                }
+            },
+            
+            # 🔥 TRƯỜNG MỚI: Tính toán số lượng câu hỏi Tự luận (essay)
+            "essayCount": {
+                "$size": {
+                    "$filter": {
+                        "input": "$questionDetails",
+                        "as": "q",
+                        "cond": {
+                            "$or": [
+                                {"$eq": [{"$toLower": "$$q.type"}, "essay"]},
+                                {"$eq": [{"$toLower": "$$q.type"}, "tự luận"]},
+                                {"$and": [
+                                    {"$not": "$$q.type"},
+                                    {"$eq": [{"$size": {"$ifNull": ["$$q.options", []]}}, 0]}
+                                ]}
+                            ]
+                        }
+                    }
+                }
+            },
         }
     })
 
-    # 5. Thực thi Aggregation và trả về kết quả
-    # Sử dụng db.assigns vì đây là bộ sưu tập khởi đầu của pipeline
+    # 6. Thực thi Aggregation và trả về kết quả
     docs = list(db.assigns.aggregate(pipeline)) 
     return jsonify(docs)
 
