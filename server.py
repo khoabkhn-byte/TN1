@@ -849,33 +849,43 @@ def delete_test(test_id):
 def list_assigns():
     """
     Lấy danh sách assignments cho học sinh.
-    FIX: Đảm bảo trường Ngày giao (createdAt) và số câu hỏi (mcCount, essayCount) được lấy chính xác
-    và TỐI ƯU HÓA bằng cách KHÔNG JOIN với collection 'questions'
+    - listType=pending (default): Lấy bài chưa làm (pending, assigned, in_progress).
+    - listType=done: Lấy bài đã làm (submitted, done, graded).
     """
     studentId = request.args.get("studentId")
+    list_type = request.args.get("listType", "pending").lower() # Mặc định lấy bài chưa làm
+    
+    # 1. Định nghĩa trạng thái lọc
+    if list_type == "done":
+        # Tab "Bài đã làm" (Đã nộp, Đã chấm, Hoàn tất)
+        match_statuses = ["submitted", "done", "graded"]
+    else:
+        # Tab "Bài được giao" (Mới giao, Đang làm)
+        match_statuses = ["pending", "assigned", "in_progress"]
     
     pipeline = []
     
-    # 1. Lọc theo studentId và trạng thái (chỉ hiển thị những bài đang chờ, đã giao hoặc đang làm)
+    # 2. Lọc theo studentId và trạng thái
+    match_query = {"status": {"$in": match_statuses}}
     if studentId: 
-        pipeline.append({"$match": {"studentId": studentId, "status": {"$in": ["pending", "assigned", "in_progress"]}}})
+        match_query["studentId"] = studentId
+        
+    pipeline.append({"$match": match_query})
 
-    # 2. Bước Lookup (JOIN): Kết nối assignments với tests
+    # 3. Bước Lookup (JOIN): Kết nối assignments với tests
     pipeline.append({
         "$lookup": {
-            "from": "tests",        # Tên bộ sưu tập đề thi
+            "from": "tests",         # Tên bộ sưu tập đề thi
             "localField": "testId",  
             "foreignField": "id",    
-            "as": "testInfo"        
+            "as": "testInfo"         
         }
     })
 
-    # 3. Bước Unwind: Biến mảng 'testInfo' thành đối tượng
+    # 4. Bước Unwind: Biến mảng 'testInfo' thành đối tượng
     pipeline.append({"$unwind": {"path": "$testInfo", "preserveNullAndEmptyArrays": True}})
     
-    # 🔥 BỎ BƯỚC JOIN VỚI 'questions' (Bước 4 trong code bạn gửi) vì nó không cần thiết và tốn kém
-    
-    # 4. Bước Projection: Định hình lại và chọn các trường cần thiết (Tối ưu và Chính xác)
+    # 5. Bước Projection: Định hình lại và chọn các trường cần thiết
     pipeline.append({
         "$project": {
             "_id": 0,
@@ -886,7 +896,6 @@ def list_assigns():
             "status": "$status",
             
             # 🔥 FIX NGÀY GIAO: Lấy trường 'createdAt' từ assignment gốc và đổi tên thành 'timeAssigned'
-            # Dùng $ifNull để đảm bảo có giá trị nếu trường tên không đồng nhất
             "timeAssigned": {"$ifNull": ["$createdAt", "$timeAssigned"]}, 
             
             # Lấy tên đề thi, Môn học, Thời gian (từ TestInfo)
@@ -895,15 +904,15 @@ def list_assigns():
             "time": "$testInfo.time",
             
             # 🔥 FIX CÂU HỎI: DÙNG TRỰC TIẾP DỮ LIỆU ĐÃ CÓ TRONG testInfo
-            # Dùng $ifNull để đảm bảo kết quả là 0 nếu testInfo bị lỗi
             "mcCount": {"$ifNull": ["$testInfo.mcCount", 0]},
             "essayCount": {"$ifNull": ["$testInfo.essayCount", 0]},
         }
     })
-
-    # 5. Thực thi Aggregation và trả về kết quả
+    
+    # 6. Thực thi Aggregation và trả về kết quả
     docs = list(db.assignments.aggregate(pipeline)) 
     return jsonify(docs)
+
 
 @app.route("/assigns", methods=["POST"])
 @app.route("/api/assigns", methods=["POST"])
