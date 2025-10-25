@@ -995,12 +995,13 @@ def debug_list_tests():
 def bulk_assign_tests():
     """
     Xử lý giao một hoặc nhiều đề thi (testIds) cho một hoặc nhiều học sinh (studentIds).
+    API này chịu trách nhiệm cho cả việc GIAO MỚI và CẬP NHẬT DEADLINE cho các bài giao đã tồn tại.
     Payload dự kiến: {testIds: array, studentIds: array, teacherId: string, deadline: string | null}
     """
     try:
         data = request.get_json() or {}
         
-        # 1. Lấy dữ liệu từ Frontend (đã được confirmAssign() chuẩn bị là các mảng)
+        # 1. Lấy dữ liệu từ Frontend
         test_ids = data.get("testIds", []) 
         student_ids = data.get("studentIds", []) 
         teacher_id = data.get("teacherId")
@@ -1014,61 +1015,64 @@ def bulk_assign_tests():
         if not test_ids or not student_ids:
             return jsonify({"message": "Vui lòng chọn ít nhất một đề thi và một học sinh.", "count": 0}), 400
 
-        assigned_count = 0
+        processed_count = 0
         
         # 2. Xử lý Logic Giao Bài (Vòng lặp lồng nhau)
-        
-        # Lặp qua TỪNG HỌC SINH
         for stu_id in student_ids:
-            # Lặp qua TỪNG ĐỀ THI
             for t_id in test_ids:
                 
-                # 🔥 KIỂM TRA TRÙNG LẶP: Đảm bảo bài này chưa được giao cho học sinh này
+                # 🔥 BƯỚC SỬA LỖI: KIỂM TRA BÀI GIAO ĐÃ TỒN TẠI
                 existing_assignment = db.assignments.find_one({
                     "testId": t_id,
                     "studentId": stu_id,
                 })
                 
-                if existing_assignment:
-                    continue # Nếu đã giao, bỏ qua (đảm bảo 1 lần giao/học sinh)
-                
-                # 3. Tạo bài giao mới
-                new_assign = {
-                    "id": str(uuid4()), # ID duy nhất cho mỗi assignment
-                    "testId": t_id,
-                    "studentId": stu_id,
+                # Payload cập nhật/chèn
+                assignment_data = {
                     "teacherId": teacher_id,
-                    "status": "pending",
-                    "createdAt": now_vn_iso(),
                     "deadline": deadline_iso,
-                    # Thêm các trường khác (ví dụ: điểm, thời gian làm bài) nếu cần
+                    # Có thể thêm các trường khác cần cập nhật ở đây
                 }
                 
-                db.assignments.insert_one(new_assign)
-                assigned_count += 1
-                
-                # 4. CẬP NHẬT TRẠNG THÁI "Đã giao" cho đề thi (Nếu là lần giao đầu tiên)
-                # Điều này giúp Frontend cập nhật trạng thái của đề thi trong bảng
-                db.tests.update_one(
-                    {"id": t_id},
-                    {"$set": {"assignmentStatus": "assigned"}}
-                )
-                
-        # 5. Trả về kết quả
+                if existing_assignment:
+                    # NẾU ĐÃ GIAO: Thực hiện CẬP NHẬT (chủ yếu là deadline)
+                    # Chỉ cập nhật nếu deadline hoặc teacherId có sự thay đổi
+                    db.assignments.update_one(
+                        {"id": existing_assignment["id"]},
+                        {"$set": assignment_data}
+                    )
+                    processed_count += 1 # Đếm là đã xử lý/cập nhật
+                else:
+                    # NẾU CHƯA GIAO: Thực hiện CHÈN MỚI
+                    new_assign = {
+                        "id": str(uuid4()), # ID duy nhất cho mỗi assignment
+                        "testId": t_id,
+                        "studentId": stu_id,
+                        "status": "pending",
+                        "createdAt": now_vn_iso(),
+                        **assignment_data # Thêm deadline, teacherId
+                    }
+                    
+                    db.assignments.insert_one(new_assign)
+                    processed_count += 1
+                    
+                    # 3. CẬP NHẬT TRẠNG THÁI "Đã giao" cho đề thi (Nếu là lần giao đầu tiên)
+                    # Điều này giúp Frontend cập nhật trạng thái của đề thi trong bảng
+                    db.tests.update_one(
+                        {"id": t_id},
+                        {"$set": {"assignmentStatus": "assigned"}}
+                    )
+        
+        # 4. Trả về kết quả
         return jsonify({
             "success": True, 
-            "count": assigned_count,
-            "message": f"Đã giao thành công {assigned_count} bài thi cho {len(student_ids)} học sinh."
+            "count": processed_count,
+            "message": f"Đã xử lý (giao mới/cập nhật) thành công {processed_count} bài giao."
         }), 201
 
-    except HTTPException as e:
-        # Xử lý các lỗi HTTP (ví dụ: lỗi JSON parse)
-        print(f"HTTP Exception: {e}")
-        return jsonify({"message": f"Lỗi yêu cầu HTTP: {e.description}", "count": 0}), e.code
     except Exception as e:
-        # Xử lý các lỗi khác (ví dụ: lỗi DB, lỗi logic)
         print(f"Lỗi khi thực hiện bulk_assign_tests: {e}")
-        return jsonify({"message": "Lỗi máy chủ khi giao đề.", "count": 0}), 500
+        return jsonify({"message": "Lỗi máy chủ khi giao/cập nhật đề.", "count": 0}), 500
 
 @app.route("/api/tests/<test_id>/assignments", methods=["GET"])
 def get_test_assignments(test_id):
