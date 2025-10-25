@@ -1083,17 +1083,29 @@ def get_test_assignments(test_id):
         # 2. Lấy danh sách ID học sinh
         student_ids = [a.get("studentId") for a in assignments if a.get("studentId")]
         
-        # 3. Lấy thông tin học sinh (Tên, Lớp)
-        # Giả định collection users có id và class
-        students_cursor = db.users.find({"id": {"$in": student_ids}, "role": "student"}, {"_id": 0, "id": 1, "name": 1, "class": 1})
+        # 3. Lấy thông tin học sinh (Tên, Lớp, Role)
+        # 🔥 ĐÃ SỬA: Truy vấn 'fullName' và 'className' thay vì 'name' và 'class'
+        students_cursor = db.users.find(
+            {"id": {"$in": student_ids}}, 
+            {"_id": 0, "id": 1, "fullName": 1, "className": 1, "role": 1}
+        )
         student_map = {s["id"]: s for s in students_cursor}
 
         # 4. Ghép dữ liệu và trả về
         results = []
         for a in assignments:
-            student_info = student_map.get(a.get("studentId"), {"name": "Không rõ", "class": "N/A"})
-            a['studentName'] = student_info['name']
-            a['studentClass'] = student_info.get('class', 'N/A')
+            # 🔥 ĐÃ SỬA: Đảm bảo sử dụng 'fullName' và 'className'
+            student_info = student_map.get(a.get("studentId"), {
+                "fullName": "Không rõ", 
+                "className": "N/A",
+                "role": "student"
+            })
+            
+            # Gán dữ liệu cho Frontend (sử dụng .get() an toàn hơn)
+            a['studentName'] = student_info.get('fullName', 'Không rõ') 
+            a['studentClass'] = student_info.get('className', 'N/A')
+            a['studentRole'] = student_info.get('role', 'student')
+            
             results.append(a)
             
         return jsonify(results), 200
