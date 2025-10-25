@@ -847,38 +847,35 @@ def delete_test(test_id):
 @app.route("/assigns", methods=["GET"])
 @app.route("/api/assigns", methods=["GET"])
 def list_assigns():
+    """
+    Lấy danh sách assignments cho học sinh.
+    FIX: Đảm bảo trường Ngày giao (createdAt) và số câu hỏi (mcCount, essayCount) được lấy chính xác
+    và TỐI ƯU HÓA bằng cách KHÔNG JOIN với collection 'questions'
+    """
     studentId = request.args.get("studentId")
     
     pipeline = []
     
-    # 1. Lọc theo studentId
+    # 1. Lọc theo studentId và trạng thái (chỉ hiển thị những bài đang chờ, đã giao hoặc đang làm)
     if studentId: 
-        pipeline.append({"$match": {"studentId": studentId}})
+        pipeline.append({"$match": {"studentId": studentId, "status": {"$in": ["pending", "assigned", "in_progress"]}}})
 
-    # 2. Bước Lookup (JOIN): Kết nối assigns với tests
+    # 2. Bước Lookup (JOIN): Kết nối assignments với tests
     pipeline.append({
         "$lookup": {
-            "from": "tests",         # Tên bộ sưu tập đề thi
+            "from": "tests",        # Tên bộ sưu tập đề thi
             "localField": "testId",  
             "foreignField": "id",    
-            "as": "testInfo"         
+            "as": "testInfo"        
         }
     })
 
     # 3. Bước Unwind: Biến mảng 'testInfo' thành đối tượng
     pipeline.append({"$unwind": {"path": "$testInfo", "preserveNullAndEmptyArrays": True}})
-
-    # 🔥 BƯỚC MỚI (4): JOIN VỚI questions ĐỂ LẤY CHI TIẾT CÂU HỎI
-    pipeline.append({
-        "$lookup": {
-            "from": "questions",
-            "localField": "testInfo.questions", # Mảng IDs câu hỏi từ 'tests'
-            "foreignField": "id",
-            "as": "questionDetails"
-        }
-    })
-
-    # 5. Bước Projection: Định hình lại và chọn các trường cần thiết (Nâng cấp)
+    
+    # 🔥 BỎ BƯỚC JOIN VỚI 'questions' (Bước 4 trong code bạn gửi) vì nó không cần thiết và tốn kém
+    
+    # 4. Bước Projection: Định hình lại và chọn các trường cần thiết (Tối ưu và Chính xác)
     pipeline.append({
         "$project": {
             "_id": 0,
@@ -887,55 +884,24 @@ def list_assigns():
             "studentId": "$studentId",
             "deadline": "$deadline",
             "status": "$status",
-            "timeAssigned": "$timeAssigned", # Ngày giao (Giữ nguyên tên cũ)
             
-            # Lấy tên đề thi, Môn học, Thời gian (Giữ nguyên tên cũ)
+            # 🔥 FIX NGÀY GIAO: Lấy trường 'createdAt' từ assignment gốc và đổi tên thành 'timeAssigned'
+            # Dùng $ifNull để đảm bảo có giá trị nếu trường tên không đồng nhất
+            "timeAssigned": {"$ifNull": ["$createdAt", "$timeAssigned"]}, 
+            
+            # Lấy tên đề thi, Môn học, Thời gian (từ TestInfo)
             "testName": "$testInfo.name", 
             "subject": "$testInfo.subject", 
-            "time": "$testInfo.time", # Thời gian làm bài (phút)
+            "time": "$testInfo.time",
             
-            # 🔥 TRƯỜNG MỚI: Tính toán số lượng câu hỏi Trắc nghiệm (mc)
-            "mcCount": {
-                "$size": {
-                    "$filter": {
-                        "input": "$questionDetails",
-                        "as": "q",
-                        "cond": {
-                            "$or": [
-                                {"$eq": [{"$toLower": "$$q.type"}, "mc"]},
-                                {"$and": [
-                                    {"$not": "$$q.type"},
-                                    {"$gt": [{"$size": {"$ifNull": ["$$q.options", []]}}, 0]}
-                                ]}
-                            ]
-                        }
-                    }
-                }
-            },
-            
-            # 🔥 TRƯỜNG MỚI: Tính toán số lượng câu hỏi Tự luận (essay)
-            "essayCount": {
-                "$size": {
-                    "$filter": {
-                        "input": "$questionDetails",
-                        "as": "q",
-                        "cond": {
-                            "$or": [
-                                {"$eq": [{"$toLower": "$$q.type"}, "essay"]},
-                                {"$eq": [{"$toLower": "$$q.type"}, "tự luận"]},
-                                {"$and": [
-                                    {"$not": "$$q.type"},
-                                    {"$eq": [{"$size": {"$ifNull": ["$$q.options", []]}}, 0]}
-                                ]}
-                            ]
-                        }
-                    }
-                }
-            },
+            # 🔥 FIX CÂU HỎI: DÙNG TRỰC TIẾP DỮ LIỆU ĐÃ CÓ TRONG testInfo
+            # Dùng $ifNull để đảm bảo kết quả là 0 nếu testInfo bị lỗi
+            "mcCount": {"$ifNull": ["$testInfo.mcCount", 0]},
+            "essayCount": {"$ifNull": ["$testInfo.essayCount", 0]},
         }
     })
 
-    # 6. Thực thi Aggregation và trả về kết quả
+    # 5. Thực thi Aggregation và trả về kết quả
     docs = list(db.assignments.aggregate(pipeline)) 
     return jsonify(docs)
 
