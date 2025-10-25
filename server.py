@@ -1070,7 +1070,58 @@ def bulk_assign_tests():
         print(f"Lỗi khi thực hiện bulk_assign_tests: {e}")
         return jsonify({"message": "Lỗi máy chủ khi giao đề.", "count": 0}), 500
 
-    
+@app.route("/api/tests/<test_id>/assignments", methods=["GET"])
+def get_test_assignments(test_id):
+    """
+    Lấy danh sách assignments chi tiết cho một đề thi, 
+    bao gồm tên học sinh và trạng thái làm bài (done).
+    """
+    try:
+        # 1. Lấy tất cả Assignments cho test_id
+        assignments = list(db.assignments.find({"testId": test_id}, {"_id": 0}))
+        
+        # 2. Lấy danh sách ID học sinh
+        student_ids = [a.get("studentId") for a in assignments if a.get("studentId")]
+        
+        # 3. Lấy thông tin học sinh (Tên, Lớp)
+        # Giả định collection users có id và class
+        students_cursor = db.users.find({"id": {"$in": student_ids}, "role": "student"}, {"_id": 0, "id": 1, "name": 1, "class": 1})
+        student_map = {s["id"]: s for s in students_cursor}
+
+        # 4. Ghép dữ liệu và trả về
+        results = []
+        for a in assignments:
+            student_info = student_map.get(a.get("studentId"), {"name": "Không rõ", "class": "N/A"})
+            a['studentName'] = student_info['name']
+            a['studentClass'] = student_info.get('class', 'N/A')
+            results.append(a)
+            
+        return jsonify(results), 200
+
+    except Exception as e:
+        # Bạn nên sử dụng logging thay vì print trong môi trường production
+        print(f"Lỗi khi lấy assignment cho test {test_id}: {e}")
+        return jsonify({"message": "Lỗi máy chủ."}), 500
+
+@app.route("/api/assignments/bulk-delete", methods=["POST"])
+def bulk_delete_assignments():
+    """Xóa nhiều assignments cùng lúc dựa trên danh sách ID."""
+    data = request.get_json() or {}
+    assignment_ids = data.get("assignmentIds", [])
+
+    if not assignment_ids:
+        return jsonify({"message": "Thiếu danh sách assignmentIds", "deletedCount": 0}), 400
+
+    try:
+        # Xóa tất cả tài liệu có ID nằm trong danh sách
+        result = db.assignments.delete_many({"id": {"$in": assignment_ids}})
+        
+        return jsonify({"message": f"Đã xóa {result.deleted_count} assignments.", "deletedCount": result.deleted_count}), 200
+
+    except Exception as e:
+        print(f"Lỗi khi xóa hàng loạt assignments: {e}")
+        return jsonify({"message": "Lỗi máy chủ khi xóa hàng loạt assignment.", "deletedCount": 0}), 500
+
 
 # --------------------- RESULTS ---------------------
 @app.route("/results", methods=["GET"])
