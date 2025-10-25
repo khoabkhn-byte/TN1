@@ -1134,7 +1134,7 @@ def create_result():
         student_id = data.get("studentId")
         assignment_id = data.get("assignmentId") # ⬅️ Đảm bảo lấy assignmentId
 
-        # 1. ✅ BƯỚC SỬA LỖI QUAN TRỌNG: Xác thực assignmentId
+        # 1. Xác thực dữ liệu bắt buộc
         if not student_id or not test_id or not assignment_id:
             return jsonify({"message": "Thiếu studentId, testId, hoặc assignmentId trong request. Vui lòng kiểm tra lại."}), 400
 
@@ -1143,7 +1143,6 @@ def create_result():
             {"id": {"$in": q_ids}},
             {"_id": 0, "id": 1, "type": 1, "points": 1, "options": 1}
         ))
-        # ... (Logic tìm questions và student_info) ...
         
         question_map = {q["id"]: q for q in questions}
         
@@ -1151,6 +1150,7 @@ def create_result():
         student_name = student_info.get("fullName", "Ẩn danh") if student_info else "Ẩn danh"
         class_name = student_info.get("className", "N/A") if student_info else "N/A"
         
+        # 🌟 KHỞI TẠO ĐIỂM BAN ĐẦU
         mc_score_gained = 0.0
         essay_score_gained = 0.0
         total_score_gained = 0.0 
@@ -1179,7 +1179,6 @@ def create_result():
             except ValueError:
                 max_points = 1.0 
 
-            # ... (Logic chấm điểm MC) ...
             correct_ans = None
             if q_type == "mc" and q.get("options"):
                 for opt in q["options"]:
@@ -1229,13 +1228,23 @@ def create_result():
         # 🌟 XÁC ĐỊNH TRẠNG THÁI CUỐI CÙNG 🌟
         grading_status = "Đang Chấm" if has_essay else "Hoàn tất"
 
+        # TẠO BỘ LỌC DỰA TRÊN assignmentId VÀ studentId
+        filter_query = {
+            "studentId": student_id,
+            "assignmentId": assignment_id
+        }
+
+        # TÌM VÀ TÁI SỬ DỤNG ID CŨ NẾU TỒN TẠI
+        existing_result = db.results.find_one(filter_query, {"id": 1, "_id": 0})
+        result_id = existing_result.get("id") if existing_result else str(uuid4())
+
         new_result = {
-            "id": str(uuid4()),
+            "id": result_id, # ✅ SỬ DỤNG LẠI ID ĐỂ GHI ĐÈ
             "studentId": student_id,
             "studentName": student_name,
             "className": class_name,
             "testId": test_id,
-            "assignmentId": assignment_id, # 2. ✅ LƯU TRƯỜNG BẮT BUỘC: assignmentId
+            "assignmentId": assignment_id,
             "studentAnswers": student_answers,
             "detailedResults": detailed,
             
@@ -1247,8 +1256,13 @@ def create_result():
             "submittedAt": now_vn_iso()
         }
 
-        db.results.insert_one(new_result)
-        new_result.pop("_id", None)
+        # 🚀 BƯỚC SỬA LỖI: Thay thế insert_one bằng replace_one (UPSERT)
+        # Nếu đã có bản ghi cho student/assignment này, nó sẽ được thay thế.
+        # Nếu chưa có, nó sẽ được tạo mới (upsert=True).
+        db.results.replace_one(filter_query, new_result, upsert=True)
+        
+        # Không cần pop("_id", None) vì ta không đưa nó vào new_result
+
         return jsonify(new_result), 201
     
     except Exception as e:
