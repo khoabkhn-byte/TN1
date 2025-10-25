@@ -1132,30 +1132,29 @@ def create_result():
         student_answers = data.get("studentAnswers", [])
         test_id = data.get("testId")
         student_id = data.get("studentId")
+        assignment_id = data.get("assignmentId") # ⬅️ Đảm bảo lấy assignmentId
 
-        # 1. ✅ THÊM: Xác thực dữ liệu bắt buộc (Nếu thiếu, trả về lỗi 400)
-        if not student_id or not test_id:
-            return jsonify({"message": "Thiếu studentId hoặc testId trong request. Vui lòng kiểm tra lại."}), 400
+        # 1. ✅ BƯỚC SỬA LỖI QUAN TRỌNG: Xác thực assignmentId
+        if not student_id or not test_id or not assignment_id:
+            return jsonify({"message": "Thiếu studentId, testId, hoặc assignmentId trong request. Vui lòng kiểm tra lại."}), 400
 
         q_ids = [a.get("questionId") for a in student_answers if "questionId" in a]
         questions = list(db.questions.find(
             {"id": {"$in": q_ids}},
             {"_id": 0, "id": 1, "type": 1, "points": 1, "options": 1}
         ))
-
+        # ... (Logic tìm questions và student_info) ...
+        
         question_map = {q["id"]: q for q in questions}
         
-        # Lấy thông tin studentName và className
         student_info = db.users.find_one({"id": student_id}, {"fullName": 1, "className": 1, "_id": 0})
         student_name = student_info.get("fullName", "Ẩn danh") if student_info else "Ẩn danh"
         class_name = student_info.get("className", "N/A") if student_info else "N/A"
         
-        # 🌟 KHỞI TẠO ĐIỂM BAN ĐẦU
         mc_score_gained = 0.0
         essay_score_gained = 0.0
         total_score_gained = 0.0 
         has_essay = False
-        
         detailed = []
 
         for ans in student_answers:
@@ -1163,7 +1162,6 @@ def create_result():
             q = question_map.get(qid)
             
             if not q:
-                # Xử lý câu hỏi không tìm thấy
                 detailed.append({
                     "questionId": qid, "type": ans.get("type", "mc"),
                     "studentAnswer": ans.get("answer"), "isCorrect": False,
@@ -1175,13 +1173,13 @@ def create_result():
             q_type = (q.get("type") or "mc").lower()
             student_ans = ans.get("answer")
             
-            # 2. ✅ SỬA: Đảm bảo max_points là float (để tính điểm thập phân)
+            # Đảm bảo max_points là float
             try:
                 max_points = float(q.get("points", 1))
             except ValueError:
                 max_points = 1.0 
 
-            # Logic tìm correct_ans và student_ans_text không đổi
+            # ... (Logic chấm điểm MC) ...
             correct_ans = None
             if q_type == "mc" and q.get("options"):
                 for opt in q["options"]:
@@ -1192,7 +1190,6 @@ def create_result():
             student_ans_text = student_ans
             if q_type == "mc" and q.get("options"):
                 try:
-                    # Logic chuyển index sang text
                     if isinstance(student_ans, int) and 0 <= student_ans < len(q["options"]):
                         student_ans_text = q["options"][student_ans].get("text")
                     elif isinstance(student_ans, str) and student_ans.isdigit():
@@ -1202,9 +1199,8 @@ def create_result():
                 except Exception:
                     pass
 
-            # Bắt đầu Logic chấm điểm/lưu trữ MỚI
             is_correct = None
-            points = 0.0 # ✅ SỬA: Đảm bảo points là float
+            points = 0.0 
 
             if q_type == "mc":
                 is_correct = (str(student_ans_text).strip() == str(correct_ans).strip()) if correct_ans is not None else False
@@ -1213,13 +1209,13 @@ def create_result():
             else:
                 has_essay = True
 
-            total_score_gained += points # Tổng điểm ban đầu = điểm trắc nghiệm
+            total_score_gained += points 
 
             detailed_entry = {
                 "questionId": qid,
                 "type": q_type,
                 "studentAnswer": student_ans_text,
-                "pointsGained": round(points, 2), # ✅ Làm tròn khi lưu chi tiết
+                "pointsGained": round(points, 2), 
                 "maxPoints": max_points,
                 "correctAnswer": correct_ans,
                 "isEssay": q_type in ["essay", "tự luận"]
@@ -1239,7 +1235,7 @@ def create_result():
             "studentName": student_name,
             "className": class_name,
             "testId": test_id,
-            "assignmentId": data.get("assignmentId"),
+            "assignmentId": assignment_id, # 2. ✅ LƯU TRƯỜNG BẮT BUỘC: assignmentId
             "studentAnswers": student_answers,
             "detailedResults": detailed,
             
@@ -1255,7 +1251,6 @@ def create_result():
         new_result.pop("_id", None)
         return jsonify(new_result), 201
     
-    # 3. ✅ THÊM: Xử lý lỗi chung (Internal Server Error)
     except Exception as e:
         print(f"Lỗi khi tạo kết quả (create_result): {e}")
         return jsonify({"message": "Lỗi máy chủ nội bộ. Vui lòng thử lại sau.", "error": str(e)}), 500
