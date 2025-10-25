@@ -959,6 +959,8 @@ def create_assign():
 def alias_assign_test():
     return create_assign()
 
+
+
 @app.route("/api/assign-multiple", methods=["POST"])
 def assign_multiple():
     data = request.get_json() or {}
@@ -988,6 +990,85 @@ def assign_multiple():
 def debug_list_tests():
     docs = list(db.tests.find({}, {"_id": 0, "id": 1, "name": 1}))
     return jsonify(docs)
+
+@app.route("/api/assigns/bulk", methods=["POST"])
+def bulk_assign_tests():
+    """
+    Xử lý giao một hoặc nhiều đề thi (testIds) cho một hoặc nhiều học sinh (studentIds).
+    Payload dự kiến: {testIds: array, studentIds: array, teacherId: string, deadline: string | null}
+    """
+    try:
+        data = request.get_json() or {}
+        
+        # 1. Lấy dữ liệu từ Frontend (đã được confirmAssign() chuẩn bị là các mảng)
+        test_ids = data.get("testIds", []) 
+        student_ids = data.get("studentIds", []) 
+        teacher_id = data.get("teacherId")
+        deadline_iso = data.get("deadline") # Deadline là string ISO hoặc None
+        
+        # Kiểm tra dữ liệu đầu vào cơ bản
+        if not isinstance(test_ids, list) or not isinstance(student_ids, list) or not teacher_id:
+            print(f"Lỗi: Dữ liệu đầu vào không hợp lệ. Test IDs: {test_ids}, Student IDs: {student_ids}")
+            return jsonify({"message": "Dữ liệu đầu vào thiếu hoặc không đúng định dạng.", "count": 0}), 400
+        
+        if not test_ids or not student_ids:
+            return jsonify({"message": "Vui lòng chọn ít nhất một đề thi và một học sinh.", "count": 0}), 400
+
+        assigned_count = 0
+        
+        # 2. Xử lý Logic Giao Bài (Vòng lặp lồng nhau)
+        
+        # Lặp qua TỪNG HỌC SINH
+        for stu_id in student_ids:
+            # Lặp qua TỪNG ĐỀ THI
+            for t_id in test_ids:
+                
+                # 🔥 KIỂM TRA TRÙNG LẶP: Đảm bảo bài này chưa được giao cho học sinh này
+                existing_assignment = db.assignments.find_one({
+                    "testId": t_id,
+                    "studentId": stu_id,
+                })
+                
+                if existing_assignment:
+                    continue # Nếu đã giao, bỏ qua (đảm bảo 1 lần giao/học sinh)
+                
+                # 3. Tạo bài giao mới
+                new_assign = {
+                    "id": str(uuid4()), # ID duy nhất cho mỗi assignment
+                    "testId": t_id,
+                    "studentId": stu_id,
+                    "teacherId": teacher_id,
+                    "status": "pending",
+                    "createdAt": now_vn_iso(),
+                    "deadline": deadline_iso,
+                    # Thêm các trường khác (ví dụ: điểm, thời gian làm bài) nếu cần
+                }
+                
+                db.assignments.insert_one(new_assign)
+                assigned_count += 1
+                
+                # 4. CẬP NHẬT TRẠNG THÁI "Đã giao" cho đề thi (Nếu là lần giao đầu tiên)
+                # Điều này giúp Frontend cập nhật trạng thái của đề thi trong bảng
+                db.tests.update_one(
+                    {"id": t_id},
+                    {"$set": {"assignmentStatus": "assigned"}}
+                )
+                
+        # 5. Trả về kết quả
+        return jsonify({
+            "success": True, 
+            "count": assigned_count,
+            "message": f"Đã giao thành công {assigned_count} bài thi cho {len(student_ids)} học sinh."
+        }), 201
+
+    except HTTPException as e:
+        # Xử lý các lỗi HTTP (ví dụ: lỗi JSON parse)
+        print(f"HTTP Exception: {e}")
+        return jsonify({"message": f"Lỗi yêu cầu HTTP: {e.description}", "count": 0}), e.code
+    except Exception as e:
+        # Xử lý các lỗi khác (ví dụ: lỗi DB, lỗi logic)
+        print(f"Lỗi khi thực hiện bulk_assign_tests: {e}")
+        return jsonify({"message": "Lỗi máy chủ khi giao đề.", "count": 0}), 500
 
     
 
