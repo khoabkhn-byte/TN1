@@ -1157,6 +1157,8 @@ def create_result():
         has_essay = False
         detailed = []
 
+        # ... (Phần chấm điểm tự động không thay đổi) ...
+
         for ans in student_answers:
             qid = ans.get("questionId")
             q = question_map.get(qid)
@@ -1228,7 +1230,7 @@ def create_result():
         # 🌟 XÁC ĐỊNH TRẠNG THÁI CUỐI CÙNG 🌟
         grading_status = "Đang Chấm" if has_essay else "Hoàn tất"
 
-        # TẠO BỘ LỌC DỰA TRÊN assignmentId VÀ studentId
+        # TẠO BỘ LỌC DỰA TRÊN assignmentId VÀ studentId (UNIQUE KEY)
         filter_query = {
             "studentId": student_id,
             "assignmentId": assignment_id
@@ -1239,7 +1241,7 @@ def create_result():
         result_id = existing_result.get("id") if existing_result else str(uuid4())
 
         new_result = {
-            "id": result_id, # ✅ SỬ DỤNG LẠI ID ĐỂ GHI ĐÈ
+            "id": result_id, 
             "studentId": student_id,
             "studentName": student_name,
             "className": class_name,
@@ -1256,13 +1258,17 @@ def create_result():
             "submittedAt": now_vn_iso()
         }
 
-        # 🚀 BƯỚC SỬA LỖI: Thay thế insert_one bằng replace_one (UPSERT)
-        # Nếu đã có bản ghi cho student/assignment này, nó sẽ được thay thế.
-        # Nếu chưa có, nó sẽ được tạo mới (upsert=True).
+        # 🚀 BƯỚC 1: UPSERT (Ghi đè kết quả) trong db.results
+        # Giải quyết lỗi "Giáo viên thấy nhiều dòng khi nộp lại"
         db.results.replace_one(filter_query, new_result, upsert=True)
         
-        # Không cần pop("_id", None) vì ta không đưa nó vào new_result
-
+        # 🏆 BƯỚC QUAN TRỌNG NHẤT (FIX CỐT LÕI): Cập nhật trạng thái trong db.assignments
+        # Giải quyết lỗi "Bài làm đã nộp không biến mất"
+        db.assignments.update_one(
+            {"id": assignment_id},
+            {"$set": {"status": "submitted", "submittedAt": new_result["submittedAt"]}}
+        )
+        
         return jsonify(new_result), 201
     
     except Exception as e:
