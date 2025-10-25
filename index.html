@@ -325,17 +325,19 @@
         <!-- TESTS -->
         <div class="tab-pane fade" id="tab-tests">
     <div class="d-flex justify-content-between mb-2">
-        <h5>Bài thi</h5>
-        <div>
+        <h5>Bài thi</h5>
+        <div class="d-flex align-items-center">
+            
             <button class="btn btn-outline-primary me-2" onclick="refreshResource('tests')">Tải lại</button>
-            <button class="btn btn-primary" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
-        </div>
-    </div>
+            <button class="btn btn-primary" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
+        </div>
+    </div>
     
     <div class="card p-3 mb-3">
         <h5>Bộ lọc Bài kiểm tra</h5>
         <div class="row mb-1 align-items-end">
             <div class="col-md-3">
+			
                 <label for="filter-test-subject" class="form-label small">Môn học</label>
                 <select id="filter-test-subject" class="form-select form-select-sm" onchange="loadTests()"></select>
             </div>
@@ -359,6 +361,14 @@
 
              <div class="col-md-3">
                 <button class="btn btn-sm btn-outline-secondary" onclick="resetTestFilters()">Xóa lọc</button>
+				
+				<button 
+                id="bulk-assign-btn-top" 
+                class="btn btn-sm btn-primary me-2 d-none" 
+                onclick="showBulkAssignModal()"
+            >
+                <i class="fas fa-paper-plane"></i> Giao Đề Đã Chọn (<span id="selected-count-display">0</span>)
+            </button>
             </div>
         </div>
     </div>
@@ -367,19 +377,23 @@
         <div class="table-wrap">
             <table class="table table-sm table-hover table-bordered">
                 <thead>
-                    <tr>
-                        <th style="width: 4%;" class="text-center nowrap">#</th>            
-                        <th style="width: 25%;" class="text-start">Tên bài thi</th> 
-                        <th style="width: 10%;" class="text-center nowrap">Môn</th>          
-                        <th style="width: 8%;" class="text-center nowrap">Khối lớp</th>     
-                        <th style="width: 8%;" class="text-center nowrap">Số câu</th>       
-                        <th style="width: 12%;" class="text-center nowrap">Ngày tạo</th>     
-                        <th style="width: 8%;" class="text-center nowrap">Thời gian (phút)</th> 
-                        <th style="width: 25%;" class="text-center action-column-buttons">Hành động</th> 
-                    </tr>
-                </thead>
-                <tbody id="tests-tbody"></tbody>
-            </table>
+        <tr>
+            <th scope="col" class="text-center" style="width: 40px;">
+                <input type="checkbox" id="check-all-tests">
+            </th>
+            <th scope="col" class="text-center">STT</th>
+            <th scope="col">Môn học</th>
+            <th scope="col">Tên bài thi</th>
+            <th scope="col" class="text-center" style="width: 70px;">TL</th>
+            <th scope="col" class="text-center" style="width: 70px;">TN</th>
+            <th scope="col" class="text-center">Thời gian (phút)</th>
+            <th scope="col" class="text-center" style="width: 100px;">Trạng thái</th>
+            <th scope="col" class="text-center">Hành động</th>
+        </tr>
+    </thead>
+    <tbody id="tests-tbody">
+        </tbody>
+</table>
         </div>
         <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
             <div class="muted-small me-auto" id="tests-info"></div>
@@ -1160,15 +1174,60 @@
 </div>
 
 
+   <!-- Assign modal cũ -->
+<div class="modal fade" id="modalAssign" tabindex="-1" aria-labelledby="modalAssignLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAssignLabel">Giao Bài Thi: <span id="test-name-display"></span></h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <div class="modal-body">
+    <input type="hidden" id="current-test-id" value=""> 
+    <input type="hidden" id="assign-test-ids" value=""> 
+    <div id="bulk-info" class="alert alert-info d-none mb-3">
+        Bạn đang giao <span id="bulk-count" class="font-weight-bold"></span> đề thi đã chọn.
+    </div>
 
+    <div class="mb-3">
+        <label for="assign-deadline" class="form-label">Thời hạn nộp bài (Không bắt buộc):</label>
+        <input type="datetime-local" class="form-control" id="assign-deadline">
+    </div>
+    
+    <label class="form-label mt-2 fw-bold text-success">Đã được giao (<span id="count-assigned">0</span>):</label>
+    <div id="current-assigned-list" class="mb-4 p-2 border rounded bg-light" style="max-height: 250px; overflow-y: auto;">
+        </div>
+    
+    <label class="form-label mt-2">Học sinh có sẵn (<span id="count-available">0</span>):</label>
+    <div id="available-students-list" class="p-2 border rounded" style="max-height: 250px; overflow-y: auto;">
+        </div>
+</div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button id="confirm-assign-btn" class="btn btn-primary" onclick="confirmAssign()">Giao</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-
-  <!-- Assign modal -->
-  <div class="modal fade" id="modalAssign" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-    <div class="modal-header"><h5 class="modal-title">Giao đề</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body"><div id="assign-students-list" style="max-height:320px;overflow:auto;border:1px solid #eee;padding:8px;"></div></div>
-    <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="confirmAssign()">Giao</button></div>
-  </div></div></div>
+<!--modal thông báo đã giao bài rồi-->
+<div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="infoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-white">
+        <h5 class="modal-title" id="infoModalLabel"><i class="fas fa-exclamation-triangle"></i> Cảnh Báo Giao Đề</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="infoModalBody">
+        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </div>
+  </div>
+</div>
 
   <!-- Student modal -->
   <div class="modal fade" id="modalStudent" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
@@ -1236,8 +1295,10 @@ let manualState = {
 
 // Thêm các biến phân trang và giới hạn trang cho Học sinh
 const PAGE_LIMIT = 10; 
+const bulkAssignBtn = qs('#bulk-assign-btn-top');
+const selectedCountDisplay = qs('#selected-count-display');
+const checkAllTests = qs('#check-all-tests'); // Checkbox "Chọn tất cả"
 let studentsPage = 1; // Trang hiện tại
-  
   // Thêm hàm này vào khối <script>
 let nextOptionIndex = 0; // Biến đếm để quản lý ID/data-attribute
 
@@ -1366,17 +1427,46 @@ function qs(selector) {
     
 	//const qs = id => document.getElementById(id);
 	
+async function fetchJson(url, options = {}) {
+    
+    // 1. Khai báo headers mặc định (KHẮC PHỤC LỖI 415)
+    options.headers = {
+        'Content-Type': 'application/json',
+        ...options.headers 
+    };
 
-   async function fetchJson(url, opts){ 
-	try { 
-		const r = await fetch(url, opts); 
-		if(r.status === 204) return null; 
-		return await r.json(); 
-	} 
-	catch(e){ 
-		console.error('fetch error', e); 
-		throw e; 
-	} 
+    // 2. Nếu body là một object, chuyển nó thành chuỗi JSON
+    if (options.body && typeof options.body === 'object') {
+        options.body = JSON.stringify(options.body);
+    }
+    
+    try {
+        const r = await fetch(url, options); 
+        
+        if (!r.ok) {
+            // Xử lý lỗi server và throw chi tiết hơn
+            let errorData;
+            try {
+                errorData = await r.json();
+            } catch {
+                errorData = { message: `Lỗi máy chủ (${r.status} ${r.statusText})` };
+            }
+            throw new Error(errorData.message || `Lỗi không xác định, Status: ${r.status}`);
+        }
+        
+        if(r.status === 204) return null; 
+        
+        // Trả về JSON
+        try {
+             return await r.json();
+        } catch {
+             return {};
+        }
+
+    } catch(e){
+        console.error('fetch error', e); 
+        throw e;
+    }
 }
 
 function formatSubmittedAt(ts) {
@@ -2175,10 +2265,28 @@ let availableStuSubjects = new Set(); // Dùng để tạo filter Môn học cho
 
 // Hàm chuyển đổi chuỗi ngày DD/MM/YYYY sang Date object (Hỗ trợ sắp xếp)
 function convertDateStringToDate(dateStr) {
-    if (!dateStr || dateStr === "N/A") return new Date(0); 
-    const parts = dateStr.split('/');
-    // new Date(year, monthIndex, day)
-    return new Date(parts[2], parts[1] - 1, parts[0]); 
+    if (!dateStr || dateStr === "N/A") {
+        return new Date(0); 
+    }
+    
+    // Dùng chuỗi ISO/timestamp từ API
+    const date = new Date(dateStr);
+    
+    // Kiểm tra tính hợp lệ
+    if (isNaN(date.getTime())) {
+        // Nếu dateStr là định dạng DD/MM/YYYY, hãy thử phân tích thủ công
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            // new Date(year, monthIndex, day)
+            const manualDate = new Date(parts[2], parts[1] - 1, parts[0]);
+            if (!isNaN(manualDate.getTime())) return manualDate;
+        }
+        
+        console.error("Lỗi: Chuỗi ngày không hợp lệ cho sắp xếp:", dateStr);
+        return new Date(0);
+    }
+    
+    return date;
 }
 
 // Hàm cập nhật bộ lọc Môn cho học sinh
@@ -2896,8 +3004,13 @@ function showToast(message, type = 'success') {
         state.tests.total = state.tests.list.length; 
         state.tests.page = 1; 
         
-        // renderPaged sẽ gọi hàm renderTests đã được sửa
+        // renderPaged gọi hàm renderTests để tạo HTML và chèn vào DOM
         renderPaged('tests'); 
+        
+        // 🔥 GỌI HÀM GÁN SỰ KIỆN TẠI ĐÂY
+        // Sau khi renderPaged (tức renderTests) đã chạy, các checkbox đã có mặt
+        setupTestCheckboxListeners(); 
+        
     } catch(e){ 
         console.error("Lỗi tải bài kiểm tra:", e);
         setTableError('tests-tbody','Không thể tải bài thi'); 
@@ -2906,50 +3019,138 @@ function showToast(message, type = 'success') {
     
 	// Bạn cần sửa hàm renderTests trong file JS của bạn
 function renderTests(items) {
-    const tbody = qs('tests-tbody');
+    // ⚠️ LƯU Ý: Đảm bảo qs('tests-tbody') là #tests-tbody (ID selector)
+    const tbody = qs('#tests-tbody'); 
+    if (!tbody) return;
+    
+    // Tổng số cột là 9: Checkbox, STT, Môn học, Tên, TL, TN, Thời gian, Trạng thái, Hành động
+    const TOTAL_COLUMNS = 9; 
+
     tbody.innerHTML = '';
     
-    // Tổng số cột là 8
-    const TOTAL_COLUMNS = 8; 
-
-    if (!items.length) { 
-        tbody.innerHTML = `<tr><td colspan="${TOTAL_COLUMNS}" class="text-center text-muted">Không có bài kiểm tra nào phù hợp.</td></tr>`; 
-        return; 
-    }
+    if (!items.length) { 
+        tbody.innerHTML = `<tr><td colspan="${TOTAL_COLUMNS}" class="text-center text-muted">Không có bài kiểm tra nào phù hợp.</td></tr>`; 
+        return; 
+    }
     
     const frag = document.createDocumentFragment();
 
-    const currentPage = parseInt(state.tests.page) || 1; 
+    // Giả định state.tests.page và PAGE_SIZE được định nghĩa
+    const currentPage = parseInt(state?.tests?.page) || 1; 
+    const PAGE_SIZE = 10; // Giả định PAGE_SIZE là 10
     let stt = (currentPage - 1) * PAGE_SIZE + 1; 
     
     items.forEach(t => {
         const tr = document.createElement('tr');
-        const subjectName = SUBJECT_NAMES[t.subject] || t.subject || 'N/A';
         
-        const testId = t.id || t._id || ''; 
-
-        const levelDisplay = t.level || 'N/A';
-        const createdAt = t.createdAt 
-                              ? new Date(t.createdAt).toLocaleDateString('vi-VN') 
-                              : 'N/A';
+        // --- 1. LẤY DỮ LIỆU MỚI (Từ Backend đã fix) ---
+        const testId = t.id || t._id || ''; 
+        const subjectName = SUBJECT_NAMES[t.subject] || t.subject || '—';
         
+        // Lấy số câu TN/TL
+        const essayCount = t.essayCount || 0;
+        const mcCount = t.mcCount || 0;
+        
+        // Lấy trạng thái giao bài
+        const status = (t.assignmentStatus || '').toLowerCase();
+        const isAssigned = status === 'assigned';
+        const statusText = isAssigned ? 'Đã giao' : 'Chưa giao'; 
+        const statusClass = isAssigned ? 'text-success' : 'text-secondary';
+        
+        const timeDisplay = t.time || '—';
+        
+        // --- 2. RENDER THEO CẤU TRÚC 9 CỘT MỚI ---
         tr.innerHTML = `
-<td class="text-center nowrap">${stt++}</td>
-<td class="text-start">${escapeHtml(t.name)}</td> 
-<td class="text-center nowrap">${escapeHtml(subjectName)}</td> 
-<td class="text-center nowrap">${escapeHtml(levelDisplay)}</td>
-<td class="text-center nowrap">${t.count || (t.questions ? t.questions.length : '—')}</td> 
-<td class="text-center nowrap">${createdAt}</td>
-<td class="text-center nowrap">${t.time || 'N/A'}</td>
-<td class="text-center p-1 action-column-buttons"> 
-    <div class="d-flex justify-content-center flex-wrap" style="gap: 1px;"> 
-        <button class="btn btn-sm btn-outline-primary" onclick='openTestEditModal("${testId}")'>Sửa</button><button class="btn btn-sm btn-outline-success" onclick='openAssignModal("${testId}", "${t.name}")'>Giao đề</button><button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${t.name}")'>Xóa</button>
-    </div>
-</td>`; // ✅ XÓA BỎ DẤU XUỐNG DÒNG VÀ KHOẢNG TRẮNG ĐẦU/CUỐI
-        frag.appendChild(tr);
-    });
-    tbody.appendChild(frag);
+            <td class="text-center">
+                <input type="checkbox" class="select-test-checkbox" data-testid="${testId}">
+            </td>
+            <td class="text-center nowrap">${stt++}</td>
+            <td class="text-start nowrap">${escapeHtml(subjectName)}</td>
+            <td class="text-start">${escapeHtml(t.name || 'N/A')}</td>
+            
+            <td class="text-center nowrap">${essayCount}</td>
+            <td class="text-center nowrap">${mcCount}</td>
+            
+            <td class="text-center nowrap">${timeDisplay}</td>
+            
+            <td class="text-center nowrap ${statusClass} font-weight-bold">${statusText}</td>
+            
+            <td class="text-center p-1 action-column-buttons"> 
+                <div class="d-flex justify-content-center flex-wrap" style="gap: 1px;"> 
+                    <button class="btn btn-sm btn-outline-primary" onclick='openTestEditModal("${testId}")'>Sửa</button>
+                    <button class="btn btn-sm btn-outline-success" onclick='openAssignModal("${testId}", "${escapeHtml(t.name).replace(/"/g, '&quot;')}")'>Giao đề</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${escapeHtml(t.name).replace(/"/g, '&quot;')}")'>Xóa</button>
+                </div>
+            </td>
+        `;
+        frag.appendChild(tr);
+    });
+    tbody.appendChild(frag);
 }
+
+function toggleBulkAssignButton() {
+    // 1. Đếm số lượng checkbox đề thi đã được chọn
+    // Selector phải nhắm vào các checkbox trong tbody của bảng đề thi
+    const checkedBoxes = document.querySelectorAll('#tests-tbody .select-test-checkbox:checked');
+    const count = checkedBoxes.length;
+    
+    // 2. Cập nhật trạng thái nút và số lượng hiển thị
+    if (bulkAssignBtn) {
+        if (count > 0) {
+            // Hiển thị nút
+            bulkAssignBtn.classList.remove('d-none');
+        } else {
+            // Ẩn nút
+            bulkAssignBtn.classList.add('d-none');
+        }
+    }
+    
+    // 3. Cập nhật số lượng đề thi đã chọn trên nút
+    if (selectedCountDisplay) {
+        selectedCountDisplay.textContent = count;
+    }
+
+    // 4. Cập nhật trạng thái của checkbox "Chọn tất cả"
+    if (checkAllTests) {
+        const totalCheckboxes = document.querySelectorAll('#tests-tbody .select-test-checkbox').length;
+        checkAllTests.checked = (totalCheckboxes > 0 && count === totalCheckboxes);
+        checkAllTests.indeterminate = (count > 0 && count < totalCheckboxes);
+    }
+}
+
+function setupTestCheckboxListeners() {
+    // 1. Gán sự kiện cho từng checkbox đề thi
+    const checkboxes = document.querySelectorAll('#tests-tbody .select-test-checkbox');
+    checkboxes.forEach(cb => {
+        cb.removeEventListener('change', toggleBulkAssignButton); // Xóa listener cũ (nếu có)
+        cb.addEventListener('change', toggleBulkAssignButton);
+    });
+
+    // 2. Gán sự kiện cho checkbox "Chọn tất cả" (Header)
+    if (checkAllTests) {
+        checkAllTests.removeEventListener('change', handleSelectAllTests); // Xóa listener cũ
+        checkAllTests.addEventListener('change', handleSelectAllTests);
+    }
+    
+    // 3. Khởi tạo trạng thái ban đầu của nút
+    toggleBulkAssignButton(); 
+}
+
+// Hàm xử lý logic Chọn tất cả
+function handleSelectAllTests(e) {
+    const isChecked = e.target.checked;
+    document.querySelectorAll('#tests-tbody .select-test-checkbox').forEach(cb => {
+        cb.checked = isChecked;
+    });
+    // Gọi hàm toggle để cập nhật nút và số lượng ngay lập tức
+    toggleBulkAssignButton(); 
+}
+
+
+// Giả định:
+// 1. `qs` là hàm helper để lấy element (ví dụ: document.querySelector(selector)).
+// 2. `escapeHtml` là hàm helper để tránh XSS.
+// 3. `SUBJECT_NAMES` là hằng số global chứa ánh xạ môn học.
 
 
 function populateTestSubjectFilter() {
@@ -3084,6 +3285,9 @@ async function loadManualQuestions() {
         manualState.questionBank = [];
     }
 }
+
+
+
 
 
 // 🧩 Mở modal sửa đề thi (sửa cả đề tự động và thủ công)
@@ -4235,10 +4439,32 @@ function getRoleLabel(role) {
         'monitor': 'Lớp trưởng',
         'vice_monitor': 'Lớp phó',
         'team_leader': 'Tổ trưởng',
-		'teacher': 'Giáo viên',
+        'teacher': 'Giáo viên',
         'admin': 'Quản trị viên'
     };
-    return roles[role] || 'Học sinh'; // Mặc định là 'Học sinh'
+    // Mặc định là 'Học sinh' nếu role không xác định.
+    return roles[role] || 'Học sinh'; 
+}
+
+/**
+ * Lọc danh sách users để chỉ lấy các vai trò có thể giao bài (không phải admin/teacher).
+ * @param {Array<Object>} users - Danh sách user thô từ API.
+ * @returns {Array<Object>} - Danh sách học sinh và cán bộ lớp đã lọc.
+ */
+function filterAssignableUsers(users) {
+    const excludedRoles = ['teacher', 'admin'];
+    
+    return users.filter(user => {
+        const userRole = user.role || 'student'; // Giả định role mặc định là 'student' nếu không có trường role
+        
+        // 1. Loại bỏ các vai trò bị loại trừ
+        if (excludedRoles.includes(userRole)) {
+            return false;
+        }
+        
+        // 2. Chỉ giữ lại user có đầy đủ tên và lớp (để đảm bảo hiển thị đúng)
+        return user.fullName && user.className;
+    });
 }
 
 function renderStudents(items){ 
@@ -4351,87 +4577,504 @@ function renderStudents(items){
 
     // ASSIGN
     // ====== GIAO ĐỀ ======
-let assignCurrentTestId = null;
-
-async function openAssignModal(testId) {
-  assignCurrentTestId = testId;
-  const box = qs('assign-students-list');
-  const modalEl = qs('modalAssign');
-  const modal = new bootstrap.Modal(modalEl);
-
-  // Hiển thị trạng thái đang tải
-  box.innerHTML = `
-    <div class="spinner-row">
-      <div class="spinner-border text-success" role="status"></div>
-      <div>Đang tải danh sách học sinh...</div>
-    </div>
-  `;
-
-  modal.show();
-
-  try {
-    // Gọi API lấy danh sách người dùng
-    const users = await fetchJson(`${serverUrl}/api/users`);
-    if (!Array.isArray(users) || users.length === 0) {
-      box.innerHTML = '<div class="text-center text-muted py-2">Không có học sinh nào.</div>';
-      return;
+let assignCurrentTestId = null; // Biến toàn cục để lưu ID đề đang được thao tác
+let studentsForModalLoaded = false;
+document.addEventListener('DOMContentLoaded', () => {
+    const modalElement = qs('#modalAssign');
+    if (modalElement) {
+        modalAssignInstance = new bootstrap.Modal(modalElement);
     }
-
-    // Chỉ lấy học sinh (bỏ teacher)
-    const students = users.filter(u => (u.role || 'student') !== 'teacher');
-
-    // Hiển thị danh sách dạng checkbox
-    if (students.length === 0) {
-      box.innerHTML = '<div class="text-center text-muted py-2">Không có học sinh nào để giao đề.</div>';
-      return;
-    }
-
-    box.innerHTML = students.map(u => `
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" id="as-${u.id || u._id}" value="${u.id || u._id}">
-        <label class="form-check-label" for="as-${u.id || u._id}">
-          ${escapeHtml(u.user || u.username || u.name)}
-        </label>
-      </div>
-    `).join('');
-
-  } catch (e) {
-    console.error('Lỗi tải danh sách học sinh:', e);
-    box.innerHTML = '<div class="text-danger text-center py-2">Không thể tải danh sách học sinh.</div>';
-  }
-}
-
-async function confirmAssign() {
-  const selected = Array.from(
-    qs('assign-students-list').querySelectorAll('input[type=checkbox]:checked')
-  ).map(i => i.value);
-
-  if (!selected.length) {
-    alert('Vui lòng chọn ít nhất 1 học sinh.');
-    return;
-  }
-
-  try {
-    const payload = { testId: assignCurrentTestId, students: selected };
-
-  const res = await fetchJson(`${serverUrl}/api/assign-multiple`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ testId: assignCurrentTestId, students: selected })
 });
 
+// Dán hàm này vào file JS của bạn (thay thế hàm cũ)
+let allStudentsForModal = []; 
+let modalAssignInstance;
+let infoModalInstance;
+let allStudents = []; // Lưu trữ tất cả học sinh (chỉ cần tải 1 lần)
+let currentAssignments = []; // Lưu trữ danh sách assignment hiện tại của đề thi đang mở
 
-    if (res && res.success) {
-      alert(`✅ Đã giao đề cho ${res.count || selected.length} học sinh.`);
-      bootstrap.Modal.getInstance(qs('modalAssign')).hide();
-      await loadResults();
-    } else {
-      alert('❌ Giao đề thất bại: ' + (res.message || 'Server không phản hồi thành công.'));
+async function loadStudentsForModal() {
+    const box = qs('#assign-students-list'); 
+    const confirmBtn = qs('#confirm-assign-btn');
+
+    if (!box) {
+        console.error("Lỗi: Không tìm thấy phần tử #assign-students-list. Kiểm tra ID HTML.");
+        return;
     }
-  } catch (e) {
-    console.error('Lỗi giao đề:', e);
-    alert('❌ Không thể giao đề, vui lòng thử lại.');
-  }
+
+    if (!studentsForModalLoaded) {
+        box.innerHTML = `<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-success" role="status"></div>Đang tải danh sách học sinh...</div>`;
+    }
+    
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    try {
+        const url = `${serverUrl}/api/users?limit=9999`; // Bỏ ?role=student để Backend trả về tất cả users
+        console.log("1. Gọi API tải tất cả người dùng:", url);
+        
+        const users = await fetchJson(url);
+        console.log("2. Phản hồi API:", users); 
+        
+        // Lấy dữ liệu
+        const studentsData = users.users || users.data || users;
+
+        // 🔥 LOGIC SỬA: CHỈ LOẠI TRỪ NGƯỜI CÓ ROLE LÀ 'teacher'
+        const students = Array.isArray(studentsData)
+                             ? studentsData.filter(u => (u.role || '').toLowerCase() !== 'teacher')
+                             : [];
+        
+        console.log("3. Danh sách học sinh sau khi lọc (Số lượng: " + students.length + "):", students); 
+
+        allStudentsForModal = students;
+        
+        if (students.length === 0) {
+             box.innerHTML = '<div class="text-center text-muted py-2">Không có học sinh nào để giao đề.</div>';
+             return;
+        }
+
+        // 4. Render danh sách checkbox
+box.innerHTML = students.map(u => {
+    const studentId = u.id || u._id || 'ID_NOT_FOUND'; 
+    const studentName = u.name || u.user || 'Học sinh ẩn danh';
+    
+    // Lớp học (chỉ hiển thị nếu có giá trị)
+    const studentClass = u.class ? ` (${escapeHtml(u.class)})` : ''; 
+    
+    let studentRoleInfo = '';
+    
+    // 🔥 LOGIC SỬA: SỬ DỤNG HÀM getRoleLabel()
+    const currentRole = (u.role || 'student').toLowerCase();
+    
+    // Chỉ hiển thị vai trò nếu nó KHÔNG phải là 'Học sinh' mặc định
+    if (currentRole !== 'student' && currentRole !== '') {
+        const translatedRole = getRoleLabel(currentRole);
+        
+        // Thêm chuỗi vai trò đã dịch vào thông tin hiển thị
+        studentRoleInfo = ` [${escapeHtml(translatedRole)}]`;
+    }
+    
+    // Ghép Tên, Lớp học và Vai trò
+    const displayLabel = `${escapeHtml(studentName)}${studentClass}${studentRoleInfo}`;
+
+    return `
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="as-${studentId}" value="${studentId}">
+            <label class="form-check-label" for="as-${studentId}">
+                ${displayLabel}
+            </label>
+        </div>
+    `;
+}).join('');
+
+        if (confirmBtn) confirmBtn.disabled = false;
+        studentsForModalLoaded = true; 
+
+    } catch (e) {
+        console.error('Lỗi tải danh sách học sinh cho modal:', e);
+        box.innerHTML = '<div class="text-danger text-center py-2">Không thể tải danh sách học sinh.</div>';
+    }
+}
+
+// Hàm Mở Modal cho giao 1 đề (Được gọi từ bảng bài thi)
+async function openAssignModal(testId, testName) {
+    // Giả định modalAssignInstance đã được khởi tạo
+    if (!modalAssignInstance) return;
+
+    // 1. Setup UI cơ bản
+    qs('#test-name-display').textContent = testName;
+    qs('#assign-deadline').value = ''; // Reset deadline trước khi tải
+    qs('#current-test-id').value = testId; 
+    qs('#assign-test-ids').value = testId; 
+    qs('#bulk-info').classList.add('d-none'); // Tạm thời chỉ xử lý đơn lẻ
+
+    const assignedContainer = qs('#current-assigned-list');
+    const availableContainer = qs('#available-students-list');
+    assignedContainer.innerHTML = '<p class="text-info small m-0">Đang tải...</p>';
+    availableContainer.innerHTML = '';
+    
+    qs('#count-assigned').textContent = '0';
+    qs('#count-available').textContent = '0';
+
+    try {
+        // 2. Tải tất cả học sinh (nếu chưa tải)
+        if (allStudents.length === 0) {
+            allStudents = await fetchJson(`${serverUrl}/api/users`);
+			console.log("Danh sách học sinh sau khi tải:", allStudents);
+        }
+
+        // 3. Tải assignments hiện tại (API mới)
+        currentAssignments = await fetchJson(`${serverUrl}/api/tests/${testId}/assignments`);
+        
+        // 4. Phân loại và Render
+        renderAssignmentLists(allStudents, currentAssignments);
+
+        // ------------------------------------------------------------------
+        // 🔥 FIX: KHÔI PHỤC DEADLINE VÀO INPUT DATETIME-LOCAL
+        // ------------------------------------------------------------------
+        const deadlineInput = qs('#assign-deadline');
+        
+        // Tìm deadline đã lưu đầu tiên (hoặc gần nhất) trong các bài đã giao
+        const existingAssignment = currentAssignments.find(a => a.deadline);
+        const deadlineISO = existingAssignment ? existingAssignment.deadline : null;
+        
+        if (deadlineISO) {
+            // Định dạng ISO (ví dụ: 2025-10-25T17:00:00.000Z) cần được chuyển về YYYY-MM-DDThh:mm
+            
+            // Cắt chuỗi để giữ lại 16 ký tự đầu: YYYY-MM-DDTHH:mm
+            // Input datetime-local sẽ tự động áp dụng múi giờ local của trình duyệt.
+            const localDateTime = deadlineISO.substring(0, 16); 
+            
+            deadlineInput.value = localDateTime;
+        } else {
+            deadlineInput.value = '';
+        }
+        // ------------------------------------------------------------------
+
+    } catch (e) {
+        console.error("Lỗi tải dữ liệu assignment:", e);
+        assignedContainer.innerHTML = '<p class="text-danger small m-0">Lỗi tải dữ liệu.</p>';
+        availableContainer.innerHTML = '';
+    }
+
+    modalAssignInstance.show();
+}
+
+
+function renderAssignmentLists(students, assignments) {
+    
+    // 🔥 1. LỌC: Loại bỏ Admin và Teacher trước khi xử lý
+    const assignableStudents = filterAssignableUsers(students);
+    
+    const assignedIds = new Set(assignments.map(a => a.studentId));
+    
+    // Hàm kiểm tra học sinh đã làm bài (status = 'done')
+    const isStudentDone = (sId) => assignments.find(a => a.studentId === sId && a.status === 'done');
+    
+    let assignedHtml = '';
+    let availableHtml = '';
+    let assignedCount = 0;
+    let availableCount = 0;
+
+    assignableStudents.forEach(s => { // 🔥 Lặp qua danh sách đã lọc
+        const studentName = s.fullName;         // 🔥 Đã sửa: dùng fullName
+        const studentId = s.id;
+        const studentClass = s.className || 'N/A'; // 🔥 Đã sửa: dùng className
+        const studentRole = getRoleLabel(s.role || 'student'); // 🔥 Lấy Role Label
+        const displayInfo = `${studentName} | ${studentClass} | ${studentRole}`; // Format hiển thị mới
+        const done = isStudentDone(studentId);
+
+        if (assignedIds.has(studentId)) {
+            // KHUNG TRÊN: Đã được giao
+            assignedCount++;
+            const canToggle = !done;
+            
+            assignedHtml += `
+                <div class="d-flex justify-content-between align-items-center p-1 border-bottom ${done ? 'bg-warning-subtle' : ''}" id="current-assign-${studentId}">
+                    <span class="small ${done ? 'text-danger fst-italic' : 'text-success'}">
+                        ${displayInfo}${done ? ' (Đã làm bài)' : ''}
+                    </span>
+                    <button 
+                        class="btn btn-sm btn-outline-danger ${done ? 'disabled' : ''}" 
+                        onclick="if(${canToggle}){ toggleAssignmentStatus('${studentId}', '${studentName}', false); }"
+                        title="${done ? 'Đã làm bài, không thể hủy' : 'Hủy giao bài'}"
+                    >
+                        <i class="fas fa-times small"></i>
+                    </button>
+                </div>
+            `;
+        } else {
+            // KHUNG DƯỚI: Có sẵn để giao
+            availableCount++;
+            availableHtml += `
+                <div class="d-flex justify-content-between align-items-center p-1 border-bottom" id="available-assign-${studentId}">
+                    <label class="form-check-label w-100 d-flex justify-content-between">
+                        <span class="small">${displayInfo}</span>
+                        <input class="form-check-input" type="checkbox" 
+                            onclick="toggleAssignmentStatus('${studentId}', '${studentName}', true);" 
+                        >
+                    </label>
+                </div>
+            `;
+        }
+    });
+
+    // Cập nhật DOM
+    qs('#current-assigned-list').innerHTML = assignedHtml || '<p class="text-success small m-0">Chưa có học sinh nào được giao.</p>';
+    qs('#available-students-list').innerHTML = availableHtml || '<p class="text-muted small m-0">Tất cả học sinh đã được giao.</p>';
+    
+    // Cập nhật số lượng
+    qs('#count-assigned').textContent = assignedCount;
+    qs('#count-available').textContent = availableCount;
+}
+
+function toggleAssignmentStatus(studentId, studentName, shouldAssign) {
+    const student = allStudents.find(s => s.id === studentId);
+    if (!student) return;
+
+    // 🔥 Sử dụng tên trường dữ liệu CHÍNH XÁC và Role
+    const displayClass = student.className || 'N/A';
+    const displayRole = getRoleLabel(student.role || 'student');
+    const displayInfo = `${studentName} | ${displayClass} | ${displayRole}`;
+
+    // Lấy phần tử HTML hiện tại và các container
+    const currentElement = qs(`#current-assign-${studentId}`) || qs(`#available-assign-${studentId}`);
+    const assignedContainer = qs('#current-assigned-list');
+    const availableContainer = qs('#available-students-list');
+
+    if (shouldAssign) {
+        // Chuyển từ Dưới lên Trên (Giao mới)
+        const newHtml = `
+            <div class="d-flex justify-content-between align-items-center p-1 border-bottom" id="current-assign-${studentId}">
+                <span class="small text-success">${displayInfo}</span>
+                <button 
+                    class="btn btn-sm btn-outline-danger" 
+                    onclick="toggleAssignmentStatus('${studentId}', '${studentName}', false);"
+                    title="Hủy giao bài"
+                >
+                    <i class="fas fa-times small"></i>
+                </button>
+            </div>
+        `;
+        assignedContainer.insertAdjacentHTML('afterbegin', newHtml); // Thêm lên trên cùng
+        if (currentElement) currentElement.remove(); // Xóa khỏi danh sách dưới
+        
+    } else {
+        // Chuyển từ Trên xuống Dưới (Hủy giao)
+        const newHtml = `
+            <div class="d-flex justify-content-between align-items-center p-1 border-bottom" id="available-assign-${studentId}">
+                <label class="form-check-label w-100 d-flex justify-content-between">
+                    <span class="small">${displayInfo}</span>
+                    <input class="form-check-input" type="checkbox" 
+                        onclick="toggleAssignmentStatus('${studentId}', '${studentName}', true);" 
+                        checked
+                    >
+                </label>
+            </div>
+        `;
+        availableContainer.insertAdjacentHTML('afterbegin', newHtml); // Thêm lên trên cùng
+        if (currentElement) currentElement.remove(); // Xóa khỏi danh sách trên
+    }
+    
+    // Cập nhật số lượng
+    updateCountDisplay();
+}
+
+// Hàm phụ trợ để cập nhật số lượng
+function updateCountDisplay() {
+    const assignedList = qs('#current-assigned-list');
+    const availableList = qs('#available-students-list');
+
+    const assignedCount = assignedList.querySelectorAll('div[id^="current-assign-"]').length;
+    const availableCount = availableList.querySelectorAll('div[id^="available-assign-"]').length;
+    
+    // Cập nhật số lượng
+    qs('#count-assigned').textContent = assignedCount;
+    qs('#count-available').textContent = availableCount;
+
+    // 🔥 Xử lý thông báo mặc định (CHỈ HIỂN THỊ NẾU COUNT = 0)
+    if (assignedCount === 0) {
+        assignedList.innerHTML = '<p class="text-success small m-0">Chưa có học sinh nào được giao.</p>';
+    } else {
+        // Xóa thông báo nếu đã có học sinh
+        const noStudentMsg = assignedList.querySelector('.text-success.small.m-0');
+        if (noStudentMsg) noStudentMsg.remove();
+    }
+
+    if (availableCount === 0 && availableList.querySelectorAll('div').length === 0) {
+        availableList.innerHTML = '<p class="text-muted small m-0">Tất cả học sinh đã được giao.</p>';
+    }
+}
+
+
+
+// Hàm trợ giúp thu thập ID đề thi đã chọn
+function getSelectedTestIds() {
+    // Selector phải khớp với class 'select-test-checkbox' và nằm trong tbody của bảng
+    const checkedBoxes = document.querySelectorAll('#tests-tbody .select-test-checkbox:checked');
+    
+    // Log để kiểm tra trong Console (kiểm tra xem có đề nào được chọn không)
+    console.log("Bulk Assign: Số đề thi được chọn:", checkedBoxes.length); 
+
+    const testIds = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-testid'));
+    return testIds;
+}
+
+async function showBulkAssignModal() {
+    const selectedIds = getSelectedTestIds();
+    
+    if (selectedIds.length === 0) {
+        alert('Vui lòng chọn ít nhất một đề thi để giao.');
+        return;
+    }
+
+    if (!modalAssignInstance) return;
+
+    // 1. Reset và hiển thị thông tin hàng loạt
+    // 🔥 LƯU MẢNG ID ĐỀ THI DƯỚI DẠNG CHUỖI JSON vào input ẩn
+    qs('#assign-test-ids').value = JSON.stringify(selectedIds); 
+    qs('#assign-deadline').value = '';
+
+    // 2. Hiển thị thông tin
+    qs('#test-name-display').textContent = `[Giao hàng loạt: ${selectedIds.length} đề]`;
+    qs('#bulk-info').classList.remove('d-none'); // Hiển thị thông báo hàng loạt
+    qs('#bulk-count').textContent = `${selectedIds.length}`;
+    
+    // 3. Tải học sinh nếu chưa tải, hoặc chỉ bỏ chọn nếu đã tải
+    if (!studentsForModalLoaded) {
+        qs('#assign-students-list').innerHTML = `<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-success" role="status"></div>Đang tải danh sách học sinh...</div>`;
+        await loadStudentsForModal();
+    } else {
+        const checkboxes = qs('#assign-students-list').querySelectorAll('input[type=checkbox]');
+        checkboxes.forEach(cb => cb.checked = false);
+    }
+    
+    // 4. Hiển thị modal
+    modalAssignInstance.show();
+}
+
+// Khai báo hàm helper để hiển thị modal cảnh báo (Đảm bảo infoModalInstance đã được khởi tạo)
+function showInfoModal(title, message, isError = false) {
+    const modalHeader = qs('#infoModal .modal-header');
+    const modalTitle = qs('#infoModalLabel');
+    const modalBody = qs('#infoModalBody');
+
+    // Cập nhật giao diện theo loại thông báo
+    if (isError) {
+        modalHeader.className = 'modal-header bg-danger text-white';
+        modalTitle.innerHTML = `<i class="fas fa-times-circle"></i> Lỗi Giao Đề`;
+    } else {
+        modalHeader.className = 'modal-header bg-warning text-white';
+        modalTitle.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${title}`;
+    }
+    
+    // Đặt nội dung
+    modalBody.innerHTML = message;
+
+    // Hiển thị modal
+    if (infoModalInstance) {
+        infoModalInstance.show();
+    } else {
+        // Fallback nếu Modal chưa được khởi tạo (nhưng nên fix lỗi khởi tạo)
+        alert(title + ": " + message.replace(/<[^>]*>?/gm, ''));
+    }
+}
+
+
+async function confirmAssign() {
+    const testId = qs('#current-test-id').value;
+    const deadlineValue = qs('#assign-deadline').value; // YYYY-MM-DDThh:mm
+    
+    // FIX: CHUYỂN ĐỔI DEADLINE VALUE SANG CHUỖI ISO CHUẨN ĐỂ GỬI LÊN DB
+    // Nếu có giá trị, chuyển YYYY-MM-DDThh:mm thành YYYY-MM-DDThh:mm:00.000Z
+    const deadlineISO = deadlineValue ? `${deadlineValue}:00.000Z` : null;
+
+    // 1. Lấy danh sách ID học sinh đang được hiển thị ở KHUNG TRÊN (Final list)
+    const assignedInModal = Array.from(qs('#current-assigned-list').querySelectorAll('div'))
+                                 .map(div => div.id.replace('current-assign-', ''));
+
+    // 2. Lấy danh sách ID đã được lưu TRONG CƠ SỞ DỮ LIỆU
+    const previouslyAssigned = new Set(currentAssignments.map(a => a.studentId));
+    
+    // Lấy danh sách ID đã giao BAN ĐẦU (để cập nhật deadline)
+    const initialAssignedStudentIds = currentAssignments.map(a => a.studentId);
+    
+    // Tính toán thay đổi:
+    const studentsToAssign = assignedInModal.filter(id => !previouslyAssigned.has(id));
+    const assignmentsToCancel = currentAssignments.filter(a => 
+        !assignedInModal.includes(a.studentId) && a.status !== 'done'
+    );
+    // Danh sách học sinh KHÔNG thay đổi trạng thái (vẫn được giao)
+    const studentsToKeepAssigned = assignedInModal.filter(id => previouslyAssigned.has(id));
+    const doneAssignmentsToKeep = currentAssignments.filter(a => a.status === 'done');
+
+
+    const teacher = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
+    const teacherId = teacher?.id;
+    if (!teacherId) { alert("Lỗi: Không tìm thấy thông tin giáo viên."); return; }
+
+    let assignedCount = 0;
+    let cancelledCount = 0;
+    let updatedDeadlineCount = 0;
+    
+    // TẠO PAYLOAD CHUNG CHO VIỆC CẬP NHẬT DEADLINE VÀ GIAO BÀI MỚI
+    const bulkPayload = {
+        testIds: [testId], 
+        teacherId: teacherId,
+        deadline: deadlineISO // Truyền Deadline đã chuyển đổi
+    };
+
+    try {
+        // A. GIAO MỚI (sử dụng API Bulk Assign)
+        if (studentsToAssign.length > 0) {
+            const assignPayload = { ...bulkPayload, studentIds: studentsToAssign };
+            
+            const response = await fetchJson(`${serverUrl}/api/assigns/bulk`, { 
+                method: 'POST', 
+                body: assignPayload 
+            });
+            assignedCount = response.count || 0;
+        }
+
+        // B. HỦY GIAO (sử dụng API Bulk Delete mới)
+        if (assignmentsToCancel.length > 0) {
+            const assignmentIds = assignmentsToCancel.map(a => a.id);
+            const deletePayload = { assignmentIds: assignmentIds };
+            
+            const response = await fetchJson(`${serverUrl}/api/assignments/bulk-delete`, { 
+                method: 'POST', 
+                body: deletePayload 
+            });
+            cancelledCount = response.deletedCount || 0;
+        }
+        
+        // C. CẬP NHẬT DEADLINE CHO BÀI ĐÃ TỒN TẠI (Quan trọng!)
+        // Gửi lại yêu cầu bulk assign cho TẤT CẢ học sinh hiện đang được giao.
+        const studentsToReassignForDeadline = assignedInModal; 
+
+        if (studentsToReassignForDeadline.length > 0) {
+            const updateDeadlinePayload = {
+                ...bulkPayload,
+                studentIds: studentsToReassignForDeadline
+            };
+
+            // Gửi yêu cầu Bulk Assign/Update lại
+            const updateResponse = await fetchJson(`${serverUrl}/api/assigns/bulk`, {
+                method: 'POST',
+                body: updateDeadlinePayload
+            });
+
+            // Xác nhận rằng API đã được gọi thành công.
+            if (updateResponse.count > 0 || initialAssignedStudentIds.length > 0) {
+                updatedDeadlineCount = initialAssignedStudentIds.length;
+            }
+        }
+
+
+        // Báo cáo
+        let message = "Hoàn tất thao tác:";
+        if (assignedCount > 0) message += `\n✅ Đã giao mới ${assignedCount} bài.`;
+        if (cancelledCount > 0) message += `\n❌ Đã hủy ${cancelledCount} bài giao.`;
+        // Chỉ thông báo cập nhật deadline nếu nó thực sự được thay đổi
+        if (updatedDeadlineCount > 0 && deadlineValue) message += `\n📅 Đã cập nhật Thời hạn nộp bài.`;
+        
+        if (doneAssignmentsToKeep.length > 0) message += `\n⚠️ Giữ lại ${doneAssignmentsToKeep.length} bài đã làm (Không thể hủy).`;
+        
+        if (assignedCount === 0 && cancelledCount === 0 && updatedDeadlineCount === 0) {
+            message = "Không có thay đổi nào được ghi nhận.";
+        } else if (assignedCount === 0 && cancelledCount === 0 && updatedDeadlineCount > 0) {
+            // Trường hợp chỉ cập nhật deadline
+            message = "Đã cập nhật Thời hạn nộp bài thành công.";
+        }
+
+        alert(message);
+        
+    } catch (e) {
+        console.error("Lỗi thực thi giao/hủy:", e.message);
+        alert(`❌ Lỗi xảy ra trong quá trình thực hiện giao/hủy bài: ${e.message}`);
+    }
+
+    modalAssignInstance.hide();
+    loadTests();
 }
 
 //RESULT TAB GIÁO VIÊN
@@ -4677,60 +5320,65 @@ let assignmentFilterStatus = 'all';
  * Tải tất cả Assignments và Results của học sinh hiện tại, sau đó xử lý và hiển thị.
  */
 async function loadAssignments() {
-    // Sửa lỗi selector: Thêm dấu #
     const pendingTbody = qs('#assigned-tbody'); 
     const doneTbody = qs('#done-tbody'); 
     
     // Quản lý trạng thái đã tải
     if (allAssignedTestsData && allAssignedTestsData.length > 0) {
-        renderPendingAssignments(); // Gọi hàm render đã được nâng cấp (không đối số)
+        renderPendingAssignments();
+        // Cần render lại cả tab Done nếu dữ liệu đã tồn tại
+        if (assignmentState.allResults && assignmentState.allResults.length > 0) {
+            filterAndRenderAssignments(); // Gọi hàm render có lọc/sắp xếp
+        }
         return;
     }
     
-    // Hiển thị loading spinner (Sử dụng colspan 8 mới)
+    // Hiển thị loading spinner... (Giữ nguyên)
     if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="8" class="text-center"><div class="spinner-border text-success spinner-border-sm" role="status"></div> Đang tải đề được giao...</td></tr>';
     if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="8" class="text-center"><div class="spinner-border text-success spinner-border-sm" role="status"></div> Đang tải bài đã làm...</td></tr>';
 
     try {
         const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
-        if (!s || !s.id) {
-            console.error("Không tìm thấy ID người dùng.");
-            // Xử lý lỗi (Sử dụng colspan 8 mới)
-            if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Lỗi: Không tìm thấy thông tin học sinh.</td></tr>';
-            if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Lỗi: Không tìm thấy thông tin học sinh.</td></tr>';
-            return;
-        }
+        if (!s || !s.id) { /* ... Xử lý lỗi ID người dùng ... */ return; }
 
         const studentId = s.id;
         const q = `?studentId=${encodeURIComponent(studentId)}`;
         
         // ----------------------------------------------------------------------------------
-        // 🔥 CHỈ CÓ MỘT LỆNH FETCH ĐẾN API ĐÃ NÂNG CẤP (/api/assigns)
         const assigns = await fetchJson(`${serverUrl}/api/assigns${q}`); 
         
-        // 1. Lưu dữ liệu đã tải vào biến toàn cục cho lọc/sắp xếp
-        allAssignedTestsData = Array.isArray(assigns) ? assigns : [];
+        // 🔥 BƯỚC 1: CHUẨN HÓA DỮ LIỆU TL/TN CỦA BÀI ĐƯỢC GIAO TRƯỚC KHI LƯU VÀO TOÀN CỤC
+        // Nếu API thiếu 2 trường này, ta BUỘC phải thêm chúng vào.
+        const standardizedAssigns = (Array.isArray(assigns) ? assigns : []).map(a => {
+            // Sử dụng tên trường 'essayCount' và 'mcCount' như hàm render đang gọi
+            a.essayCount = a.essayCount || 0; 
+            a.mcCount = a.mcCount || 0;
+            return a;
+        });
+        
+        // 1. Lưu dữ liệu đã chuẩn hóa vào biến toàn cục cho lọc/sắp xếp (Tab Pending)
+        allAssignedTestsData = standardizedAssigns; 
         
         // 2. Cập nhật bộ lọc môn học
         updateStudentSubjectFilter(allAssignedTestsData);
         
-        // 3. Gọi hàm render đã nâng cấp (tự lọc/sắp xếp từ allAssignedTestsData)
+        // 3. Gọi hàm render tab Đề được giao
         renderPendingAssignments(); 
         
         // ----------------------------------------------------------------------------------
-        // 4. Tải danh sách Kết quả bài làm (Vẫn cần cho bảng Đã làm)
+        // 4. Tải danh sách Kết quả bài làm
         const results = await fetchJson(`${serverUrl}/api/results${q}`);
         
-        // 5. Xử lý và phân loại cho bảng Đã làm (Sử dụng assigns đã tải)
-        const processed = processAssignments(assigns, results);
+        // 5. Xử lý và phân loại cho bảng Đã làm (Sử dụng standardizedAssigns đã tải)
+        const processed = processAssignments(standardizedAssigns, results); // Truyền dữ liệu đã chuẩn hóa
         
         // 6. Render vào bảng Bài đã làm (Done)
-        renderDoneAssignments(processed.completed); 
+        // Lưu ý: processAssignments đã cập nhật assignmentState.allResults
+        setupAssignmentFilters(); // Thiết lập bộ lọc cho tab Done
+        filterAndRenderAssignments(); // Render tab Done (tự đọc assignmentState.allResults)
 
     } catch (e) {
-        console.error("Lỗi tải Assignments:", e);
-        if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Lỗi tải đề.</td></tr>';
-        if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Lỗi tải bài đã làm.</td></tr>';
+        /* ... Xử lý lỗi tải Assignments ... */
     }
 }
 
@@ -4747,48 +5395,62 @@ function processAssignments(assigns, results) {
     const pending = [];
     const completed = [];
     
+    // 🔥 Dữ liệu đầu vào 'assigns' đã bị chuẩn hóa TL/TN ở hàm loadAssignments()
+    // Nên ta chỉ cần tập trung vào logic kết quả/điểm.
+    
     assigns.forEach(a => {
         const result = resultsMap.get(a.id); 
         
+        // 1. CHUẨN BỊ DỮ LIỆU CƠ BẢN
         a.testName = a.testName || a.name || 'Bài thi [Không tên]';
         a.subject = a.subject ? a.subject.toLowerCase() : 'khác'; 
+        
+        // Lưu ý: a.essayCount và a.mcCount được chuẩn hóa ở hàm loadAssignments
 
         if (result) {
+            // DỮ LIỆU BÀI ĐÃ LÀM (COMPLETED)
             a.resultId = result.id; 
             a.submittedAt = result.submittedAt;
             a.gradedAt = result.gradedAt;
             a.gradingStatus = result.gradingStatus;
             
-            // ✅ CHUẨN HÓA ĐIỂM (SỬA LỖI ĐIỂM)
-let scoreValue = result.totalScore;
+            // 🔥 TÍNH TOÁN LẠI SỐ CÂU TỪ KẾT QUẢ CHO BÀI ĐÃ LÀM (Rất quan trọng)
+            if (result.studentAnswers) {
+                a.mcCount = result.studentAnswers.filter(ans => ans.type === 'mc').length;
+                a.essayCount = result.studentAnswers.filter(ans => ans.type === 'essay').length;
+            }
             
-if (scoreValue !== undefined && scoreValue !== null) {
-    // 1. Chuyển thành chuỗi, loại bỏ khoảng trắng, thay dấu phẩy bằng dấu chấm
-    scoreValue = String(scoreValue).trim().replace(',', '.');
-    
-    // 2. Chuyển thành số
-    let parsedScore = parseFloat(scoreValue);
-    
-    // 3. Nếu chuyển đổi thành công, gán giá trị số, nếu không gán null
-    a.totalScore = isFinite(parsedScore) ? parsedScore : null;
-} else {
-    a.totalScore = null;
-}
-                            
+            // 2. CHUẨN HÓA ĐIỂM (SCORE FIX: Đảm bảo null cho bài chưa chấm)
+            let scoreValue = result.totalScore;
+            let parsedScore = null;
+            const statusLower = (result.gradingStatus || '').toLowerCase();
+            const isReallyGraded = statusLower.includes('hoàn tất') || statusLower.includes('đã chấm lại') || (statusLower.includes('đã chấm') && !statusLower.includes('lại'));
+
+            if (scoreValue !== undefined && scoreValue !== null) {
+                scoreValue = String(scoreValue).trim().replace(',', '.');
+                parsedScore = parseFloat(scoreValue);
+            }
+
+            if (isFinite(parsedScore) && isReallyGraded) {
+                a.totalScore = parsedScore; 
+            } else {
+                a.totalScore = null;
+            }
+                                
             a.essayScore = result.essayScore; 
-            a.mcScore = result.mcScore;     
+            a.mcScore = result.mcScore;    
             
             completed.push(a);
         } else {
+            // DỮ LIỆU BÀI CHƯA LÀM (PENDING)
             a.status = 'Chưa làm';
             pending.push(a);
         }
     });
 
-    assignmentState.allResults = completed;
-    setupAssignmentFilters(); 
-    filterAndRenderAssignments();
-
+    // ⛔️ LOẠI BỎ CÁC DÒNG GỌI RENDER VÀ GÁN allAssignedTestsData
+    assignmentState.allResults = completed; // Cập nhật cho tab Done
+    
     return { pending, completed: completed };
 }
 
