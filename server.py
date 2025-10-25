@@ -849,69 +849,87 @@ def delete_test(test_id):
 def list_assigns():
     """
     Lấy danh sách assignments cho học sinh.
-    - listType=pending (default): Lấy bài chưa làm (pending, assigned, in_progress).
-    - listType=done: Lấy bài đã làm (submitted, done, graded).
+    Cập nhật: Thêm lookup với db.results để lấy thông tin điểm và trạng thái chấm bài.
     """
-    studentId = request.args.get("studentId")
-    list_type = request.args.get("listType", "pending").lower() # Mặc định lấy bài chưa làm
-    
-    # 1. Định nghĩa trạng thái lọc
-    if list_type == "done":
-        # Tab "Bài đã làm" (Đã nộp, Đã chấm, Hoàn tất)
-        match_statuses = ["submitted", "done", "graded"]
-    else:
-        # Tab "Bài được giao" (Mới giao, Đang làm)
-        match_statuses = ["pending", "assigned", "in_progress"]
-    
-    pipeline = []
-    
-    # 2. Lọc theo studentId và trạng thái
-    match_query = {"status": {"$in": match_statuses}}
-    if studentId: 
-        match_query["studentId"] = studentId
+    try:
+        studentId = request.args.get("studentId")
+        list_type = request.args.get("listType", "pending").lower() # Mặc định lấy bài chưa làm
         
-    pipeline.append({"$match": match_query})
+        # 1. Định nghĩa trạng thái lọc
+        if list_type == "done":
+            match_statuses = ["submitted", "done", "graded"]
+        else:
+            match_statuses = ["pending", "assigned", "in_progress"]
+            
+        pipeline = []
+        
+        # 2. Lọc theo studentId và trạng thái
+        match_query = {"status": {"$in": match_statuses}}
+        if studentId: 
+            match_query["studentId"] = studentId
+            
+        pipeline.append({"$match": match_query})
 
-    # 3. Bước Lookup (JOIN): Kết nối assignments với tests
-    pipeline.append({
-        "$lookup": {
-            "from": "tests",         # Tên bộ sưu tập đề thi
-            "localField": "testId",  
-            "foreignField": "id",    
-            "as": "testInfo"         
-        }
-    })
+        # 3. Lookup (JOIN): Kết nối assignments với tests
+        pipeline.append({
+            "$lookup": {
+                "from": "tests",        
+                "localField": "testId", 
+                "foreignField": "id",   
+                "as": "testInfo"        
+            }
+        })
+        pipeline.append({"$unwind": {"path": "$testInfo", "preserveNullAndEmptyArrays": True}})
+        
+        # 🌟 BƯỚC SỬA LỖI: Lookup (JOIN) kết nối assignments với results
+        pipeline.append({
+            "$lookup": {
+                "from": "results",        
+                "localField": "id",         # ID của assignment
+                "foreignField": "assignmentId", # assignmentId trong result
+                "as": "resultInfo"        
+            }
+        })
+        # Giữ nguyên assignment ngay cả khi chưa có result (để hiển thị pending)
+        pipeline.append({"$unwind": {"path": "$resultInfo", "preserveNullAndEmptyArrays": True}})
 
-    # 4. Bước Unwind: Biến mảng 'testInfo' thành đối tượng
-    pipeline.append({"$unwind": {"path": "$testInfo", "preserveNullAndEmptyArrays": True}})
-    
-    # 5. Bước Projection: Định hình lại và chọn các trường cần thiết
-    pipeline.append({
-        "$project": {
-            "_id": 0,
-            "id": "$id",
-            "testId": "$testId",
-            "studentId": "$studentId",
-            "deadline": "$deadline",
-            "status": "$status",
-            
-            # 🔥 FIX NGÀY GIAO: Lấy trường 'createdAt' từ assignment gốc và đổi tên thành 'timeAssigned'
-            "timeAssigned": {"$ifNull": ["$createdAt", "$timeAssigned"]}, 
-            
-            # Lấy tên đề thi, Môn học, Thời gian (từ TestInfo)
-            "testName": "$testInfo.name", 
-            "subject": "$testInfo.subject", 
-            "time": "$testInfo.time",
-            
-            # 🔥 FIX CÂU HỎI: DÙNG TRỰC TIẾP DỮ LIỆU ĐÃ CÓ TRONG testInfo
-            "mcCount": {"$ifNull": ["$testInfo.mcCount", 0]},
-            "essayCount": {"$ifNull": ["$testInfo.essayCount", 0]},
-        }
-    })
-    
-    # 6. Thực thi Aggregation và trả về kết quả
-    docs = list(db.assignments.aggregate(pipeline)) 
-    return jsonify(docs)
+
+        # 4. Bước Projection: Định hình lại và chọn các trường cần thiết
+        pipeline.append({
+            "$project": {
+                "_id": 0,
+                "id": "$id",
+                "testId": "$testId",
+                "studentId": "$studentId",
+                "deadline": "$deadline",
+                "status": "$status", 
+                
+                "timeAssigned": {"$ifNull": ["$createdAt", "$timeAssigned"]}, 
+                
+                # Lấy tên đề thi, Môn học, Thời gian (từ TestInfo)
+                "testName": "$testInfo.name", 
+                "subject": "$testInfo.subject", 
+                "time": "$testInfo.time",
+                "mcCount": {"$ifNull": ["$testInfo.mcCount", 0]},
+                "essayCount": {"$ifNull": ["$testInfo.essayCount", 0]},
+
+                # 🌟 TRƯỜNG MỚI: Dữ liệu từ Result (Cần cho tab "Bài đã làm")
+                "resultId": "$resultInfo.id",
+                "totalScore": {"$ifNull": ["$resultInfo.totalScore", 0]}, 
+                "mcScore": {"$ifNull": ["$resultInfo.mcScore", 0]},
+                "essayScore": {"$ifNull": ["$resultInfo.essayScore", 0]},
+                "gradingStatus": {"$ifNull": ["$resultInfo.gradingStatus", "Chưa nộp"]},
+                "submittedAt": "$resultInfo.submittedAt"
+            }
+        })
+        
+        # 5. Thực thi Aggregation và trả về kết quả
+        docs = list(db.assignments.aggregate(pipeline)) 
+        return jsonify(docs)
+
+    except Exception as e:
+        print(f"Lỗi khi liệt kê bài tập (list_assigns): {e}")
+        return jsonify({"message": "Lỗi máy chủ nội bộ. Vui lòng thử lại sau.", "error": str(e)}), 500
 
 
 @app.route("/assigns", methods=["POST"])
