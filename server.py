@@ -936,7 +936,7 @@ def list_assigns():
     })
 
     # 6. Thực thi Aggregation và trả về kết quả
-    docs = list(db.assigns.aggregate(pipeline)) 
+    docs = list(db.assignments.aggregate(pipeline)) 
     return jsonify(docs)
 
 @app.route("/assigns", methods=["POST"])
@@ -951,7 +951,7 @@ def create_assign():
         "status": data.get("status"),
         "timeAssigned": data.get("timeAssigned") or now_vn_iso()
     }
-    db.assigns.insert_one(newa)
+    db.assignments.insert_one(newa)
     to_return = newa.copy(); to_return.pop("_id", None)
     return jsonify(to_return), 201
 
@@ -979,7 +979,7 @@ def assign_multiple():
             "status": "assigned",
             "timeAssigned": now_vn_iso()
         }
-        db.assigns.insert_one(newa)
+        db.assignments.insert_one(newa)
         newa.pop("_id", None)
         created.append(newa)
 
