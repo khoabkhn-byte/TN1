@@ -859,7 +859,7 @@ def list_assigns():
         if list_type == "done":
             match_statuses = ["submitted", "done", "graded"]
         else:
-            match_statuses = ["pending", "assigned", "in_progress"]
+            match_statuses = ["pending", "assigned", "in_progress", None]
             
         pipeline = []
         
@@ -924,7 +924,13 @@ def list_assigns():
         })
         
         # 5. Thực thi Aggregation và trả về kết quả
-        docs = list(db.assignments.aggregate(pipeline)) 
+        docs = list(db.assignments.aggregate(pipeline))
+
+        # 🔥 AUTO FIX: Nếu assignment có submittedAt thì coi như submitted
+        for a in docs:
+            if a.get("submittedAt"):
+                a["status"] = "submitted"
+
         return jsonify(docs)
 
     except Exception as e:
