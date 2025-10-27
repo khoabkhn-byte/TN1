@@ -847,86 +847,61 @@ def delete_test(test_id):
 @app.route("/assigns", methods=["GET"])
 @app.route("/api/assigns", methods=["GET"])
 def list_assigns():
-    """
-    Lấy danh sách assignments cho học sinh.
-    Cập nhật: Thêm lookup với db.results để lấy thông tin điểm và trạng thái chấm bài.
-    """
     try:
         studentId = request.args.get("studentId")
-        list_type = request.args.get("listType", "pending").lower() # Mặc định lấy bài chưa làm
-        
-        # 1. Định nghĩa trạng thái lọc
-        if list_type == "done":
-            match_statuses = ["submitted", "done", "graded"]
-        else:
-            match_statuses = ["pending", "assigned", "in_progress", None]
+        if not studentId:
+            return jsonify([])
+
+        pipeline = [
+            {"$match": {"studentId": studentId}},
+
+            # Join tests
+            {
+                "$lookup": {
+                    "from": "tests",
+                    "localField": "testId",
+                    "foreignField": "id",
+                    "as": "testInfo"
+                }
+            },
+            {"$unwind": {"path": "$testInfo", "preserveNullAndEmptyArrays": True}},
+
+            # Join results
+            {
+                "$lookup": {
+                    "from": "results",
+                    "localField": "id",
+                    "foreignField": "assignmentId",
+                    "as": "resultInfo"
+                }
+            },
+            {"$unwind": {"path": "$resultInfo", "preserveNullAndEmptyArrays": True}},
             
-        pipeline = []
-        
-        # 2. Lọc theo studentId và trạng thái
-        match_query = {"status": {"$in": match_statuses}}
-        if studentId: 
-            match_query["studentId"] = studentId
-            
-        pipeline.append({"$match": match_query})
-
-        # 3. Lookup (JOIN): Kết nối assignments với tests
-        pipeline.append({
-            "$lookup": {
-                "from": "tests",        
-                "localField": "testId", 
-                "foreignField": "id",   
-                "as": "testInfo"        
+            {
+                "$project": {
+                    "_id": 0,
+                    "id": 1,
+                    "testId": 1,
+                    "studentId": 1,
+                    "deadline": 1,
+                    "status": 1,
+                    "submittedAt": "$resultInfo.submittedAt",
+                    "gradingStatus": "$resultInfo.gradingStatus",
+                    "totalScore": "$resultInfo.totalScore",
+                    "mcScore": "$resultInfo.mcScore",
+                    "essayScore": "$resultInfo.essayScore",
+                    "testName": "$testInfo.name",
+                    "subject": "$testInfo.subject",
+                    "time": "$testInfo.time",
+                    "mcCount": "$testInfo.mcCount",
+                    "essayCount": "$testInfo.essayCount",
+                }
             }
-        })
-        pipeline.append({"$unwind": {"path": "$testInfo", "preserveNullAndEmptyArrays": True}})
-        
-        # 🌟 BƯỚC SỬA LỖI: Lookup (JOIN) kết nối assignments với results
-        pipeline.append({
-            "$lookup": {
-                "from": "results",        
-                "localField": "id",         # ID của assignment
-                "foreignField": "assignmentId", # assignmentId trong result
-                "as": "resultInfo"        
-            }
-        })
-        # Giữ nguyên assignment ngay cả khi chưa có result (để hiển thị pending)
-        pipeline.append({"$unwind": {"path": "$resultInfo", "preserveNullAndEmptyArrays": True}})
+        ]
 
-
-        # 4. Bước Projection: Định hình lại và chọn các trường cần thiết
-        pipeline.append({
-            "$project": {
-                "_id": 0,
-                "id": "$id",
-                "testId": "$testId",
-                "studentId": "$studentId",
-                "deadline": "$deadline",
-                "status": "$status", 
-                
-                "timeAssigned": {"$ifNull": ["$createdAt", "$timeAssigned"]}, 
-                
-                # Lấy tên đề thi, Môn học, Thời gian (từ TestInfo)
-                "testName": "$testInfo.name", 
-                "subject": "$testInfo.subject", 
-                "time": "$testInfo.time",
-                "mcCount": {"$ifNull": ["$testInfo.mcCount", 0]},
-                "essayCount": {"$ifNull": ["$testInfo.essayCount", 0]},
-
-                # 🌟 TRƯỜNG MỚI: Dữ liệu từ Result (Cần cho tab "Bài đã làm")
-                "resultId": "$resultInfo.id",
-                "totalScore": {"$ifNull": ["$resultInfo.totalScore", 0]}, 
-                "mcScore": {"$ifNull": ["$resultInfo.mcScore", 0]},
-                "essayScore": {"$ifNull": ["$resultInfo.essayScore", 0]},
-                "gradingStatus": {"$ifNull": ["$resultInfo.gradingStatus", "Chưa nộp"]},
-                "submittedAt": "$resultInfo.submittedAt"
-            }
-        })
-        
-        # 5. Thực thi Aggregation và trả về kết quả
         docs = list(db.assignments.aggregate(pipeline))
 
-        # 🔥 AUTO FIX: Nếu assignment có submittedAt thì coi như submitted
+        # Auto-map status submitted
         for a in docs:
             if a.get("submittedAt"):
                 a["status"] = "submitted"
@@ -934,8 +909,9 @@ def list_assigns():
         return jsonify(docs)
 
     except Exception as e:
-        print(f"Lỗi khi liệt kê bài tập (list_assigns): {e}")
-        return jsonify({"message": "Lỗi máy chủ nội bộ. Vui lòng thử lại sau.", "error": str(e)}), 500
+        print("list_assigns error:", e)
+        return jsonify([]), 500
+
 
 
 @app.route("/assigns", methods=["POST"])
@@ -1139,165 +1115,86 @@ def bulk_delete_assignments():
 
 
 # --------------------- RESULTS ---------------------
-@app.route("/results", methods=["GET"])
-@app.route("/api/results", methods=["GET"])
-def list_results():
-    query = {}
-    studentId = request.args.get("studentId")
-    if studentId: query["studentId"] = studentId
-    docs = list(db.results.find(query, {"_id": 0}))
-    return jsonify(docs)
-
 @app.route("/results", methods=["POST"])
 @app.route("/api/results", methods=["POST"])
 def create_result():
     try:
         data = request.get_json() or {}
-        student_answers = data.get("studentAnswers", [])
-        test_id = data.get("testId")
         student_id = data.get("studentId")
-        assignment_id = data.get("assignmentId") # ⬅️ Đảm bảo lấy assignmentId
+        assignment_id = data.get("assignmentId")
+        test_id = data.get("testId")
+        student_answers = data.get("studentAnswers", [])
 
-        # 1. Xác thực dữ liệu bắt buộc
-        if not student_id or not test_id or not assignment_id:
-            return jsonify({"message": "Thiếu studentId, testId, hoặc assignmentId trong request. Vui lòng kiểm tra lại."}), 400
+        if not student_id or not assignment_id or not test_id:
+            return jsonify({"message": "Thiếu ID"}), 400
 
-        q_ids = [a.get("questionId") for a in student_answers if "questionId" in a]
+        q_ids = [a.get("questionId") for a in student_answers]
         questions = list(db.questions.find(
             {"id": {"$in": q_ids}},
             {"_id": 0, "id": 1, "type": 1, "points": 1, "options": 1}
         ))
         
         question_map = {q["id"]: q for q in questions}
-        
-        student_info = db.users.find_one({"id": student_id}, {"fullName": 1, "className": 1, "_id": 0})
-        student_name = student_info.get("fullName", "Ẩn danh") if student_info else "Ẩn danh"
-        class_name = student_info.get("className", "N/A") if student_info else "N/A"
-        
-        # 🌟 KHỞI TẠO ĐIỂM BAN ĐẦU
-        mc_score_gained = 0.0
-        essay_score_gained = 0.0
-        total_score_gained = 0.0 
-        has_essay = False
+
+        mc_score = 0.0
+        essay = False
         detailed = []
 
-        # ... (Phần chấm điểm tự động không thay đổi) ...
-
         for ans in student_answers:
-            qid = ans.get("questionId")
-            q = question_map.get(qid)
-            
+            q = question_map.get(ans["questionId"])
             if not q:
-                detailed.append({
-                    "questionId": qid, "type": ans.get("type", "mc"),
-                    "studentAnswer": ans.get("answer"), "isCorrect": False,
-                    "pointsGained": 0.0, "maxPoints": 0.0, "correctAnswer": None,
-                    "note": "question-not-found"
-                })
                 continue
 
-            q_type = (q.get("type") or "mc").lower()
-            student_ans = ans.get("answer")
-            
-            # Đảm bảo max_points là float
-            try:
-                max_points = float(q.get("points", 1))
-            except ValueError:
-                max_points = 1.0 
-
+            max_points = float(q.get("points", 1))
             correct_ans = None
-            if q_type == "mc" and q.get("options"):
-                for opt in q["options"]:
-                    if opt.get("correct") is True:
-                        correct_ans = opt.get("text")
-                        break
+            if q["type"] == "mc":
+                for o in q["options"]:
+                    if o.get("correct"):
+                        correct_ans = o["text"]
 
-            student_ans_text = student_ans
-            if q_type == "mc" and q.get("options"):
-                try:
-                    if isinstance(student_ans, int) and 0 <= student_ans < len(q["options"]):
-                        student_ans_text = q["options"][student_ans].get("text")
-                    elif isinstance(student_ans, str) and student_ans.isdigit():
-                        idx = int(student_ans)
-                        if 0 <= idx < len(q["options"]):
-                            student_ans_text = q["options"][idx].get("text")
-                except Exception:
-                    pass
-
-            is_correct = None
-            points = 0.0 
-
-            if q_type == "mc":
-                is_correct = (str(student_ans_text).strip() == str(correct_ans).strip()) if correct_ans is not None else False
-                points = max_points if is_correct else 0.0
-                mc_score_gained += points 
+                is_ok = (ans["answer"] == correct_ans)
+                if is_ok:
+                    mc_score += max_points
             else:
-                has_essay = True
+                essay = True
 
-            total_score_gained += points 
-
-            detailed_entry = {
-                "questionId": qid,
-                "type": q_type,
-                "studentAnswer": student_ans_text,
-                "pointsGained": round(points, 2), 
-                "maxPoints": max_points,
-                "correctAnswer": correct_ans,
-                "isEssay": q_type in ["essay", "tự luận"]
-            }
-            
-            if q_type == "mc":
-                detailed_entry["isCorrect"] = is_correct
-
-            detailed.append(detailed_entry)
-            
-        # 🌟 XÁC ĐỊNH TRẠNG THÁI CUỐI CÙNG 🌟
-        grading_status = "Đang Chấm" if has_essay else "Hoàn tất"
-
-        # TẠO BỘ LỌC DỰA TRÊN assignmentId VÀ studentId (UNIQUE KEY)
-        filter_query = {
-            "studentId": student_id,
-            "assignmentId": assignment_id
-        }
-
-        # TÌM VÀ TÁI SỬ DỤNG ID CŨ NẾU TỒN TẠI
-        existing_result = db.results.find_one(filter_query, {"id": 1, "_id": 0})
-        result_id = existing_result.get("id") if existing_result else str(uuid4())
+        # lookup existing
+        existing = db.results.find_one(
+            {"studentId": student_id, "assignmentId": assignment_id},
+            {"id": 1, "_id": 0}
+        )
+        result_id = existing["id"] if existing else str(uuid4())
 
         new_result = {
-            "id": result_id, 
+            "id": result_id,
             "studentId": student_id,
-            "studentName": student_name,
-            "className": class_name,
-            "testId": test_id,
             "assignmentId": assignment_id,
+            "testId": test_id,
             "studentAnswers": student_answers,
-            "detailedResults": detailed,
-            
-            "totalScore": round(total_score_gained, 2), 
-            "mcScore": round(mc_score_gained, 2),        
-            "essayScore": round(essay_score_gained, 2),   
-            "gradingStatus": grading_status,
-            
-            "submittedAt": now_vn_iso()
+            "gradingStatus": "Đang Chấm" if essay else "Hoàn tất",
+            "mcScore": mc_score,
+            "essayScore": 0,
+            "totalScore": mc_score,
+            "submittedAt": now_vn_iso(),
         }
 
-        # 🚀 BƯỚC 1: UPSERT (Ghi đè kết quả) trong db.results
-        # Giải quyết lỗi "Giáo viên thấy nhiều dòng khi nộp lại"
-        db.results.replace_one(filter_query, new_result, upsert=True)
-        
-        # 🏆 BƯỚC QUAN TRỌNG NHẤT (FIX CỐT LÕI): Cập nhật trạng thái trong db.assignments
-        # Giải quyết lỗi "Bài làm đã nộp không biến mất"
+        db.results.replace_one(
+            {"studentId": student_id, "assignmentId": assignment_id},
+            new_result,
+            upsert=True
+        )
+
         db.assignments.update_one(
             {"id": assignment_id},
             {"$set": {"status": "submitted", "submittedAt": new_result["submittedAt"]}}
         )
-        
+
         return jsonify(new_result), 201
-    
+
     except Exception as e:
-        print(f"Lỗi khi tạo kết quả (create_result): {e}")
-        return jsonify({"message": "Lỗi máy chủ nội bộ. Vui lòng thử lại sau.", "error": str(e)}), 500
+        print("create_result error:", e)
+        return jsonify({"message": "server error"}), 500
+
     
 # Chấm bài tự luận
 from flask import abort
