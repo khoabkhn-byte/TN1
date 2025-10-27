@@ -1145,6 +1145,51 @@ def bulk_delete_assignments():
         print(f"Lỗi khi xóa hàng loạt assignments: {e}")
         return jsonify({"message": "Lỗi máy chủ khi xóa hàng loạt assignment.", "deletedCount": 0}), 500
 
+# --------------------- ASSIGNMENTS (Student View) ---------------------
+@app.route("/api/assignments", methods=["GET"])
+def get_assignments_for_student():
+    student_id = request.args.get("studentId")
+    if not student_id:
+        return jsonify({"success": False, "message": "Missing studentId parameter"}), 400
+
+    # Tìm tất cả assignments cho student_id này chưa nộp (status != done)
+    assignments = list(db.assignments.find({
+        "studentId": student_id,
+        "status": {"$in": ["pending", "assigned", None]} # Chỉ lấy các bài chưa làm/đang chờ
+    }, {"_id": 0})) 
+
+    if not assignments:
+        return jsonify({"success": True, "assignments": []})
+
+    # Gộp thông tin bài thi (testName, subject, time,...)
+    test_ids = [a["testId"] for a in assignments if a.get("testId")]
+    tests = db.tests.find({"id": {"$in": test_ids}}, 
+                           {"_id": 0, "id": 1, "name": 1, "subject": 1, "time": 1, "mcCount": 1, "essayCount": 1})
+    tests_map = {t["id"]: t for t in tests}
+
+    # Tạo danh sách kết quả cuối cùng
+    result_list = []
+    for a in assignments:
+        test_info = tests_map.get(a["testId"], {})
+        
+        # 🔥 FIX: Ưu tiên lấy assignedAt, nếu không có thì lấy createdAt để tương thích với bản ghi cũ
+        assigned_date = a.get("assignedAt") or a.get("createdAt") 
+        
+        result_list.append({
+            "assignmentId": a.get("id"),
+            "testId": a["testId"],
+            "testName": test_info.get("name", a.get("testName", "N/A")), # Fallback về testName trong assignment
+            "subject": test_info.get("subject", "N/A"),
+            "time": test_info.get("time"),
+            "mcCount": test_info.get("mcCount", 0),
+            "essayCount": test_info.get("essayCount", 0),
+            "deadline": a.get("deadline"),
+            "assignedAt": assigned_date, # ✅ TRUYỀN DỮ LIỆU ĐÃ ĐƯỢC CHUẨN HÓA
+            "status": a.get("status", "pending"),
+        })
+        
+    return jsonify({"success": True, "assignments": result_list})
+
 
 # --------------------- RESULTS ---------------------
 @app.route("/results", methods=["POST"])
