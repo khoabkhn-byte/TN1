@@ -1222,14 +1222,15 @@ def get_assignments_for_student():
 def create_result():
     """
     Tạo/Cập nhật Result khi học sinh nộp bài.
-    - Đã FIX lỗi: 'str' object has no attribute 'get', detailedResults: Array(0) và gradingStatus sai.
+    - Cải tiến: normalize question IDs, robust student answer map,
+      chuẩn hoá so sánh đáp án, in debug khi mismatch.
     """
     try:
         data = request.get_json() or {}
-        student_id = data.get("studentId")
-        assignment_id = data.get("assignmentId")
-        test_id = data.get("testId")
-        student_answers = data.get("studentAnswers", [])
+        student_id = data.get("studentId") or data.get("student_id")
+        assignment_id = data.get("assignmentId") or data.get("assignment_id")
+        test_id = data.get("testId") or data.get("test_id")
+        student_answers = data.get("studentAnswers", []) or data.get("answers", []) or []
 
         if not student_id or not assignment_id or not test_id:
             return jsonify({"message": "Thiếu ID (studentId, assignmentId, testId)"}), 400
@@ -1238,98 +1239,149 @@ def create_result():
         test_doc = db.tests.find_one({"id": test_id})
         if not test_doc:
             return jsonify({"message": "Không tìm thấy đề thi"}), 404
-            
-        test_questions = test_doc.get("questions", [])
 
-        # 2. TRÍCH XUẤT TẤT CẢ Q_IDS (Hỗ trợ cả object và chuỗi ID)
+        test_questions = test_doc.get("questions", []) or []
+
+        # 2. NORMALIZE tất cả question IDs (hỗ trợ dict có id, _id, questionId, hoặc chuỗi)
         q_ids = []
         for q_entry in test_questions:
-            if isinstance(q_entry, dict) and q_entry.get("id"):
-                q_ids.append(q_entry["id"])
-            elif isinstance(q_entry, str):
-                q_ids.append(q_entry)
-        
+            if isinstance(q_entry, dict):
+                # lấy theo nhiều key khả dĩ
+                candidate = q_entry.get("id") or q_entry.get("_id") or q_entry.get("questionId") or q_entry.get("question_id")
+                if candidate is not None:
+                    q_ids.append(str(candidate))
+            else:
+                # nếu là list item chuỗi hoặc số
+                q_ids.append(str(q_entry))
+
+        # loại bỏ rỗng và unique
+        q_ids = [str(x) for x in q_ids if x and str(x).strip()]
+        q_ids = list(dict.fromkeys(q_ids))
+
         if not q_ids:
             return jsonify({"message": "Đề thi không có câu hỏi hợp lệ"}), 400
 
         # 3. Lấy chi tiết câu hỏi từ DB (questions collection)
+        # chuyển q_ids sang list string và query
         question_docs = list(db.questions.find(
             {"id": {"$in": q_ids}},
             {"_id": 0, "id": 1, "q": 1, "type": 1, "points": 1, "options": 1, "answer": 1}
         ))
-        question_map = {q["id"]: q for q in question_docs}
-        
-        # 4. Tạo map câu trả lời của học sinh
-        student_ans_map = {ans["questionId"]: ans for ans in student_answers}
+        question_map = {str(q["id"]): q for q in question_docs}
+
+        # Debug: in ra q_ids và keys lấy được để dễ debugging khi mismatch
+        print(f"[DEBUG create_result] q_ids ({len(q_ids)}):", q_ids)
+        print(f"[DEBUG create_result] question_map keys ({len(question_map)}):", list(question_map.keys()))
+
+        # 4. Tạo map câu trả lời của học sinh (hỗ trợ nhiều key)
+        student_ans_map = {}
+        for ans in student_answers:
+            if not isinstance(ans, dict):
+                continue
+            qkey = ans.get("questionId") or ans.get("question_id") or ans.get("qid") or ans.get("id")
+            if qkey is None:
+                # nếu không có key, thử lấy theo thứ tự (không khuyến nghị)
+                continue
+            student_ans_map[str(qkey)] = ans
 
         mc_score = 0.0
         essay_count = 0
         detailed_results = []
 
+        # helper: chuẩn hoá string để so sánh
+        def norm_str(x):
+            if x is None:
+                return ""
+            if isinstance(x, (list, dict)):
+                return str(x).strip().lower()
+            return str(x).strip().lower()
+
         # 5. LẶP VÀ TÍNH ĐIỂM (Chỉ lặp trên q_ids đã chuẩn hóa)
         for q_id in q_ids:
-            # Lấy thông tin câu hỏi chi tiết từ collection 'questions'
-            q = question_map.get(q_id)
-            
+            q = question_map.get(str(q_id))
             if not q:
-                # Bỏ qua câu hỏi không tìm thấy trong DB 'questions'
                 print(f"⚠️ Cảnh báo: Không tìm thấy chi tiết câu hỏi với ID: {q_id}")
-                continue 
-            
-            # Chuẩn hóa loại câu hỏi và điểm tối đa
+                continue
+
             q_type = (q.get("type") or "mc").lower()
             try:
                 max_points = float(q.get("points", 1.0))
             except (ValueError, TypeError):
-                max_points = 1.0 # Điểm mặc định nếu lỗi
-            
-            ans = student_ans_map.get(q_id, {})
-            student_ans_value = ans.get("answer") or ans.get("studentAnswer")
+                max_points = 1.0
+
+            ans = student_ans_map.get(str(q_id), {})
+            # student answer có thể nằm ở nhiều key
+            student_ans_value = ans.get("answer") or ans.get("studentAnswer") or ans.get("value") or ans.get("selected") or ""
 
             is_correct = None
             points_gained = 0.0
-            
+
+            # Lấy correct answer từ nhiều nguồn: q.answer hoặc option.correct flag hoặc option.value/text
+            correct_ans = q.get("answer")
+            if not correct_ans and q.get("options"):
+                # tìm option có flag correct (có thể 'correct' hoặc 'isCorrect')
+                for o in q.get("options", []):
+                    if isinstance(o, dict) and (o.get("correct") or o.get("isCorrect")):
+                        # ưu tiên value then text then id
+                        correct_ans = o.get("value") or o.get("text") or o.get("id") or o.get("value")
+                        break
+
+            # CHUẨN HÓA trước khi so sánh
+            n_student = norm_str(student_ans_value)
+            n_correct = norm_str(correct_ans)
+
             # Xử lý Trắc nghiệm (MC)
-            if q_type == "mc":
-                correct_ans = q.get("answer")
-                if not correct_ans and q.get("options"):
-                    for o in q.get("options", []):
-                        if o.get("correct"):
-                            correct_ans = o.get("text")
-                            break
-                            
-                is_correct = (student_ans_value == correct_ans)
+            if q_type in ["mc", "multiple_choice", "single_choice"]:
+                # Hỗ trợ trường hợp studentAnswer là array (multi-select)
+                if isinstance(student_ans_value, list):
+                    # so sánh từng phần tử
+                    is_correct = all(norm_str(x) == n_correct for x in student_ans_value)
+                else:
+                    is_correct = (n_student == n_correct)
+
                 if is_correct:
                     points_gained = max_points
                     mc_score += max_points
-            
+                else:
+                    points_gained = 0.0
+
             # Xử lý Tự luận (Essay)
-            elif q_type in ["essay", "tu_luan"]:
+            elif q_type in ["essay", "tu_luan", "tự luận"]:
                 essay_count += 1
-                points_gained = 0.0 # Bắt đầu 0 điểm, chờ chấm
-                is_correct = None 
-                
+                points_gained = 0.0
+                is_correct = None
+
+            else:
+                # Các loại khác: mặc định treat như MC (safeguard)
+                if n_correct and n_student:
+                    is_correct = (n_student == n_correct)
+                else:
+                    is_correct = False
+                if is_correct:
+                    points_gained = max_points
+                    mc_score += max_points
+
             # Tạo detailedResults cho câu hỏi này
             detailed_results.append({
                 "questionId": q_id,
+                "questionText": q.get("q"),
                 "studentAnswer": student_ans_value,
-                "correctAnswer": q.get("answer") or None,
+                "correctAnswer": correct_ans,
                 "maxPoints": max_points,
-                "pointsGained": round(points_gained, 2), 
+                "pointsGained": round(points_gained, 2),
                 "isCorrect": is_correct,
                 "type": q_type,
-                "teacherScore": 0.0,
-                "teacherNote": "" 
+                "teacherScore": None,
+                "teacherNote": ""
             })
 
-        # 6. Xác định trạng thái chấm điểm ban đầu (ĐÃ FIX LOGIC)
-        if essay_count > 0:
-            grading_status = "Đang Chấm" # Có tự luận, cần giáo viên chấm
-        else:
-            grading_status = "Hoàn tất" # Chỉ có MC, đã chấm xong
+        # 6. Xác định trạng thái chấm điểm ban đầu
+        grading_status = "Đang Chấm" if essay_count > 0 else "Hoàn tất"
 
         result_id = str(uuid4())
-        
+
+        total_score = round(mc_score + 0.0, 2)
+
         new_result = {
             "id": result_id,
             "studentId": student_id,
@@ -1337,11 +1389,10 @@ def create_result():
             "testId": test_id,
             "studentAnswers": student_answers,
             "detailedResults": detailed_results,
-            
             "gradingStatus": grading_status,
             "mcScore": round(mc_score, 2),
             "essayScore": 0.0,
-            "totalScore": round(mc_score, 2),
+            "totalScore": total_score,
             "submittedAt": now_vn_iso(),
         }
 
@@ -1357,13 +1408,15 @@ def create_result():
             {"$set": {"status": "submitted", "submittedAt": new_result["submittedAt"]}}
         )
 
+        # Debug: in ra detailedResults count
+        print(f"[DEBUG create_result] created detailedResults count: {len(detailed_results)} for result {result_id}")
+
         return jsonify(new_result), 201
 
     except Exception as e:
         print("create_result error:", e)
-        # In ra stack trace chi tiết để dễ debug hơn
         import traceback
-        traceback.print_exc() 
+        traceback.print_exc()
         return jsonify({"message": f"Server error: {str(e)}"}), 500
     
 # Chấm bài tự luận
