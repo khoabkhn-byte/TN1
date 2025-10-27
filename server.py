@@ -1222,7 +1222,8 @@ def get_assignments_for_student():
 def create_result():
     """
     Tạo/Cập nhật Result khi học sinh nộp bài.
-    - Cải tiến: normalize question IDs, robust student answer map,
+    - Mở rộng: cố gắng match questions theo 'id' hoặc '_id' (ObjectId).
+    - Robust: normalize question IDs, robust student answer map,
       chuẩn hoá so sánh đáp án, in debug khi mismatch.
     """
     try:
@@ -1244,34 +1245,63 @@ def create_result():
 
         # 2. NORMALIZE tất cả question IDs (hỗ trợ dict có id, _id, questionId, hoặc chuỗi)
         q_ids = []
+        raw_obj_ids = []
         for q_entry in test_questions:
             if isinstance(q_entry, dict):
-                # lấy theo nhiều key khả dĩ
                 candidate = q_entry.get("id") or q_entry.get("_id") or q_entry.get("questionId") or q_entry.get("question_id")
                 if candidate is not None:
-                    q_ids.append(str(candidate))
+                    s = str(candidate)
+                    q_ids.append(s)
+                    # nếu là 24 hex, giữ để convert ObjectId thử match
+                    if len(s) == 24:
+                        raw_obj_ids.append(s)
             else:
-                # nếu là list item chuỗi hoặc số
-                q_ids.append(str(q_entry))
+                s = str(q_entry)
+                q_ids.append(s)
+                if len(s) == 24:
+                    raw_obj_ids.append(s)
 
         # loại bỏ rỗng và unique
         q_ids = [str(x) for x in q_ids if x and str(x).strip()]
         q_ids = list(dict.fromkeys(q_ids))
 
-        if not q_ids:
+        # chuẩn bị list ObjectId nếu có
+        obj_ids = []
+        for s in list(dict.fromkeys(raw_obj_ids)):
+            try:
+                obj_ids.append(ObjectId(s))
+            except Exception:
+                pass
+
+        if not q_ids and not obj_ids:
             return jsonify({"message": "Đề thi không có câu hỏi hợp lệ"}), 400
 
         # 3. Lấy chi tiết câu hỏi từ DB (questions collection)
-        # chuyển q_ids sang list string và query
-        question_docs = list(db.questions.find(
-            {"id": {"$in": q_ids}},
-            {"_id": 0, "id": 1, "q": 1, "type": 1, "points": 1, "options": 1, "answer": 1}
-        ))
-        question_map = {str(q["id"]): q for q in question_docs}
+        # Query bằng cả id (string) và _id (ObjectId) nếu tồn tại
+        query_clauses = []
+        if q_ids:
+            query_clauses.append({"id": {"$in": q_ids}})
+        if obj_ids:
+            query_clauses.append({"_id": {"$in": obj_ids}})
 
-        # Debug: in ra q_ids và keys lấy được để dễ debugging khi mismatch
+        if query_clauses:
+            question_docs = list(db.questions.find({"$or": query_clauses}, {"_id": 1, "id": 1, "q": 1, "type": 1, "points": 1, "options": 1, "answer": 1}))
+        else:
+            question_docs = []
+
+        # normalize question_map: key by string id if exists, else by str(_id)
+        question_map = {}
+        for q in question_docs:
+            if q.get("id"):
+                question_map[str(q.get("id"))] = q
+            # also map by _id string for fallback
+            if q.get("_id"):
+                question_map[str(q.get("_id"))] = q
+
+        # Debug logs to help identify mismatch
         print(f"[DEBUG create_result] q_ids ({len(q_ids)}):", q_ids)
-        print(f"[DEBUG create_result] question_map keys ({len(question_map)}):", list(question_map.keys()))
+        print(f"[DEBUG create_result] obj_ids ({len(obj_ids)}):", [str(x) for x in obj_ids])
+        print(f"[DEBUG create_result] questions fetched ({len(question_docs)}), map keys:", list(question_map.keys()))
 
         # 4. Tạo map câu trả lời của học sinh (hỗ trợ nhiều key)
         student_ans_map = {}
@@ -1280,7 +1310,6 @@ def create_result():
                 continue
             qkey = ans.get("questionId") or ans.get("question_id") or ans.get("qid") or ans.get("id")
             if qkey is None:
-                # nếu không có key, thử lấy theo thứ tự (không khuyến nghị)
                 continue
             student_ans_map[str(qkey)] = ans
 
@@ -1296,11 +1325,19 @@ def create_result():
                 return str(x).strip().lower()
             return str(x).strip().lower()
 
-        # 5. LẶP VÀ TÍNH ĐIỂM (Chỉ lặp trên q_ids đã chuẩn hóa)
+        # 5. LẶP VÀ TÍNH ĐIỂM (Chỉ lặp trên q_ids đã chuẩn hóa; nếu q_id không map được, thử lookup bằng ObjectId string)
         for q_id in q_ids:
+            # try by direct id key
             q = question_map.get(str(q_id))
+            # if not found, try treating q_id as ObjectId string
             if not q:
-                print(f"⚠️ Cảnh báo: Không tìm thấy chi tiết câu hỏi với ID: {q_id}")
+                try:
+                    q = question_map.get(str(ObjectId(q_id)))
+                except Exception:
+                    q = None
+
+            if not q:
+                print(f"⚠️ Cảnh báo: Không tìm thấy chi tiết câu hỏi với ID: {q_id} (bỏ qua).")
                 continue
 
             q_type = (q.get("type") or "mc").lower()
@@ -1309,8 +1346,7 @@ def create_result():
             except (ValueError, TypeError):
                 max_points = 1.0
 
-            ans = student_ans_map.get(str(q_id), {})
-            # student answer có thể nằm ở nhiều key
+            ans = student_ans_map.get(str(q_id), {}) or student_ans_map.get(str(q.get("id")), {}) or student_ans_map.get(str(q.get("_id")), {})
             student_ans_value = ans.get("answer") or ans.get("studentAnswer") or ans.get("value") or ans.get("selected") or ""
 
             is_correct = None
@@ -1319,23 +1355,21 @@ def create_result():
             # Lấy correct answer từ nhiều nguồn: q.answer hoặc option.correct flag hoặc option.value/text
             correct_ans = q.get("answer")
             if not correct_ans and q.get("options"):
-                # tìm option có flag correct (có thể 'correct' hoặc 'isCorrect')
                 for o in q.get("options", []):
                     if isinstance(o, dict) and (o.get("correct") or o.get("isCorrect")):
-                        # ưu tiên value then text then id
-                        correct_ans = o.get("value") or o.get("text") or o.get("id") or o.get("value")
+                        correct_ans = o.get("value") or o.get("text") or o.get("id") or correct_ans
                         break
 
-            # CHUẨN HÓA trước khi so sánh
             n_student = norm_str(student_ans_value)
             n_correct = norm_str(correct_ans)
 
             # Xử lý Trắc nghiệm (MC)
             if q_type in ["mc", "multiple_choice", "single_choice"]:
-                # Hỗ trợ trường hợp studentAnswer là array (multi-select)
                 if isinstance(student_ans_value, list):
-                    # so sánh từng phần tử
-                    is_correct = all(norm_str(x) == n_correct for x in student_ans_value)
+                    # multi-select: compare sets (normalized)
+                    student_set = set([norm_str(x) for x in student_ans_value])
+                    correct_set = set([norm_str(x) for x in (correct_ans if isinstance(correct_ans, list) else [correct_ans]) if x is not None])
+                    is_correct = (student_set == correct_set)
                 else:
                     is_correct = (n_student == n_correct)
 
@@ -1345,14 +1379,12 @@ def create_result():
                 else:
                     points_gained = 0.0
 
-            # Xử lý Tự luận (Essay)
             elif q_type in ["essay", "tu_luan", "tự luận"]:
                 essay_count += 1
                 points_gained = 0.0
                 is_correct = None
 
             else:
-                # Các loại khác: mặc định treat như MC (safeguard)
                 if n_correct and n_student:
                     is_correct = (n_student == n_correct)
                 else:
@@ -1361,7 +1393,6 @@ def create_result():
                     points_gained = max_points
                     mc_score += max_points
 
-            # Tạo detailedResults cho câu hỏi này
             detailed_results.append({
                 "questionId": q_id,
                 "questionText": q.get("q"),
@@ -1375,11 +1406,9 @@ def create_result():
                 "teacherNote": ""
             })
 
-        # 6. Xác định trạng thái chấm điểm ban đầu
+        # 6. Xác định trạng thái chấm
         grading_status = "Đang Chấm" if essay_count > 0 else "Hoàn tất"
-
         result_id = str(uuid4())
-
         total_score = round(mc_score + 0.0, 2)
 
         new_result = {
@@ -1396,7 +1425,6 @@ def create_result():
             "submittedAt": now_vn_iso(),
         }
 
-        # 7. Lưu Result và cập nhật Assignment
         db.results.replace_one(
             {"studentId": student_id, "assignmentId": assignment_id},
             new_result,
@@ -1408,7 +1436,6 @@ def create_result():
             {"$set": {"status": "submitted", "submittedAt": new_result["submittedAt"]}}
         )
 
-        # Debug: in ra detailedResults count
         print(f"[DEBUG create_result] created detailedResults count: {len(detailed_results)} for result {result_id}")
 
         return jsonify(new_result), 201
