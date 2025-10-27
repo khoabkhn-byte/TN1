@@ -1652,6 +1652,30 @@ def get_assignment_stats():
         "note": "Cần dữ liệu Assignment để tính chính xác số HS chưa nộp."
     })    
 
+
+# ✅ FIX LỖI: Thêm API GET để lấy danh sách Results theo studentId
+@app.route("/api/results", methods=["GET"])
+def get_results_for_student():
+    """
+    Lấy tất cả các bài đã làm (Results) cho một học sinh cụ thể
+    (Được gọi từ hàm loadAssignments() của Frontend).
+    """
+    student_id = request.args.get("studentId")
+    if not student_id:
+        return jsonify({"message": "Missing studentId parameter"}), 400
+
+    try:
+        # Truy vấn tất cả kết quả có studentId tương ứng
+        results = list(db.results.find({"studentId": student_id}, {"_id": 0}))
+        
+        # Frontend (hàm processAssignments) mong đợi một mảng các Results, 
+        # nên ta trả về mảng này.
+        return jsonify(results)
+    
+    except Exception as e:
+        print(f"Lỗi khi lấy results cho student {student_id}: {e}")
+        return jsonify([]), 500
+
 # Serve frontend files (unchanged)
 @app.route("/", methods=["GET"])
 def index():
