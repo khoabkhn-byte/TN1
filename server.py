@@ -1459,6 +1459,7 @@ def grade_result(result_id):
     - Chống crash essays chứa string
     - Cập nhật điểm vào detailedResults
     - Tính toán lại totalScore, mcScore, essayScore
+    - Lần 2 => Hoàn tất
     """
     try:
         data = request.get_json() or {}
@@ -1477,6 +1478,9 @@ def grade_result(result_id):
         result = db.results.find_one({"id": result_id})
         if not result:
             return jsonify({"error": "Không tìm thấy bài làm"}), 404
+
+        # current regradeCount
+        current_regrade = result.get("regradeCount", 0)
 
         # === map detailedResults ===
         detailed_list = result.get("detailedResults", [])
@@ -1518,15 +1522,24 @@ def grade_result(result_id):
 
         graded_at = now_vn_iso()
 
+        # === LOGIC TRẠNG THÁI CHÍNH THỨC ===
+        # Lần 1: "Đã Chấm"
+        # Lần 2+: "Hoàn tất"
+        if current_regrade + 1 >= 2:
+            new_status = "Hoàn tất"
+        else:
+            new_status = "Đã Chấm"
+
         update = {
             "detailedResults": list(detailed_map.values()),
             "totalScore": round(new_total, 2),
             "mcScore": round(mc, 2),
             "essayScore": round(es, 2),
-            "gradingStatus": "Đã Chấm",
+            "gradingStatus": new_status,
             "gradedAt": graded_at,
         }
 
+        # === SAVE ===
         db.results.update_one(
             {"id": result_id},
             {
@@ -1537,8 +1550,10 @@ def grade_result(result_id):
 
         return jsonify({
             "success": True,
-            "message": f"Đã Chấm thành công! Tổng: {round(new_total,2):.2f}",
-            "totalScore": round(new_total,2)
+            "message": f"{new_status}! Tổng: {round(new_total,2):.2f}",
+            "totalScore": round(new_total,2),
+            "gradingStatus": new_status,
+            "regradeCount": current_regrade + 1
         })
 
     except Exception as e:
