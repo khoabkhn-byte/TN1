@@ -1222,9 +1222,7 @@ def get_assignments_for_student():
 def create_result():
     """
     Tạo/Cập nhật Result khi học sinh nộp bài.
-    - Tính điểm Trắc nghiệm (mcScore).
-    - Khởi tạo detailedResults, essayScore = 0.
-    - Cập nhật trạng thái gradingStatus.
+    (Đã FIX lỗi: 'str' object has no attribute 'get' và hỗ trợ cả 2 định dạng questions)
     """
     try:
         data = request.get_json() or {}
@@ -1236,30 +1234,41 @@ def create_result():
         if not student_id or not assignment_id or not test_id:
             return jsonify({"message": "Thiếu ID (studentId, assignmentId, testId)"}), 400
 
-        # Lấy thông tin Test để biết câu hỏi (được lưu trong test.questions)
+        # 1. Lấy thông tin Test
         test_doc = db.tests.find_one({"id": test_id})
         if not test_doc:
             return jsonify({"message": "Không tìm thấy đề thi"}), 404
-        
+            
         test_questions = test_doc.get("questions", [])
-        q_ids = [q["id"] for q in test_questions if isinstance(q, dict) and "id" in q]
 
-        # Lấy chi tiết câu hỏi từ DB (questions collection)
+        # 2. TRÍCH XUẤT TẤT CẢ Q_IDS (Hỗ trợ cả object và chuỗi ID)
+        q_ids = []
+        for q_entry in test_questions:
+            if isinstance(q_entry, dict) and q_entry.get("id"):
+                q_ids.append(q_entry["id"])
+            elif isinstance(q_entry, str):
+                q_ids.append(q_entry)
+        
+        if not q_ids:
+            return jsonify({"message": "Đề thi không có câu hỏi hợp lệ"}), 400
+
+        # 3. Lấy chi tiết câu hỏi từ DB (questions collection)
         question_docs = list(db.questions.find(
             {"id": {"$in": q_ids}},
             {"_id": 0, "id": 1, "q": 1, "type": 1, "points": 1, "options": 1, "answer": 1}
         ))
         question_map = {q["id"]: q for q in question_docs}
         
-        # Tạo map câu trả lời của học sinh
+        # 4. Tạo map câu trả lời của học sinh
         student_ans_map = {ans["questionId"]: ans for ans in student_answers}
 
         mc_score = 0.0
         essay_count = 0
         detailed_results = []
 
-        for q_doc in test_questions:
-            q_id = q_doc.get("id")
+        # 5. LẶP VÀ TÍNH ĐIỂM (Sử dụng q_ids đã chuẩn hóa)
+        for q_id in q_ids:
+            # Lấy thông tin câu hỏi chi tiết từ collection 'questions'
             q = question_map.get(q_id)
             if not q:
                 continue
@@ -1277,7 +1286,7 @@ def create_result():
             # Xử lý Trắc nghiệm (MC)
             if q_type == "mc":
                 correct_ans = q.get("answer")
-                if not correct_ans and q.get("options"): # Fallback tìm đáp án đúng từ options
+                if not correct_ans and q.get("options"):
                     for o in q["options"]:
                         if o.get("correct"):
                             correct_ans = o.get("text")
@@ -1291,29 +1300,27 @@ def create_result():
             # Xử lý Tự luận (Essay)
             elif q_type in ["essay", "tu_luan"]:
                 essay_count += 1
-                # Tự luận được chấm 0 điểm ban đầu, chờ giáo viên chấm
-                points_gained = 0.0
-                is_correct = None # Trạng thái chưa chấm
+                points_gained = 0.0 # Bắt đầu 0 điểm, chờ chấm
+                is_correct = None 
                 
             # Tạo detailedResults cho câu hỏi này
             detailed_results.append({
                 "questionId": q_id,
                 "studentAnswer": student_ans_value,
-                "correctAnswer": q.get("answer") or None, # Đáp án gợi ý/đúng
+                "correctAnswer": q.get("answer") or None,
                 "maxPoints": max_points,
-                "pointsGained": points_gained, # 0 cho Tự luận, score cho MC
+                "pointsGained": points_gained, 
                 "isCorrect": is_correct,
                 "type": q_type,
-                # Thêm teacherScore, teacherNote để tương thích với FE/API grade_result
                 "teacherScore": 0.0,
                 "teacherNote": "" 
             })
 
-        # Xác định trạng thái chấm điểm ban đầu
+        # 6. Xác định trạng thái chấm điểm ban đầu
         if essay_count > 0:
-            grading_status = "Đang Chấm" # Có tự luận, cần giáo viên chấm
+            grading_status = "Đang Chấm" 
         else:
-            grading_status = "Hoàn tất" # Chỉ có MC, đã chấm xong
+            grading_status = "Hoàn tất"
 
         result_id = str(uuid4())
         
@@ -1322,24 +1329,23 @@ def create_result():
             "studentId": student_id,
             "assignmentId": assignment_id,
             "testId": test_id,
-            "studentAnswers": student_answers, # Lưu câu trả lời thô
-            "detailedResults": detailed_results, # Lưu kết quả chi tiết
+            "studentAnswers": student_answers,
+            "detailedResults": detailed_results,
             
             "gradingStatus": grading_status,
             "mcScore": round(mc_score, 2),
-            "essayScore": 0.0, # Luôn là 0 khi nộp
-            "totalScore": round(mc_score, 2), # Total = mcScore khi nộp
+            "essayScore": 0.0,
+            "totalScore": round(mc_score, 2),
             "submittedAt": now_vn_iso(),
         }
 
-        # Lưu hoặc thay thế Result
+        # 7. Lưu Result và cập nhật Assignment
         db.results.replace_one(
             {"studentId": student_id, "assignmentId": assignment_id},
             new_result,
             upsert=True
         )
 
-        # Cập nhật trạng thái Assignment
         db.assignments.update_one(
             {"id": assignment_id},
             {"$set": {"status": "submitted", "submittedAt": new_result["submittedAt"]}}
@@ -1349,8 +1355,10 @@ def create_result():
 
     except Exception as e:
         print("create_result error:", e)
+        # In ra stack trace chi tiết để dễ debug hơn
+        import traceback
+        traceback.print_exc() 
         return jsonify({"message": f"Server error: {str(e)}"}), 500
-
     
 # Chấm bài tự luận
 from flask import abort
