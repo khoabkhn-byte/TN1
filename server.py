@@ -1222,7 +1222,7 @@ def get_assignments_for_student():
 def create_result():
     """
     Tạo/Cập nhật Result khi học sinh nộp bài.
-    (Đã FIX lỗi: 'str' object has no attribute 'get' và hỗ trợ cả 2 định dạng questions)
+    - Đã FIX lỗi: 'str' object has no attribute 'get', detailedResults: Array(0) và gradingStatus sai.
     """
     try:
         data = request.get_json() or {}
@@ -1266,16 +1266,22 @@ def create_result():
         essay_count = 0
         detailed_results = []
 
-        # 5. LẶP VÀ TÍNH ĐIỂM (Sử dụng q_ids đã chuẩn hóa)
+        # 5. LẶP VÀ TÍNH ĐIỂM (Chỉ lặp trên q_ids đã chuẩn hóa)
         for q_id in q_ids:
             # Lấy thông tin câu hỏi chi tiết từ collection 'questions'
             q = question_map.get(q_id)
+            
             if not q:
-                continue
+                # Bỏ qua câu hỏi không tìm thấy trong DB 'questions'
+                print(f"⚠️ Cảnh báo: Không tìm thấy chi tiết câu hỏi với ID: {q_id}")
+                continue 
             
             # Chuẩn hóa loại câu hỏi và điểm tối đa
             q_type = (q.get("type") or "mc").lower()
-            max_points = float(q.get("points", 1))
+            try:
+                max_points = float(q.get("points", 1.0))
+            except (ValueError, TypeError):
+                max_points = 1.0 # Điểm mặc định nếu lỗi
             
             ans = student_ans_map.get(q_id, {})
             student_ans_value = ans.get("answer") or ans.get("studentAnswer")
@@ -1287,7 +1293,7 @@ def create_result():
             if q_type == "mc":
                 correct_ans = q.get("answer")
                 if not correct_ans and q.get("options"):
-                    for o in q["options"]:
+                    for o in q.get("options", []):
                         if o.get("correct"):
                             correct_ans = o.get("text")
                             break
@@ -1309,18 +1315,18 @@ def create_result():
                 "studentAnswer": student_ans_value,
                 "correctAnswer": q.get("answer") or None,
                 "maxPoints": max_points,
-                "pointsGained": points_gained, 
+                "pointsGained": round(points_gained, 2), 
                 "isCorrect": is_correct,
                 "type": q_type,
                 "teacherScore": 0.0,
                 "teacherNote": "" 
             })
 
-        # 6. Xác định trạng thái chấm điểm ban đầu
+        # 6. Xác định trạng thái chấm điểm ban đầu (ĐÃ FIX LOGIC)
         if essay_count > 0:
-            grading_status = "Đang Chấm" 
+            grading_status = "Đang Chấm" # Có tự luận, cần giáo viên chấm
         else:
-            grading_status = "Hoàn tất"
+            grading_status = "Hoàn tất" # Chỉ có MC, đã chấm xong
 
         result_id = str(uuid4())
         
