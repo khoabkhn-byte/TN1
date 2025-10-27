@@ -1380,6 +1380,7 @@ def create_result():
                     points_gained = 0.0
 
             elif q_type in ["essay", "tu_luan", "tự luận"]:
+                q_type = "essay"
                 essay_count += 1
                 points_gained = 0.0
                 is_correct = None
