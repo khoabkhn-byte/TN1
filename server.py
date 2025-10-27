@@ -966,83 +966,106 @@ def debug_list_tests():
     docs = list(db.tests.find({}, {"_id": 0, "id": 1, "name": 1}))
     return jsonify(docs)
 
+# --------------------- ASSIGNS (BULK ASSIGN) ---------------------
 @app.route("/api/assigns/bulk", methods=["POST"])
 def bulk_assign_tests():
     """
-    Xử lý giao một hoặc nhiều đề thi (testIds) cho một hoặc nhiều học sinh (studentIds).
-    API này chịu trách nhiệm cho cả việc GIAO MỚI và CẬP NHẬT DEADLINE cho các bài giao đã tồn tại.
-    Payload dự kiến: {testIds: array, studentIds: array, teacherId: string, deadline: string | null}
+    Xử lý giao một hoặc nhiều đề thi (testIds) cho học sinh (studentIds HOẶC className).
+    Payload dự kiến: {testIds: array, className: string, teacherId: string, deadline: string | null}
     """
     try:
         data = request.get_json() or {}
         
         # 1. Lấy dữ liệu từ Frontend
-        test_ids = data.get("testIds", []) 
-        student_ids = data.get("studentIds", []) 
+        test_ids = data.get("testIds", [])      # Danh sách ID đề thi
+        class_name = data.get("className")      # Tên lớp
         teacher_id = data.get("teacherId")
-        deadline_iso = data.get("deadline") # Deadline là string ISO hoặc None
+        deadline_iso = data.get("deadline") 
         
         # Kiểm tra dữ liệu đầu vào cơ bản
-        if not isinstance(test_ids, list) or not isinstance(student_ids, list) or not teacher_id:
-            print(f"Lỗi: Dữ liệu đầu vào không hợp lệ. Test IDs: {test_ids}, Student IDs: {student_ids}")
+        if not isinstance(test_ids, list) or not teacher_id or not class_name:
             return jsonify({"message": "Dữ liệu đầu vào thiếu hoặc không đúng định dạng.", "count": 0}), 400
         
-        if not test_ids or not student_ids:
-            return jsonify({"message": "Vui lòng chọn ít nhất một đề thi và một học sinh.", "count": 0}), 400
+        # 2. Lấy danh sách học sinh theo Tên lớp
+        students_cursor = db.users.find(
+            {"className": class_name, "role": "student"}, 
+            {"id": 1, "fullName": 1, "className": 1}
+        )
+        students = list(students_cursor)
+        
+        if not students:
+            return jsonify({"message": f"Không tìm thấy học sinh nào trong lớp {class_name}.", "count": 0}), 200
 
+        # 3. Lấy thông tin chi tiết của tất cả đề thi
+        test_docs_cursor = db.tests.find(
+            {"id": {"$in": test_ids}},
+            {"_id": 0, "id": 1, "name": 1, "subject": 1}
+        )
+        test_map = {t['id']: t for t in test_docs_cursor}
+
+        assignments_to_insert = []
         processed_count = 0
         
-        # 2. Xử lý Logic Giao Bài (Vòng lặp lồng nhau)
-        for stu_id in student_ids:
-            for t_id in test_ids:
+        # 4. Xử lý Logic Giao Bài (Vòng lặp lồng nhau)
+        for t_id in test_ids:
+            test_info = test_map.get(t_id)
+            if not test_info:
+                print(f"⚠️ Test ID {t_id} không tìm thấy. Bỏ qua.")
+                continue
+
+            for student in students:
+                stu_id = student['id']
                 
-                # 🔥 BƯỚC SỬA LỖI: KIỂM TRA BÀI GIAO ĐÃ TỒN TẠI
+                # Kiểm tra bài giao đã tồn tại (để tránh giao lặp)
                 existing_assignment = db.assignments.find_one({
                     "testId": t_id,
                     "studentId": stu_id,
                 })
-                
-                # Payload cập nhật/chèn
-                assignment_data = {
-                    "teacherId": teacher_id,
-                    "deadline": deadline_iso,
-                    # Có thể thêm các trường khác cần cập nhật ở đây
-                }
-                
+
                 if existing_assignment:
-                    # NẾU ĐÃ GIAO: Thực hiện CẬP NHẬT (chủ yếu là deadline)
-                    # Chỉ cập nhật nếu deadline hoặc teacherId có sự thay đổi
+                    # Nếu đã giao: Thực hiện CẬP NHẬT (chủ yếu là deadline)
+                    update_data = {
+                        "teacherId": teacher_id,
+                        "deadline": deadline_iso,
+                    }
                     db.assignments.update_one(
                         {"id": existing_assignment["id"]},
-                        {"$set": assignment_data}
+                        {"$set": update_data}
                     )
-                    processed_count += 1 # Đếm là đã xử lý/cập nhật
                 else:
-                    # NẾU CHƯA GIAO: Thực hiện CHÈN MỚI
+                    # Nếu chưa giao: Thực hiện CHÈN MỚI
                     new_assign = {
-                        "id": str(uuid4()), # ID duy nhất cho mỗi assignment
+                        "id": str(uuid4()), 
                         "testId": t_id,
+                        "testName": test_info.get("name"), # ✅ THÊM: Tên đề thi
                         "studentId": stu_id,
+                        "studentName": student.get("fullName"), # ✅ THÊM: Tên học sinh
+                        "className": student.get("className"), # ✅ THÊM: Tên lớp
+                        "teacherId": teacher_id,
+                        "deadline": deadline_iso,
                         "status": "pending",
-                        "createdAt": now_vn_iso(),
-                        **assignment_data # Thêm deadline, teacherId
+                        "assignedAt": now_vn_iso(), # Đổi từ 'createdAt' thành 'assignedAt' cho rõ ràng
                     }
-                    
-                    db.assignments.insert_one(new_assign)
-                    processed_count += 1
-                    
-                    # 3. CẬP NHẬT TRẠNG THÁI "Đã giao" cho đề thi (Nếu là lần giao đầu tiên)
-                    # Điều này giúp Frontend cập nhật trạng thái của đề thi trong bảng
-                    db.tests.update_one(
-                        {"id": t_id},
-                        {"$set": {"assignmentStatus": "assigned"}}
-                    )
+                    assignments_to_insert.append(new_assign)
         
-        # 4. Trả về kết quả
+        # 5. Chèn tất cả bài giao mới (Bulk Insert)
+        if assignments_to_insert:
+            db.assignments.insert_many(assignments_to_insert)
+
+        # 6. Cập nhật trạng thái "Đã giao" cho các đề thi đã chọn
+        db.tests.update_many(
+            {"id": {"$in": test_ids}},
+            {"$set": {"assignmentStatus": "assigned"}}
+        )
+
+        total_processed_count = len(test_ids) * len(students)
+        
+        # 7. Trả về kết quả
         return jsonify({
             "success": True, 
-            "count": processed_count,
-            "message": f"Đã xử lý (giao mới/cập nhật) thành công {processed_count} bài giao."
+            "count": len(test_ids), # Trả về số lượng ĐỀ THI đã được giao/cập nhật
+            "totalAssignmentsProcessed": total_processed_count, # Tổng số assignment đã tạo/cập nhật
+            "message": f"Đã giao thành công {len(test_ids)} đề thi cho {len(students)} học sinh (Tổng: {total_processed_count} bài giao)."
         }), 201
 
     except Exception as e:
