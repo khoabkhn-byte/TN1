@@ -1456,89 +1456,95 @@ from flask import abort
 def grade_result(result_id):
     """
     Giáo viên chấm điểm bài làm học sinh (Chỉ cần gửi các câu tự luận đã chấm).
-    - Cập nhật điểm vào detailedResults.
-    - Tính toán lại totalScore, mcScore, và essayScore.
+    - Chống crash essays chứa string
+    - Cập nhật điểm vào detailedResults
+    - Tính toán lại totalScore, mcScore, essayScore
     """
-    data = request.json
-    essays = data.get("essays", [])
-    
-    result = db.results.find_one({"id": result_id})
-    if not result:
-        return jsonify({"error": "Không tìm thấy bài làm"}), 404
+    try:
+        data = request.get_json() or {}
+        essays = data.get("essays", []) or []
 
-    # --- 1. Lấy detailedResults gốc và chuyển thành map để dễ cập nhật ---
-    detailed_results_list = result.get("detailedResults", [])
-    detailed_map = {d["questionId"]: d for d in detailed_results_list if "questionId" in d}
-    
-    # --- 2. Duyệt qua essays gửi lên và cập nhật vào detailed_map ---
-    for essay in essays:
-        qid = essay.get("questionId")
-        if not qid or qid not in detailed_map:
-            continue
-            
-        try:
-            teacher_score = float(essay.get("teacherScore") or 0.0)
-        except ValueError:
-            teacher_score = 0.0
-            
-        teacher_note = essay.get("teacherNote") or ""
+        # ✅ FILTER: chỉ nhận dict — tránh "'str' has no attribute get"
+        clean_essays = []
+        for e in essays:
+            if isinstance(e, dict):
+                clean_essays.append(e)
+            else:
+                print("⚠️ Bỏ qua essay lỗi:", e)
+        essays = clean_essays
 
-        # CẬP NHẬT TRỰC TIẾP VÀO detailed_map
-        detail = detailed_map[qid]
-        
-        detail["teacherScore"] = teacher_score
-        detail["teacherNote"] = teacher_note
-        detail["pointsGained"] = teacher_score # Điểm cuối cùng cho Essay là điểm giáo viên chấm
-        detail["isCorrect"] = teacher_score > 0
-        
-    # --- 3. TÍNH TOÁN LẠI TẤT CẢ ĐIỂM MỚI ---
-    new_total_score = 0.0
-    new_mc_score = 0.0
-    new_essay_score = 0.0
-    
-    # Lấy thông tin test để xác định loại câu hỏi (bổ sung an toàn)
-    test_doc = db.tests.find_one({"id": result.get("testId")})
-    test_questions_map = {q.get("id"): q.get("type") for q in test_doc.get("questions", []) if q.get("id")} if test_doc else {}
+        # === Lấy result ===
+        result = db.results.find_one({"id": result_id})
+        if not result:
+            return jsonify({"error": "Không tìm thấy bài làm"}), 404
 
-    for detail in detailed_map.values():
-        gained_score = float(detail.get("pointsGained", 0.0))
-        q_type = detail.get("type", test_questions_map.get(detail.get("questionId"), "mc")).lower() # Lấy type từ detailed hoặc test
+        # === map detailedResults ===
+        detailed_list = result.get("detailedResults", [])
+        detailed_map = { str(d["questionId"]): d for d in detailed_list if "questionId" in d }
 
-        new_total_score += gained_score
-        
-        if q_type in ["essay", "tu_luan"]:
-            new_essay_score += gained_score
-        else:
-            new_mc_score += gained_score # Điểm MC đã được tính trong create_result, chỉ cộng dồn
+        # === Update điểm GV ===
+        for e in essays:
+            qid = str(e.get("questionId"))
+            if qid not in detailed_map:
+                continue
 
-    # --- 4. Chuẩn bị thông tin cập nhật và LƯU vào DB ---
-    graded_at = now_vn_iso()
-    new_status = "Đã Chấm" 
-    
-    update_data = {
-        "detailedResults": list(detailed_map.values()), 
-        "totalScore": round(new_total_score, 2), # CẬP NHẬT TỔNG ĐIỂM
-        "mcScore": round(new_mc_score, 2),
-        "essayScore": round(new_essay_score, 2),
-        "gradingStatus": new_status,
-        "gradedAt": graded_at,
-    }
+            try:
+                ts = float(e.get("teacherScore") or 0)
+            except:
+                ts = 0
 
-    db.results.update_one(
-        {"id": result_id},
-        {
-            "$set": update_data,
-            # Giữ nguyên regradeCount để Frontend biết là đã chấm lại
-            "$inc": {"regradeCount": 1} 
+            note = e.get("teacherNote") or ""
+
+            det = detailed_map[qid]
+            det["teacherScore"] = ts
+            det["teacherNote"] = note
+            det["pointsGained"] = ts
+            det["isCorrect"] = ts > 0
+
+        # === Tính toán lại ===
+        new_total = 0.0
+        mc = 0.0
+        es = 0.0
+
+        for d in detailed_map.values():
+            pts = float(d.get("pointsGained") or 0)
+            q_type = (d.get("type") or "").lower()
+            new_total += pts
+
+            if q_type in ["essay", "tu_luan"]:
+                es += pts
+            else:
+                mc += pts
+
+        graded_at = now_vn_iso()
+
+        update = {
+            "detailedResults": list(detailed_map.values()),
+            "totalScore": round(new_total, 2),
+            "mcScore": round(mc, 2),
+            "essayScore": round(es, 2),
+            "gradingStatus": "Đã Chấm",
+            "gradedAt": graded_at,
         }
-    )
 
-    return jsonify({
-        "success": True,
-        "message": f"{new_status} thành công (Điểm mới: {round(new_total_score, 2):.2f})",
-        "totalScore": round(new_total_score, 2)
-    })
+        db.results.update_one(
+            {"id": result_id},
+            {
+                "$set": update,
+                "$inc": { "regradeCount": 1 }
+            }
+        )
 
+        return jsonify({
+            "success": True,
+            "message": f"Đã Chấm thành công! Tổng: {round(new_total,2):.2f}",
+            "totalScore": round(new_total,2)
+        })
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(e), "message": "Internal Server Error"}), 500
+        
 # API Lấy kết quả đơn lẻ (Dành cho Debug hoặc trường hợp đơn giản)
 @app.route("/results/<result_id>", methods=["GET"])
 @app.route("/api/results/<result_id>", methods=["GET"])
