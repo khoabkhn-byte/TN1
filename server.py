@@ -1580,6 +1580,7 @@ from flask import jsonify
 def get_result_detail(result_id):
     """
     Lấy chi tiết bài làm, kết hợp với thông tin câu hỏi và học sinh.
+    Đã FIX lỗi logic isCorrect cho MC.
     """
     result = db.results.find_one({"id": result_id})
     if not result:
@@ -1615,7 +1616,8 @@ def get_result_detail(result_id):
         
         # Chuẩn hóa đáp án đúng từ options nếu cần
         correct_ans_from_options = None
-        if q.get("type") == "mc" and q.get("options"):
+        # Kiểm tra type từ detailedResults trước, sau đó là từ question_map
+        if (d.get("type") or q.get("type") or "").lower() == "mc" and q.get("options"):
             for opt in q["options"]:
                 if opt.get("correct") is True:
                     correct_ans_from_options = opt.get("text")
@@ -1627,9 +1629,21 @@ def get_result_detail(result_id):
 
         # Điểm đạt được và trạng thái
         gained_score = d.get("pointsGained", 0.0)
-        is_correct_for_display = d.get("isCorrect")
         
-        # Lấy teacherScore/Note (Ưu tiên từ detailedResults nếu có)
+        # LẤY TRẠNG THÁI ĐÚNG/SAI TỪ detailedResults
+        is_correct_for_display = d.get("isCorrect") 
+        
+        # FIX LOGIC: Nếu là MC, và isCorrect là None, dựa vào pointsGained
+        if q_type == "mc":
+            if is_correct_for_display is None:
+                # Nếu có điểm > 0 thì coi là đúng
+                is_correct_for_display = gained_score > 0 
+            
+            # Đảm bảo isCorrect không bao giờ là None cho MC
+            if is_correct_for_display is None:
+                is_correct_for_display = False 
+
+        # Lấy teacherScore/Note
         teacher_score = d.get("teacherScore")
         teacher_note = d.get("teacherNote")
 
@@ -1646,11 +1660,12 @@ def get_result_detail(result_id):
                 # Đáp án đúng (Ưu tiên từ result.correctAnswer, sau đó đến options)
                 "correctAnswer": d.get("correctAnswer") or q.get("answer") or correct_ans_from_options,
             },
-            "userAnswer": d.get("studentAnswer"),
+            # TRƯỜNG STUDENTANSWER/USERANSWER PHẢI CÓ ĐỂ FRONTEND SO SÁNH
+            "userAnswer": d.get("studentAnswer"), 
             "maxScore": max_score,
             "gainedScore": round(gained_score, 2), 
             "correctAnswer": d.get("correctAnswer") or q.get("answer") or correct_ans_from_options,
-            "isCorrect": is_correct_for_display, 
+            "isCorrect": is_correct_for_display, # TRƯỜNG NÀY PHẢI CÓ
             "isEssay": q_type in ["essay", "tu_luan"], 
             "teacherScore": teacher_score, 
             "teacherNote": teacher_note
