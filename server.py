@@ -1496,18 +1496,27 @@ def grade_result(result_id):
             if qid not in detailed_map:
                 continue
 
-            try:
-                ts = float(e.get("teacherScore") or 0)
-            except:
-                ts = 0
+            ts_raw = e.get("teacherScore") # Có thể là None, 0, 0.5, ...
+            ts_note = e.get("teacherNote") or ""
 
-            note = e.get("teacherNote") or ""
+        det = detailed_map[qid]
 
-            det = detailed_map[qid]
-            det["teacherScore"] = ts
-            det["teacherNote"] = note
-            det["pointsGained"] = ts
-            det["isCorrect"] = ts > 0
+        if ts_raw is None:
+            # GV không chấm câu này (để trống) -> Giữ nguyên trạng thái "chưa chấm"
+            det["teacherScore"] = det.get("teacherScore", None) # Giữ None nếu chưa chấm
+            det["teacherNote"] = det.get("teacherNote", "") # Giữ ghi chú cũ
+            det["pointsGained"] = det.get("pointsGained", 0) # Giữ điểm cũ
+            det["isCorrect"] = det.get("isCorrect", None) # Giữ trạng thái cũ
+        else:
+            # GV đã chấm (kể cả 0 điểm)
+            ts_float = 0.0
+            try: ts_float = float(ts_raw)
+            except: ts_float = 0.0
+
+            det["teacherScore"] = ts_float
+            det["teacherNote"] = ts_note
+            det["pointsGained"] = ts_float
+            det["isCorrect"] = ts_float > 0
 
         # === Tính toán lại ===
         new_total = 0.0
