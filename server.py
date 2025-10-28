@@ -1216,11 +1216,6 @@ def get_assignments_for_student():
 
 
 # --------------------- RESULTS ---------------------
-Chắc chắn rồi. Dưới đây là 3 hàm đầy đủ từ file server2810.py đã được sửa lỗi. Bạn có thể copy và paste trực tiếp để thay thế các hàm cũ trong file của mình.
-
-1. Hàm create_result (Sửa lỗi chấm Sai câu Trắc nghiệm)
-Python
-
 @app.route("/results", methods=["POST"])
 @app.route("/api/results", methods=["POST"])
 def create_result():
