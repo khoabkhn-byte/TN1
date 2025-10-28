@@ -1806,22 +1806,58 @@ def get_assignment_stats():
     })    
 
 
-# ✅ API Lấy danh sách Results cho học sinh (Nhanh hơn Aggregation)
+# ✅ API Lấy danh sách Results cho học sinh (FIXED: Đã thêm $lookup để lấy testName)
 @app.route("/api/results", methods=["GET"])
 def get_results_for_student():
     """
     Lấy tất cả các bài đã làm (Results) cho một học sinh cụ thể (sử dụng studentId).
+    FIX: Đã thêm $lookup để lấy testName.
     """
     student_id = request.args.get("studentId")
     if not student_id:
         return jsonify({"message": "Missing studentId parameter"}), 400
 
     try:
-        # Truy vấn tất cả kết quả có studentId tương ứng
-        results = list(db.results.find({"studentId": student_id}, {"_id": 0}))
-        # LƯU Ý: Frontend (hàm processAssignments) mong đợi một mảng các Results.
+        # SỬA LỖI: Dùng Aggregation để join tên
+        pipeline = [
+            {"$match": {"studentId": student_id}},
+            # Join với tests
+            {
+                "$lookup": {
+                    "from": "tests",
+                    "localField": "testId",
+                    "foreignField": "id",
+                    "as": "test_info"
+                }
+            },
+            {"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}},
+
+            # Project để trả về cấu trúc giống Result gốc + testName
+            {"$project": {
+                "_id": 0,
+                "id": 1,
+                "assignmentId": 1,
+                "testId": 1,
+
+                # Thêm trường testName
+                "testName": {"$ifNull": ["$test_info.name", "Bài thi đã xóa"]},
+
+                "subject": {"$ifNull": ["$test_info.subject", "khác"]}, # Thêm môn học
+                "submittedAt": 1,
+                "gradedAt": 1,
+                "gradingStatus": 1,
+                "totalScore": 1,
+                "mcScore": 1,
+                "essayScore": 1,
+                "studentAnswers": 1, # Giữ lại nếu FE cần
+                "detailedResults": 1 # Giữ lại nếu FE cần
+            }}
+        ]
+        results = list(db.results.aggregate(pipeline))
+
+        # Frontend (hàm processAssignments) mong đợi một mảng các Results.
         return jsonify(results)
-    
+
     except Exception as e:
         print(f"Lỗi khi lấy results cho student {student_id}: {e}")
         return jsonify([]), 500
