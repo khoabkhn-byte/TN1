@@ -1497,9 +1497,9 @@ def grade_result(result_id):
 
             ts_raw = e.get("teacherScore") # Có thể là None, 0, 0.5, ...
             ts_note = e.get("teacherNote") or ""
-            
+
             det = detailed_map[qid]
-            
+
             if ts_raw is None:
                 # GV không chấm câu này (để trống) -> Giữ nguyên trạng thái "chưa chấm"
                 det["teacherScore"] = det.get("teacherScore", None) # Giữ None nếu chưa chấm
@@ -1511,7 +1511,7 @@ def grade_result(result_id):
                 ts_float = 0.0
                 try: ts_float = float(ts_raw)
                 except: ts_float = 0.0
-                
+
                 det["teacherScore"] = ts_float
                 det["teacherNote"] = ts_note
                 det["pointsGained"] = ts_float
@@ -1522,25 +1522,48 @@ def grade_result(result_id):
         mc = 0.0
         es = 0.0
 
+        print(f"--- Calculating scores for result {result_id} ---") # LOG MỚI
+
         for d in detailed_map.values():
             pts = float(d.get("pointsGained") or 0)
             q_type = (d.get("type") or "").lower()
+            q_id_debug = d.get("questionId", "NO_ID") # LOG MỚI
+
+            # LOG CHI TIẾT TỪNG CÂU
+            print(f"  QID: {q_id_debug}, Type: {q_type}, PointsGained: {pts}")
+
             new_total += pts
 
             if q_type in ["essay", "tu_luan"]:
                 es += pts
+                print(f"    -> Added {pts} to essayScore. Current essayScore = {es}") # LOG MỚI
             else:
                 mc += pts
+                print(f"    -> Added {pts} to mcScore. Current mcScore = {mc}") # LOG MỚI
+
+        print(f"--- Final Calculated Scores ---") # LOG MỚI
+        print(f"  MC Score: {mc}") # LOG MỚI
+        print(f"  Essay Score: {es}") # LOG MỚI
+        print(f"  Total Score: {new_total}") # LOG MỚI
 
         graded_at = now_vn_iso()
 
         # === LOGIC TRẠNG THÁI CHÍNH THỨC ===
         # Lần 1: "Đã Chấm"
         # Lần 2+: "Hoàn tất"
-        if current_regrade + 1 >= 2:
-            new_status = "Hoàn tất"
+        # Kiểm tra xem có câu tự luận nào chưa được chấm không (teacherScore is None)
+        has_ungraded_essay = any(
+            (d.get("type") or "").lower() in ["essay", "tu_luan"] and d.get("teacherScore") is None
+            for d in detailed_map.values()
+        )
+
+        if has_ungraded_essay:
+             new_status = "Đang Chấm" # Nếu còn câu chưa chấm -> Vẫn là Đang Chấm
+        elif current_regrade + 1 >= 2:
+            new_status = "Hoàn tất" # Đã chấm hết và đủ số lần -> Hoàn tất
         else:
-            new_status = "Đã Chấm"
+            new_status = "Đã Chấm" # Đã chấm hết lần 1 -> Đã Chấm
+
 
         update = {
             "detailedResults": list(detailed_map.values()),
@@ -1556,7 +1579,7 @@ def grade_result(result_id):
             {"id": result_id},
             {
                 "$set": update,
-                "$inc": { "regradeCount": 1 }
+                "$inc": { "regradeCount": 1 } # Vẫn tăng regradeCount mỗi lần gọi API
             }
         )
 
@@ -1564,6 +1587,8 @@ def grade_result(result_id):
             "success": True,
             "message": f"{new_status}! Tổng: {round(new_total,2):.2f}",
             "totalScore": round(new_total,2),
+            "mcScore": round(mc, 2), # Trả về điểm MC đã tính
+            "essayScore": round(es, 2), # Trả về điểm Essay đã tính
             "gradingStatus": new_status,
             "regradeCount": current_regrade + 1
         })
