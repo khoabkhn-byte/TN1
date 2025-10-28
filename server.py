@@ -1869,25 +1869,29 @@ def get_results_for_student():
             },
             {"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}},
 
-            # Project để trả về cấu trúc giống Result gốc + testName
+            # Project để trả về cấu trúc giống Result gốc + testName (ĐÃ SỬA LỖI HOÀN CHỈNH)
             {"$project": {
-                "_id": 0,
-                "id": 1,
+                # 1. Bỏ _id
+                "_id": 0, 
+                
+                # 2. SỬA LỖI ID:
+                # Lấy trường "id" (nếu có), nếu không có,
+                # lấy trường "_id" và chuyển nó thành chuỗi (string)
+                "id": {"$ifNull": ["$id", {"$toString": "$_id"}]}, 
+                
+                # 3. GIỮ LẠI TẤT CẢ CÁC TRƯỜNG DỮ LIỆU CẦN THIẾT
                 "assignmentId": 1,
                 "testId": 1,
-
-                # Thêm trường testName
                 "testName": {"$ifNull": ["$test_info.name", "Bài thi đã xóa"]},
-
-                "subject": {"$ifNull": ["$test_info.subject", "khác"]}, # Thêm môn học
+                "subject": {"$ifNull": ["$test_info.subject", "khác"]}, 
                 "submittedAt": 1,
                 "gradedAt": 1,
                 "gradingStatus": 1,
                 "totalScore": 1,
                 "mcScore": 1,
                 "essayScore": 1,
-                "studentAnswers": 1, # Giữ lại nếu FE cần
-                "detailedResults": 1 # Giữ lại nếu FE cần
+                "studentAnswers": 1, 
+                "detailedResults": 1 
             }}
         ]
         results = list(db.results.aggregate(pipeline))
