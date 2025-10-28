@@ -1352,13 +1352,17 @@ def create_result():
             is_correct = None
             points_gained = 0.0
 
-            # Lấy correct answer từ nhiều nguồn: q.answer hoặc option.correct flag hoặc option.value/text
+           # Lấy correct answer (ƯU TIÊN OPTIONS TRƯỚC)
+           correct_ans = None
+           if q.get("options"):
+            for o in q.get("options", []):
+                if isinstance(o, dict) and (o.get("correct") or o.get("isCorrect")):
+                    correct_ans = o.get("value") or o.get("text")
+                    break
+
+          # Nếu không tìm thấy trong options, mới dùng trường answer (dành cho tự luận hoặc format cũ)
+          if correct_ans is None:
             correct_ans = q.get("answer")
-            if not correct_ans and q.get("options"):
-                for o in q.get("options", []):
-                    if isinstance(o, dict) and (o.get("correct") or o.get("isCorrect")):
-                        correct_ans = o.get("value") or o.get("text") or o.get("id") or correct_ans
-                        break
 
             n_student = norm_str(student_ans_value)
             n_correct = norm_str(correct_ans)
