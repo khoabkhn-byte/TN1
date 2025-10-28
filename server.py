@@ -1177,10 +1177,9 @@ def get_assignments_for_student():
     if not student_id:
         return jsonify({"success": False, "message": "Missing studentId parameter"}), 400
 
-    # Tìm tất cả assignments cho student_id này chưa nộp (status != done)
+    # Tìm tất cả assignments cho student_id này
     assignments = list(db.assignments.find({
-        "studentId": student_id,
-        "status": {"$in": ["pending", "assigned", None]} # Chỉ lấy các bài chưa làm/đang chờ
+        "studentId": student_id
     }, {"_id": 0})) 
 
     if not assignments:
@@ -1217,6 +1216,11 @@ def get_assignments_for_student():
 
 
 # --------------------- RESULTS ---------------------
+Chắc chắn rồi. Dưới đây là 3 hàm đầy đủ từ file server2810.py đã được sửa lỗi. Bạn có thể copy và paste trực tiếp để thay thế các hàm cũ trong file của mình.
+
+1. Hàm create_result (Sửa lỗi chấm Sai câu Trắc nghiệm)
+Python
+
 @app.route("/results", methods=["POST"])
 @app.route("/api/results", methods=["POST"])
 def create_result():
@@ -1352,17 +1356,17 @@ def create_result():
             is_correct = None
             points_gained = 0.0
 
-           # Lấy correct answer (ƯU TIÊN OPTIONS TRƯỚC)
-           correct_ans = None
-           if q.get("options"):
-            for o in q.get("options", []):
-                if isinstance(o, dict) and (o.get("correct") or o.get("isCorrect")):
-                    correct_ans = o.get("value") or o.get("text")
-                    break
-
-          # Nếu không tìm thấy trong options, mới dùng trường answer (dành cho tự luận hoặc format cũ)
-          if correct_ans is None:
-            correct_ans = q.get("answer")
+            # Lấy correct answer (ƯU TIÊN OPTIONS TRƯỚC)
+            correct_ans = None
+            if q.get("options"):
+                for o in q.get("options", []):
+                    if isinstance(o, dict) and (o.get("correct") or o.get("isCorrect")):
+                        correct_ans = o.get("value") or o.get("text")
+                        break
+            
+            # Nếu không tìm thấy trong options, mới dùng trường answer (dành cho tự luận hoặc format cũ)
+            if correct_ans is None:
+                correct_ans = q.get("answer")
 
             n_student = norm_str(student_ans_value)
             n_correct = norm_str(correct_ans)
@@ -1498,25 +1502,25 @@ def grade_result(result_id):
 
             ts_raw = e.get("teacherScore") # Có thể là None, 0, 0.5, ...
             ts_note = e.get("teacherNote") or ""
-
-        det = detailed_map[qid]
-
-        if ts_raw is None:
-            # GV không chấm câu này (để trống) -> Giữ nguyên trạng thái "chưa chấm"
-            det["teacherScore"] = det.get("teacherScore", None) # Giữ None nếu chưa chấm
-            det["teacherNote"] = det.get("teacherNote", "") # Giữ ghi chú cũ
-            det["pointsGained"] = det.get("pointsGained", 0) # Giữ điểm cũ
-            det["isCorrect"] = det.get("isCorrect", None) # Giữ trạng thái cũ
-        else:
-            # GV đã chấm (kể cả 0 điểm)
-            ts_float = 0.0
-            try: ts_float = float(ts_raw)
-            except: ts_float = 0.0
-
-            det["teacherScore"] = ts_float
-            det["teacherNote"] = ts_note
-            det["pointsGained"] = ts_float
-            det["isCorrect"] = ts_float > 0
+            
+            det = detailed_map[qid]
+            
+            if ts_raw is None:
+                # GV không chấm câu này (để trống) -> Giữ nguyên trạng thái "chưa chấm"
+                det["teacherScore"] = det.get("teacherScore", None) # Giữ None nếu chưa chấm
+                det["teacherNote"] = det.get("teacherNote", "") # Giữ ghi chú cũ
+                det["pointsGained"] = det.get("pointsGained", 0) # Giữ điểm cũ
+                det["isCorrect"] = det.get("isCorrect", None) # Giữ trạng thái cũ
+            else:
+                # GV đã chấm (kể cả 0 điểm)
+                ts_float = 0.0
+                try: ts_float = float(ts_raw)
+                except: ts_float = 0.0
+                
+                det["teacherScore"] = ts_float
+                det["teacherNote"] = ts_note
+                det["pointsGained"] = ts_float
+                det["isCorrect"] = ts_float > 0
 
         # === Tính toán lại ===
         new_total = 0.0
