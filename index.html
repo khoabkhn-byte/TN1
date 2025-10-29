@@ -426,16 +426,26 @@
                     <button class="btn btn-primary" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
                 </div>
             </div>
+
+            <div id="test-stats-container" class="alert alert-light py-2 mb-3" role="alert">
+                <strong>Thống kê Bài thi:</strong>
+                <span id="test-stats-info">Đang tải...</span>
+            </div>
             <div class="card p-3 mb-3">
-                <div class="row mb-1 align-items-end">
+                
+                 <div class="row mb-1 align-items-end">
                     <div class="col-md-3">
                         <label for="filter-test-subject" class="form-label small">Môn học</label>
-                        <select id="filter-test-subject" class="form-select form-select-sm" onchange="loadTests()"></select>
+                        <select id="filter-test-subject" class="form-select form-select-sm" onchange="loadTests()">
+                             <option value="">-- Tất cả Môn học ---</option>
+                            
+                        </select>
                     </div>
                      <div class="col-md-3">
                         <label for="filter-test-level" class="form-label small">Khối lớp</label>
                         <select id="filter-test-level" class="form-select form-select-sm" onchange="loadTests()">
                             <option value="">--Tất cả Khối--</option>
+                            
                         </select>
                      </div>
                      <div class="col-md-3">
@@ -486,71 +496,84 @@
         </div>
 
         <!-- STUDENTS -->
-        <div class="tab-pane fade" id="tab-students">
-    <div class="d-flex justify-content-between mb-2">
-        <h5>Học sinh</h5>
-        <div><button class="btn btn-primary" onclick="openStudentModal()">➕ Thêm học sinh</button></div>
-    </div>
-    
- <div class="card p-3 mb-3">
-        <div class="row g-3 align-items-end">
-
-            <div class="col-md-2">
-                <label for="filter-student-role" class="form-label small text-muted">Vai trò</label>
-                <select id="filter-student-role" class="form-select form-select-sm" onchange="loadStudents(false, true)">
-                    <option value="">-- Tất cả Vai trò --</option>
-                    {/* Các option vai trò sẽ được JS thêm vào */}
-                </select>
+ <div class="tab-pane fade" id="tab-students">
+            <div class="d-flex justify-content-between mb-2">
+                <h5>Học sinh</h5>
+                <div><button class="btn btn-primary" onclick="openStudentModal()">➕ Thêm học sinh</button></div>
             </div>
 
-            <div class="col-md-2">
-                <label for="filter-student-class" class="form-label small text-muted">Lớp</label>
-                <select id="filter-student-class" class="form-select form-select-sm" onchange="loadStudents(false, true)">
-                    <option value="">-- Tất cả Lớp --</option>
-                  
-                </select>
+            <div id="student-stats-container" class="alert alert-light py-2 mb-3" role="alert">
+                <strong>Thống kê Học sinh:</strong>
+                <span id="student-stats-info">Đang tải...</span>
             </div>
+            <div class="card p-3 mb-3">
+                 
+                <div class="row g-3 align-items-end">
 
-            <div class="col-md-2">
-                <label for="filter-student-gender" class="form-label small text-muted">Giới tính</label>
-                <select id="filter-student-gender" class="form-select form-select-sm" onchange="loadStudents(false, true)">
-                    <option value="">-- Tất cả Giới tính --</option>
+                    <div class="col-md-2">
+                        <label for="filter-student-role" class="form-label small text-muted">Vai trò</label>
+                        <select id="filter-student-role" class="form-select form-select-sm" onchange="loadStudents(false, true)">
+                            <option value="">-- Tất cả Vai trò --</option>
+                          
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label for="filter-student-class" class="form-label small text-muted">Lớp</label>
+                        <select id="filter-student-class" class="form-select form-select-sm" onchange="loadStudents(false, true)">
+                            <option value="">-- Tất cả Lớp --</option>
+                           
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label for="filter-student-gender" class="form-label small text-muted">Giới tính</label>
+                        <select id="filter-student-gender" class="form-select form-select-sm" onchange="loadStudents(false, true)">
+                            <option value="">-- Tất cả Giới tính --</option>
+                           
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="search-student-name" class="form-label small text-muted">Tìm kiếm Tên</label>
+                        <input type="text" id="search-student-name" class="form-control form-control-sm" placeholder="Nhập Họ tên..." onkeyup="debounceLoadStudents()">
+                    </div>
+
+                    <div class="col-md-3 text-end">
+                        <label class="form-label small invisible d-block">.</label>
+                        <button class="btn btn-sm btn-outline-danger" onclick="clearStudentFilters()">
+                            Xóa Lọc
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card p-3">
+                <div class="table-wrap">
                    
-                </select>
-            </div>
-
-            <div class="col-md-3">
-                <label for="search-student-name" class="form-label small text-muted">Tìm kiếm Tên</label>
-                <input type="text" id="search-student-name" class="form-control form-control-sm" placeholder="Nhập Họ tên..." onkeyup="debounceLoadStudents()">
-            </div>
-
-            <div class="col-md-1">
-               
-                <label class="form-label small invisible d-block">.</label>
-                <button class="btn btn-sm btn-outline-danger w-100" onclick="clearStudentFilters()">
-                    Xóa Lọc
-                </button>
+                    <table class="table table-sm table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%;">STT</th>
+                                <th style="width: 15%;">Username</th>
+                                <th style="width: 20%;">Họ tên</th>
+                                <th style="width: 10%;">Lớp</th>
+                                <th style="width: 10%;">Giới tính</th>
+                                <th style="width: 10%;">Vai trò</th>
+                                <th style="width: 20%;" class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-tbody"></tbody>
+                    </table>
+                </div>
+                 <!-- Phân trang cho Học sinh (Nếu bạn muốn thêm sau này)
+                 <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
+                    <div class="muted-small me-auto" id="students-info"></div>
+                    <button id="s-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('students', -1)">Trang trước</button>
+                    <button id="s-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('students', 1)">Trang sau</button>
+                </div>
+                -->
             </div>
         </div>
-    </div>
-    <div class="card p-3">
-        <div class="table-wrap">
-            <table class="table table-sm table-hover table-bordered">
-                <thead>
-                    <tr>
-                        <th style="width: 5%;">STT</th>
-                        <th style="width: 15%;">Username</th>
-                        <th style="width: 20%;">Họ tên</th>
-                        <th style="width: 10%;">Lớp</th>
-                        <th style="width: 10%;">Giới tính</th> <th style="width: 10%;">Vai trò</th>
-                        <th style="width: 20%;">Hành động</th>
-                    </tr>
-                </thead>
-                <tbody id="students-tbody"></tbody>
-            </table>
-        </div>
-        </div>
-</div>
 		
 		<!-- MODAL EDIT STUDENTS -->
 <div class="modal fade" id="modalStudentEdit" tabindex="-1" aria-labelledby="studentEditLabel" aria-hidden="true">
@@ -1816,6 +1839,68 @@ function updateQuestionLevelFilter(questions) {
 	
     function updatePaginationUI(resource){ const s = state[resource]; const totalPages = Math.max(1, Math.ceil(s.total / PAGE_SIZE)); const infoId = resource+'-info'; const prevId = resource.charAt(0)+'-prev'; const nextId = resource.charAt(0)+'-next'; if(qs(infoId)) qs(infoId).textContent = `Trang ${s.page} / ${totalPages} — Tổng: ${s.total}`; if(qs(prevId)) qs(prevId).disabled = s.page <= 1; if(qs(nextId)) qs(nextId).disabled = s.page >= totalPages; }
     function changePage(resource, delta){ const s = state[resource]; const totalPages = Math.max(1, Math.ceil(s.total / PAGE_SIZE)); s.page = Math.min(totalPages, Math.max(1, s.page + delta)); renderPaged(resource); }
+
+function renderTestStats(allTests) {
+    const statsContainer = qs('#test-stats-info');
+    if (!statsContainer) return;
+
+    const totalCount = allTests.length;
+     if (totalCount === 0) {
+        statsContainer.innerHTML = '<span class="badge bg-secondary">Chưa có bài thi nào</span>';
+        return;
+    }
+
+    // Khởi tạo đối tượng đếm
+    const counts = {
+        subject: {},
+        type: { auto: 0, manual: 0 },
+        status: { assigned: 0, not_assigned: 0 }
+    };
+
+    // Đếm
+    allTests.forEach(t => {
+        // Môn học
+        const subj = t.subject || 'khac';
+        counts.subject[subj] = (counts.subject[subj] || 0) + 1;
+
+        // Loại đề
+        if (t.isAutoGenerated === true) {
+            counts.type.auto++;
+        } else {
+            counts.type.manual++;
+        }
+
+        // Trạng thái giao
+        if ((t.assignmentStatus || '').toLowerCase() === 'assigned') {
+            counts.status.assigned++;
+        } else {
+            counts.status.not_assigned++;
+        }
+    });
+
+    // Tạo HTML
+    let html = `<span class="badge bg-primary me-2 fs-6">Tổng số: ${totalCount}</span>`;
+
+    // Thống kê Trạng thái giao
+    html += '<span class="ms-3 me-3">|</span><strong>Trạng thái:</strong> ';
+    if (counts.status.assigned > 0) html += `<span class="badge bg-success me-1">Đã giao: ${counts.status.assigned}</span>`;
+    if (counts.status.not_assigned > 0) html += `<span class="badge bg-secondary me-1">Chưa giao: ${counts.status.not_assigned}</span>`;
+
+    // Thống kê Loại đề
+    html += '<span class="ms-3 me-3">|</span><strong>Loại đề:</strong> ';
+    if (counts.type.auto > 0) html += `<span class="badge bg-info text-dark me-1">Tự động: ${counts.type.auto}</span>`;
+    if (counts.type.manual > 0) html += `<span class="badge bg-light text-dark border me-1">Thủ công: ${counts.type.manual}</span>`;
+
+    // Thống kê Môn học
+    html += '<span class="ms-3 me-3">|</span><strong>Môn:</strong> ';
+    const sortedSubjects = Object.keys(counts.subject).sort();
+    sortedSubjects.forEach(subjCode => {
+        html += `<span class="badge bg-secondary me-1">${SUBJECT_NAMES[subjCode] || subjCode}: ${counts.subject[subjCode]}</span>`;
+    });
+
+    statsContainer.innerHTML = html;
+}
+
 	
 function renderQuestions(items){ 
     const tbody = qs('questions-tbody'); 
@@ -3378,63 +3463,146 @@ function showToast(message, type = 'success') {
 	}
 
     // TESTS (teacher)
-async function loadTests(forceReload = false){ // Thêm forceReload nếu chưa có
-    // ... (Lấy filter values, xây dựng URL) ...
-     const subject = qs('#filter-test-subject')?.value || ''; const level = qs('#filter-test-level')?.value || ''; const dateSort = qs('#sort-test-date')?.value || 'desc'; let url = `${serverUrl}/api/tests`; const params = []; if (subject) params.push(`subject=${encodeURIComponent(subject)}`); if (level) params.push(`level=${encodeURIComponent(level)}`); if (params.length > 0) url += '?' + params.join('&');
+// Thay thế hàm loadTests cũ bằng hàm này
+async function loadTests(forceReload = false){
+    const tbody = qs('#tests-tbody'); // Lấy tbody để hiển thị loading/error nếu cần
+    if (!tbody) return;
 
-    // --- ✅ TẢI DỮ LIỆU GỐC NẾU CẦN ---
-    // Chỉ tải lại dữ liệu gốc từ API nếu chưa có hoặc yêu cầu forceReload
+    // --- TẢI DỮ LIỆU GỐC NẾU CẦN ---
     if (forceReload || !state.tests.allList || state.tests.allList.length === 0) {
         setTableLoading('tests-tbody', 'Đang tải toàn bộ bài thi...');
         try {
-            // Gọi API không có filter môn/lớp để lấy tất cả
             let baseUrl = `${serverUrl}/api/tests`;
             const allData = await fetchJson(baseUrl);
             state.tests.allList = Array.isArray(allData) ? allData : []; // Lưu danh sách gốc
 
-            // Cập nhật Set môn học đầy đủ từ danh sách gốc
-            allAvailableTestSubjects.clear(); // Xóa môn cũ
+            allAvailableTestSubjects.clear();
             state.tests.allList.forEach(t => { if (t.subject) allAvailableTestSubjects.add(t.subject); });
-            //console.log("loadTests: Updated allAvailableTestSubjects from full list:", allAvailableTestSubjects);
 
-            // Tạo lại bộ lọc môn học và khối lớp dựa trên dữ liệu gốc
-            populateSubjectFilters(); // Gọi để tạo options môn DỰA TRÊN allAvailableTestSubjects
-            updateTestLevelFilter(state.tests.allList); // Gọi hàm mới để tạo options khối
+            populateSubjectFilters();
+            updateTestLevelFilter(state.tests.allList);
+
+            // === GỌI RENDER STATS SAU KHI TẢI DỮ LIỆU GỐC THÀNH CÔNG ===
+            renderTestStats(state.tests.allList);
 
         } catch (e) {
             setTableError('tests-tbody', 'Không thể tải danh sách bài thi gốc');
             state.tests.allList = []; allAvailableTestSubjects.clear();
             populateSubjectFilters(); updateTestLevelFilter([]);
+            renderTestStats([]); // <-- Gọi render stats với mảng rỗng khi lỗi
             return; // Dừng nếu không tải được gốc
         }
+    } else {
+        // === GỌI RENDER STATS NẾU DÙNG DỮ LIỆU CACHE ===
+        // Đảm bảo thống kê luôn được cập nhật ngay cả khi không fetch lại API
+        renderTestStats(state.tests.allList);
     }
     // --- KẾT THÚC TẢI DỮ LIỆU GỐC ---
 
 
     // --- Từ đây, chỉ thực hiện lọc và render dựa trên state.tests.allList ---
-    setTableLoading('tests-tbody', 'Đang lọc bài thi...');
+    setTableLoading('tests-tbody', 'Đang lọc bài thi...'); // Có thể bỏ dòng này nếu lọc nhanh
+
+    // Lấy giá trị bộ lọc
+    const subject = qs('#filter-test-subject')?.value || '';
+    const level = qs('#filter-test-level')?.value || '';
+    const dateSort = qs('#sort-test-date')?.value || 'desc';
 
     // Lọc trên danh sách gốc (state.tests.allList)
     let filteredData = state.tests.allList;
     if (subject) filteredData = filteredData.filter(t => t.subject === subject);
     if (level) filteredData = filteredData.filter(t => String(t.level) === level); // So sánh chuỗi
 
-    // Sắp xếp Client-side (Giữ nguyên)
-    filteredData.sort((a, b) => { /* ... logic sắp xếp theo dateSort ... */ });
-     filteredData.sort((a, b) => { const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0; const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0; if (dateSort === 'desc') { return timeB - timeA; } else { return timeA - timeB; } });
-
+    // Sắp xếp Client-side
+     filteredData.sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (dateSort === 'desc') {
+            return timeB - timeA;
+        } else {
+            return timeA - timeB;
+        }
+     });
 
     // Lưu kết quả đã lọc vào state.tests.list để phân trang
     state.tests.list = filteredData;
     state.tests.total = state.tests.list.length;
-    // Không reset page ở đây nếu chỉ là lọc/sắp xếp
-    // state.tests.page = 1; // Chỉ reset khi forceReload hoặc xóa lọc
+    // Không reset page ở đây nếu chỉ là lọc/sắp xếp trừ khi forceReload
+    if (forceReload) {
+        state.tests.page = 1;
+    }
 
     renderPaged('tests'); // Render trang hiện tại của dữ liệu đã lọc
     setupTestCheckboxListeners(); // Gắn lại listener
-
-    // Không cần gọi populateSubjectFilters hay updateTestLevelFilter ở đây nữa
 }
+
+
+function renderStudentStats(allStudents) {
+    const statsContainer = qs('#student-stats-info');
+    if (!statsContainer) return;
+
+    const totalCount = allStudents.length;
+     if (totalCount === 0) {
+        statsContainer.innerHTML = '<span class="badge bg-secondary">Chưa có học sinh nào</span>';
+        return;
+    }
+
+    // Khởi tạo đối tượng đếm
+    const counts = {
+        class: {},
+        gender: { male: 0, female: 0, other: 0, unknown: 0 } // Thêm unknown
+        // Bạn có thể bỏ 'role' nếu không cần nữa
+        // role: {}
+    };
+
+    // Đếm
+    allStudents.forEach(s => {
+        // Đếm theo Lớp
+        const className = s.className || 'N/A'; // Gộp các lớp không xác định vào 'N/A'
+        counts.class[className] = (counts.class[className] || 0) + 1;
+
+        // Đếm theo Giới tính
+        const gender = (s.gender || 'unknown').toLowerCase(); // Gộp các giới tính không xác định
+        if (counts.gender.hasOwnProperty(gender)) {
+            counts.gender[gender]++;
+        } else {
+             counts.gender.unknown++; // Hoặc gộp vào 'other' tùy bạn muốn
+        }
+
+        // Đếm theo Vai trò (Nếu bạn vẫn muốn giữ lại)
+        // const role = s.role || 'student';
+        // counts.role[role] = (counts.role[role] || 0) + 1;
+    });
+
+    // Tạo HTML
+    let html = `<span class="badge bg-primary me-2 fs-6">Tổng số: ${totalCount}</span>`;
+
+    // Thống kê Lớp
+    html += '<span class="ms-3 me-3">|</span><strong>Lớp:</strong> ';
+    const sortedClasses = Object.keys(counts.class).sort(); // Sắp xếp tên lớp
+    sortedClasses.forEach(className => {
+        // Dùng badge khác màu cho N/A nếu muốn
+        const badgeClass = className === 'N/A' ? 'bg-secondary' : 'bg-info text-dark';
+        html += `<span class="badge ${badgeClass} me-1">${className}: ${counts.class[className]}</span>`;
+    });
+
+    // Thống kê Giới tính
+    html += '<span class="ms-3 me-3">|</span><strong>Giới tính:</strong> ';
+    if (counts.gender.male > 0) html += `<span class="badge bg-light text-dark border me-1">Nam: ${counts.gender.male}</span>`;
+    if (counts.gender.female > 0) html += `<span class="badge bg-light text-dark border me-1">Nữ: ${counts.gender.female}</span>`;
+    if (counts.gender.other > 0) html += `<span class="badge bg-light text-dark border me-1">Khác: ${counts.gender.other}</span>`;
+    if (counts.gender.unknown > 0) html += `<span class="badge bg-secondary me-1">N/A: ${counts.gender.unknown}</span>`;
+
+    // Thống kê Vai trò (Nếu bạn vẫn muốn giữ lại)
+    // html += '<span class="ms-3 me-3">|</span><strong>Vai trò:</strong> ';
+    // const sortedRoles = Object.keys(counts.role).sort();
+    // sortedRoles.forEach(roleCode => {
+    //      html += `<span class="badge bg-secondary me-1">${getRoleLabel(roleCode)}: ${counts.role[roleCode]}</span>`;
+    // });
+
+    statsContainer.innerHTML = html;
+}
+
 
 function updateTestLevelFilter(tests) {
     const levelSelect = qs('#filter-test-level');
@@ -4788,7 +4956,7 @@ function debounceLoadStudents() {
 
 // Hàm tải học sinh với bộ lọc
 // Thay thế hàm loadStudents() hiện tại bằng hàm này
-async function loadStudents(forceReload = false, resetPage = true) { // Thêm forceReload, resetPage
+async function loadStudents(forceReload = false, resetPage = true) {
     const tbody = qs('students-tbody');
     if (!tbody) return;
 
@@ -4796,25 +4964,31 @@ async function loadStudents(forceReload = false, resetPage = true) { // Thêm fo
     if (forceReload || allStudentData.length === 0) {
         setTableLoading('students-tbody', 'Đang tải toàn bộ danh sách học sinh...');
         try {
-            // Gọi API lấy TẤT CẢ user (bỏ pagination nếu có, hoặc dùng limit lớn)
-            // Giả sử API trả về mảng user trực tiếp hoặc trong { users: [...] }
             const data = await fetchJson(`${serverUrl}/api/users`); // Lấy tất cả
             allStudentData = Array.isArray(data) ? data : (data.users || []); // Lưu danh sách gốc
 
-            // ✅ TẠO BỘ LỌC ĐỘNG TỪ DỮ LIỆU GỐC
+            // Tạo bộ lọc động
             updateStudentRoleFilter(allStudentData);
             updateStudentClassFilter(allStudentData);
             updateStudentGenderFilter(allStudentData);
 
+            // === GỌI RENDER STATS SAU KHI TẢI DỮ LIỆU GỐC THÀNH CÔNG ===
+            renderStudentStats(allStudentData);
+
         } catch (e) {
             setTableError('students-tbody', 'Không thể tải danh sách học sinh');
             allStudentData = []; // Reset nếu lỗi
-            // Vẫn gọi hàm update filter để hiển thị trạng thái rỗng/mặc định
+            // Vẫn gọi hàm update filter
             updateStudentRoleFilter([]);
             updateStudentClassFilter([]);
             updateStudentGenderFilter([]);
+            renderStudentStats([]); // <-- Gọi render stats với mảng rỗng khi lỗi
             return; // Dừng nếu không tải được
         }
+    } else {
+         // === GỌI RENDER STATS NẾU DÙNG DỮ LIỆU CACHE ===
+         // Đảm bảo thống kê luôn được cập nhật ngay cả khi không fetch lại API
+         renderStudentStats(allStudentData);
     }
     // --- KẾT THÚC TẢI DỮ LIỆU GỐC ---
 
@@ -4823,7 +4997,6 @@ async function loadStudents(forceReload = false, resetPage = true) { // Thêm fo
     setTableLoading('students-tbody', 'Đang lọc danh sách...');
 
     const roleFilter = qs('filter-student-role')?.value || '';
-    // ✅ Đổi cách lấy giá trị lớp (từ select thay vì input)
     const classFilter = qs('filter-student-class')?.value || '';
     const nameSearch = qs('search-student-name')?.value.toLowerCase().trim() || '';
     const genderFilter = qs('filter-student-gender')?.value || '';
@@ -4844,12 +5017,16 @@ async function loadStudents(forceReload = false, resetPage = true) { // Thêm fo
     }
     // --- KẾT THÚC LỌC ---
 
-    // Lưu kết quả đã lọc vào state để phân trang
+    // Lưu kết quả đã lọc vào state để phân trang (Nếu bạn đã thêm phân trang cho HS)
     state.students.list = filteredData;
-    state.students.total = state.students.list.length;
+    state.students.total = filteredData.length;
     if (resetPage) state.students.page = 1;
 
-    renderPaged('students'); // Render trang hiện tại của dữ liệu đã lọc
+    // Gọi renderPaged hoặc renderStudents trực tiếp (tùy thuộc bạn có phân trang không)
+    // Nếu có phân trang:
+    renderPaged('students');
+    // Nếu KHÔNG có phân trang:
+    // renderStudents(filteredData);
 }
 
 function updateStudentRoleFilter(students) {
