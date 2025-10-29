@@ -1725,7 +1725,7 @@ def get_result_detail(result_id):
         # Cho phép tìm kiếm bằng cả UUID string (id) hoặc ObjectId (_id)
         match_query = {"$or": [{"id": result_id}]}
         try:
-             # Cố gắng thêm ObjectId nếu result_id là chuỗi 24 ký tự
+            # Cố gắng thêm ObjectId nếu result_id là chuỗi 24 ký tự
             match_query["$or"].append({"_id": ObjectId(result_id)})
         except Exception:
             # Bỏ qua nếu không phải ObjectId hợp lệ, chỉ dùng UUID string
@@ -1746,7 +1746,7 @@ def get_result_detail(result_id):
         })
         pipeline.append({"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}})
 
-        # 3. Join với Users (ĐÃ SỬA LỖI ID - Khắc phục N/A)
+        # 3. Join với Users (SỬA LỖI ID - Khắc phục N/A)
         pipeline.append({
             "$lookup": {
                 "from": "users",
@@ -1785,6 +1785,8 @@ def get_result_detail(result_id):
                 "totalScore": 1,
                 "mcScore": 1,
                 "essayScore": 1,
+                "teacherNote": 1,
+                "regradeCount": 1,
                 "studentAnswers": 1,
                 "detailedResults": 1,
                 
