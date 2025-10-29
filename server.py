@@ -1598,37 +1598,7 @@ def grade_result(result_id):
         import traceback; traceback.print_exc()
         return jsonify({"error": str(e), "message": "Internal Server Error"}), 500
         
-# API Lấy kết quả đơn lẻ (Dành cho Debug hoặc trường hợp đơn giản)
-@app.route("/results/<result_id>", methods=["GET"])
-@app.route("/api/results/<result_id>", methods=["GET"])
-def get_result(result_id):
-    doc = db.results.find_one({"id": result_id}, {"_id": 0})
-    if not doc: return jsonify({"message": "Kết quả không tìm thấy."}), 404
-    return jsonify(doc)
-    
-def _calculate_grading_status(detailed_results):
-    """
-    Xác định trạng thái chấm bài dựa trên detailedResults.
-    "Chưa Chấm" nếu có bất kỳ câu hỏi 'essay' nào có pointsGained == 0.
-    """
-    has_essay = False
-    is_awaiting_manual_grade = False
-    
-    for detail in detailed_results:
-        q_type = detail.get("type", "").lower()
-        if q_type in ["essay", "tu_luan"]:
-            has_essay = True
-            # Nếu điểm nhận được là 0 VÀ maxPoints > 0, coi như chưa chấm
-            if detail.get("pointsGained", 0) == 0 and detail.get("maxPoints", 0) > 0:
-                is_awaiting_manual_grade = True
-                break
-    
-    if is_awaiting_manual_grade:
-        return "Chưa Chấm" # Cần giáo viên chấm tay
-    elif has_essay:
-        return "Đã Chấm" # Đã có câu tự luận nhưng đã được chấm điểm (pointsGained > 0)
-    else:
-        return "Hoàn tất" # Không có câu tự luận
+
 
 # API mới để lấy danh sách kết quả tổng hợp cho giáo viên (Yêu cầu 1)
 @app.route("/api/results_summary", methods=["GET"])
