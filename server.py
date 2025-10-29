@@ -1718,114 +1718,79 @@ from flask import jsonify
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
     """
-    Lấy chi tiết bài làm, kết hợp với thông tin câu hỏi và học sinh.
-    Đã FIX lỗi logic isCorrect cho MC.
+    Lấy chi tiết bài làm (result), kết hợp với thông tin studentName/className/testName 
+    từ collections users và tests sử dụng Aggregation.
     """
-    result = db.results.find_one({"id": result_id})
-    if not result:
-        return jsonify({"error": "Không tìm thấy kết quả"}), 404
-        
-    # 1. LẤY ĐIỂM CHUẨN HÓA TỪ DB
-    db_mc_score = float(result.get("mcScore", 0.0))
-    db_essay_score = float(result.get("essayScore", 0.0))
-    
-    # 2. Lấy thông tin user và test
-    user = db.users.find_one({"id": result.get("studentId")}, {"fullName": 1, "className": 1, "_id": 0})
-    test = db.tests.find_one({"id": result.get("testId")})
-    
-    student_name = user.get("fullName", "Ẩn danh") if user else "Ẩn danh"
-    class_name = user.get("className", "N/A") if user else "N/A"
-    test_name = test.get("name") if test else "Bài thi đã xóa"
+    try:
+        # 1. Pipeline Aggregation
+        pipeline = [
+            {"$match": {"id": result_id}}, # Lọc theo result_id
 
-    # 3. Xử lý detailedResults (Nguồn đáng tin cậy nhất)
-    detailed_results = result.get("detailedResults", [])
-    
-    # Lấy ID câu hỏi từ detailedResults
-    q_ids = [d["questionId"] for d in detailed_results if d.get("questionId")]
-
-    # Lấy chi tiết câu hỏi từ DB (questions collection)
-    question_docs = list(db.questions.find({"id": {"$in": q_ids}}))
-    question_map = {q["id"]: q for q in question_docs}
-
-    # Ghép dữ liệu
-    answers = []
-    for d in detailed_results:
-        qid = d["questionId"]
-        q = question_map.get(qid, {})
-        
-        # Chuẩn hóa đáp án đúng từ options nếu cần
-        correct_ans_from_options = None
-        # Kiểm tra type từ detailedResults trước, sau đó là từ question_map
-        if (d.get("type") or q.get("type") or "").lower() == "mc" and q.get("options"):
-            for opt in q["options"]:
-                if opt.get("correct") is True:
-                    correct_ans_from_options = opt.get("text")
-                    break
-        
-        # Loại câu hỏi và điểm
-        q_type = (d.get("type") or q.get("type") or "mc").lower()
-        max_score = d.get("maxPoints", q.get("points", 0))
-
-        # Điểm đạt được và trạng thái
-        gained_score = d.get("pointsGained", 0.0)
-        
-        # LẤY TRẠNG THÁI ĐÚNG/SAI TỪ detailedResults
-        is_correct_for_display = d.get("isCorrect") 
-        
-        # FIX LOGIC: Nếu là MC, và isCorrect là None, dựa vào pointsGained
-        if q_type == "mc":
-            if is_correct_for_display is None:
-                # Nếu có điểm > 0 thì coi là đúng
-                is_correct_for_display = gained_score > 0 
-            
-            # Đảm bảo isCorrect không bao giờ là None cho MC
-            if is_correct_for_display is None:
-                is_correct_for_display = False 
-
-        # Lấy teacherScore/Note
-        teacher_score = d.get("teacherScore")
-        teacher_note = d.get("teacherNote")
-
-        # Cấu trúc câu trả lời
-        answers.append({
-            "questionId": qid,
-            "question": {
-                "id": qid,
-                "q": q.get("q"),
-                "type": q_type,
-                "points": max_score,
-                "imageId": q.get("imageId"),
-                "options": q.get("options", []),
-                # Đáp án đúng (Ưu tiên từ result.correctAnswer, sau đó đến options)
-                "correctAnswer": d.get("correctAnswer") or q.get("answer") or correct_ans_from_options,
+            # Join với users
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "studentId",
+                    "foreignField": "id",
+                    "as": "student_info"
+                }
             },
-            # TRƯỜNG STUDENTANSWER/USERANSWER PHẢI CÓ ĐỂ FRONTEND SO SÁNH
-            "userAnswer": d.get("studentAnswer"), 
-            "maxScore": max_score,
-            "gainedScore": round(gained_score, 2), 
-            "correctAnswer": d.get("correctAnswer") or q.get("answer") or correct_ans_from_options,
-            "isCorrect": is_correct_for_display, # TRƯỜNG NÀY PHẢI CÓ
-            "isEssay": q_type in ["essay", "tu_luan"], 
-            "teacherScore": teacher_score, 
-            "teacherNote": teacher_note
-        })
+            {"$unwind": {"path": "$student_info", "preserveNullAndEmptyArrays": True}},
 
-    # 4. Cấu trúc JSON cuối cùng trả về Frontend
-    detail = {
-        "id": result["id"],
-        "studentName": result.get("studentName") or student_name,
-        "className": result.get("className") or class_name,
-        "testName": test_name,
-        "totalScore": round(result.get("totalScore", 0), 2),
-        "gradingStatus": result.get("gradingStatus", "Chưa Chấm"),
-        "submittedAt": result.get("submittedAt"),
-        "mcScore": round(db_mc_score, 2),
-        "essayScore": round(db_essay_score, 2),
-        "answers": answers
-    }
-    
-    return jsonify(detail)
+            # Join với tests
+            {
+                "$lookup": {
+                    "from": "tests",
+                    "localField": "testId",
+                    "foreignField": "id",
+                    "as": "test_info"
+                }
+            },
+            {"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}},
 
+            # Project để chuẩn hóa và trả về
+            {
+                "$project": {
+                    "_id": 0,
+                    "id": 1,
+                    "assignmentId": 1,
+                    "testId": 1,
+                    "studentId": 1,
+                    "submittedAt": 1,
+                    "gradedAt": 1,
+                    "gradingStatus": 1,
+                    "totalScore": 1,
+                    "mcScore": 1,
+                    "essayScore": 1,
+                    "teacherNote": 1,
+                    "regradeCount": 1,
+                    "studentAnswers": 1,
+                    "detailedResults": 1,
+                    # ✅ THÊM TRƯỜNG TỪ JOIN
+                    "testName": {"$ifNull": ["$test_info.name", "Bài thi đã xóa"]},
+                    "studentName": {"$ifNull": ["$student_info.fullName", "N/A"]},
+                    "className": {"$ifNull": ["$student_info.className", "N/A"]},
+                }
+            }
+        ]
+
+        doc_list = list(db.results.aggregate(pipeline))
+
+        if not doc_list:
+            return jsonify({"message": "Kết quả không tìm thấy."}), 404
+            
+        doc = doc_list[0]
+        
+        # Làm tròn điểm
+        doc["totalScore"] = round(doc.get("totalScore", 0.0), 2)
+        doc["mcScore"] = round(doc.get("mcScore", 0.0), 2)
+        doc["essayScore"] = round(doc.get("essayScore", 0.0), 2)
+
+        return jsonify(doc)
+
+    except Exception as e:
+        print(f"Lỗi khi lấy chi tiết kết quả {result_id}: {e}")
+        return jsonify({"message": "Lỗi máy chủ."}), 500
 
 # API mới để thống kê bài giao (Yêu cầu 3 - ĐÃ CẬP NHẬT)
 @app.route("/api/assignment_stats", methods=["GET"])
