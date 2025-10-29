@@ -1722,7 +1722,7 @@ from flask import jsonify
 # Giả định db (MongoDB client) đã được định nghĩa và khởi tạo
 # Ví dụ: from app import db
 
-
+@app.route("/results/<result_id>", methods=["GET"])
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
     """
