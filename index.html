@@ -267,7 +267,21 @@
 .stick-red { background:#dc3545 !important; }
 .stick-orange { background:#ff9800 !important; }
 
+/* STYLE CHO TIÊU ĐỀ BẢNG HỌC SINH */
+    #tab-students table thead th { /* Target the table header in the students tab */
+        background-color: WhiteSmoke; /* Màu xám nhạt (Light gray) */
+        color: DarkOliveGreen;        /* Màu chữ đậm (Dark text) */
+        border-bottom: 2px solid var(--primary); /* Viền dưới xanh lá (Green bottom border) */
+        vertical-align: middle;      /* Căn giữa theo chiều dọc */
+    }
 
+    /* STYLE CHO TIÊU ĐỀ BẢNG KẾT QUẢ */
+    #tab-results .table-bordered thead th { /* Target the bordered table header in the results tab */
+        background-color: WhiteSmoke;
+        color: DarkOliveGreen;
+        border-bottom: 2px solid var(--primary);
+        vertical-align: middle;
+    }
 
   </style>
 </head>
@@ -309,7 +323,7 @@
       <div class="tab-content mt-3">
       
         <!-- QUESTIONS -->
-     <div class="tab-pane fade show active" id="tab-questions">
+ <div class="tab-pane fade show active" id="tab-questions">
           <div class="d-flex justify-content-between mb-2">
             <h5>Câu hỏi</h5>
             <div>
@@ -317,79 +331,84 @@
               <button class="btn btn-primary" onclick="openQuestionModal()">➕ Thêm câu hỏi</button>
             </div>
           </div>
-          <div class="row mb-2">
-            <div class="col-md-4">
-             <select id="q-filter-subject" class="form-select form-select-sm" onchange="loadQuestions(true)">
-                <option value="">-- Môn học --</option>
-                <option value="math">Toán</option>
-                <option value="literature">Văn</option>
-                <option value="english">Tiếng Anh</option>
-                <option value="physics">Vật lý</option>
-                <option value="chemistry">Hóa học</option>
-                <option value="biology">Sinh học</option>
-                <option value="history">Lịch sử</option>
-                <option value="geography">Địa lý</option>
-                <option value="civic">GDCD</option>
-                <option value="it">Tin học</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <select id="q-filter-level" class="form-select form-select-sm" onchange="loadQuestions(true)">
-                <option value="">-- Khối lớp --</option>
-                <option value="1">1</option>
-				<option value="2">2</option>
-				<option value="3">3</option>
-				<option value="4">4</option>
-				<option value="5">5</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <select id="q-filter-type" class="form-select form-select-sm" onchange="loadQuestions(true)">
-                <option value="">-- Loại câu hỏi --</option>
-                <option value="mc">Trắc nghiệm</option>
-                <option value="essay">Tự luận</option>
-              </select>
-            </div>
+
+          <div id="question-stats-detailed-container" class="alert alert-light py-2 mb-3" role="alert">
+              <strong>Thống kê Câu hỏi:</strong>
+              <span id="question-stats-detailed-info">Đang tải...</span>
           </div>
-		  <div class="row mb-2">
-		    <div class="col-md-3">
-		      <select id="filter-difficulty" class="form-select form-select-sm" onchange="loadQuestions(true)">
-		        <option value="">Tất cả độ khó</option>
-		        <option value="easy">Dễ</option>
-		        <option value="medium">Trung bình</option>
-		        <option value="hard">Khó</option>
-		      </select>
-		    </div>
-			<div class="col-md-3 d-flex align-items-center">
-		      <button class="btn btn-sm btn-outline-secondary" onclick="clearAllQuestionFilters()">Xóa Lọc</button>
-		    </div>
-		  </div>
+          <div class="card p-3 mb-3">
+           
+              <div class="row g-3 align-items-end">
+                  <div class="col-md-3">
+                      <label for="q-filter-subject" class="form-label small">Môn học</label>
+                      <select id="q-filter-subject" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
+                          <option value="">-- Tất cả Môn học --</option>
+                          <option value="math">Toán</option>
+                          <option value="literature">Văn</option>
+                          <option value="english">Tiếng Anh</option>
+                          <option value="physics">Vật lý</option>
+                          <option value="chemistry">Hóa học</option>
+                          <option value="biology">Sinh học</option>
+                          <option value="history">Lịch sử</option>
+                          <option value="geography">Địa lý</option>
+                          <option value="civic">GDCD</option>
+                          <option value="it">Tin học</option>
+                      </select>
+                  </div>
+                  <div class="col-md-2">
+                      <label for="q-filter-level" class="form-label small">Khối lớp</label>
+                      <select id="q-filter-level" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
+                          <option value="">-- Tất cả Khối --</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                      </select>
+                  </div>
+                   <div class="col-md-2">
+                      <label for="q-filter-type" class="form-label small">Loại câu hỏi</label>
+                      <select id="q-filter-type" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
+                          <option value="">-- Tất cả Loại --</option>
+                          <option value="mc">Trắc nghiệm</option>
+                          <option value="essay">Tự luận</option>
+                      </select>
+                  </div>
+                  <div class="col-md-2">
+                      <label for="filter-difficulty" class="form-label small">Độ khó</label>
+                      <select id="filter-difficulty" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
+                          <option value="">-- Tất cả Độ khó --</option>
+                          <option value="easy">Dễ</option>
+                          <option value="medium">Trung bình</option>
+                          <option value="hard">Khó</option>
+                      </select>
+                  </div>
+                  <div class="col-md-3 text-end">
+                      <label class="form-label small invisible d-block">.</label>
+                      <button class="btn btn-sm btn-outline-secondary" onclick="clearAllQuestionFilters()">Xóa Lọc</button>
+                  </div>
+              </div>
+          </div>
+   
 
-
-	  
-    <div class="alert alert-light py-2 mb-3" role="alert">
-        <strong>Thống kê:</strong> 
-        <span id="question-stats-container">Đang tải...</span>
-    </div>
           <div class="card p-3">
             <div class="table-wrap">
-           
-			  <table class="table table-hover table-bordered">
-				<thead>
-					<tr> <th style="width:4%;" class="text-center">STT</th>
-						<th style="width:48%;" class="text-center">Câu hỏi</th>
-						<th style="width:11%;" class="text-center">Môn học</th>
-						<th style="width:7%;" class="text-center">Khối lớp</th>
-						<th style="width:7%;" class="text-center">Loại</th>
-						<th style="width:7%;" class="text-center">Điểm</th>
-						<th style="width:7%;" class="text-center">độ khó</th>
-						<th style="width:16%;" class="text-center">Hành động</th>
-					</tr>
-				</thead>
-				<tbody id="questions-tbody"></tbody>
-				</table>
+              <table class="table table-hover table-bordered">
+                <thead>
+                    <tr> <th style="width:4%;" class="text-center">STT</th>
+                        <th style="width:48%;" class="text-center">Câu hỏi</th>
+                        <th style="width:11%;" class="text-center">Môn học</th>
+                        <th style="width:7%;" class="text-center">Khối lớp</th>
+                        <th style="width:7%;" class="text-center">Loại</th>
+                        <th style="width:7%;" class="text-center">Điểm</th>
+                        <th style="width:7%;" class="text-center">Độ khó</th>
+                        <th style="width:16%;" class="text-center">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="questions-tbody"></tbody>
+                </table>
            </div>
-		
+
             <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
               <div class="muted-small me-auto" id="questions-info"></div>
               <button id="q-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('questions', -1)">Trang trước</button>
@@ -399,78 +418,72 @@
         </div>
 
         <!-- TESTS -->
-        <div class="tab-pane fade" id="tab-tests">
-    <div class="d-flex justify-content-between mb-2">
-        <h5>Bài thi</h5>
-        <div class="d-flex align-items-center">
-            
-            <button class="btn btn-outline-primary me-2" onclick="refreshResource('tests')">Tải lại</button>
-            <button class="btn btn-primary" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
-        </div>
-    </div>
-    
-    <div class="card p-3 mb-3">
-        <h5>Bộ lọc Bài kiểm tra</h5>
-        <div class="row mb-1 align-items-end">
-            <div class="col-md-3">
-                <label for="filter-test-subject" class="form-label small">Môn học</label>
-               
-                <select id="filter-test-subject" class="form-select form-select-sm" onchange="loadTests()"></select>
+ <div class="tab-pane fade" id="tab-tests">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5>Bài thi</h5>
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-outline-primary me-2" onclick="refreshResource('tests')">Tải lại</button>
+                    <button class="btn btn-primary" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
+                </div>
             </div>
-             <div class="col-md-3">
-                <label for="filter-test-level" class="form-label small">Khối lớp</label>
-               
-                <select id="filter-test-level" class="form-select form-select-sm" onchange="loadTests()">
-                    <option value="">--Tất cả Khối--</option>
-                  
-                </select>
-             </div>
-             <div class="col-md-3">
-                <label for="sort-test-date" class="form-label small">Sắp xếp theo Ngày tạo</label>
-                <select id="sort-test-date" class="form-select form-select-sm" onchange="loadTests()">
-                    <option value="desc">Mới nhất trước</option>
-                    <option value="asc">Cũ nhất trước</option>
-                </select>
+            <div class="card p-3 mb-3">
+                <div class="row mb-1 align-items-end">
+                    <div class="col-md-3">
+                        <label for="filter-test-subject" class="form-label small">Môn học</label>
+                        <select id="filter-test-subject" class="form-select form-select-sm" onchange="loadTests()"></select>
+                    </div>
+                     <div class="col-md-3">
+                        <label for="filter-test-level" class="form-label small">Khối lớp</label>
+                        <select id="filter-test-level" class="form-select form-select-sm" onchange="loadTests()">
+                            <option value="">--Tất cả Khối--</option>
+                        </select>
+                     </div>
+                     <div class="col-md-3">
+                        <label for="sort-test-date" class="form-label small">Sắp xếp theo Ngày tạo</label>
+                        <select id="sort-test-date" class="form-select form-select-sm" onchange="loadTests()">
+                            <option value="desc">Mới nhất trước</option>
+                            <option value="asc">Cũ nhất trước</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <label class="form-label small invisible d-block">.</label>
+                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="resetTestFilters()">Xóa lọc</button>
+                        <button id="bulk-assign-btn-top" class="btn btn-sm btn-primary d-none" onclick="showBulkAssignModal()"> Giao Đề Đã Chọn (<span id="selected-count-display">0</span>)</button>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-3">
-                <label class="form-label small invisible d-block">.</label>
-                <button class="btn btn-sm btn-outline-secondary" onclick="resetTestFilters()">Xóa lọc</button>
-				<button id="bulk-assign-btn-top" class="btn btn-sm btn-primary ms-2 d-none" onclick="showBulkAssignModal()"> Giao Đề Đã Chọn (<span id="selected-count-display">0</span>)</button>
-            </div>
-        </div>
-    </div>
 
-    <div class="card p-3">
-        <div class="table-wrap">
-            <table class="table table-sm table-hover table-bordered">
- <thead>
-        <tr>
-            <th scope="col" class="text-center" style="width: 40px;">
-                <input type="checkbox" id="check-all-tests">
-            </th>
-            <th scope="col" class="text-center">STT</th>
-            <th scope="col">Môn học</th>
-            <th scope="col">Tên bài thi</th>
-            <th scope="col" class="text-center" style="width: 70px;">TL</th>
-            <th scope="col" class="text-center" style="width: 70px;">TN</th>
-            <th scope="col" class="text-center">Thời gian</th>
-            <th scope="col" class="text-center">Ngày tạo</th>
-            <th scope="col" class="text-center">Loại đề</th>
-            <th scope="col" class="text-center" style="width: 100px;">Trạng thái</th>
-            <th scope="col" class="text-center">Hành động</th>
-        </tr>
-    </thead>
-    <tbody id="tests-tbody">
-        </tbody>
-</table>
-        </div>
-        <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
-            <div class="muted-small me-auto" id="tests-info"></div>
-            <button id="t-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('tests', -1)">Trang trước</button>
-            <button id="t-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('tests', 1)">Trang sau</button>
+            <div class="card p-3">
+                 <div class="table-wrap">
+                     <table class="table table-sm table-hover table-bordered">
+                         <thead>
+                            <tr>
+                                <th scope="col" class="text-center" style="width: 40px;">
+                                    <input type="checkbox" id="check-all-tests">
+                                </th>
+                                <th scope="col" class="text-center">STT</th>
+                                <th scope="col">Môn học</th>
+                                <th scope="col">Tên bài thi</th>
+                                <th scope="col" class="text-center" style="width: 70px;">TL</th>
+                                <th scope="col" class="text-center" style="width: 70px;">TN</th>
+                                <th scope="col" class="text-center">Thời gian</th>
+                                <th scope="col" class="text-center">Ngày tạo</th>
+                                <th scope="col" class="text-center">Loại đề</th>
+                                <th scope="col" class="text-center" style="width: 100px;">Trạng thái</th>
+                                <th scope="col" class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tests-tbody">
+                        </tbody>
+                    </table>
+                 </div>
+                <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
+                    <div class="muted-small me-auto" id="tests-info"></div>
+                    <button id="t-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('tests', -1)">Trang trước</button>
+                    <button id="t-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('tests', 1)">Trang sau</button>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
         <!-- STUDENTS -->
         <div class="tab-pane fade" id="tab-students">
@@ -522,7 +535,7 @@
     </div>
     <div class="card p-3">
         <div class="table-wrap">
-            <table class="table table-sm table-hover">
+            <table class="table table-sm table-hover table-bordered">
                 <thead>
                     <tr>
                         <th style="width: 5%;">STT</th>
@@ -604,8 +617,7 @@
     </div>
 </div>
 
-        <!-- RESULTS -->
-        <div class="tab-pane fade" id="tab-results">
+ <div class="tab-pane fade" id="tab-results">
     <h5>Quản lý Kết quả Bài thi</h5>
     
     <div id="results-stats-container" class="alert alert-light py-2 mb-3" role="alert">
@@ -614,21 +626,19 @@
     </div>
     
    <div class="card p-3 mb-3">
-        <h6>Bộ lọc và Sắp xếp</h6>
+       <!-- <h6>Bộ lọc và Sắp xếp</h6>-->
         <div class="row g-3 align-items-end">
             <div class="col-md-3">
                 <label for="filter-result-status" class="form-label small">Trạng thái chấm</label>
-                <select id="filter-result-status" class="form-select form-select-sm" onchange="loadResults(false)"> {/* Bỏ forceReload */}
+                <select id="filter-result-status" class="form-select form-select-sm" onchange="loadResults(false)">
                     <option value="">-- Tất cả --</option>
-                    {/* JS sẽ điền */}
                 </select>
             </div>
 
             <div class="col-md-3">
                 <label for="filter-result-class" class="form-label small">Lớp học</label>
-                <select id="filter-result-class" class="form-select form-select-sm" onchange="loadResults(false)"> {/* Bỏ forceReload */}
+                <select id="filter-result-class" class="form-select form-select-sm" onchange="loadResults(false)">
                     <option value="">-- Tất cả Lớp --</option>
-                    {/* JS sẽ điền */}
                 </select>
             </div>
             <div class="col-md-3">
@@ -638,7 +648,7 @@
 
             <div class="col-md-3">
                 <label for="sort-result-time" class="form-label small">Sắp xếp theo</label>
-                <select id="sort-result-time" class="form-select form-select-sm" onchange="loadResults(false)"> {/* Bỏ forceReload */}
+                <select id="sort-result-time" class="form-select form-select-sm" onchange="loadResults(false)">
                     <option value="submittedAt_desc">Thời gian nộp (Mới nhất)</option>
                     <option value="submittedAt_asc">Thời gian nộp (Cũ nhất)</option>
                     <option value="totalScore_desc">Điểm số (Cao nhất)</option>
@@ -673,10 +683,17 @@
                 </tbody>
             </table>
         </div>
-    </div>
+        
+        <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
+            <div class="muted-small me-auto" id="results-info">Hiển thị 0 - 0 trên 0</div>
+            <button id="r-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('results', -1)">Trang trước</button>
+            <button id="r-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('results', 1)">Trang sau</button>
+        </div>
+        </div>
 </div>
 </div>
 </div>
+
     <!-- STUDENT APP -->
     <div id="student-app">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1492,8 +1509,8 @@ function qs(selector) {
 }
 	
 
-    // Pagination state
-    const state = { questions: { list: [], page:1, total:0 }, tests: { list: [], page:1, total:0 }, students: { list: [], page:1, total:0 } };
+// Pagination state
+const state = { questions: { list: [], page:1, total:0 }, tests: { list: [], page:1, total:0 }, students: { list: [], page:1, total:0 }, results: { list: [], page:1, total:0 } };
 
     
 	//const qs = id => document.getElementById(id);
@@ -1701,7 +1718,6 @@ async function loadQuestions(forceReload = false, resetPage = true) { // Thêm f
             // Cập nhật Set môn học đầy đủ từ danh sách gốc
             allAvailableQuestionSubjects.clear(); // Xóa môn cũ
             state.questions.allList.forEach(q => { if (q.subject) allAvailableQuestionSubjects.add(q.subject); });
-            //console.log("loadQuestions: Updated allAvailableQuestionSubjects from full list:", allAvailableQuestionSubjects);
 
             // Tạo lại bộ lọc môn học và khối lớp dựa trên dữ liệu gốc
             populateSubjectFilters(); // Gọi để tạo options môn
@@ -1713,6 +1729,7 @@ async function loadQuestions(forceReload = false, resetPage = true) { // Thêm f
             allAvailableQuestionSubjects.clear();
             populateSubjectFilters(); // Gọi lại để hiển thị tĩnh (nếu cần)
             updateQuestionLevelFilter([]); // Reset filter khối
+            renderQuestionDetailedStats([]); // <-- Gọi render stats với mảng rỗng khi lỗi
             return; // Dừng nếu không tải được gốc
         }
     }
@@ -1732,13 +1749,16 @@ async function loadQuestions(forceReload = false, resetPage = true) { // Thêm f
     if (typeFilter) filteredData = filteredData.filter(q => q.type === typeFilter);
     if (diffFilter) filteredData = filteredData.filter(q => q.difficulty === diffFilter);
 
+    // --- HIỂN THỊ THỐNG KÊ CHI TIẾT ---
+    renderQuestionDetailedStats(state.questions.allList); // Gọi hàm mới, dùng allList
+
     // Lưu kết quả đã lọc vào state.questions.list để phân trang
     state.questions.list = filteredData;
     state.questions.total = state.questions.list.length;
     if (resetPage) state.questions.page = 1;
 
     renderPaged('questions'); // Render trang hiện tại của dữ liệu đã lọc
-    renderQuestionStats(state.questions.list); // Cập nhật thống kê dựa trên list đã lọc
+    // Hàm renderQuestionStats cũ không còn cần thiết nếu bạn đã xóa hoặc bỏ comment
 }
 
 function updateQuestionLevelFilter(questions) {
@@ -1766,15 +1786,20 @@ function updateQuestionLevelFilter(questions) {
 		
  function renderPaged(resource){
     const s = state[resource];
+    // Đảm bảo s tồn tại trước khi truy cập thuộc tính
+    if (!s) {
+        console.error(`Lỗi: Không tìm thấy state cho resource '${resource}'`);
+        return;
+    }
+    const listToPage = s.list || []; // Sử dụng mảng rỗng nếu list không tồn tại
     const start = (s.page - 1) * PAGE_SIZE;
-    const pageItems = s.list.slice(start, start + PAGE_SIZE);
+    const pageItems = listToPage.slice(start, start + PAGE_SIZE);
 
     // Render nội dung bảng tương ứng
     if (resource === 'questions') renderQuestions(pageItems);
     if (resource === 'tests') {
         renderTests(pageItems);
         // --- ✅ GỌI LẠI SETUP LISTENERS CHO TAB BÀI THI ---
-        // Gọi hàm này sau khi renderTests để gắn lại sự kiện cho checkbox mới
         if (typeof setupTestCheckboxListeners === 'function') {
             setupTestCheckboxListeners();
         } else {
@@ -1783,6 +1808,7 @@ function updateQuestionLevelFilter(questions) {
         // --- KẾT THÚC ---
     }
     if (resource === 'students') renderStudents(pageItems);
+    if (resource === 'results') renderResultsTable(pageItems); // <-- DÒNG ĐÃ THÊM
 
     // Cập nhật UI phân trang
     updatePaginationUI(resource);
@@ -1827,8 +1853,10 @@ function renderQuestions(items){
           }</span>
         </td>
         <td class="text-center">
-          <button class="btn btn-sm btn-outline-primary me-1" onclick='openQuestionModalById("${qId}")'>Sửa</button>
-          <button class="btn btn-sm btn-outline-danger" onclick='deleteQuestion("${qId}")'>Xóa</button>
+          <div class="d-flex justify-content-center gap-1">
+              <button class="btn btn-sm btn-outline-primary" onclick='openQuestionModalById("${qId}")'>Sửa</button>
+              <button class="btn btn-sm btn-outline-danger" onclick='deleteQuestion("${qId}")'>Xóa</button>
+          </div>
         </td>
       `; 
       frag.appendChild(tr); 
@@ -3221,7 +3249,92 @@ async function saveQuestion(){
 }
 
 
+// Hàm mới để hiển thị thống kê chi tiết cho Câu hỏi
+function renderQuestionDetailedStats(allQuestions) {
+    const statsContainer = qs('#question-stats-detailed-info');
+    if (!statsContainer) return;
 
+    const totalCount = allQuestions.length;
+    if (totalCount === 0) {
+        statsContainer.innerHTML = '<span class="badge bg-secondary">Chưa có câu hỏi nào</span>';
+        return;
+    }
+
+    // Khởi tạo các đối tượng đếm
+    const counts = {
+        subject: {},
+        difficulty: { easy: 0, medium: 0, hard: 0, unknown: 0 },
+        level: {},
+        type: { mc: 0, essay: 0, unknown: 0 }
+    };
+
+    // Đếm
+    allQuestions.forEach(q => {
+        // Môn học
+        const subj = q.subject || 'khac';
+        counts.subject[subj] = (counts.subject[subj] || 0) + 1;
+
+        // Độ khó
+        const diff = q.difficulty || 'unknown';
+        if (counts.difficulty.hasOwnProperty(diff)) {
+            counts.difficulty[diff]++;
+        } else {
+            counts.difficulty.unknown++; // Trường hợp độ khó không xác định
+        }
+
+        // Khối lớp
+        const lvl = q.level ? String(q.level) : 'khac'; // Chuyển level thành chuỗi
+        counts.level[lvl] = (counts.level[lvl] || 0) + 1;
+
+        // Loại câu hỏi
+        const qType = (q.type || 'unknown').toLowerCase();
+         if (qType === 'mc') {
+            counts.type.mc++;
+        } else if (qType === 'essay') {
+            counts.type.essay++;
+        } else {
+            counts.type.unknown++;
+        }
+    });
+
+    // Tạo HTML
+    let html = `<span class="badge bg-primary me-2 fs-6">Tổng số: ${totalCount}</span>`;
+
+    // Thống kê Môn học
+    html += '<span class="me-3">|</span><strong>Môn:</strong> ';
+    const sortedSubjects = Object.keys(counts.subject).sort();
+    sortedSubjects.forEach(subjCode => {
+        html += `<span class="badge bg-secondary me-1">${SUBJECT_NAMES[subjCode] || subjCode}: ${counts.subject[subjCode]}</span>`;
+    });
+
+    // Thống kê Độ khó
+    html += '<span class="ms-3 me-3">|</span><strong>Độ khó:</strong> ';
+    if (counts.difficulty.easy > 0) html += `<span class="badge bg-success me-1">Dễ: ${counts.difficulty.easy}</span>`;
+    if (counts.difficulty.medium > 0) html += `<span class="badge bg-warning text-dark me-1">TB: ${counts.difficulty.medium}</span>`;
+    if (counts.difficulty.hard > 0) html += `<span class="badge bg-danger me-1">Khó: ${counts.difficulty.hard}</span>`;
+    if (counts.difficulty.unknown > 0) html += `<span class="badge bg-light text-dark border me-1">Khác: ${counts.difficulty.unknown}</span>`;
+
+     // Thống kê Khối lớp
+    html += '<span class="ms-3 me-3">|</span><strong>Khối:</strong> ';
+    const sortedLevels = Object.keys(counts.level).sort((a, b) => {
+        // Sắp xếp số trước, "khac" sau
+        if (a === 'khac') return 1;
+        if (b === 'khac') return -1;
+        return parseInt(a) - parseInt(b);
+    });
+    sortedLevels.forEach(lvl => {
+         html += `<span class="badge bg-info text-dark me-1">${lvl === 'khac' ? 'Khác' : 'Khối ' + lvl}: ${counts.level[lvl]}</span>`;
+    });
+
+     // Thống kê Loại
+    html += '<span class="ms-3 me-3">|</span><strong>Loại:</strong> ';
+    if (counts.type.mc > 0) html += `<span class="badge bg-light text-dark border me-1">TN: ${counts.type.mc}</span>`;
+    if (counts.type.essay > 0) html += `<span class="badge bg-light text-dark border me-1">TL: ${counts.type.essay}</span>`;
+    if (counts.type.unknown > 0) html += `<span class="badge bg-secondary me-1">Khác: ${counts.type.unknown}</span>`;
+
+
+    statsContainer.innerHTML = html;
+}
 
 function clearAllQuestionFilters() {
     const subjectEl = qs('q-filter-subject');
@@ -5530,7 +5643,6 @@ function clearResultFilters() {
 
 
 
-// Thay thế hàm loadResults (khoảng dòng 1176)
 async function loadResults(isReload = false, resetPage = true) { // Thêm resetPage
     const tbody = qs('#results-tbody');
     if (!tbody) {
@@ -5630,18 +5742,17 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
     });
     // --- KẾT THÚC SẮP XẾP ---
 
-    // --- Hiển thị bảng ---
-    // Giả định hàm renderResultsTable đã tồn tại và hoạt động đúng
-    if (typeof renderResultsTable === 'function') {
-        renderResultsTable(filteredResults);
-    } else {
-         console.error("renderResultsTable function is not defined!");
-         if(tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Lỗi hiển thị bảng kết quả.</td></tr>';
+    // --- Gán vào State để Phân trang ---
+    state.results.list = filteredResults;
+    state.results.total = filteredResults.length;
+
+    // Nếu resetPage được yêu cầu (ví dụ: khi tải lần đầu hoặc xóa lọc), đặt lại về trang 1
+    if (resetPage) {
+        state.results.page = 1;
     }
 
-    // Ghi chú: Logic phân trang chưa được thêm vào đây.
-    // Nếu muốn phân trang, bạn cần lưu filteredResults vào state,
-    // tính toán trang hiện tại, và gọi renderResultsTable chỉ với dữ liệu của trang đó.
+    // Gọi hàm renderPaged (hàm này sẽ xử lý phân trang và gọi renderResultsTable)
+    renderPaged('results');
 }
 
 // Thay thế hàm renderResultsStats (khoảng dòng 1199)
@@ -5700,82 +5811,85 @@ function renderResultsStats(statsApiData, resultsData) {
 }
 
 
-function renderResultsTable(results) {
+function renderResultsTable(pageItems) { // Đổi tên tham số thành 'pageItems'
     const tbody = qs('#results-tbody');
+
+    // --- BẮT ĐẦU: Thêm logic tính STT dựa trên trang ---
+    // Lấy trang hiện tại từ state.results
+    const currentPage = state.results.page || 1;
+    // Tính STT bắt đầu (PAGE_SIZE đã được định nghĩa là 20)
+    const startStt = (currentPage - 1) * PAGE_SIZE + 1;
+    // --- KẾT THÚC: Thêm logic tính STT ---
+
     let html = '';
-    
-    if (results.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không tìm thấy kết quả phù hợp.</td></tr>'; 
+
+    if (pageItems.length === 0) { // Sử dụng pageItems.length
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không tìm thấy kết quả phù hợp.</td></tr>';
         return;
     }
 
-    results.forEach((r, index) => {
-        const globalIndex = index + 1;
-        
+    pageItems.forEach((r, index) => { // Sử dụng pageItems.forEach
+        const globalIndex = startStt + index; // Tính STT chính xác
+
         const testName = r.testName || 'Bài thi [Đã xóa]';
         const studentName = r.studentName || 'Học sinh [Đã xóa]';
         const className = r.className || 'N/A';
         const submittedAt = formatSubmittedAt(r.submittedAt);
-        
+
         // Trạng thái từ backend đã được chuẩn hóa (Hoàn tất, Đã Chấm, Đang Chấm)
         const gradingStatus = r.gradingStatus || 'Đang Chấm';
-        const score = `${r.totalScore !== undefined ? r.totalScore : 'N/A'}`;
+        // Đảm bảo điểm được hiển thị đúng định dạng hoặc 'N/A'
+        const score = (r.totalScore !== undefined && r.totalScore !== null) ? Number(r.totalScore).toFixed(1) : 'N/A'; // Làm tròn 1 chữ số thập phân
 
         // --- LOGIC HIỂN THỊ ĐÃ KHẮC PHỤC ---
         let statusBadge = '';
-        let buttonClass = 'btn-secondary'; 
+        let buttonClass = 'btn-secondary';
         let buttonDisabled = '';
         let buttonText = 'Xem chi tiết';
-        
-        // 1. HOÀN TẤT (Không cần chấm thêm, dù là tự động hay thủ công)
+
+        // 1. HOÀN TẤT
         if (gradingStatus === 'Hoàn tất') {
-            // ✅ Trạng thái: Xanh Lá (bg-success)
-            statusBadge = `<span class="badge bg-success">Hoàn tất</span>`; 
-            
-            // ✅ Nút Hành động: Xám (Chỉ Xem)
-            buttonClass = 'btn-secondary'; 
+            statusBadge = `<span class="badge bg-success">Hoàn tất</span>`;
+            buttonClass = 'btn-secondary';
             buttonText = 'Xem';
-        } 
-        // 2. ĐÃ CHẤM (Cần chấm lại lần 2)
+        }
+        // 2. ĐÃ CHẤM (Lần 1)
         else if (gradingStatus === 'Đã Chấm') {
-            // ✅ Trạng thái: Xanh Dương (bg-info)
-            statusBadge = `<span class="badge bg-info text-dark">Đã Chấm</span>`; 
-            
-            // ✅ Nút Hành động: Vàng (Chấm Lại)
-            buttonClass = 'btn-warning'; 
+            statusBadge = `<span class="badge bg-info text-dark">Đã Chấm</span>`;
+            buttonClass = 'btn-warning';
             buttonText = 'Xem & Chấm Lại';
-        } 
-        // 3. ĐANG CHẤM (Cần chấm lần 1)
-        else { 
-            // ✅ Trạng thái: Vàng (bg-warning)
-            statusBadge = `<span class="badge bg-warning text-dark">Đang Chấm</span>`; 
-            
-            // ✅ Nút Hành động: Đỏ (Chấm)
-            buttonClass = 'btn-danger'; 
+        }
+        // 3. ĐANG CHẤM
+        else {
+            statusBadge = `<span class="badge bg-warning text-dark">Đang Chấm</span>`;
+            buttonClass = 'btn-danger';
             buttonText = 'Xem và Chấm';
         }
+
+        // Lấy resultId an toàn
+        const resultId = r.id || ''; // Lấy id từ bản ghi kết quả
 
         // Cấu trúc HTML
         html += `
             <tr>
                 <td class="text-center">${globalIndex}</td>
-                <td>${testName}</td>
-                <td>${studentName}</td>
-                <td>${className}</td>
-                <td>${submittedAt}</td>
+                <td>${escapeHtml(testName)}</td>
+                <td>${escapeHtml(studentName)}</td>
+                <td class="text-center">${escapeHtml(className)}</td>
+                <td class="text-center">${submittedAt}</td>
                 <td class="text-center">${statusBadge}</td>
                 <td class="text-center fw-bold">${score}</td>
                 <td class="text-center">
-                    <button class="btn btn-sm ${buttonClass}" 
+                    <button class="btn btn-sm ${buttonClass}"
                                 ${buttonDisabled}
-                                onclick="openResultDetail('${r.id}')">
+                                onclick="openResultDetail('${escapeHtml(resultId)}')">
                         ${buttonText}
                     </button>
                 </td>
             </tr>
         `;
     });
-    
+
     tbody.innerHTML = html;
 }
 
