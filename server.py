@@ -1746,7 +1746,7 @@ def get_result_detail(result_id):
         })
         pipeline.append({"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}})
 
-        # 3. Join với Users (SỬA LỖI ID - Khắc phục N/A)
+        # 3. Join với Users (ĐÃ SỬA LỖI ID - Khắc phục N/A)
         pipeline.append({
             "$lookup": {
                 "from": "users",
