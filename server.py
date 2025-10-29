@@ -152,6 +152,7 @@ def login():
         return jsonify({"success": False, "message": "Missing credentials"}), 400
     found = db.users.find_one({"user": user, "pass": passwd})
     if found:
+        user_id_to_return = found.get("id") or str(found.get("_id"))
         return jsonify({"success": True, "user": {"id": found.get("id"), "user": found.get("user"), "role": found.get("role")}})
     return jsonify({"success": False, "message": "Tên đăng nhập hoặc mật khẩu không đúng."}), 401
 
@@ -1632,21 +1633,32 @@ def _calculate_grading_status(detailed_results):
 # API mới để lấy danh sách kết quả tổng hợp cho giáo viên (Yêu cầu 1)
 @app.route("/api/results_summary", methods=["GET"])
 def get_results_summary():
-    
-    # 1. Truy vấn Aggregation để join dữ liệu (Giữ nguyên Pipeline của bạn)
+
+    # 1. Truy vấn Aggregation để join dữ liệu
     pipeline = [
-        # Giai đoạn 1: Join với collection 'users'
+        # Giai đoạn 1: THAY THẾ LOOKUP 'users'
         {
             "$lookup": {
                 "from": "users",
-                "localField": "studentId",
-                "foreignField": "id",
+                "let": { "sid": "$studentId" }, 
+                "pipeline": [
+                    { "$match": {
+                        "$expr": {
+                            "$or": [
+                                { "$eq": [ "$id", "$$sid" ] }, 
+                                { "$eq": [ { "$toString": "$_id" }, "$$sid" ] }
+                            ]
+                        }
+                    }},
+                    # Chỉ lấy các trường cần thiết
+                    { "$project": { "fullName": 1, "className": 1, "_id": 0 } } 
+                ],
                 "as": "student_info"
             }
         },
         {"$unwind": {"path": "$student_info", "preserveNullAndEmptyArrays": True}},
-        
-        # Giai đoạn 2: Join với collection 'tests'
+
+        # Giai đoạn 2: Join với collection 'tests' (Giữ nguyên)
         {
             "$lookup": {
                 "from": "tests",
@@ -1657,31 +1669,28 @@ def get_results_summary():
         },
         {"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}},
 
-        # Giai đoạn 3: Project (chọn và định hình) các trường cần thiết
+        # Giai đoạn 3: Project (Giữ nguyên)
         {
             "$project": {
                 "_id": 0, 
                 "id": "$id",
                 "studentId": "$studentId",
                 "testId": "$testId",
-                
-                # ✅ ĐIỂM VÀ TRẠNG THÁI
+
                 "totalScore": {"$ifNull": ["$totalScore", 0.0]},
                 "mcScore": {"$ifNull": ["$mcScore", 0.0]},
                 "essayScore": {"$ifNull": ["$essayScore", 0.0]},
                 "gradingStatus": {"$ifNull": ["$gradingStatus", "Đang Chấm"]},
                 "gradedAt": {"$ifNull": ["$gradedAt", None]}, 
-                
                 "submittedAt": "$submittedAt",
-                
-                # Thông tin đã Join
+
                 "testName": {"$ifNull": ["$test_info.name", "Đã Xóa"]},
-                "studentName": {"$ifNull": ["$studentName", "$student_info.fullName", "Ẩn danh"]},
-                "className": {"$ifNull": ["$className", "$student_info.className", "N/A"]},
+                "studentName": {"$ifNull": ["$student_info.fullName", "N/A"]}, # Sửa lỗi N/A
+                "className": {"$ifNull": ["$student_info.className", "N/A"]}, # Sửa lỗi N/A
             }
         }
     ]
-    
+
     docs = list(db.results.aggregate(pipeline))
     
     # 2. Xử lý logic nghiệp vụ (CHUẨN HÓA TRẠNG THÁI CHO FRONTEND)
