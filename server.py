@@ -1714,95 +1714,103 @@ from flask import jsonify
 # Ví dụ: from app import db
 
 
-# API Lấy chi tiết Result (Đã tối ưu hóa)
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
     """
-    Lấy chi tiết bài làm (result), kết hợp với thông tin studentName/className/testName 
-    từ collections users và tests sử dụng Aggregation.
+    Lấy chi tiết kết quả bài làm theo ID, sử dụng Aggregation để join với tests (tên bài thi)
+    và users (tên học sinh/lớp) để khắc phục lỗi N/A.
     """
     try:
-        # 1. Pipeline Aggregation
+        # 1. Match the specific Result
+        # Cho phép tìm kiếm bằng cả UUID string (id) hoặc ObjectId (_id)
+        match_query = {"$or": [{"id": result_id}]}
+        try:
+             # Cố gắng thêm ObjectId nếu result_id là chuỗi 24 ký tự
+            match_query["$or"].append({"_id": ObjectId(result_id)})
+        except Exception:
+            # Bỏ qua nếu không phải ObjectId hợp lệ, chỉ dùng UUID string
+            pass
+
         pipeline = [
-            {"$match": {"id": result_id}}, # Lọc theo result_id
-
-            # Join với users
-            {
-                "$lookup": {
-                    "from": "users",
-                    "let": { "sid": "$studentId" }, // Lưu studentId vào biến
-                    "pipeline": [
-                        { "$match": {
-                            "$expr": {
-                                "$or": [
-                                    // 1. Khớp với trường 'id' (UUID string)
-                                    { "$eq": [ "$id", "$$sid" ] }, 
-                                    // 2. Khớp với trường '_id' (ObjectId) - chuyển đổi sang string nếu cần
-                                    { "$eq": [ { "$toString": "$_id" }, "$$sid" ] }
-                                ]
-                            }
-                        }},
-                        { "$project": { "fullName": 1, "className": 1, "_id": 0 } } // Chỉ lấy các trường cần thiết
-                    ],
-                    "as": "student_info"
-                }
-            },
-            {"$unwind": {"path": "$student_info", "preserveNullAndEmptyArrays": True}},
-
-            # Join với tests
-            {
-                "$lookup": {
-                    "from": "tests",
-                    "localField": "testId",
-                    "foreignField": "id",
-                    "as": "test_info"
-                }
-            },
-            {"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}},
-
-            # Project để chuẩn hóa và trả về
-            {
-                "$project": {
-                    "_id": 0,
-                    "id": 1,
-                    "assignmentId": 1,
-                    "testId": 1,
-                    "studentId": 1,
-                    "submittedAt": 1,
-                    "gradedAt": 1,
-                    "gradingStatus": 1,
-                    "totalScore": 1,
-                    "mcScore": 1,
-                    "essayScore": 1,
-                    "teacherNote": 1,
-                    "regradeCount": 1,
-                    "studentAnswers": 1,
-                    "detailedResults": 1,
-                    # ✅ THÊM TRƯỜNG TỪ JOIN
-                    "testName": {"$ifNull": ["$test_info.name", "Bài thi đã xóa"]},
-                    "studentName": {"$ifNull": ["$student_info.fullName", "N/A"]},
-                    "className": {"$ifNull": ["$student_info.className", "N/A"]},
-                }
-            }
+            {"$match": match_query}
         ]
 
-        doc_list = list(db.results.aggregate(pipeline))
+        # 2. Join với Tests (để lấy tên bài thi, môn học)
+        pipeline.append({
+            "$lookup": {
+                "from": "tests",
+                "localField": "testId",
+                "foreignField": "id",
+                "as": "test_info"
+            }
+        })
+        pipeline.append({"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}})
 
-        if not doc_list:
-            return jsonify({"message": "Kết quả không tìm thấy."}), 404
-            
-        doc = doc_list[0]
-        
-        # Làm tròn điểm
-        doc["totalScore"] = round(doc.get("totalScore", 0.0), 2)
-        doc["mcScore"] = round(doc.get("mcScore", 0.0), 2)
-        doc["essayScore"] = round(doc.get("essayScore", 0.0), 2)
+        # 3. Join với Users (ĐÃ SỬA LỖI ID - Khắc phục N/A)
+        pipeline.append({
+            "$lookup": {
+                "from": "users",
+                "let": { "sid": "$studentId" }, # Lưu studentId từ Results vào biến
+                "pipeline": [
+                    { "$match": {
+                        "$expr": {
+                            "$or": [
+                                # 1. Khớp với trường 'id' (UUID string)
+                                { "$eq": [ "$id", "$$sid" ] }, 
+                                # 2. Khớp với trường '_id' (ObjectId) - chuyển đổi sang string
+                                { "$eq": [ { "$toString": "$_id" }, "$$sid" ] }
+                            ]
+                        }
+                    }},
+                    { "$project": { "fullName": 1, "className": 1, "_id": 0 } } # Chỉ lấy tên/lớp
+                ],
+                "as": "student_info"
+            }
+        })
+        # LƯU Ý: 'True' phải viết hoa trong Python
+        pipeline.append({"$unwind": {"path": "$student_info", "preserveNullAndEmptyArrays": True}})
 
-        return jsonify(doc)
+        # 4. Project Final - Đưa các trường Join vào Document chính
+        pipeline.append({
+            "$project": {
+                # Trường gốc
+                "_id": 0,
+                "id": {"$ifNull": ["$id", {"$toString": "$_id"}]}, # Đảm bảo ID là string
+                "assignmentId": 1,
+                "testId": 1,
+                "studentId": 1, 
+                "submittedAt": 1,
+                "gradedAt": 1,
+                "gradingStatus": 1,
+                "totalScore": 1,
+                "mcScore": 1,
+                "essayScore": 1,
+                "studentAnswers": 1,
+                "detailedResults": 1,
+                
+                # Trường từ Join Test
+                "testName": {"$ifNull": ["$test_info.name", "Bài thi đã xóa"]},
+                "subject": {"$ifNull": ["$test_info.subject", "khác"]}, 
+                
+                # Trường từ Join User (SỬA LỖI N/A)
+                "studentName": {"$ifNull": ["$student_info.fullName", "N/A"]},
+                "className": {"$ifNull": ["$student_info.className", "N/A"]}
+            }
+        })
+
+        results = list(db.results.aggregate(pipeline))
+
+        if not results:
+            return jsonify({"message": "Result not found"}), 404
+
+        # Endpoint này chỉ trả về 1 document duy nhất
+        return jsonify(results[0])
 
     except Exception as e:
-        print(f"Lỗi khi lấy chi tiết kết quả {result_id}: {e}")
-        return jsonify({"message": "Lỗi máy chủ."}), 500
+        # Ghi log lỗi để debug
+        print(f"Lỗi khi lấy chi tiết result {result_id}: {e}")
+        # Trả về lỗi server nếu có
+        return jsonify({"message": f"Server error: {e}"}), 500
 
 # API mới để thống kê bài giao (Yêu cầu 3 - ĐÃ CẬP NHẬT)
 @app.route("/api/assignment_stats", methods=["GET"])
