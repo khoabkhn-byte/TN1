@@ -2622,7 +2622,7 @@ async function attachQuestions(data, arr) {
 
 
 
-// Thay thế hàm openResultDetail (khoảng dòng 2627) - BỔ SUNG KHỞI TẠO DỮ LIỆU
+// Thay thế hàm openResultDetail (khoảng dòng 2627)
 async function openResultDetail(resultId) {
     console.log(`openResultDetail called with resultId: '${resultId}'`);
     if (!resultId) {
@@ -2630,14 +2630,6 @@ async function openResultDetail(resultId) {
         alert("Lỗi: Không có ID kết quả để mở.");
         return;
     }
-    
-    // --- ✅ BƯỚC KHỞI TẠO BẮT BUỘC (Đảm bảo allStudentData không rỗng) ---
-    // Gọi loadStudents(true) để đảm bảo allStudentData được tải mới nhất
-    if (typeof loadStudents === 'function') {
-        await loadStudents(true); 
-    }
-    // --- KẾT THÚC BƯỚC KHỞI TẠO ---
-    
     try {
         // 1. Gọi API lấy dữ liệu chi tiết
         console.log('  🔍 Calling API:', `${serverUrl}/api/results/${resultId}`);
@@ -2653,6 +2645,7 @@ async function openResultDetail(resultId) {
 
         // --- BỔ SUNG TÊN/LỚP TỪ allStudentData LÀM PHƯƠNG ÁN DỰ PHÒNG ---
         const studentId = data.studentId;
+        // Đảm bảo studentsSource là mảng
         const studentsSource = window.allStudentData || [];
         const student = studentsSource.find(u => u.id === studentId || u._id === studentId); // Tìm học sinh
         
@@ -2660,7 +2653,7 @@ async function openResultDetail(resultId) {
             const studentNameFromData = student.fullName || 'N/A';
             const classNameFromData = student.className || 'N/A';
 
-            // Gán giá trị từ allStudentData nếu Backend trả về N/A
+            // Chỉ gán nếu Backend không trả về tên/lớp hoặc Backend trả về N/A
             if (!data.studentName || data.studentName === 'N/A') {
                  data.studentName = studentNameFromData;
             }
@@ -2669,23 +2662,24 @@ async function openResultDetail(resultId) {
             }
             console.log(`  FIXED: Student Info supplemented from allStudentData: ${data.studentName} (${data.className})`);
         } else {
-            console.warn(`  WARNING: Student ID ${studentId} not found in allStudentData (Relying on BE Aggregation).`);
+ 
         }
         // --- KẾT THÚC BỔ SUNG DỰ PHÒNG ---
 
-
-        // 2. Load quiz gốc để lấy tên đề và cấu trúc câu hỏi (Giữ nguyên)
+        // 2. Load quiz gốc để lấy tên đề và cấu trúc câu hỏi
         if (data.testId) {
             let quiz = null;
             try {
+                // Ưu tiên gọi API mới hơn nếu có
                 quiz = await fetchJson(`${serverUrl}/api/tests/${data.testId}`)
-                           .catch(() => fetchJson(`${serverUrl}/api/quizzes/${data.testId}`));
+                           .catch(() => fetchJson(`${serverUrl}/api/quizzes/${data.testId}`)); // Fallback API cũ
             } catch (quizError) {
                 console.warn(`Could not fetch original quiz/test data for testId ${data.testId}:`, quizError);
             }
 
             if (quiz?.questions?.length) {
-                window.currentLoadedQuestions = quiz.questions;
+                window.currentLoadedQuestions = quiz.questions; // Lưu câu hỏi gốc
+                // Chỉ gán tên đề thi nếu BE không trả về
                 data.testName = data.testName || quiz.name;       
             } else {
                  console.warn(`Original quiz/test data for ${data.testId} not found or has no questions.`);
@@ -2693,7 +2687,7 @@ async function openResultDetail(resultId) {
             }
         } else {
              console.warn("Result data is missing testId.");
-             window.currentLoadedQuestions = [];
+             window.currentLoadedQuestions = []; // Reset nếu không có testId
         }
         
         // 3. Lưu dữ liệu kết quả hiện tại vào biến toàn cục
@@ -2703,7 +2697,7 @@ async function openResultDetail(resultId) {
         const modalEl = document.getElementById('modalGrading');
         if (!modalEl) { console.error('Modal #modalGrading not found!'); return; }
         
-        console.log('  Calling renderResultDetailModal with processed data...');
+      
         await renderResultDetailModal(data); 
 
         // 5. Gán resultId và hiển thị modal
@@ -2773,7 +2767,7 @@ async function renderResultDetailModal(data) {
     }
 
     // Chuẩn hóa answers (Hàm này vẫn là giả định nhưng logic gọi giữ nguyên)
-    console.log('  renderResultDetailModal: Calling buildAnswersFromResult...');
+  
     const answers = await buildAnswersFromResult(data);
     console.log('  renderResultDetailModal: Normalized answers received:', answers);
 
@@ -6539,7 +6533,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap) {
         <p>Điểm trắc nghiệm: <strong class="text-success">${finalMcScore} / ${maxMcScore.toFixed(1)}</strong></p>
         <p>Điểm tự luận: <strong class="${result.gradingStatus === 'Hoàn tất' || result.gradingStatus === 'Đã Chấm' ? 'text-info' : 'text-warning'}">${finalEssayScore}</strong></p>
         <p class="fs-5">Tổng điểm: <strong class="text-primary">${finalTotalScore}</strong></p>
-        ${gradedAtHtml} {/* <-- Chèn biến HTML ngày chấm */}
+        ${gradedAtHtml}
     </div>`; // <-- Đảm bảo dấu ` cuối cùng đúng vị trí
     // --- KẾT THÚC SỬ DỤNG BIẾN ---
 
@@ -6904,7 +6898,7 @@ function removeQuestionFromPreview(qId) {
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Lắng nghe sự kiện khi Tab Kết quả được hiển thị
     // ID của phần nội dung tab là #tab-results (theo HTML của bạn)
-    const resultsTabElement = qs('#tab-results'); 
+    const resultsTabElement = qs('#r-tab'); 
     
     if (resultsTabElement) {
         // 'shown.bs.tab' là sự kiện chuẩn của Bootstrap khi tab được mở
