@@ -1827,20 +1827,46 @@ def get_result_detail(result_id):
     return jsonify(detail)
 
 
-# API mới để thống kê bài giao (Yêu cầu 3)
+# API mới để thống kê bài giao (Yêu cầu 3 - ĐÃ CẬP NHẬT)
 @app.route("/api/assignment_stats", methods=["GET"])
 def get_assignment_stats():
-    # Giả định thống kê tổng quan:
-    total_tests_assigned = db.tests.count_documents({})
-    total_results_submitted = db.results.count_documents({})
-    total_students = db.users.count_documents({"role": "student"})
-        
-    return jsonify({
-        "totalTestsAssigned": total_tests_assigned,
-        "totalResultsSubmitted": total_results_submitted,
-        "totalStudents": total_students,
-        "note": "Cần dữ liệu Assignment để tính chính xác số HS chưa nộp."
-    })    
+    try:
+        # Đếm tổng số bài thi đã tạo (trong collection tests)
+        total_tests_created = db.tests.count_documents({}) # Đổi tên biến cho rõ nghĩa
+
+        # ✅ Đếm tổng số lượt giao bài (trong collection assignments)
+        total_assignments = db.assignments.count_documents({})
+
+        # ✅ Đếm số học sinh duy nhất đã được giao bài
+        # Sử dụng distinct() để lấy danh sách studentId duy nhất, sau đó lấy độ dài
+        unique_students_assigned_list = db.assignments.distinct("studentId")
+        unique_students_assigned = len(unique_students_assigned_list)
+
+        # Đếm tổng số kết quả đã nộp (trong collection results)
+        total_results_submitted = db.results.count_documents({})
+
+        # ✅ Đếm tổng số học sinh thực sự (role='student' trong collection users)
+        total_students_only = db.users.count_documents({"role": "student"})
+
+        # Trả về tất cả các số liệu thống kê
+        return jsonify({
+            "totalTestsCreated": total_tests_created, # Tên mới, đếm từ 'tests'
+            "totalAssignments": total_assignments,     # Thống kê mới, đếm từ 'assignments'
+            "uniqueStudentsAssigned": unique_students_assigned, # Thống kê mới, đếm distinct studentId từ 'assignments'
+            "totalResultsSubmitted": total_results_submitted, # Đếm từ 'results'
+            "totalStudents": total_students_only      # Chỉ đếm học sinh từ 'users'
+        })
+    except Exception as e:
+        print(f"Lỗi khi lấy thống kê assignments: {e}")
+        # Trả về giá trị mặc định hoặc lỗi nếu không tính được
+        return jsonify({
+            "totalTestsCreated": 0,
+            "totalAssignments": 0,
+            "uniqueStudentsAssigned": 0,
+            "totalResultsSubmitted": 0,
+            "totalStudents": 0,
+            "error": str(e)
+        }), 500
 
 
 # ✅ API Lấy danh sách Results cho học sinh (FIXED: Đã thêm $lookup để lấy testName)
