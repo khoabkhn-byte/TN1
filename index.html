@@ -282,6 +282,13 @@
         border-bottom: 2px solid var(--primary);
         vertical-align: middle;
     }
+	
+	#question-stats-detailed-info .badge {
+        font-size: 0.8rem; /* Giảm kích thước chữ một chút (mặc định có thể là 0.875rem hoặc 1rem) */
+        padding-top: 0.3em; /* Có thể giảm nhẹ padding trên/dưới nếu cần */
+        padding-bottom: 0.3em;
+    }
+	
 
   </style>
 </head>
@@ -326,10 +333,6 @@
  <div class="tab-pane fade show active" id="tab-questions">
           <div class="d-flex justify-content-between mb-2">
             <h5>Câu hỏi</h5>
-            <div>
-              <button class="btn btn-outline-primary me-2" onclick="refreshResource('questions')">Tải lại</button>
-              <button class="btn btn-primary" onclick="openQuestionModal()">➕ Thêm câu hỏi</button>
-            </div>
           </div>
 
           <div id="question-stats-detailed-container" class="alert alert-light py-2 mb-3" role="alert">
@@ -337,10 +340,10 @@
               <span id="question-stats-detailed-info">Đang tải...</span>
           </div>
           <div class="card p-3 mb-3">
-           
-              <div class="row g-3 align-items-end">
-                  <div class="col-md-3">
-                      <label for="q-filter-subject" class="form-label small">Môn học</label>
+              <!-- <h5>Bộ lọc Câu hỏi</h5> -->
+              <div class="row g-2 align-items-center">
+                  <div class="col">
+                      <label for="q-filter-subject" class="form-label small mb-1">Môn học</label>
                       <select id="q-filter-subject" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
                           <option value="">-- Tất cả Môn học --</option>
                           <option value="math">Toán</option>
@@ -355,8 +358,8 @@
                           <option value="it">Tin học</option>
                       </select>
                   </div>
-                  <div class="col-md-2">
-                      <label for="q-filter-level" class="form-label small">Khối lớp</label>
+                  <div class="col">
+                      <label for="q-filter-level" class="form-label small mb-1">Khối lớp</label>
                       <select id="q-filter-level" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
                           <option value="">-- Tất cả Khối --</option>
                           <option value="1">1</option>
@@ -366,16 +369,16 @@
                           <option value="5">5</option>
                       </select>
                   </div>
-                   <div class="col-md-2">
-                      <label for="q-filter-type" class="form-label small">Loại câu hỏi</label>
+                   <div class="col">
+                      <label for="q-filter-type" class="form-label small mb-1">Loại câu hỏi</label>
                       <select id="q-filter-type" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
                           <option value="">-- Tất cả Loại --</option>
                           <option value="mc">Trắc nghiệm</option>
                           <option value="essay">Tự luận</option>
                       </select>
                   </div>
-                  <div class="col-md-2">
-                      <label for="filter-difficulty" class="form-label small">Độ khó</label>
+                  <div class="col">
+                      <label for="filter-difficulty" class="form-label small mb-1">Độ khó</label>
                       <select id="filter-difficulty" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
                           <option value="">-- Tất cả Độ khó --</option>
                           <option value="easy">Dễ</option>
@@ -383,14 +386,17 @@
                           <option value="hard">Khó</option>
                       </select>
                   </div>
-                  <div class="col-md-3 text-end">
-                      <label class="form-label small invisible d-block">.</label>
-                      <button class="btn btn-sm btn-outline-secondary" onclick="clearAllQuestionFilters()">Xóa Lọc</button>
+                  <div class="col-auto ms-2">
+                       <label class="form-label small invisible d-block mb-1">.</label>
+                       <button class="btn btn-sm btn-outline-secondary" onclick="clearAllQuestionFilters()">Xóa Lọc</button>
+                  </div>
+                  <div class="col text-end">
+                      <label class="form-label small invisible d-block mb-1">.</label>
+                      <button class="btn btn-sm btn-outline-primary me-2" onclick="refreshResource('questions')">Tải lại</button>
+                      <button class="btn btn-sm btn-primary" onclick="openQuestionModal()">➕ Thêm câu hỏi</button>
                   </div>
               </div>
-          </div>
-   
-
+              </div>
           <div class="card p-3">
             <div class="table-wrap">
               <table class="table table-hover table-bordered">
@@ -1704,7 +1710,7 @@ function formatSubmittedAt(ts) {
 	
     async function refreshResource(resource){ 
 		if(resource==='questions'){ state.questions.page=1; 
-		await loadQuestions(); } 
+		await loadQuestions(true); } 
 		if(resource==='tests'){ 
 		state.tests.page=1; 
 		await loadTests(); } 
@@ -3325,7 +3331,7 @@ async function saveQuestion(){
         }
 
         bootstrap.Modal.getInstance(qs('modalQuestion')).hide(); 
-        await loadQuestions(); 
+        await loadQuestions(true); 
         showToast('Lưu câu hỏi thành công!');
     } catch(e){ 
         console.error("Lỗi lưu câu hỏi:", e);
@@ -4837,37 +4843,49 @@ function resetTestFilters() {
 
 // Lưu bài kiểm tra sau khi xem trước
 async function saveTestAuto() {
-  if (!previewedQuestions.length) {
-    alert('Hãy bấm "Xem trước" để chọn câu hỏi ngẫu nhiên trước.');
-    return;
-  }
-
+  // 1. Lấy các tham số cấu hình từ modal (GIỮ NGUYÊN)
   const name = qs('a-test-name').value.trim() || 'Bài kiểm tra ngẫu nhiên';
   const time = Number(qs('a-test-time').value) || 45;
-  const subject = qs('a-test-subject').value || 'Tổng hợp';
-  const level = qs('a-test-level').value || 'All';
-  const perPoint = 10 / previewedQuestions.length;
+  const subject = qs('a-test-subject').value || ''; // Gửi '' nếu không chọn
+  const level = qs('a-test-level').value || '';   // Gửi '' nếu không chọn
+  const total = Number(qs('a-test-count').value) || 10; // Tổng số câu hỏi mong muốn
+  const dist = {
+    easy: Number(qs('dist-easy').value) || 0,
+    medium: Number(qs('dist-medium').value) || 0,
+    hard: Number(qs('dist-hard').value) || 0
+  };
 
+  // Lấy teacherId (nếu cần)
+  const teacherId = currentUser ? currentUser.id : null;
+
+  // 2. TẠO PAYLOAD CHO ENDPOINT /api/tests/auto (ĐÃ SỬA)
   const payload = {
-    name, subject, level, time,
-    type: 'auto',
-    questions: previewedQuestions.map(q => q.id || q._id),
-    pointsEach: perPoint.toFixed(2)
+    name: name,
+    time: time,
+    subject: subject,
+    level: level,
+    total: total, // Gửi tổng số câu
+    dist: dist,   // Gửi phân bổ độ khó
+    teacherId: teacherId
+    // KHÔNG gửi mảng 'questions' nữa, backend sẽ tự chọn
   };
 
   try {
-    await fetchJson(`${serverUrl}/api/tests`, {
+    // 3. GỌI ĐÚNG ENDPOINT /api/tests/auto (ĐÃ SỬA)
+    await fetchJson(`${serverUrl}/api/tests/auto`, { // <--- Sửa endpoint ở đây
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
     });
 
+    // 4. Xử lý sau khi thành công (GIỮ NGUYÊN)
     bootstrap.Modal.getInstance(qs('modalTestAuto')).hide();
-    await loadTests();
+    await loadTests(true); // Gọi loadTests(true) để làm mới ngay lập tức
     alert('✅ Đã tạo bài kiểm tra ngẫu nhiên thành công!');
+
   } catch (e) {
-    console.error(e);
-    alert('❌ Lỗi khi lưu bài kiểm tra.');
+    console.error("Lỗi lưu bài kiểm tra tự động:", e);
+    alert('❌ Lỗi khi lưu bài kiểm tra tự động: ' + (e.message || 'Lỗi không xác định'));
   }
 }
 
@@ -5789,7 +5807,7 @@ async function confirmAssign() {
     } finally {
         if(confirmBtn) confirmBtn.disabled = false;
         modalAssignInstance.hide();
-        loadTests();
+        loadTests(true);
     }
 }
 
@@ -7172,7 +7190,7 @@ function dropToPreview(event) {
 }
 
 // =================== XÓA CÂU HỎI ===================
-// ✅ SỬA LỖI KHÔNG ĐỒNG NHẤT ID
+
 function removeQuestionFromPreview(qId) {
     manualState.selectedQuestions = manualState.selectedQuestions.filter(x => 
         // Logic mới: Trả về TRUE nếu KHÔNG PHẢI là câu hỏi cần xóa.
