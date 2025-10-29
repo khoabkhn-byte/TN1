@@ -1730,8 +1730,20 @@ def get_result_detail(result_id):
             {
                 "$lookup": {
                     "from": "users",
-                    "localField": "studentId",
-                    "foreignField": "id",
+                    "let": { "sid": "$studentId" }, // Lưu studentId vào biến
+                    "pipeline": [
+                        { "$match": {
+                            "$expr": {
+                                "$or": [
+                                    // 1. Khớp với trường 'id' (UUID string)
+                                    { "$eq": [ "$id", "$$sid" ] }, 
+                                    // 2. Khớp với trường '_id' (ObjectId) - chuyển đổi sang string nếu cần
+                                    { "$eq": [ { "$toString": "$_id" }, "$$sid" ] }
+                                ]
+                            }
+                        }},
+                        { "$project": { "fullName": 1, "className": 1, "_id": 0 } } // Chỉ lấy các trường cần thiết
+                    ],
                     "as": "student_info"
                 }
             },
