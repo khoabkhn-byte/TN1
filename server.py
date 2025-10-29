@@ -1831,41 +1831,41 @@ def get_result_detail(result_id):
 @app.route("/api/assignment_stats", methods=["GET"])
 def get_assignment_stats():
     try:
-        # Đếm tổng số bài thi đã tạo (trong collection tests)
-        total_tests_created = db.tests.count_documents({}) # Đổi tên biến cho rõ nghĩa
+        # Đếm tổng số bài thi đã tạo
+        total_tests_created = db.tests.count_documents({})
 
-        # ✅ Đếm tổng số lượt giao bài (trong collection assignments)
+        # Đếm tổng số lượt giao bài
         total_assignments = db.assignments.count_documents({})
 
-        # ✅ Đếm số học sinh duy nhất đã được giao bài
-        # Sử dụng distinct() để lấy danh sách studentId duy nhất, sau đó lấy độ dài
+        # Đếm số học sinh duy nhất đã được giao bài (Vẫn giữ nguyên)
+        # Giả định rằng chỉ giao bài cho các vai trò học sinh/cán bộ lớp
         unique_students_assigned_list = db.assignments.distinct("studentId")
         unique_students_assigned = len(unique_students_assigned_list)
 
-        # Đếm tổng số kết quả đã nộp (trong collection results)
+        # Đếm tổng số kết quả đã nộp
         total_results_submitted = db.results.count_documents({})
 
-        # ✅ Đếm tổng số học sinh thực sự (role='student' trong collection users)
-        total_students_only = db.users.count_documents({"role": "student"})
+        # --- ✅ SỬA LOGIC ĐẾM TỔNG SỐ HỌC SINH ---
+        # Bao gồm các vai trò: student, monitor, vice_monitor, team_leader
+        student_roles = ["student", "monitor", "vice_monitor", "team_leader"]
+        total_students_with_roles = db.users.count_documents({"role": {"$in": student_roles}})
+        # --- KẾT THÚC SỬA ---
 
-        # Trả về tất cả các số liệu thống kê
+        # Trả về thống kê
         return jsonify({
-            "totalTestsCreated": total_tests_created, # Tên mới, đếm từ 'tests'
-            "totalAssignments": total_assignments,     # Thống kê mới, đếm từ 'assignments'
-            "uniqueStudentsAssigned": unique_students_assigned, # Thống kê mới, đếm distinct studentId từ 'assignments'
-            "totalResultsSubmitted": total_results_submitted, # Đếm từ 'results'
-            "totalStudents": total_students_only      # Chỉ đếm học sinh từ 'users'
+            "totalTestsCreated": total_tests_created,
+            "totalAssignments": total_assignments,
+            "uniqueStudentsAssigned": unique_students_assigned,
+            "totalResultsSubmitted": total_results_submitted,
+            # ✅ TRẢ VỀ SỐ LƯỢNG ĐÃ LỌC THEO VAI TRÒ
+            "totalStudents": total_students_with_roles
         })
     except Exception as e:
         print(f"Lỗi khi lấy thống kê assignments: {e}")
-        # Trả về giá trị mặc định hoặc lỗi nếu không tính được
+        # Trả về lỗi
         return jsonify({
-            "totalTestsCreated": 0,
-            "totalAssignments": 0,
-            "uniqueStudentsAssigned": 0,
-            "totalResultsSubmitted": 0,
-            "totalStudents": 0,
-            "error": str(e)
+            # ... giá trị mặc định ...
+             "totalTestsCreated": 0, "totalAssignments": 0, "uniqueStudentsAssigned": 0, "totalResultsSubmitted": 0, "totalStudents": 0, "error": str(e)
         }), 500
 
 
