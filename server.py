@@ -1717,25 +1717,22 @@ from flask import jsonify
 @app.route("/api/results/<result_id>", methods=["GET"])
 def get_result_detail(result_id):
     """
-    Lấy chi tiết kết quả bài làm theo ID, sử dụng Aggregation để join với tests (tên bài thi)
+    Lấy chi tiết kết quả bài làm theo ID. Sử dụng Aggregation để join với tests (tên bài thi)
     và users (tên học sinh/lớp) để khắc phục lỗi N/A.
     """
     try:
         # 1. Match the specific Result
-        # Cho phép tìm kiếm bằng cả UUID string (id) hoặc ObjectId (_id)
         match_query = {"$or": [{"id": result_id}]}
         try:
-            # Cố gắng thêm ObjectId nếu result_id là chuỗi 24 ký tự
             match_query["$or"].append({"_id": ObjectId(result_id)})
         except Exception:
-            # Bỏ qua nếu không phải ObjectId hợp lệ, chỉ dùng UUID string
             pass
 
         pipeline = [
             {"$match": match_query}
         ]
 
-        # 2. Join với Tests (để lấy tên bài thi, môn học)
+        # 2. Join với Tests (đã chứng minh là hoạt động)
         pipeline.append({
             "$lookup": {
                 "from": "tests",
@@ -1746,7 +1743,7 @@ def get_result_detail(result_id):
         })
         pipeline.append({"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}})
 
-        # 3. Join với Users (ĐÃ SỬA LỖI ID - Khắc phục N/A)
+        # 3. Join với Users (JOIN LINH HOẠT QUA PIPELINE)
         pipeline.append({
             "$lookup": {
                 "from": "users",
@@ -1767,7 +1764,6 @@ def get_result_detail(result_id):
                 "as": "student_info"
             }
         })
-        # LƯU Ý: 'True' phải viết hoa trong Python
         pipeline.append({"$unwind": {"path": "$student_info", "preserveNullAndEmptyArrays": True}})
 
         # 4. Project Final - Đưa các trường Join vào Document chính
@@ -1775,10 +1771,10 @@ def get_result_detail(result_id):
             "$project": {
                 # Trường gốc
                 "_id": 0,
-                "id": {"$ifNull": ["$id", {"$toString": "$_id"}]}, # Đảm bảo ID là string
+                "id": {"$ifNull": ["$id", {"$toString": "$_id"}]}, 
                 "assignmentId": 1,
                 "testId": 1,
-                "studentId": 1, 
+                "studentId": 1, # Đảm bảo studentId được giữ lại để debug
                 "submittedAt": 1,
                 "gradedAt": 1,
                 "gradingStatus": 1,
@@ -1799,19 +1795,23 @@ def get_result_detail(result_id):
                 "className": {"$ifNull": ["$student_info.className", "N/A"]}
             }
         })
+        
+        # --- DEBUG: IN RA AGGREGATION PIPELINE TRƯỚC KHI THỰC THI ---
+        print("--- DEBUG: AGGREGATION PIPELINE START ---")
+        # Sử dụng json.dumps để in Pipeline rõ ràng, dễ đọc
+        print(json.dumps(pipeline, indent=4, default=str)) 
+        print("--- DEBUG: AGGREGATION PIPELINE END ---")
+        # ----------------------------------------------------------------
 
         results = list(db.results.aggregate(pipeline))
 
         if not results:
             return jsonify({"message": "Result not found"}), 404
 
-        # Endpoint này chỉ trả về 1 document duy nhất
         return jsonify(results[0])
 
     except Exception as e:
-        # Ghi log lỗi để debug
         print(f"Lỗi khi lấy chi tiết result {result_id}: {e}")
-        # Trả về lỗi server nếu có
         return jsonify({"message": f"Server error: {e}"}), 500
 
 # API mới để thống kê bài giao (Yêu cầu 3 - ĐÃ CẬP NHẬT)
