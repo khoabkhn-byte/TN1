@@ -693,6 +693,8 @@ def create_test():
 #import datetime
 from flask import request, jsonify
 
+# Assuming imports like Flask, jsonify, request, db, uuid4, now_vn_iso, calculate_question_counts are done above
+
 @app.route("/tests/auto", methods=["POST"])
 @app.route("/api/tests/auto", methods=["POST"])
 def create_test_auto():
@@ -700,7 +702,8 @@ def create_test_auto():
     name = data.get("name", "Bài kiểm tra ngẫu nhiên")
     subject = data.get("subject", "")
     level = data.get("level", "")
-    total = int(data.get("total", data.get("count", 10)))
+    # Use data.get("total", ...) which aligns with the frontend payload
+    total = int(data.get("total", 10))
     time = int(data.get("time", 30))
     dist = data.get("dist", {"easy": 0, "medium": 0, "hard": 0})
 
@@ -711,7 +714,7 @@ def create_test_auto():
             q["subject"] = subject
         if level:
             q["level"] = level
-        # KHÔNG LOẠI BỎ _id: Cần có _id để truy vấn sau này
+        # Find questions matching criteria
         all_q = list(db.questions.find(q))
         import random
         random.shuffle(all_q)
@@ -719,59 +722,91 @@ def create_test_auto():
 
     selected = []
     try:
-        selected += pick("easy", int(dist.get("easy", 0)))
-        selected += pick("medium", int(dist.get("medium", 0)))
-        selected += pick("hard", int(dist.get("hard", 0)))
-    except Exception:
-        # fallback: ignore dist parse errors
+        # Ensure counts are integers
+        easy_count = int(dist.get("easy", 0))
+        medium_count = int(dist.get("medium", 0))
+        hard_count = int(dist.get("hard", 0))
+
+        selected += pick("easy", easy_count)
+        selected += pick("medium", medium_count)
+        selected += pick("hard", hard_count)
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error parsing difficulty distribution or picking questions: {e}")
+        # fallback: ignore dist parse errors, proceed without distribution
         pass
 
-    # fill remaining if not enough
-    if len(selected) < total:
-        remain = total - len(selected)
-        candidates = list(db.questions.find({}))
+    # fill remaining if not enough based on distribution or if distribution failed
+    # Calculate how many more questions are needed
+    questions_needed = total - len(selected)
+
+    if questions_needed > 0:
+        # Define query criteria excluding already selected questions and matching subject/level if provided
+        query_candidates = {}
+        if subject:
+            query_candidates["subject"] = subject
+        if level:
+            query_candidates["level"] = level
+
+        # Exclude already selected questions using their _id
+        existing_ids_obj = [q.get("_id") for q in selected if q.get("_id")]
+        if existing_ids_obj:
+            query_candidates["_id"] = {"$nin": existing_ids_obj}
+
+        # Find candidate questions
+        candidates = list(db.questions.find(query_candidates))
         import random
         random.shuffle(candidates)
-        # avoid duplicates by _id
-        existing_ids = {str(q.get("_id")) for q in selected}
-        added = []
-        for c in candidates:
-            if str(c.get("_id")) in existing_ids:
-                continue
-            added.append(c)
-            existing_ids.add(str(c.get("_id")))
-            if len(added) >= remain:
-                break
-        selected += added
 
+        # Add needed number of candidates, avoiding duplicates just in case (though $nin should handle it)
+        existing_ids_str = {str(q.get("_id")) for q in selected} # Use string IDs for the set check
+        added_count = 0
+        for c in candidates:
+            if str(c.get("_id")) not in existing_ids_str:
+                selected.append(c)
+                existing_ids_str.add(str(c.get("_id")))
+                added_count += 1
+                if added_count >= questions_needed:
+                    break
+
+    # Ensure the final list does not exceed the total requested count
     selected = selected[:total]
 
-    # 👇 CHỈ LƯU TRỮ DANH SÁCH ID CÂU HỎI (STRING)
+    # Extract question IDs (prefer 'id' if available, fallback to '_id')
     questions_for_db = []
     for q in selected:
+        # Prioritize UUID 'id' if it exists, otherwise use string of '_id'
         q_id_str = q.get("id") or str(q.get("_id"))
         if q_id_str:
             questions_for_db.append(q_id_str)
-            
-    # 🔥 BƯỚC MỚI: TÍNH VÀ LƯU SỐ CÂU TN/TL CHO ĐỀ TẠO TỰ ĐỘNG
+
+    # Calculate MC/Essay counts based on the final list of question IDs
     mc_count, essay_count = calculate_question_counts(questions_for_db, db)
 
+    # Prepare the new test document
     newt = {
-        "id": str(uuid4()),
+        "id": str(uuid4()), # Generate a new UUID for the test
         "name": name,
         "time": time,
         "subject": subject,
         "level": level,
-        "questions": questions_for_db, 
-        "mcCount": mc_count,     # <-- THÊM
-        "essayCount": essay_count, # <-- THÊM
-        "count": len(questions_for_db),
-        "teacherId": data.get("teacherId"),
-        "createdAt": now_vn_iso(),
-        "isAutoGenerated": True
+        "questions": questions_for_db, # List of question IDs
+        "mcCount": mc_count,
+        "essayCount": essay_count,
+        "count": len(questions_for_db), # Total number of questions included
+        "teacherId": data.get("teacherId"), # Optional: ID of the teacher creating it
+        "createdAt": now_vn_iso(), # Timestamp
+        "isAutoGenerated": True # Set flag to True
     }
+
+    # Insert the new test into the database
     db.tests.insert_one(newt)
-    to_return = newt.copy(); to_return.pop("_id", None)
+
+    # Prepare the response (remove MongoDB's internal _id)
+    to_return = newt.copy()
+    to_return.pop("_id", None)
+
+    # Return the created test data as JSON
     return jsonify(to_return), 201
 
 @app.route("/tests/<test_id>", methods=["PUT"])
