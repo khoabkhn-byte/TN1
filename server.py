@@ -182,6 +182,7 @@ def register():
         "fullName": fullName,  # ✅ LƯU HỌ TÊN
         "className": className, # ✅ LƯU LỚP
         "gender": gender, 
+        "level": level,
         "role": data.get("role", "student") # Lấy role từ payload, mặc định là student
     }
     db.users.insert_one(new_user)
@@ -264,6 +265,8 @@ def update_user(user_id):
         update_fields["dob"] = data["dob"]
     if "gender" in data:
         update_fields["gender"] = data["gender"]
+    if "level" in data:
+        update_fields["level"] = data["level"] # <<< CẬP NHẬT LEVEL
         
     if not update_fields:
         return jsonify({"message": "Không có trường nào được cung cấp để cập nhật."}), 400
