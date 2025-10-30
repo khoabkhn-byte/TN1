@@ -153,7 +153,13 @@ def login():
     found = db.users.find_one({"user": user, "pass": passwd})
     if found:
         user_id_to_return = found.get("id") or str(found.get("_id"))
-        return jsonify({"success": True, "user": {"id": found.get("id"), "user": found.get("user"), "role": found.get("role")}})
+        return jsonify({"success": True, "user": {
+            "id": found.get("id"), 
+            "user": found.get("user"), 
+            "role": found.get("role"),
+            "fullName": found.get("fullName"),    # <-- BỔ SUNG DÒNG NÀY
+            "className": found.get("className") # <-- BỔ SUNG DÒNG NÀY
+        }})
     return jsonify({"success": False, "message": "Tên đăng nhập hoặc mật khẩu không đúng."}), 401
 
 @app.route("/register", methods=["POST"])
