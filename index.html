@@ -289,6 +289,77 @@
         padding-bottom: 0.3em;
     }
 	
+	#results-stats-container .badge {
+    font-size: 0.8rem; /* Thu nhỏ kích thước chữ */
+    padding: 0.3em 0.5em; /* Giảm padding để badge nhỏ lại */
+    /* Bạn có thể bỏ fs-6 trong HTML nếu muốn dùng font-size này */
+}
+
+
+:root { --primary: #28a745; --accent: #218838; --bg: #f3fbf4; }
+    /* Giảm font chữ chung */
+    body { 
+        background: var(--bg); 
+        font-family: Inter, system-ui, Arial, sans-serif; 
+        -webkit-font-smoothing:antialiased; 
+        font-size: 0.95rem; /* GIẢM từ mặc định 1rem */
+    }
+    .brand { color: var(--primary); font-weight:700; }
+    /* Giảm margin container */
+    .container-main { max-width:1200px; margin:10px auto; } /* GIẢM margin 20px -> 10px */
+    .card { border-radius:8px; } /* GIẢM border-radius */
+    .modal-header { background: linear-gradient(90deg,var(--primary),var(--accent)); color:white; }
+    .btn-primary { background: var(--primary); border-color: var(--primary); color:#fff; }
+    .btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+    #login-screen { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,0.95); z-index: 2000; }
+    #app, #student-app { display:none; opacity:0; transition: opacity .35s ease; min-height: 70vh; }
+    .table-wrap { min-height: 220px; }
+    /* GIẢM font size cho text phụ */
+    .muted-small { font-size:0.85rem; color:#666; } /* GIẢM font size */
+    .spinner-row { display:flex; align-items:center; gap:10px; justify-content:center; padding:10px 0; } /* GIẢM padding */
+    .label-pill { display:inline-block; padding:3px 7px; border-radius:999px; background:rgba(0,0,0,0.05); } /* GIẢM padding */
+  
+    /* ... các style khác ... */
+    .label-pill { display:inline-block; padding:3px 7px; border-radius:999px; background:rgba(0,0,0,0.05); }
+
+    /* Điều chỉnh badge */
+    .badge {
+        font-size: 0.8rem; /* GIẢM font size badge */
+        padding: 0.3em 0.5em; /* GIẢM padding badge */
+        border-radius: 0.25rem;
+    }
+
+
+/* STYLE MỚI CHO TIÊU ĐỀ BẢNG CHUNG */
+    #tab-questions .table-bordered thead th,
+    #tab-tests .table-bordered thead th,
+    #tab-students table thead th,
+    #tab-results .table-bordered thead th {
+        /* Giữ màu sắc */
+        background-color: WhiteSmoke;
+        color: DarkOliveGreen;
+        border-bottom: 2px solid var(--primary);
+        vertical-align: middle;
+        /* THÊM/ĐIỀU CHỈNH padding cho tiêu đề */
+        padding: 0.4rem; /* Giảm padding tiêu đề */
+    }
+
+    /* Đảm bảo nội dung bảng cũng nhỏ gọn */
+    .table-sm td, .table-sm th {
+        padding: 0.4rem; /* Giảm padding cho ô dữ liệu */
+    }
+    
+    /* Điều chỉnh lại padding cho modal tóm tắt (nếu cần) */
+    #review-results-summary {
+        padding: 1rem !important; /* Giảm padding từ 4 -> 1 */
+    }
+
+#question-stats-detailed-info .badge {
+        font-size: 0.8rem; /* Giữ nguyên, đã được chuyển vào quy tắc .badge chung */
+        padding-top: 0.3em; /* Giữ nguyên */
+        padding-bottom: 0.3em; /* Giữ nguyên */
+    }
+
 
   </style>
 </head>
@@ -330,14 +401,19 @@
       <div class="tab-content mt-3">
       
         <!-- QUESTIONS -->
- <div class="tab-pane fade show active" id="tab-questions">
+	<div class="tab-pane fade show active" id="tab-questions">
           <div class="d-flex justify-content-between mb-2">
             <h5>Câu hỏi</h5>
           </div>
-
-          <div id="question-stats-detailed-container" class="alert alert-light py-2 mb-3" role="alert">
-              <strong>Thống kê Câu hỏi:</strong>
-              <span id="question-stats-detailed-info">Đang tải...</span>
+	<div id="question-stats-detailed-container" class="alert alert-light py-2 mb-3" role="alert">
+              
+              <div id="question-stats-header-line" class="d-flex align-items-center mb-2">
+                  <strong class="me-3">Thống kê câu hỏi:</strong>
+                  <span id="question-stats-total-display">Đang tải...</span>
+              </div>
+              <div id="question-stats-detailed-info" class="d-flex flex-wrap align-items-center gap-2">
+                  Đang tải...
+              </div>
           </div>
           <div class="card p-3 mb-3">
               <!-- <h5>Bộ lọc Câu hỏi</h5> -->
@@ -424,46 +500,61 @@
         </div>
 
         <!-- TESTS -->
- <div class="tab-pane fade" id="tab-tests">
+	<div class="tab-pane fade" id="tab-tests">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h5>Bài thi</h5>
-                <div class="d-flex align-items-center">
-                    <button class="btn btn-outline-primary me-2" onclick="refreshResource('tests')">Tải lại</button>
-                    <button class="btn btn-primary" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
-                </div>
             </div>
 
             <div id="test-stats-container" class="alert alert-light py-2 mb-3" role="alert">
-                <strong>Thống kê Bài thi:</strong>
-                <span id="test-stats-info">Đang tải...</span>
+                <div id="test-stats-header-line" class="d-flex align-items-center mb-2">
+                    <strong class="me-3">Thống kê Bài thi:</strong>
+
+                    <span id="test-stats-total-display">Đang tải...</span>
+                </div>
+ 
+                <div id="test-stats-detailed-info" class="d-flex flex-wrap align-items-center gap-2">
+                    Đang tải...
+                </div>
             </div>
+            
             <div class="card p-3 mb-3">
-                
-                 <div class="row mb-1 align-items-end">
-                    <div class="col-md-3">
-                        <label for="filter-test-subject" class="form-label small">Môn học</label>
+                 <div class="row g-2 align-items-end">
+
+                    <div class="col">
+                        <label for="filter-test-subject" class="form-label small mb-1">Môn học</label>
                         <select id="filter-test-subject" class="form-select form-select-sm" onchange="loadTests()">
                              <option value="">-- Tất cả Môn học ---</option>
-                            
+                             
                         </select>
                     </div>
-                     <div class="col-md-3">
-                        <label for="filter-test-level" class="form-label small">Khối lớp</label>
+
+                     <div class="col">
+                        <label for="filter-test-level" class="form-label small mb-1">Khối lớp</label>
                         <select id="filter-test-level" class="form-select form-select-sm" onchange="loadTests()">
                             <option value="">--Tất cả Khối--</option>
                             
                         </select>
                      </div>
-                     <div class="col-md-3">
-                        <label for="sort-test-date" class="form-label small">Sắp xếp theo Ngày tạo</label>
+
+                     <div class="col">
+                        <label for="sort-test-date" class="form-label small mb-1">Sắp xếp theo Ngày tạo</label>
                         <select id="sort-test-date" class="form-select form-select-sm" onchange="loadTests()">
                             <option value="desc">Mới nhất trước</option>
                             <option value="asc">Cũ nhất trước</option>
                         </select>
                     </div>
-                    <div class="col-md-3 text-end">
-                        <label class="form-label small invisible d-block">.</label>
-                        <button class="btn btn-sm btn-outline-secondary me-2" onclick="resetTestFilters()">Xóa lọc</button>
+
+                    <div class="col-auto">
+                        <label class="form-label small invisible d-block mb-1">.</label>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="resetTestFilters()">Xóa lọc</button>
+                    </div>
+
+                    <div class="col-auto text-end">
+                        <label class="form-label small invisible d-block mb-1">.</label>
+                        
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="refreshResource('tests')">Tải lại</button>
+                        <button class="btn btn-sm btn-primary me-2" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
+
                         <button id="bulk-assign-btn-top" class="btn btn-sm btn-primary d-none" onclick="showBulkAssignModal()"> Giao Đề Đã Chọn (<span id="selected-count-display">0</span>)</button>
                     </div>
                 </div>
@@ -500,35 +591,44 @@
                 </div>
             </div>
         </div>
-
+		
         <!-- STUDENTS -->
- <div class="tab-pane fade" id="tab-students">
+<div class="tab-pane fade" id="tab-students">
             <div class="d-flex justify-content-between mb-2">
                 <h5>Học sinh</h5>
-                <div><button class="btn btn-primary" onclick="openStudentModal()">➕ Thêm học sinh</button></div>
             </div>
 
             <div id="student-stats-container" class="alert alert-light py-2 mb-3" role="alert">
-                <strong>Thống kê Học sinh:</strong>
-                <span id="student-stats-info">Đang tải...</span>
+                <div id="student-stats-header-line" class="d-flex align-items-center mb-2">
+                    <strong class="me-3">Thống kê Học sinh:</strong>
+                    <span id="student-stats-total-display">Đang tải...</span>
+                </div>
+                <div id="student-stats-detailed-info" class="d-flex flex-wrap align-items-center gap-2">
+                    Đang tải...
+                </div>
             </div>
+
             <div class="card p-3 mb-3">
-                 
                 <div class="row g-3 align-items-end">
 
                     <div class="col-md-2">
                         <label for="filter-student-role" class="form-label small text-muted">Vai trò</label>
                         <select id="filter-student-role" class="form-select form-select-sm" onchange="loadStudents(false, true)">
                             <option value="">-- Tất cả Vai trò --</option>
-                          
                         </select>
                     </div>
 
                     <div class="col-md-2">
+                        <label for="filter-student-level" class="form-label small text-muted">Khối lớp</label>
+                        <select id="filter-student-level" class="form-select form-select-sm" onchange="loadStudents(false, true)">
+                            <option value="">-- Tất cả Khối --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-2">
                         <label for="filter-student-class" class="form-label small text-muted">Lớp</label>
                         <select id="filter-student-class" class="form-select form-select-sm" onchange="loadStudents(false, true)">
                             <option value="">-- Tất cả Lớp --</option>
-                           
                         </select>
                     </div>
 
@@ -536,7 +636,6 @@
                         <label for="filter-student-gender" class="form-label small text-muted">Giới tính</label>
                         <select id="filter-student-gender" class="form-select form-select-sm" onchange="loadStudents(false, true)">
                             <option value="">-- Tất cả Giới tính --</option>
-                           
                         </select>
                     </div>
 
@@ -545,25 +644,32 @@
                         <input type="text" id="search-student-name" class="form-control form-control-sm" placeholder="Nhập Họ tên..." onkeyup="debounceLoadStudents()">
                     </div>
 
-                    <div class="col-md-3 text-end">
+                    <div class="col-auto ms-2 text-end">
                         <label class="form-label small invisible d-block">.</label>
                         <button class="btn btn-sm btn-outline-danger" onclick="clearStudentFilters()">
                             Xóa Lọc
                         </button>
                     </div>
+
+                    <div class="col text-end">
+                        <label class="form-label small invisible d-block">.</label>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="refreshResource('students')">Tải lại</button>
+                        <button class="btn btn-sm btn-primary" onclick="openStudentModal()">➕ Thêm học sinh</button>
+                    </div>
                 </div>
             </div>
+            
             <div class="card p-3">
                 <div class="table-wrap">
-                   
                     <table class="table table-sm table-hover table-bordered">
                         <thead>
                             <tr>
                                 <th style="width: 5%;">STT</th>
-                                <th style="width: 15%;">Username</th>
-                                <th style="width: 20%;">Họ tên</th>
-                                <th style="width: 10%;">Lớp</th>
-                                <th style="width: 10%;">Giới tính</th>
+                                <th style="width: 13%;">Username</th>
+                                <th style="width: 8%;">Khối</th>
+                                <th style="width: 17%;">Họ tên</th>
+                                <th style="width: 8%;">Lớp</th>
+                                <th style="width: 8%;">Giới tính</th>
                                 <th style="width: 10%;">Vai trò</th>
                                 <th style="width: 20%;" class="text-center">Hành động</th>
                             </tr>
@@ -571,13 +677,6 @@
                         <tbody id="students-tbody"></tbody>
                     </table>
                 </div>
-                 <!-- Phân trang cho Học sinh (Nếu bạn muốn thêm sau này)
-                 <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
-                    <div class="muted-small me-auto" id="students-info"></div>
-                    <button id="s-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('students', -1)">Trang trước</button>
-                    <button id="s-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('students', 1)">Trang sau</button>
-                </div>
-                -->
             </div>
         </div>
 		
@@ -615,9 +714,13 @@
                     </div>
 
                     <div class="row">
-                        <div class="col-md-7 mb-3">
+                        <div class="col-md-4 mb-3">
                             <label for="student-class" class="form-label">Lớp</label>
                             <input type="text" class="form-control" id="student-class" placeholder="Ví dụ: 10A1">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="student-level" class="form-label">Khối lớp</label>
+                            <input type="text" class="form-control" id="student-level" placeholder="Ví dụ: 10">
                         </div>
                         <div class="col-md-5 mb-3">
                             <label for="student-role" class="form-label">Vai trò</label>
@@ -646,83 +749,90 @@
     </div>
 </div>
 
+
+<!-- MODAL RESULTS -->
  <div class="tab-pane fade" id="tab-results">
-    <h5>Quản lý Kết quả Bài thi</h5>
-    
-    <div id="results-stats-container" class="alert alert-light py-2 mb-3" role="alert">
-        <strong>Thống kê:</strong> 
-        <span id="results-stats-info">Đang tải...</span>
-    </div>
-    
-   <div class="card p-3 mb-3">
-       <!-- <h6>Bộ lọc và Sắp xếp</h6>-->
-        <div class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label for="filter-result-status" class="form-label small">Trạng thái chấm</label>
-                <select id="filter-result-status" class="form-select form-select-sm" onchange="loadResults(false)">
-                    <option value="">-- Tất cả --</option>
-                </select>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5>Kết quả bài thi</h5>
             </div>
 
-            <div class="col-md-3">
-                <label for="filter-result-class" class="form-label small">Lớp học</label>
-                <select id="filter-result-class" class="form-select form-select-sm" onchange="loadResults(false)">
-                    <option value="">-- Tất cả Lớp --</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label for="search-result-student" class="form-label small">Tìm kiếm Học sinh</label>
-                <input type="text" id="search-result-student" class="form-control form-control-sm" placeholder="Nhập Họ tên..." onkeyup="debounceLoadResults()">
-            </div>
-
-            <div class="col-md-3">
-                <label for="sort-result-time" class="form-label small">Sắp xếp theo</label>
-                <select id="sort-result-time" class="form-select form-select-sm" onchange="loadResults(false)">
-                    <option value="submittedAt_desc">Thời gian nộp (Mới nhất)</option>
-                    <option value="submittedAt_asc">Thời gian nộp (Cũ nhất)</option>
-                    <option value="totalScore_desc">Điểm số (Cao nhất)</option>
-                    <option value="totalScore_asc">Điểm số (Thấp nhất)</option>
-                </select>
+            <div id="results-stats-container" class="alert alert-light py-2 mb-3" role="alert">
+                <div id="results-stats-header-line" class="d-flex align-items-center mb-2">
+                    <strong class="me-3">Thống kê Kết quả:</strong>
+                    <span id="results-stats-total-display">Đang tải...</span>
+                </div>
+                <div id="results-stats-detailed-info" class="d-flex flex-wrap align-items-center gap-2">
+                    Đang tải...
+                </div>
             </div>
 
-            <div class="col-md-12 text-end">
-                <button class="btn btn-sm btn-outline-primary me-2" onclick="loadResults(true)">Tải lại Dữ liệu</button>
-                <button class="btn btn-sm btn-outline-danger" onclick="clearResultFilters()">Xóa Lọc</button>
+            <div class="card p-3 mb-3">
+                 <div class="row g-2 align-items-end">
+                    
+                    <div class="col"> 
+                        <label for="filter-result-status" class="form-label small mb-1">Trạng thái chấm</label>
+                        <select id="filter-result-status" class="form-select form-select-sm" onchange="loadResults(false)">
+                            <option value="">-- Tất cả Trạng thái --</option>
+                        </select>
+                    </div>
+
+                    <div class="col">
+                        <label for="filter-result-class" class="form-label small mb-1">Lớp học</label>
+                        <select id="filter-result-class" class="form-select form-select-sm" onchange="loadResults(false)">
+                            <option value="">-- Tất cả Lớp --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col">
+                        <label for="search-result-student" class="form-label small mb-1">Tìm kiếm Học sinh</label>
+                        <input type="text" id="search-result-student" class="form-control form-control-sm" placeholder="Nhập Họ tên..." onkeyup="debounceLoadResults()">
+                    </div>
+
+                    <div class="col">
+                        <label for="sort-result-time" class="form-label small mb-1">Sắp xếp theo</label>
+                        <select id="sort-result-time" class="form-select form-select-sm" onchange="loadResults(false)">
+                            <option value="submittedAt_desc">Thời gian nộp (Mới nhất)</option>
+                            <option value="submittedAt_asc">Thời gian nộp (Cũ nhất)</option>
+                            <option value="totalScore_desc">Điểm số (Cao nhất)</option>
+                            <option value="totalScore_asc">Điểm số (Thấp nhất)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-auto ms-3 text-end">
+                        <label class="form-label small invisible d-block mb-1">.</label>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="loadResults(true)">Tải lại</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="clearResultFilters()">Xóa Lọc</button>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-    
-    <div class="card p-3">
-        <div class="table-wrap">
-            <table class="table table-sm table-hover table-bordered">
-                <thead>
-                    <tr>
-                        <th style="width: 4%;" class="text-center">STT</th>
-                        <th style="width: 22%;"class="text-center">Bài thi</th>
-                        <th style="width: 12%;"class="text-center">Học sinh</th>
-                        <th style="width: 8%;"class="text-center">Lớp</th>
-                        <th style="width: 14%;"class="text-center">Thời gian nộp</th>
-                        <th style="width: 14%;" class="text-center">Trạng thái chấm</th>
-                        <th style="width: 8%;" class="text-center">Điểm</th>
-                        <th style="width: 18%;" class="text-center">Hành động</th>
-                    </tr>
-                </thead>
-                <tbody id="results-tbody">
-                    <tr><td colspan="8" class="text-center text-muted">Vui lòng bấm Tải lại để xem kết quả.</td></tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
-            <div class="muted-small me-auto" id="results-info">Hiển thị 0 - 0 trên 0</div>
-            <button id="r-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('results', -1)">Trang trước</button>
-            <button id="r-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('results', 1)">Trang sau</button>
-        </div>
+            <div class="card p-3">
+                 <div class="table-wrap">
+                     <table class="table table-sm table-hover table-bordered">
+                         <thead>
+                            <tr>
+                                <th scope="col" style="width: 5%;">STT</th>
+                                <th scope="col" style="width: 15%;">Tên bài thi</th>
+                                <th scope="col" style="width: 15%;">Học sinh</th>
+                                <th scope="col" style="width: 10%;">Lớp</th>
+                                <th scope="col" style="width: 10%;">Thời gian nộp</th>
+                                <th scope="col" style="width: 10%;">Trạng thái</th>
+                                <th scope="col" style="width: 10%;" class="text-center">Điểm số</th>
+                                <th scope="col" style="width: 15%;" class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-tbody">
+                        </tbody>
+                    </table>
+                 </div>
+                <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
+                    <div class="muted-small me-auto" id="results-info"></div>
+                    <button id="r-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('results', -1)">Trang trước</button>
+                    <button id="r-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('results', 1)">Trang sau</button>
+                </div>
+            </div>
         </div>
 </div>
 </div>
-</div>
-
     <!-- STUDENT APP -->
     <div id="student-app">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1354,6 +1464,7 @@
     <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="saveStudent()">Lưu</button></div>
   </div></div></div>
   
+  </div>
 	  <!-- Confirm modal -->
 	<div class="modal fade" id="modalConfirmDelete" tabindex="-1">
 	<div class="modal-dialog modal-sm modal-dialog-centered">
@@ -1372,6 +1483,7 @@
     </div>
 	</div>
 	</div>
+	
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
  
  <script>
@@ -1436,6 +1548,60 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+// Khai báo trong phạm vi global
+let infoModalInstance; 
+let confirmDeleteModalInstance;
+// Thêm đoạn này vào phần khởi tạo DOMContentLoaded của bạn:
+
+
+// Khai báo trạng thái toàn cục mới
+window.globalFilterState = {
+    class: '', // Giá trị lớp đang được chọn chung
+    level: ''  // Giá trị khối đang được chọn chung
+};
+
+// Hàm tiện ích để cập nhật trạng thái chung và các dropdown (Phần quan trọng)
+function updateGlobalFilter(classValue, levelValue) {
+    // 1. Cập nhật trạng thái chung
+    window.globalFilterState.class = classValue;
+    window.globalFilterState.level = levelValue;
+
+    // 2. Đồng bộ hóa giá trị cho TẤT CẢ dropdown
+    
+    // --- Tab HỌC SINH ---
+    if (qs('#filter-student-class')) qs('#filter-student-class').value = classValue;
+    if (qs('#filter-student-level')) qs('#filter-student-level').value = levelValue;
+    
+    // --- Tab KẾT QUẢ ---
+    if (qs('#filter-result-class')) qs('#filter-result-class').value = classValue;
+    if (qs('#filter-result-level')) qs('#filter-result-level').value = levelValue; 
+
+    // --- Tab CÂU HỎI ---
+    if (qs('#q-filter-level')) qs('#q-filter-level').value = levelValue; 
+    
+    // --- Tab BÀI THI ---
+    if (qs('#filter-test-level')) qs('#filter-test-level').value = levelValue;
+}
+
+function handleStudentFilterChange(value, type) {
+    let newClass = window.globalFilterState.class;
+    let newLevel = window.globalFilterState.level;
+
+    if (type === 'class') {
+        newClass = value;
+    } else if (type === 'level') {
+        newLevel = value;
+    }
+
+    // 1. Cập nhật trạng thái chung và đồng bộ UI (trên mọi tab)
+    updateGlobalFilter(newClass, newLevel); 
+    
+    // 2. Kích hoạt lọc lại dữ liệu cho tab HIỆN TẠI (Học sinh)
+    // resetPage=true để quay về trang 1 sau khi lọc
+    loadStudents(false, true); 
+}
+
 
 // Hàm tiện ích để hiển thị thời gian HH:MM:SS
 // Dùng cho thời lượng (số giây) — KHÔNG DÙNG cho submittedAt
@@ -1514,6 +1680,10 @@ function addQuestionOption(text = '', isCorrect = false) {
     let currentUser = null;
 	
 	// =================== HÀM TIỆN ÍCH CHUNG ===================
+	
+
+	
+	
 function qs(selector) {
     if (!selector) return null;
 
@@ -1586,6 +1756,8 @@ async function fetchJson(url, options = {}) {
     }
 }
 
+
+
 function formatSubmittedAt(ts) {
   if (!ts) return '-';
   // Nếu frontend có khi nào gửi số giây (number), hỗ trợ luôn:
@@ -1650,44 +1822,81 @@ function formatSubmittedAt(ts) {
 
     function logout(){ sessionStorage.removeItem('quiz_user'); location.reload(); }
 
- function showApp(){
-    const login = qs('login-screen');
-    const teacherApp = qs('app');
-    const studentApp = qs('student-app');
+ function showApp(userFromLogin) {
+  const loginEl = qs('login-screen');
+  const teacherApp = qs('app');
+  const studentApp = qs('#student-app');
 
-    // 1. Kiểm tra và khôi phục người dùng
-    if(!currentUser) {
-      const s = sessionStorage.getItem('quiz_user');
-      if(s){ currentUser = JSON.parse(s); }
+  // 1) đảm bảo currentUser được set: ưu tiên tham số (userFromLogin),
+  // rồi sessionStorage, rồi biến global (nếu đã set trước đó).
+  if (userFromLogin) {
+    currentUser = userFromLogin;
+    try { sessionStorage.setItem('quiz_user', JSON.stringify(currentUser)); } catch(e){}
+  } else if (!currentUser) {
+    const s = sessionStorage.getItem('quiz_user');
+    if (s) {
+      try { currentUser = JSON.parse(s); } catch(e){ currentUser = null; }
     }
-    // Xử lý nếu vẫn không có user
-    if(!currentUser){
+  }
+
+  // 2) nếu vẫn không có user -> đưa thông báo và dừng
+  if (!currentUser || !currentUser.role) {
+    console.error('showApp: Không có currentUser hợp lệ', currentUser);
+    if (loginEl) {
+      // Nếu login screen vẫn còn, giữ user quay lại đăng nhập
+      return;
+    } else {
       document.body.innerHTML = '<div class="container-main"><div class="alert alert-danger">Không có người dùng. Vui lòng đăng nhập lại.</div></div>';
       return;
     }
+  }
 
-    // 3. Loại bỏ màn hình đăng nhập
-    if(login) login.remove();
+  // 3) remove/mask login overlay nếu có
+  if (loginEl) {
+    try { loginEl.remove(); } catch(e) { loginEl.style.display = 'none'; }
+  }
 
-    // 4. Phân luồng theo vai trò
-    const isTeacherOrAdmin = currentUser.role === 'teacher' || currentUser.role === 'admin';
+  // 4) phân luồng rõ ràng
+  const role = (currentUser.role || '').toString().toLowerCase();
+  const isTeacherOrAdmin = role === 'teacher' || role === 'admin';
 
-    if(isTeacherOrAdmin){
-      // KHÔNG gọi populateSubjectFilters() ở đây nữa
-
-      teacherApp.style.display = 'block'; setTimeout(()=> teacherApp.style.opacity = 1, 60);
-      qs('who').textContent = `${currentUser.user} (${currentUser.role})`; // Hiển thị cả role
-
-      // Gọi đúng hàm loadQuestions(), loadTests(), loadStudents() với forceReload=true
-      if (typeof loadQuestions === 'function') loadQuestions(true); // Tải câu hỏi gốc lần đầu
-      if (typeof loadTests === 'function') loadTests(true);       // Tải bài thi gốc lần đầu (sẽ tự gọi populate sau)
-      if (typeof loadStudents === 'function') loadStudents(true);   // Tải học sinh gốc lần đầu
-
-    } else { // Học sinh
-      studentApp.style.display = 'block'; setTimeout(()=> studentApp.style.opacity = 1, 60);
-      qs('who-stu').textContent = `${currentUser.user}`;
-      if (typeof loadAssignments === 'function') loadAssignments(); // Tải bài tập của học sinh
+  if (isTeacherOrAdmin) {
+    if (teacherApp) {
+      teacherApp.style.display = 'block';
+      setTimeout(()=> teacherApp.style.opacity = 1, 60);
     }
+    if (qs('who')) qs('who').textContent = `${currentUser.fullName || currentUser.user} (${currentUser.role})`;
+
+    // gọi các loader nhưng bọc try/catch để không phá UI
+    try { if (typeof loadQuestions === 'function') loadQuestions(true); } catch(e){ console.error('loadQuestions error', e); }
+    try { if (typeof loadTests === 'function') loadTests(true); } catch(e){ console.error('loadTests error', e); }
+    try { if (typeof loadStudents === 'function') loadStudents(true); } catch(e){ console.error('loadStudents error', e); }
+  } else {
+    // luôn hiển thị student-app ngay — tránh trường hợp lỗi loading làm trắng màn hình
+    if (studentApp) {
+      studentApp.style.display = 'block';
+      setTimeout(()=> studentApp.style.opacity = 1, 60);
+    }
+    if (qs('who-stu')) qs('who-stu').textContent = `${currentUser.fullName || currentUser.user} (${currentUser.className || ''})`;
+
+    // Gọi loadAssignments nhưng bọc an toàn để bất kỳ lỗi nào cũng ko phá UI
+    setTimeout(async () => {
+      try {
+        if (typeof loadAssignments === 'function') {
+          await loadAssignments(true);
+        } else {
+          console.warn('showApp: loadAssignments không tồn tại.');
+        }
+      } catch (err) {
+        console.error('Lỗi khi gọi loadAssignments:', err);
+        // Hiển thị fallback message cho học sinh (thay vì để trống)
+        const pendingTbody = qs('#assigned-tbody');
+        if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Không thể tải danh sách bài được giao. Kiểm tra Console.</td></tr>';
+        const doneTbody = qs('#done-tbody');
+        if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Không thể tải bài đã làm. Kiểm tra Console.</td></tr>';
+      }
+    }, 80);
+  }
 }
 
 
@@ -1713,10 +1922,10 @@ function formatSubmittedAt(ts) {
 		await loadQuestions(true); } 
 		if(resource==='tests'){ 
 		state.tests.page=1; 
-		await loadTests(); } 
+		await loadTests(true); } 
 		if(resource==='students'){ 
 		state.students.page=1; 
-		await loadStudents(); } }
+		await loadStudents(true); } }
 
     // QUESTIONS
 	
@@ -1778,8 +1987,10 @@ async function loadQuestions(forceReload = false, resetPage = true) { // Thêm f
     if (typeFilter) filteredData = filteredData.filter(q => q.type === typeFilter);
     if (diffFilter) filteredData = filteredData.filter(q => q.difficulty === diffFilter);
 
-    // --- HIỂN THỊ THỐNG KÊ CHI TIẾT ---
-    renderQuestionDetailedStats(state.questions.allList); // Gọi hàm mới, dùng allList
+    // --- THAY ĐỔI QUAN TRỌNG: GỌI RENDER STATS VỚI DỮ LIỆU ĐÃ LỌC ---
+    // Bây giờ, thống kê sẽ chỉ đếm trên các mục đã vượt qua bộ lọc.
+    renderQuestionDetailedStats(filteredData); 
+    // --- KẾT THÚC THAY ĐỔI ---
 
     // Lưu kết quả đã lọc vào state.questions.list để phân trang
     state.questions.list = filteredData;
@@ -1787,7 +1998,6 @@ async function loadQuestions(forceReload = false, resetPage = true) { // Thêm f
     if (resetPage) state.questions.page = 1;
 
     renderPaged('questions'); // Render trang hiện tại của dữ liệu đã lọc
-    // Hàm renderQuestionStats cũ không còn cần thiết nếu bạn đã xóa hoặc bỏ comment
 }
 
 function updateQuestionLevelFilter(questions) {
@@ -1847,62 +2057,58 @@ function updateQuestionLevelFilter(questions) {
     function changePage(resource, delta){ const s = state[resource]; const totalPages = Math.max(1, Math.ceil(s.total / PAGE_SIZE)); s.page = Math.min(totalPages, Math.max(1, s.page + delta)); renderPaged(resource); }
 
 function renderTestStats(allTests) {
-    const statsContainer = qs('#test-stats-info');
-    if (!statsContainer) return;
+    // 1. Lấy container cho Chi tiết (Hàng 2)
+    const statsContainer = qs('#test-stats-detailed-info');
+    // 2. Lấy container cho Tổng số (Hàng 1)
+    const totalDisplay = qs('#test-stats-total-display');
+
+    if (!statsContainer || !totalDisplay) return;
 
     const totalCount = allTests.length;
-     if (totalCount === 0) {
-        statsContainer.innerHTML = '<span class="badge bg-secondary">Chưa có bài thi nào</span>';
+    if (totalCount === 0) {
+        totalDisplay.innerHTML = `<span class="badge bg-primary me-3 fs-6">Tổng số: 0</span>`;
+        statsContainer.innerHTML = '';
         return;
     }
 
-    // Khởi tạo đối tượng đếm
     const counts = {
         subject: {},
         type: { auto: 0, manual: 0 },
         status: { assigned: 0, not_assigned: 0 }
     };
 
-    // Đếm
     allTests.forEach(t => {
-        // Môn học
-        const subj = t.subject || 'khac';
-        counts.subject[subj] = (counts.subject[subj] || 0) + 1;
-
-        // Loại đề
-        if (t.isAutoGenerated === true) {
-            counts.type.auto++;
-        } else {
-            counts.type.manual++;
-        }
-
-        // Trạng thái giao
-        if ((t.assignmentStatus || '').toLowerCase() === 'assigned') {
-            counts.status.assigned++;
-        } else {
-            counts.status.not_assigned++;
-        }
+        const subj = t.subject || 'khac'; counts.subject[subj] = (counts.subject[subj] || 0) + 1;
+        if (t.isAutoGenerated === true) { counts.type.auto++; } else { counts.type.manual++; }
+        if ((t.assignmentStatus || '').toLowerCase() === 'assigned') { counts.status.assigned++; } else { counts.status.not_assigned++; }
     });
 
-    // Tạo HTML
-    let html = `<span class="badge bg-primary me-2 fs-6">Tổng số: ${totalCount}</span>`;
+    // --- HIỂN THỊ HÀNG 1: TỔNG SỐ ---
+    totalDisplay.innerHTML = `<span class="badge bg-primary fs-6">Tổng số: ${totalCount}</span>`;
 
-    // Thống kê Trạng thái giao
-    html += '<span class="ms-3 me-3">|</span><strong>Trạng thái:</strong> ';
+
+    // --- HIỂN THỊ HÀNG 2: CHI TIẾT (Trạng thái, Loại đề, Môn) ---
+    let html = '';
+
+    // 1. Trạng thái
+    html += `<span class="d-inline-block me-3">Trạng thái: `;
     if (counts.status.assigned > 0) html += `<span class="badge bg-success me-1">Đã giao: ${counts.status.assigned}</span>`;
     if (counts.status.not_assigned > 0) html += `<span class="badge bg-secondary me-1">Chưa giao: ${counts.status.not_assigned}</span>`;
-
-    // Thống kê Loại đề
-    html += '<span class="ms-3 me-3">|</span><strong>Loại đề:</strong> ';
+    html += '</span>';
+    
+    // 2. Loại đề
+    html += `<span class="me-3">|</span> <span class="d-inline-block me-3">Loại đề: `;
     if (counts.type.auto > 0) html += `<span class="badge bg-info text-dark me-1">Tự động: ${counts.type.auto}</span>`;
     if (counts.type.manual > 0) html += `<span class="badge bg-light text-dark border me-1">Thủ công: ${counts.type.manual}</span>`;
+    html += '</span>';
 
-    // Thống kê Môn học
-    html += '<span class="ms-3 me-3">|</span><strong>Môn:</strong> ';
+    // 3. Môn học
+    html += `<span class="me-3">|</span> <span class="d-inline-block me-3">Môn học: `;
     const sortedSubjects = Object.keys(counts.subject).sort();
     sortedSubjects.forEach(subjCode => {
         html += `<span class="badge bg-secondary me-1">${SUBJECT_NAMES[subjCode] || subjCode}: ${counts.subject[subjCode]}</span>`;
     });
+    html += '</span>';
 
     statsContainer.innerHTML = html;
 }
@@ -3342,90 +3548,76 @@ async function saveQuestion(){
 
 // Hàm mới để hiển thị thống kê chi tiết cho Câu hỏi
 function renderQuestionDetailedStats(allQuestions) {
+    // 1. Lấy container cho Chi tiết (Hàng 2)
     const statsContainer = qs('#question-stats-detailed-info');
-    if (!statsContainer) return;
+    // 2. Lấy container cho Tổng số (Hàng 1)
+    const totalDisplay = qs('#question-stats-total-display');
+
+    if (!statsContainer || !totalDisplay) return;
 
     const totalCount = allQuestions.length;
     if (totalCount === 0) {
-        statsContainer.innerHTML = '<span class="badge bg-secondary">Chưa có câu hỏi nào</span>';
+        totalDisplay.innerHTML = '<span class="badge bg-secondary me-2 fs-6">Tổng số: 0</span>';
+        statsContainer.innerHTML = '';
         return;
     }
 
-    // Khởi tạo các đối tượng đếm
     const counts = {
-        subject: {},
-        difficulty: { easy: 0, medium: 0, hard: 0, unknown: 0 },
-        level: {},
-        type: { mc: 0, essay: 0, unknown: 0 }
+        subject: {}, difficulty: { easy: 0, medium: 0, hard: 0, unknown: 0 },
+        level: {}, type: { mc: 0, essay: 0, unknown: 0 }
     };
-
-    // Đếm
+    
+    // ... (Code đếm giữ nguyên) ...
     allQuestions.forEach(q => {
-        // Môn học
-        const subj = q.subject || 'khac';
-        counts.subject[subj] = (counts.subject[subj] || 0) + 1;
-
-        // Độ khó
+        const subj = q.subject || 'khac'; counts.subject[subj] = (counts.subject[subj] || 0) + 1;
         const diff = q.difficulty || 'unknown';
-        if (counts.difficulty.hasOwnProperty(diff)) {
-            counts.difficulty[diff]++;
-        } else {
-            counts.difficulty.unknown++; // Trường hợp độ khó không xác định
-        }
-
-        // Khối lớp
-        const lvl = q.level ? String(q.level) : 'khac'; // Chuyển level thành chuỗi
-        counts.level[lvl] = (counts.level[lvl] || 0) + 1;
-
-        // Loại câu hỏi
+        if (counts.difficulty.hasOwnProperty(diff)) { counts.difficulty[diff]++; } else { counts.difficulty.unknown++; }
+        const lvl = q.level ? String(q.level) : 'khac'; counts.level[lvl] = (counts.level[lvl] || 0) + 1;
         const qType = (q.type || 'unknown').toLowerCase();
-         if (qType === 'mc') {
-            counts.type.mc++;
-        } else if (qType === 'essay') {
-            counts.type.essay++;
-        } else {
-            counts.type.unknown++;
-        }
+         if (qType === 'mc') { counts.type.mc++; } else if (qType === 'essay') { counts.type.essay++; } else { counts.type.unknown++; }
     });
 
-    // Tạo HTML
-    let html = `<span class="badge bg-primary me-2 fs-6">Tổng số: ${totalCount}</span>`;
+    // --- HIỂN THỊ HÀNG 1: TỔNG SỐ ---
+    totalDisplay.innerHTML = `<span class="badge bg-primary fs-6">Tổng số: ${totalCount}</span>`;
 
-    // Thống kê Môn học
-    html += '<span class="me-3">|</span><strong>Môn:</strong> ';
+
+    // --- HIỂN THỊ HÀNG 2: CHI TIẾT ---
+    let html = '';
+
+    // 1. Độ khó
+    html += `<span class="d-inline-block me-3">Độ khó: `;
+    if (counts.difficulty.easy > 0) html += `<span class="badge bg-success me-1">Dễ: ${counts.difficulty.easy}</span>`;
+    if (counts.difficulty.medium > 0) html += `<span class="badge bg-warning text-dark me-1">TB: ${counts.difficulty.medium}</span>`;
+    if (counts.difficulty.hard > 0) html += `<span class="badge bg-danger me-1">Khó: ${counts.difficulty.hard}</span>`;
+    html += '</span>';
+
+    // 2. Loại
+    html += `<span class="me-3">|</span> <span class="d-inline-block me-3">Loại: `;
+    if (counts.type.mc > 0) html += `<span class="badge bg-light text-dark border me-1">TN: ${counts.type.mc}</span>`;
+    if (counts.type.essay > 0) html += `<span class="badge bg-light text-dark border me-1">TL: ${counts.type.essay}</span>`;
+    html += '</span>';
+
+    // 3. Môn học
+    html += `<span class="me-3">|</span> <span class="d-inline-block me-3">Môn học: `;
     const sortedSubjects = Object.keys(counts.subject).sort();
     sortedSubjects.forEach(subjCode => {
         html += `<span class="badge bg-secondary me-1">${SUBJECT_NAMES[subjCode] || subjCode}: ${counts.subject[subjCode]}</span>`;
     });
+    html += '</span>';
 
-    // Thống kê Độ khó
-    html += '<span class="ms-3 me-3">|</span><strong>Độ khó:</strong> ';
-    if (counts.difficulty.easy > 0) html += `<span class="badge bg-success me-1">Dễ: ${counts.difficulty.easy}</span>`;
-    if (counts.difficulty.medium > 0) html += `<span class="badge bg-warning text-dark me-1">TB: ${counts.difficulty.medium}</span>`;
-    if (counts.difficulty.hard > 0) html += `<span class="badge bg-danger me-1">Khó: ${counts.difficulty.hard}</span>`;
-    if (counts.difficulty.unknown > 0) html += `<span class="badge bg-light text-dark border me-1">Khác: ${counts.difficulty.unknown}</span>`;
-
-     // Thống kê Khối lớp
-    html += '<span class="ms-3 me-3">|</span><strong>Khối:</strong> ';
+    // 4. Khối lớp
+    html += `<span class="me-3">|</span> <span class="d-inline-block me-3">Khối lớp: `;
     const sortedLevels = Object.keys(counts.level).sort((a, b) => {
-        // Sắp xếp số trước, "khac" sau
-        if (a === 'khac') return 1;
-        if (b === 'khac') return -1;
-        return parseInt(a) - parseInt(b);
+        if (a === 'khac') return 1; if (b === 'khac') return -1; return parseInt(a) - parseInt(b);
     });
     sortedLevels.forEach(lvl => {
          html += `<span class="badge bg-info text-dark me-1">${lvl === 'khac' ? 'Khác' : 'Khối ' + lvl}: ${counts.level[lvl]}</span>`;
     });
-
-     // Thống kê Loại
-    html += '<span class="ms-3 me-3">|</span><strong>Loại:</strong> ';
-    if (counts.type.mc > 0) html += `<span class="badge bg-light text-dark border me-1">TN: ${counts.type.mc}</span>`;
-    if (counts.type.essay > 0) html += `<span class="badge bg-light text-dark border me-1">TL: ${counts.type.essay}</span>`;
-    if (counts.type.unknown > 0) html += `<span class="badge bg-secondary me-1">Khác: ${counts.type.unknown}</span>`;
-
+    html += '</span>';
 
     statsContainer.innerHTML = html;
 }
+
 
 function clearAllQuestionFilters() {
     const subjectEl = qs('q-filter-subject');
@@ -3453,25 +3645,39 @@ function showToast(message, type = 'success') {
 }
 	
     // 1. HÀM THỰC HIỆN XÓA CÂU HỎI (Logic API)
-	async function performDeleteQuestion(id) {
-		try {
-        await fetch(`${serverUrl}/api/questions/${id}`, { method: 'DELETE' });
-        await loadQuestions(); // Tải lại danh sách sau khi xóa thành công
-		} catch(e) {
-        alert('Lỗi xóa câu hỏi');
-		}
-	}
+async function performDeleteQuestion(id) {
+    try {
+        // Log gỡ lỗi: Sẽ không hiện log này nếu modal bị lỗi JS/CSS
+        console.log("Attempting to DELETE question ID:", id); 
 
-   // 2. HÀM GỌI XÓA (Giao diện)
-	function deleteQuestion(id) {
-    // Gọi modal xác nhận, truyền ID, tên tài nguyên ('câu hỏi') và hàm thực hiện xóa
-		openConfirmDeleteModal(id, 'câu hỏi', performDeleteQuestion);
-	}
+        const response = await fetch(`${serverUrl}/api/questions/${id}`, { method: 'DELETE' });
+
+        if (response.ok || response.status === 204) {
+            // BUỘC TẢI LẠI TOÀN BỘ DỮ LIỆU TỪ SERVER (THAY VÌ DÙNG CACHE)
+            await loadQuestions(true); 
+            showToast('Đã xóa câu hỏi thành công!', 'success');
+        } else {
+             throw new Error("Xóa thất bại. Status: " + response.status);
+        }
+    } catch(e) {
+        console.error("Lỗi xóa câu hỏi:", e);
+        alert('Lỗi xóa câu hỏi: ' + (e.message || 'Lỗi không xác định'));
+    }
+}
+function deleteQuestion(id) {
+    // Hàm này sẽ gọi modal "pro" của bạn
+    // (Hàm openConfirmDeleteModal đã có sẵn ở cuối file của bạn)
+    openConfirmDeleteModal(
+        id, 
+        'câu hỏi', 
+        performDeleteQuestion // Đây là hàm sẽ chạy khi bấm "OK"
+    );
+}
 
     // TESTS (teacher)
 // Thay thế hàm loadTests cũ bằng hàm này
 async function loadTests(forceReload = false){
-    const tbody = qs('#tests-tbody'); // Lấy tbody để hiển thị loading/error nếu cần
+    const tbody = qs('#tests-tbody');
     if (!tbody) return;
 
     // --- TẢI DỮ LIỆU GỐC NẾU CẦN ---
@@ -3488,28 +3694,25 @@ async function loadTests(forceReload = false){
             populateSubjectFilters();
             updateTestLevelFilter(state.tests.allList);
 
-            // === GỌI RENDER STATS SAU KHI TẢI DỮ LIỆU GỐC THÀNH CÔNG ===
-            renderTestStats(state.tests.allList);
+            // Không gọi renderTestStats ở đây nữa
+            // renderTestStats(state.tests.allList); 
 
         } catch (e) {
             setTableError('tests-tbody', 'Không thể tải danh sách bài thi gốc');
             state.tests.allList = []; allAvailableTestSubjects.clear();
             populateSubjectFilters(); updateTestLevelFilter([]);
-            renderTestStats([]); // <-- Gọi render stats với mảng rỗng khi lỗi
-            return; // Dừng nếu không tải được gốc
+            renderTestStats([]); 
+            return; 
         }
     } else {
-        // === GỌI RENDER STATS NẾU DÙNG DỮ LIỆU CACHE ===
-        // Đảm bảo thống kê luôn được cập nhật ngay cả khi không fetch lại API
-        renderTestStats(state.tests.allList);
+        // Nếu dùng cache, vẫn gọi renderStats ở đây với dữ liệu đã lọc (sẽ tính toán ở dưới)
     }
     // --- KẾT THÚC TẢI DỮ LIỆU GỐC ---
 
 
-    // --- Từ đây, chỉ thực hiện lọc và render dựa trên state.tests.allList ---
-    setTableLoading('tests-tbody', 'Đang lọc bài thi...'); // Có thể bỏ dòng này nếu lọc nhanh
+    // --- LỌC CLIENT-SIDE ---
+    setTableLoading('tests-tbody', 'Đang lọc bài thi...');
 
-    // Lấy giá trị bộ lọc
     const subject = qs('#filter-test-subject')?.value || '';
     const level = qs('#filter-test-level')?.value || '';
     const dateSort = qs('#sort-test-date')?.value || 'desc';
@@ -3529,82 +3732,71 @@ async function loadTests(forceReload = false){
             return timeA - timeB;
         }
      });
+    
+    // --- THAY ĐỔI QUAN TRỌNG: GỌI RENDER STATS VỚI DỮ LIỆU ĐÃ LỌC ---
+    // Thống kê sẽ phản ánh chính xác dữ liệu trên bảng sau khi lọc
+    renderTestStats(filteredData);
+    // --- KẾT THÚC THAY ĐỔI ---
 
     // Lưu kết quả đã lọc vào state.tests.list để phân trang
     state.tests.list = filteredData;
     state.tests.total = state.tests.list.length;
-    // Không reset page ở đây nếu chỉ là lọc/sắp xếp trừ khi forceReload
+    
     if (forceReload) {
         state.tests.page = 1;
     }
 
-    renderPaged('tests'); // Render trang hiện tại của dữ liệu đã lọc
-    setupTestCheckboxListeners(); // Gắn lại listener
+    renderPaged('tests');
+    setupTestCheckboxListeners();
 }
 
 
 function renderStudentStats(allStudents) {
-    const statsContainer = qs('#student-stats-info');
-    if (!statsContainer) return;
+    const statsContainer = qs('#student-stats-detailed-info'); // Hàng 2
+    const totalDisplay = qs('#student-stats-total-display'); // Hàng 1
+
+    if (!statsContainer || !totalDisplay) return;
 
     const totalCount = allStudents.length;
-     if (totalCount === 0) {
-        statsContainer.innerHTML = '<span class="badge bg-secondary">Chưa có học sinh nào</span>';
+    if (totalCount === 0) {
+        totalDisplay.innerHTML = `<span class="badge bg-primary fs-6">Tổng số: 0</span>`;
+        statsContainer.innerHTML = '';
         return;
     }
 
-    // Khởi tạo đối tượng đếm
     const counts = {
         class: {},
-        gender: { male: 0, female: 0, other: 0, unknown: 0 } // Thêm unknown
-        // Bạn có thể bỏ 'role' nếu không cần nữa
-        // role: {}
+        gender: { male: 0, female: 0, other: 0, unknown: 0 }
     };
 
-    // Đếm
     allStudents.forEach(s => {
-        // Đếm theo Lớp
-        const className = s.className || 'N/A'; // Gộp các lớp không xác định vào 'N/A'
-        counts.class[className] = (counts.class[className] || 0) + 1;
-
-        // Đếm theo Giới tính
-        const gender = (s.gender || 'unknown').toLowerCase(); // Gộp các giới tính không xác định
-        if (counts.gender.hasOwnProperty(gender)) {
-            counts.gender[gender]++;
-        } else {
-             counts.gender.unknown++; // Hoặc gộp vào 'other' tùy bạn muốn
-        }
-
-        // Đếm theo Vai trò (Nếu bạn vẫn muốn giữ lại)
-        // const role = s.role || 'student';
-        // counts.role[role] = (counts.role[role] || 0) + 1;
+        const className = s.className || 'N/A'; counts.class[className] = (counts.class[className] || 0) + 1;
+        const gender = (s.gender || 'unknown').toLowerCase();
+        if (counts.gender.hasOwnProperty(gender)) { counts.gender[gender]++; } else { counts.gender.unknown++; }
     });
 
-    // Tạo HTML
-    let html = `<span class="badge bg-primary me-2 fs-6">Tổng số: ${totalCount}</span>`;
+    // --- HIỂN THỊ HÀNG 1: TỔNG SỐ ---
+    totalDisplay.innerHTML = `<span class="badge bg-primary fs-6">Tổng số: ${totalCount}</span>`;
 
-    // Thống kê Lớp
-    html += '<span class="ms-3 me-3">|</span><strong>Lớp:</strong> ';
-    const sortedClasses = Object.keys(counts.class).sort(); // Sắp xếp tên lớp
+    // --- HIỂN THỊ HÀNG 2: CHI TIẾT (Lớp, Giới tính) ---
+    let html = '';
+
+    // 1. Lớp
+    html += `<span class="d-inline-block me-3">Lớp: `;
+    const sortedClasses = Object.keys(counts.class).sort();
     sortedClasses.forEach(className => {
-        // Dùng badge khác màu cho N/A nếu muốn
         const badgeClass = className === 'N/A' ? 'bg-secondary' : 'bg-info text-dark';
         html += `<span class="badge ${badgeClass} me-1">${className}: ${counts.class[className]}</span>`;
     });
+    html += '</span>';
 
-    // Thống kê Giới tính
-    html += '<span class="ms-3 me-3">|</span><strong>Giới tính:</strong> ';
+    // 2. Giới tính
+    html += `<span class="me-3">|</span> <span class="d-inline-block me-3">Giới tính: `;
     if (counts.gender.male > 0) html += `<span class="badge bg-light text-dark border me-1">Nam: ${counts.gender.male}</span>`;
     if (counts.gender.female > 0) html += `<span class="badge bg-light text-dark border me-1">Nữ: ${counts.gender.female}</span>`;
     if (counts.gender.other > 0) html += `<span class="badge bg-light text-dark border me-1">Khác: ${counts.gender.other}</span>`;
     if (counts.gender.unknown > 0) html += `<span class="badge bg-secondary me-1">N/A: ${counts.gender.unknown}</span>`;
-
-    // Thống kê Vai trò (Nếu bạn vẫn muốn giữ lại)
-    // html += '<span class="ms-3 me-3">|</span><strong>Vai trò:</strong> ';
-    // const sortedRoles = Object.keys(counts.role).sort();
-    // sortedRoles.forEach(roleCode => {
-    //      html += `<span class="badge bg-secondary me-1">${getRoleLabel(roleCode)}: ${counts.role[roleCode]}</span>`;
-    // });
+    html += '</span>';
 
     statsContainer.innerHTML = html;
 }
@@ -4927,33 +5119,54 @@ document.getElementById('modalTestAuto').addEventListener('show.bs.modal', () =>
 
     // STUDENTS (teacher)
 	
-	async function openStudentModal(studentId = null) {
+async function openStudentModal(studentId = null) {
     const modalEl = qs('modalStudentEdit'); // Dùng # cho ID
     const modal = new bootstrap.Modal(modalEl);
     
-    // Đặt lại tiêu đề và form
+    // Lấy input mật khẩu và Khối lớp
+    const inputPass = qs('student-password'); 
+    const inputLevel = qs('student-level');
+
+    // 1. Đặt lại tiêu đề và form
     qs('student-modal-title').textContent = studentId ? '✏️ Sửa thông tin Học sinh' : '➕ Thêm Học sinh mới';
     qs('student-form').reset();
     qs('student-id').value = ''; // Reset ID
     
+    // Đặt lại giá trị cho trường Khối lớp (để tránh lấy dữ liệu cũ)
+    if (inputLevel) inputLevel.value = ''; 
+    
+    // Khắc phục lỗi hiển thị mật khẩu khi Thêm mới
+    inputPass.removeAttribute('required'); // Mặc định không required
+    inputPass.placeholder = "Nhập mật khẩu mới (Để trống nếu không đổi)";
+
     if (studentId) {
+        // --- CHẾ ĐỘ SỬA (Mật khẩu KHÔNG required) ---
         try {
             // ✅ THÊM LOGIC FETCH DỮ LIỆU THỰC TẾ
             const student = await fetchJson(`${serverUrl}/api/users/${studentId}`);
             
             qs('student-id').value = student.id || student._id; 
-            qs('student-username').value = student.user || ''; // Thay vì student.username
+            qs('student-username').value = student.user || '';
 			qs('student-fullname').value = student.fullName || '';
             qs('student-class').value = student.className || '';
+            
+            // <<< LẤY DỮ LIỆU KHỐI LỚP VÀO FORM >>>
+            if (inputLevel) inputLevel.value = student.level || ''; // Đảm bảo level được set khi Sửa
+            
             qs('student-gender').value = student.gender || '';
             qs('student-role').value = student.role || 'student';
-            // Không gán mật khẩu
+            
+            // Mật khẩu vẫn giữ placeholder "Để trống nếu không đổi"
             
         } catch (error) {
             console.error("Lỗi khi tải dữ liệu học sinh:", error);
             alert("Không tìm thấy thông tin học sinh hoặc lỗi kết nối!");
             return;
         }
+    } else {
+        // --- CHẾ ĐỘ THÊM MỚI (Mật khẩu BẮT BUỘC) ---
+        inputPass.setAttribute('required', true);
+        inputPass.placeholder = "Nhập mật khẩu"; // Xóa placeholder (Để trống nếu không đổi)
     }
     
     modal.show();
@@ -4982,31 +5195,29 @@ async function loadStudents(forceReload = false, resetPage = true) {
     if (forceReload || allStudentData.length === 0) {
         setTableLoading('students-tbody', 'Đang tải toàn bộ danh sách học sinh...');
         try {
-            const data = await fetchJson(`${serverUrl}/api/users`); // Lấy tất cả
-            allStudentData = Array.isArray(data) ? data : (data.users || []); // Lưu danh sách gốc
+            const data = await fetchJson(`${serverUrl}/api/users`); 
+            allStudentData = Array.isArray(data) ? data : (data.users || []);
 
-            // Tạo bộ lọc động
+            // Cập nhật bộ lọc động (CHỈ SỬ DỤNG allStudentData)
             updateStudentRoleFilter(allStudentData);
+            updateStudentLevelFilter(allStudentData); // <<< GỌI HÀM CẬP NHẬT FILTER KHỐI
             updateStudentClassFilter(allStudentData);
             updateStudentGenderFilter(allStudentData);
-
-            // === GỌI RENDER STATS SAU KHI TẢI DỮ LIỆU GỐC THÀNH CÔNG ===
-            renderStudentStats(allStudentData);
+            
+            renderStudentStats(allStudentData); 
 
         } catch (e) {
             setTableError('students-tbody', 'Không thể tải danh sách học sinh');
-            allStudentData = []; // Reset nếu lỗi
-            // Vẫn gọi hàm update filter
+            allStudentData = []; 
             updateStudentRoleFilter([]);
+            updateStudentLevelFilter([]); 
             updateStudentClassFilter([]);
             updateStudentGenderFilter([]);
-            renderStudentStats([]); // <-- Gọi render stats với mảng rỗng khi lỗi
-            return; // Dừng nếu không tải được
+            renderStudentStats([]); 
+            return; 
         }
     } else {
-         // === GỌI RENDER STATS NẾU DÙNG DỮ LIỆU CACHE ===
-         // Đảm bảo thống kê luôn được cập nhật ngay cả khi không fetch lại API
-         renderStudentStats(allStudentData);
+        renderStudentStats(allStudentData); // Cập nhật thống kê từ cache
     }
     // --- KẾT THÚC TẢI DỮ LIỆU GỐC ---
 
@@ -5015,37 +5226,62 @@ async function loadStudents(forceReload = false, resetPage = true) {
     setTableLoading('students-tbody', 'Đang lọc danh sách...');
 
     const roleFilter = qs('filter-student-role')?.value || '';
+    const levelFilter = qs('filter-student-level')?.value || ''; // <<< LẤY GIÁ TRỊ LỌC MỚI
     const classFilter = qs('filter-student-class')?.value || '';
     const nameSearch = qs('search-student-name')?.value.toLowerCase().trim() || '';
     const genderFilter = qs('filter-student-gender')?.value || '';
 
     let filteredData = allStudentData;
 
-    if (roleFilter) {
-        filteredData = filteredData.filter(u => (u.role || 'student') === roleFilter);
+    // 1. Lọc theo Vai trò
+    if (roleFilter) { filteredData = filteredData.filter(u => (u.role || 'student') === roleFilter); }
+    // 2. Lọc theo Khối lớp (QUAN TRỌNG)
+    if (levelFilter) { 
+        filteredData = filteredData.filter(u => String(u.level || '') === levelFilter); 
     }
+    // 3. Lọc theo Lớp
     if (classFilter) {
         filteredData = filteredData.filter(u => (u.className || '') === classFilter);
     }
-    if (nameSearch) {
-        filteredData = filteredData.filter(u => (u.fullName || '').toLowerCase().includes(nameSearch));
-    }
-    if (genderFilter) {
-        filteredData = filteredData.filter(u => (u.gender || '') === genderFilter);
-    }
+    // 4. Lọc theo Tên
+    if (nameSearch) { filteredData = filteredData.filter(u => (u.fullName || '').toLowerCase().includes(nameSearch)); }
+    // 5. Lọc theo Giới tính
+    if (genderFilter) { filteredData = filteredData.filter(u => (u.gender || '') === genderFilter); }
     // --- KẾT THÚC LỌC ---
-
-    // Lưu kết quả đã lọc vào state để phân trang (Nếu bạn đã thêm phân trang cho HS)
+    
+    // --- GỌI RENDER STATS VỚI DỮ LIỆU ĐÃ LỌC ---
+    renderStudentStats(filteredData); 
+    
+    // Lưu kết quả đã lọc vào state để phân trang
     state.students.list = filteredData;
     state.students.total = filteredData.length;
     if (resetPage) state.students.page = 1;
 
-    // Gọi renderPaged hoặc renderStudents trực tiếp (tùy thuộc bạn có phân trang không)
-    // Nếu có phân trang:
     renderPaged('students');
-    // Nếu KHÔNG có phân trang:
-    // renderStudents(filteredData);
 }
+
+function updateStudentLevelFilter(students) {
+    const levelSelect = qs('#filter-student-level'); 
+    if (!levelSelect) return;
+
+    const currentLevelValue = levelSelect.value;
+    levelSelect.innerHTML = '<option value="">-- Tất cả Khối --</option>';
+
+    // Lấy Khối duy nhất, lọc bỏ rỗng/null, sắp xếp số
+    const uniqueLevels = [...new Set(students.map(u => u.level).filter(l => l))].sort((a, b) => a - b);
+
+    uniqueLevels.forEach(levelName => {
+        const option = document.createElement('option');
+        option.value = levelName;
+        option.textContent = levelName;
+        levelSelect.appendChild(option);
+    });
+
+    if (levelSelect.querySelector(`option[value="${currentLevelValue}"]`)) {
+        levelSelect.value = currentLevelValue;
+    }
+}
+
 
 function updateStudentRoleFilter(students) {
     const roleSelect = qs('#filter-student-role');
@@ -5185,13 +5421,13 @@ function renderStudents(items){
     const tbody = qs('students-tbody'); 
     tbody.innerHTML = ''; 
 
-    // ✅ KHỞI TẠO frag NGAY ĐẦU HÀM ĐỂ KHẮC PHỤC LỖI ReferenceError
     const frag = document.createDocumentFragment(); 
     
     // Xử lý trường hợp danh sách rỗng
     if (!items || items.length === 0) {
+        // Colspan = 8 (STT, User, Khối, Tên, Lớp, GT, Vai trò, Hành động)
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td colspan="7" class="text-center text-muted py-3">Không tìm thấy học sinh nào theo điều kiện lọc.</td>`;
+        tr.innerHTML = `<td colspan="8" class="text-center text-muted py-3">Không tìm thấy học sinh nào theo điều kiện lọc.</td>`;
         tbody.appendChild(tr);
         return;
     }
@@ -5201,35 +5437,39 @@ function renderStudents(items){
         const studentId = u.id || u._id || '';
         const tr = document.createElement('tr'); 
         
+        // Cấu trúc tr.innerHTML mới (8 cột)
         tr.innerHTML = `
             <td>${index + 1}</td>
             <td>${escapeHtml(u.user || '')}</td>
             
+            <td>${escapeHtml(u.level || 'N/A')}</td>
+            
             <td>${escapeHtml(u.fullName || 'Chưa cập nhật')}</td>
             <td>${escapeHtml(u.className || 'N/A')}</td> 
             
-            <td>${getGenderLabel(u.gender || '')}</td> <!-- CỘT GIỚI TÍNH -->
+            <td>${getGenderLabel(u.gender || '')}</td>
             
             <td>${getRoleLabel(u.role || 'student')}</td>
             
-            <td>
-                <button class="btn btn-sm btn-outline-primary me-1" 
-                        onclick='openStudentModal("${studentId}")'>Sửa</button>
-                        
-                <button class="btn btn-sm btn-outline-danger" 
-                        onclick='deleteStudent("${studentId}")'>Xóa</button>
+            <td class="text-center">
+                <div class="d-flex justify-content-center gap-1">
+                    <button class="btn btn-sm btn-outline-primary" 
+                            onclick='openStudentModal("${studentId}")'>Sửa</button>
+                            
+                    <button class="btn btn-sm btn-outline-danger" 
+                            onclick='deleteStudent("${studentId}")'>Xóa</button>
+                </div>
             </td>`; 
         frag.appendChild(tr); 
     }); 
     
-    // Đưa fragment vào DOM (chỉ một lần)
     tbody.appendChild(frag); 
 }
 	
     function openStudentFromRow(uStr){ try{ const u = JSON.parse(decodeURIComponent(uStr)); openStudent(u); } catch(e){ openStudent(); } }
     function openStudent(u){ const modalEl = qs('modalStudent'); const modal = new bootstrap.Modal(modalEl); if(u){ qs('m-stu-id').value = u.id || u._id || ''; qs('m-stu-user').value = u.user || u.username || ''; qs('m-stu-pass').value = u.pass || ''; } else { qs('m-stu-id').value=''; qs('m-stu-user').value=''; qs('m-stu-pass').value=''; } modal.show(); }
 	
-    async function saveStudent() {
+async function saveStudent() {
     const id = qs('student-id').value;
     
     // Lấy giá trị các trường thông tin
@@ -5239,6 +5479,7 @@ function renderStudents(items){
     const fullName = qs('student-fullname').value;
     const className = qs('student-class').value;
     const gender = qs('student-gender').value; 
+    const level = qs('student-level').value; // <<< LẤY GIÁ TRỊ KHỐI LỚP
 
     // Chuẩn bị dữ liệu gửi đi
     const dataToSend = {
@@ -5247,6 +5488,7 @@ function renderStudents(items){
         fullName: fullName,
         className: className,
         gender: gender,
+        level: level, // <<< THÊM TRƯỜNG LEVEL VÀO PAYLOAD
     };
     if (pass) dataToSend.pass = pass; // Chỉ gửi pass nếu có giá trị (thêm mới hoặc sửa)
 
@@ -5271,8 +5513,8 @@ function renderStudents(items){
             }
         }
         
-        // Gọi loadStudents sau khi lưu thành công (Khắc phục lỗi ReferenceError)
-        await loadStudents();
+        // Gọi loadStudents sau khi lưu thành công
+        await loadStudents(true);
 
     } catch (error) {
         let errorMessage = `Lỗi khi lưu học sinh: ${error.message || 'Lỗi không xác định.'}`;
@@ -5303,7 +5545,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Dán hàm này vào file JS của bạn (thay thế hàm cũ)
 let allStudentsForModal = []; 
 let modalAssignInstance;
-let infoModalInstance;
+//let infoModalInstance;
 let allStudents = []; // Lưu trữ tất cả học sinh (chỉ cần tải 1 lần)
 let currentAssignments = []; // Lưu trữ danh sách assignment hiện tại của đề thi đang mở
 
@@ -5844,6 +6086,8 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
         console.error("loadResults Error: Cannot find #results-tbody element.");
         return;
     }
+    
+    let statsApiData = null; // Biến tạm lưu dữ liệu stats từ API
 
     // --- TẢI DỮ LIỆU GỐC VÀ STATS ---
     // Chỉ tải lại dữ liệu gốc từ API nếu chưa có hoặc yêu cầu isReload
@@ -5855,6 +6099,8 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
                 fetchJson(`${serverUrl}/api/results_summary`),
                 fetchJson(`${serverUrl}/api/assignment_stats`) // API stats
             ]);
+            
+            statsApiData = stats; // Lưu dữ liệu stats API vào biến tạm
 
             // Lưu kết quả gốc vào biến toàn cục
             allResultsData = Array.isArray(data) ? data : [];
@@ -5866,10 +6112,6 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
             if (typeof updateResultClassFilter === 'function') {
                 updateResultClassFilter(allResultsData);
             }
-            // Cập nhật thống kê
-            if (typeof renderResultsStats === 'function') {
-                renderResultsStats(stats, allResultsData);
-            }
 
         } catch(e) {
              tbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Lỗi tải dữ liệu kết quả.</td></tr>';
@@ -5878,17 +6120,21 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
              // Vẫn cố gắng cập nhật filter để hiển thị trạng thái rỗng
              if (typeof updateResultStatusFilter === 'function') updateResultStatusFilter([]);
              if (typeof updateResultClassFilter === 'function') updateResultClassFilter([]);
-             if (typeof renderResultsStats === 'function') renderResultsStats({}, []); // Gọi với dữ liệu rỗng
+             if (typeof renderResultsStats === 'function') renderResultsStats({}, []); // Gọi với dữ liệu rỗng khi lỗi
              return; // Dừng nếu không tải được
         }
+    } else {
+        // Nếu không tải lại, lấy dữ liệu thống kê từ lần gọi gần nhất (nếu có)
+        // Đây là điểm yếu, nhưng là giải pháp nhanh vì không thể gọi lại API stats
+        // Chúng ta giả định statsApiData cần thiết cho các chỉ số tổng thể (như Bài thi đã tạo)
+        statsApiData = window.lastResultsStatsApiData || {};
     }
+    // Cập nhật biến toàn cục để dùng khi không cần reload
+    window.lastResultsStatsApiData = statsApiData;
     // --- KẾT THÚC TẢI GỐC ---
 
 
-    // --- LỌC CLIENT-SIDE ---
-    // Hiển thị thông báo đang lọc (có thể không cần nếu lọc nhanh)
-    // tbody.innerHTML = '<tr><td colspan="8" class="text-center spinner-row"><div class="spinner-border spinner-border-sm"></div> Đang lọc kết quả...</td></tr>';
-
+    // --- LỌC VÀ SẮP XẾP ---
     let filteredResults = allResultsData; // Bắt đầu với dữ liệu gốc đầy đủ
 
     // Lấy giá trị các bộ lọc
@@ -5906,9 +6152,8 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
     if (studentSearch) {
         filteredResults = filteredResults.filter(r => (r.studentName || '').toLowerCase().includes(studentSearch));
     }
-    // --- KẾT THÚC LỌC ---
-
-    // --- Sắp xếp dữ liệu ---
+    
+    // Áp dụng Sắp xếp
     const sortValue = qs('#sort-result-time')?.value || 'submittedAt_desc';
     const sort = sortValue.split('_');
     const sortField = sort[0];
@@ -5917,92 +6162,111 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
     filteredResults.sort((a, b) => {
         let valA = a[sortField];
         let valB = b[sortField];
-
-        if (sortField === 'totalScore') {
-            valA = parseFloat(valA) || 0;
-            valB = parseFloat(valB) || 0;
-        } else if (sortField === 'submittedAt') {
-            // Xử lý null/undefined khi sắp xếp ngày
-             valA = valA ? new Date(valA).getTime() : 0;
-             valB = valB ? new Date(valB).getTime() : 0;
-             // Đẩy các giá trị 0 (hoặc null) về cuối khi sắp xếp tăng dần, đầu khi giảm dần
+        if (sortField === 'totalScore') { valA = parseFloat(valA) || 0; valB = parseFloat(valB) || 0; } 
+        else if (sortField === 'submittedAt') {
+             valA = valA ? new Date(valA).getTime() : 0; valB = valB ? new Date(valB).getTime() : 0;
              if (valA === 0 && valB !== 0) return sortDirection === 1 ? 1 : -1;
              if (valB === 0 && valA !== 0) return sortDirection === 1 ? -1 : 1;
         }
-
-        // So sánh cơ bản
         if (valA < valB) return -1 * sortDirection;
         if (valA > valB) return 1 * sortDirection;
         return 0;
     });
-    // --- KẾT THÚC SẮP XẾP ---
+    // --- KẾT THÚC LỌC VÀ SẮP XẾP ---
+
+
+    // --- THAY ĐỔI QUAN TRỌNG: GỌI RENDER STATS VỚI DỮ LIỆU ĐÃ LỌC ---
+    // Bây giờ, thống kê sẽ phản ánh chính xác các bộ lọc đã chọn (Class, Status, Search)
+    if (typeof renderResultsStats === 'function') {
+         // Truyền dữ liệu tổng thể (statsApiData) và danh sách đã lọc (filteredResults)
+        renderResultsStats(statsApiData, filteredResults);
+    }
+    // --- KẾT THÚC THAY ĐỔI ---
 
     // --- Gán vào State để Phân trang ---
     state.results.list = filteredResults;
     state.results.total = filteredResults.length;
 
-    // Nếu resetPage được yêu cầu (ví dụ: khi tải lần đầu hoặc xóa lọc), đặt lại về trang 1
     if (resetPage) {
         state.results.page = 1;
     }
 
-    // Gọi hàm renderPaged (hàm này sẽ xử lý phân trang và gọi renderResultsTable)
     renderPaged('results');
 }
 
 // Thay thế hàm renderResultsStats (khoảng dòng 1199)
 function renderResultsStats(statsApiData, resultsData) {
-    const statsContainer = qs('#results-stats-info');
-    if (!statsContainer) return;
+    const totalDisplay = qs('#results-stats-total-display'); // Hàng 1
+    const statsContainer = qs('#results-stats-detailed-info'); // Hàng 2
 
-    // --- TÍNH TOÁN CÁC CHỈ SỐ (Giữ nguyên) ---
-    const totalTestsCreated = statsApiData?.totalTestsCreated ?? 'N/A';
-    const totalAssignments = statsApiData?.totalAssignments ?? 'N/A';
+    if (!statsContainer || !totalDisplay) return;
+
+    // --- TÍNH TOÁN CÁC CHỈ SỐ CƠ BẢN ---
+    const totalTestsCreated = statsApiData?.totalTestsCreated ?? 0;
+    const totalAssignments = statsApiData?.totalAssignments ?? 0;
     const totalSubmitted = resultsData.length;
     const uniqueStudentsSubmitted = new Set(resultsData.map(r => r.studentId)).size;
-    const totalStudentsInSystem = statsApiData?.totalStudents ?? 'N/A';
-    const uniqueStudentsAssigned = statsApiData?.uniqueStudentsAssigned ?? 'N/A';
-    // --- KẾT THÚC TÍNH TOÁN ---
+    const totalStudentsInSystem = statsApiData?.totalStudents ?? 0;
+    const uniqueStudentsAssigned = statsApiData?.uniqueStudentsAssigned ?? 0;
+    
+    // --- TÍNH TOÁN TRẠNG THÁI CHẤM MỚI (DÙNG KHÓA TIẾNG VIỆT) ---
+    const gradingStatusCounts = {
+        'Hoàn tất': 0, // Bài đã chấm xong và khóa (Tự động hoặc sau lần chấm thứ 2)
+        'Đã Chấm': 0,  // Bài đã chấm lần 1 (Cần chấm lại lần 2)
+        'Đang Chấm': 0 // Bài cần chấm lần 1
+    };
 
-    // --- ✅ TẠO HTML ĐIỀU KIỆN RIÊNG BIỆT ---
-    let totalAssignmentsHtml = '';
-    // Kiểm tra kỹ điều kiện: khác 'N/A', không phải undefined, không phải null
-    if (totalAssignments !== 'N/A' && totalAssignments !== undefined && totalAssignments !== null) {
-        totalAssignmentsHtml = `
-            <span class="badge bg-info text-dark fs-6">
-                Tổng lượt giao: <strong>${totalAssignments}</strong>
-            </span>`;
-    }
+    resultsData.forEach(result => {
+        // Lấy trạng thái như hiển thị trên bảng
+        const status = result.gradingStatus || 'Đang Chấm'; 
+        
+        // Chỉ đếm nếu trạng thái khớp với các khóa tiếng Việt
+        if (gradingStatusCounts.hasOwnProperty(status)) {
+            gradingStatusCounts[status]++;
+        } else if (status === 'Chưa Chấm') {
+            // Xử lý trường hợp có thể backend vẫn gửi 'Chưa Chấm'
+             gradingStatusCounts['Đang Chấm']++;
+        }
+    });
 
-    let uniqueStudentsAssignedHtml = '';
-    // Kiểm tra kỹ điều kiện: khác 'N/A', không phải undefined, không phải null, VÀ lớn hơn 0
-    if (uniqueStudentsAssigned !== 'N/A' && uniqueStudentsAssigned !== undefined && uniqueStudentsAssigned !== null && uniqueStudentsAssigned > 0) {
-        uniqueStudentsAssignedHtml = `
-            <span class="badge bg-light text-dark border fs-6">
-                HS được giao: <strong>${uniqueStudentsAssigned}</strong>
-            </span>`;
-    }
-    // --- KẾT THÚC TẠO HTML ĐIỀU KIỆN ---
 
-    // --- GHÉP HTML HOÀN CHỈNH ---
-    let html = `
-        <div class="d-flex flex-wrap align-items-center gap-3">
-            <span class="badge bg-primary fs-6">
-                Bài thi đã tạo: <strong>${totalTestsCreated}</strong>
-            </span>
-            ${totalAssignmentsHtml}
-             <span class="badge bg-success fs-6">
-                Tổng bài đã nộp: <strong>${totalSubmitted}</strong>
-            </span>
-            <span class="badge bg-secondary fs-6">
-                Học sinh đã nộp: <strong>${uniqueStudentsSubmitted}</strong> / ${totalStudentsInSystem}
-            </span>
-            ${uniqueStudentsAssignedHtml}
-        </div>
-    `;
-    // --- KẾT THÚC GHÉP HTML ---
+    // --- HIỂN THỊ HÀNG 1: TỔNG SỐ, LƯỢT GIAO, ĐÃ NỘP ---
+    let totalHtml = '';
 
-    statsContainer.innerHTML = html;
+    // 1. Bài thi đã tạo
+    totalHtml += `<span class="badge bg-primary me-2 fs-6">Bài thi đã tạo: ${totalTestsCreated}</span>`;
+    
+    // 2. Tổng lượt giao
+    totalHtml += `<span class="badge bg-info me-2 fs-6">Tổng lượt giao: ${totalAssignments}</span>`;
+    
+    // 3. Tổng bài đã nộp
+    totalHtml += `<span class="badge bg-success me-2 fs-6">Tổng bài đã nộp: ${totalSubmitted}</span>`;
+    
+    totalDisplay.innerHTML = totalHtml;
+
+
+    // --- HIỂN THỊ HÀNG 2: CHI TIẾT (Trạng thái chấm, Học sinh) ---
+    let detailHtml = '';
+
+    // 1. Trạng thái chấm
+    detailHtml += `<span class="d-inline-block me-3">Trạng thái chấm: `;
+    detailHtml += `<span class="badge bg-success me-1">Hoàn tất: ${gradingStatusCounts['Hoàn tất']}</span>`;
+    detailHtml += `<span class="badge bg-warning text-dark me-1">Đang chấm: ${gradingStatusCounts['Đang Chấm']}</span>`;
+    detailHtml += `<span class="badge bg-info text-dark me-1">Đã chấm: ${gradingStatusCounts['Đã Chấm']}</span>`; // Dùng Đã chấm cho lần 1
+    detailHtml += '</span>';
+
+
+    // 2. Học sinh đã nộp
+    detailHtml += `<span class="me-3">|</span> <span class="d-inline-block me-3">Học sinh đã nộp: `;
+    detailHtml += `<span class="badge bg-secondary me-1"> ${uniqueStudentsSubmitted} / ${totalStudentsInSystem}</span>`;
+    detailHtml += '</span>';
+
+    // 3. HS được giao
+    detailHtml += `<span class="me-3">|</span> <span class="d-inline-block me-3">HS được giao: `;
+    detailHtml += `<span class="badge bg-info text-dark me-1">${uniqueStudentsAssigned}</span>`;
+    detailHtml += '</span>';
+
+    statsContainer.innerHTML = detailHtml;
 }
 
 
@@ -6140,56 +6404,70 @@ async function loadAssignments(forceReload = false) {
         return;
     }
 
-    // Spinner loading
+    // Spinner loading (Colspan cho assigned là 8, cho done là 10)
     if (pendingTbody) pendingTbody.innerHTML =
         '<tr><td colspan="8" class="text-center"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải đề được giao...</td></tr>';
     if (doneTbody) doneTbody.innerHTML =
-        '<tr><td colspan="10" class="text-center"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải bài đã làm...</td></tr>'; // Cập nhật colspan thành 10
+        '<tr><td colspan="10" class="text-center"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải bài đã làm...</td></tr>';
 
-    try {
-        const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
-        if (!s || !s.id) throw new Error("Không tìm thấy thông tin học sinh."); // Ném lỗi rõ ràng
-        const studentId = s.id;
-        const q = `?studentId=${encodeURIComponent(studentId)}`;
+   try {
+    const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
+    if (!s || !s.id) throw new Error("Không tìm thấy thông tin học sinh.");
+    const studentId = s.id;
+    const q = `?studentId=${encodeURIComponent(studentId)}`;
 
-        // >>> THAY ĐỔI TẠI ĐÂY: Gọi API song song <<<
-        const [assignedResponse, resultsResponse] = await Promise.all([
-            fetchJson(`${serverUrl}/api/assignments${q}`), // API assignments (Backend đã sửa để trả về tất cả)
-            fetchJson(`${serverUrl}/api/results${q}`)      // API results
-        ]);
+    // LOG: trước khi gọi API
+    //console.log('>>> loadAssignments: calling APIs for studentId=', studentId, 'forceReload=', forceReload);
 
-        // Xử lý kết quả assignments
-        // Backend trả về {assignments: []} hoặc chỉ mảng []
-        const assignsRaw = assignedResponse.assignments || assignedResponse;
-        const standardizedAssigns = (Array.isArray(assignsRaw) ? assignsRaw : []).map(a => {
-            a.essayCount = a.essayCount || 0;
-            a.mcCount = a.mcCount || 0;
-            a.assignedAt = a.assignedAt || a.createdAt; // Đảm bảo có ngày giao
-            return a;
-        });
-        allAssignedTestsData = standardizedAssigns; // Lưu global assignments (bao gồm cả đã nộp)
+    // Gọi API song song
+    const [assignedResponse, resultsResponse] = await Promise.all([
+        fetchJson(`${serverUrl}/api/assignments${q}`),
+        fetchJson(`${serverUrl}/api/results${q}`)
+    ]);
 
-        // Xử lý kết quả results
-        const results = Array.isArray(resultsResponse) ? resultsResponse : [];
-     
+    // LOG: in response nguyên gốc để kiểm tra shape
+    //console.log('<<< loadAssignments: assignedResponse =', assignedResponse);
+    //console.log('<<< loadAssignments: resultsResponse =', resultsResponse);
 
-        // Gọi processAssignments SAU KHI CÓ CẢ HAI DỮ LIỆU
-        // Hàm này sẽ tự động phân loại pending/completed và lưu vào assignmentState.allResults
-        const { pending, completed } = processAssignments(standardizedAssigns, results); // Lấy kết quả phân loại
+    // Xử lý kết quả assignments
+    const assignsRaw = assignedResponse.assignments || assignedResponse;
+    //console.log('>>> loadAssignments: assignsRaw (length) =', Array.isArray(assignsRaw) ? assignsRaw.length : '(not array)', assignsRaw);
 
-        // Render bảng Pending (chỉ dùng mảng pending đã lọc)
-        renderPendingAssignments(pending); // Truyền mảng pending vào hàm render
-        updateStudentSubjectFilter(allAssignedTestsData); // Cập nhật filter môn từ allAssignedTestsData
+    const standardizedAssigns = (Array.isArray(assignsRaw) ? assignsRaw : []).map(a => {
+        a.essayCount = a.essayCount || 0;
+        a.mcCount = a.mcCount || 0;
+        a.assignedAt = a.assignedAt || a.createdAt;
+        return a;
+    });
+    allAssignedTestsData = standardizedAssigns;
 
-        // Setup filter và render bảng Done (dùng dữ liệu trong assignmentState.allResults)
-        setupAssignmentFilters();
-        filterAndRenderAssignments(); // Hàm này sẽ đọc từ assignmentState.allResults
+    // LOG: after standardize
+    //console.log('>>> loadAssignments: standardizedAssigns =', standardizedAssigns);
 
-    } catch (e) {
+    // Xử lý kết quả results
+    const results = Array.isArray(resultsResponse) ? resultsResponse : [];
+    //console.log('>>> loadAssignments: results (length)=', results.length, results);
 
-        if (pendingTbody) pendingTbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Lỗi tải đề được giao: ${e.message}</td></tr>`;
-        if (doneTbody) doneTbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Lỗi tải bài đã làm: ${e.message}</td></tr>`; // Cập nhật colspan thành 10
-    }
+    // Gọi processAssignments SAU KHI CÓ CẢ HAI DỮ LIỆU
+    const { pending, completed } = processAssignments(standardizedAssigns, results);
+
+    // LOG: kết quả processAssignments
+    //console.log('>>> loadAssignments: processAssignments -> pending.length=', pending.length, 'completed.length=', completed.length);
+
+    // Render bảng Pending (chỉ dùng mảng pending đã lọc)
+    renderPendingAssignments(pending);
+    updateStudentSubjectFilter(allAssignedTestsData);
+
+    // Setup filter và render bảng Done
+    setupAssignmentFilters();
+    filterAndRenderAssignments();
+
+} catch (e) {
+    // Hiển thị lỗi nếu tải dữ liệu thất bại
+    console.error('!!! loadAssignments: caught error:', e);
+    if (pendingTbody) pendingTbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Lỗi tải đề được giao: ${e.message}</td></tr>`;
+    if (doneTbody) doneTbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Lỗi tải bài đã làm: ${e.message}</td></tr>`;
+}
 }
 
 
@@ -6376,13 +6654,15 @@ function formatDateTimeForTable(isoString) {
     }
 }
  
-function renderPendingAssignments() {
-    // 1. Lấy giá trị lọc và sắp xếp (GIỮ NGUYÊN)
+function renderPendingAssignments(pendingAssigns) {
+    // 1. Lấy giá trị lọc và sắp xếp
     const subjectFilter = qs('#filter-stu-subject') ? qs('#filter-stu-subject').value : '';
     const sortValue = qs('#sort-stu-assignment') ? qs('#sort-stu-assignment').value : 'newest';
 
-    // 2. ✅ SỬA LỖI: Lọc từ 'assignmentState.pending' thay vì 'allAssignedTestsData'
-    let filteredData = (assignmentState.pending || []).filter(test => 
+    // 2. Nguồn dữ liệu là đối số được truyền vào (pendingAssigns)
+    let sourceData = pendingAssigns || assignmentState.pending || [];
+    
+    let filteredData = sourceData.filter(test => 
         !subjectFilter || test.subject === subjectFilter
     );
 
@@ -7202,49 +7482,92 @@ function removeQuestionFromPreview(qId) {
     renderManualPreview();
     renderManualQuestionBank();
 }
-// ĐOẠN CODE NÀY PHẢI ĐƯỢC ĐẶT SAU CÁC ĐỊNH NGHĨA HÀM loadResults VÀ qs
 
+// =================================================================
+// KHỐI DOMContentLoaded DUY NHẤT VÀ CHÍNH XÁC
+// (XÓA TẤT CẢ CÁC KHỐI DOMContentLoaded KHÁC VÀ DÙNG KHỐI NÀY)
+// =================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Lắng nghe sự kiện khi Tab Kết quả được hiển thị
-    // ID của phần nội dung tab là #tab-results (theo HTML của bạn)
-    const resultsTabElement = qs('#r-tab'); 
+
+    // ----- 1. KHỞI TẠO TẤT CẢ CÁC MODAL INSTANCE -----
     
+    // Khởi tạo Review Quiz Modal
+    const reviewModalEl = document.getElementById("modalReviewQuiz");
+    if (reviewModalEl) {
+        reviewQuizModalInstance = new bootstrap.Modal(reviewModalEl, {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+
+    // Khởi tạo Info Modal
+    const infoModalEl = document.getElementById("infoModal");
+    if (infoModalEl) {
+        infoModalInstance = new bootstrap.Modal(infoModalEl);
+    }
+
+    // Khởi tạo Quiz Modal
+    const modalElement = document.getElementById('modalQuiz');
+    if (modalElement && typeof bootstrap !== 'undefined') {
+        quizModalInstance = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+    
+    // Khởi tạo Assign Modal
+    const modalAssignElement = qs('#modalAssign');
+    if (modalAssignElement) {
+        modalAssignInstance = new bootstrap.Modal(modalAssignElement);
+    }
+
+    // ✅ SỬA LỖI: THÊM KHỞI TẠO CHO MODAL XÁC NHẬN XÓA
+    const confirmDeleteModalEl = document.getElementById('modalConfirmDelete');
+    if (confirmDeleteModalEl) {
+        // Khởi tạo instance toàn cục (lấy từ khối 1)
+        confirmDeleteModalInstance = new bootstrap.Modal(confirmDeleteModalEl);
+
+        // Gán listener DEBUG cho nó (lấy từ khối 2)
+        confirmDeleteModalEl.addEventListener('show.bs.modal', event => {
+            //console.log('Sự kiện show.bs.modal được kích hoạt cho #modalConfirmDelete');
+        });
+        confirmDeleteModalEl.addEventListener('shown.bs.modal', event => {
+           // console.log('Sự kiện shown.bs.modal được kích hoạt - Modal nên được hiển thị!');
+        });
+        confirmDeleteModalEl.addEventListener('hide.bs.modal', event => {
+            //console.log('Sự kiện hide.bs.modal được kích hoạt cho #modalConfirmDelete');
+        });
+        confirmDeleteModalEl.addEventListener('hidden.bs.modal', event => {
+           // console.log('Sự kiện hidden.bs.modal được kích hoạt - Modal đã bị ẩn.');
+        });
+    } else {
+        //console.error("KHÔNG TÌM THẤY #modalConfirmDelete để gắn listener HOẶC KHỞI TẠO!");
+    }
+    
+    // ----- 2. GÁN CÁC EVENT LISTENER KHÁC (Từ khối 2) -----
+
+    // Listener cho Tab Results
+    const resultsTabElement = qs('#r-tab'); 
     if (resultsTabElement) {
-        // 'shown.bs.tab' là sự kiện chuẩn của Bootstrap khi tab được mở
         resultsTabElement.addEventListener('shown.bs.tab', (event) => {
-            // Gọi hàm loadResults() để tự động tải dữ liệu.
-            // Vì isReload mặc định là false, nó sẽ chỉ tải dữ liệu gốc từ API 
-            // nếu mảng allResultsData chưa có dữ liệu.
             loadResults();
         });
     }
-	// Tìm các dropdown bằng ID (đã được thêm vào HTML)
-    const filterSubject = qs('#filter-stu-subject');
-    const sortAssignment = qs('#sort-stu-assignment');
 
-    // 1. Gán sự kiện cho Bộ lọc Môn học
+    // Listeners cho Filter của Học sinh
+    const filterSubject = qs('#filter-stu-subject');
     if (filterSubject) {
-        // Gọi hàm renderPendingAssignments() (Hàm đã được nâng cấp để Lọc/Sắp xếp)
         filterSubject.addEventListener('change', renderPendingAssignments); 
     }
-
-    // 2. Gán sự kiện cho Bộ sắp xếp
+    const sortAssignment = qs('#sort-stu-assignment');
     if (sortAssignment) {
-        // Gọi hàm renderPendingAssignments()
         sortAssignment.addEventListener('change', renderPendingAssignments); 
     }
 
-    // 2. Tải lần đầu nếu tab Kết quả là tab mặc định khi trang tải
-    // Nếu tab Kết quả là tab được hiển thị mặc định (có class 'active show' trong HTML ban đầu), 
-    // bạn cần bỏ chặn đoạn code này.
-    /*
-    if (resultsTabElement && resultsTabElement.classList.contains('active')) {
-        loadResults();
-    }
-    */
-    
-    // NẾU CÓ CÁC KHỞI TẠO HOẶC GÁN SỰ KIỆN KHÁC CHO TRANG, HÃY ĐẶT TẠI ĐÂY
 });
+// =================================================================
+// KẾT THÚC KHỐI DOMContentLoaded DUY NHẤT
+// =================================================================
 
 </script>
 
