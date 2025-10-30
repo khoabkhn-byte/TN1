@@ -162,6 +162,7 @@ def login():
 def register():
     data = request.get_json() or {}
     user = data.get("user"); passwd = data.get("pass")
+    level = data.get("level",0)
     
     # ✅ THÊM CÁC TRƯỜNG MỚI
     fullName = data.get("fullName"); className = data.get("className")
