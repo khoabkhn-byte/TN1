@@ -910,9 +910,6 @@
         </div>
     </div> <div class="tab-pane fade" id="stu-done">
     
-        <div id="assignment-filters-container" class="card p-3 mb-3">
-            </div>
-        
         <div id="done-stats-container" class="alert alert-light py-2 mb-3" role="alert">
             <div class="d-flex align-items-center mb-2">
                 <strong class="me-3">Thống kê (Bài đã làm):</strong>
@@ -920,6 +917,40 @@
             </div>
             <div id="done-stats-details" class="d-flex flex-wrap align-items-center gap-2">
                 Đang tải...
+            </div>
+        </div>
+
+        <div id="assignment-filters-container" class="card p-3 mb-3">
+            
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3 col-sm-6">
+                    <label for="filter-subject-done" class="form-label small">Môn học</label>
+                    <select id="filter-subject-done" class="form-select form-select-sm">
+                        <option value="all">-- Tất cả --</option>
+                    </select>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label for="filter-status-done" class="form-label small">Trạng thái chấm</label>
+                    <select id="filter-status-done" class="form-select form-select-sm">
+                        <option value="all">-- Tất cả --</option>
+                        <option value="Hoàn tất">Hoàn tất</option>
+                        <option value="Đã Chấm">Đã Chấm</option>
+                        <option value="Đang Chấm">Đang Chấm</option>
+                    </select>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label for="sort-done-time" class="form-label small">Sắp xếp theo</label>
+                    <select id="sort-done-time" class="form-select form-select-sm">
+                        <option value="submittedAt_desc">Thời gian nộp (Mới nhất)</option>
+                        <option value="submittedAt_asc">Thời gian nộp (Cũ nhất)</option>
+                        <option value="totalScore_desc">Điểm tổng (Cao nhất)</option>
+                        <option value="totalScore_asc">Điểm tổng (Thấp nhất)</option>
+                    </select>
+                </div>
+                <div class="col-md-3 col-sm-6 text-end">
+                    <label class="form-label small invisible d-block">.</label>
+                    <button id="reset-filters-done" class="btn btn-sm btn-outline-secondary">Xóa lọc</button>
+                </div>
             </div>
         </div>
         
@@ -943,7 +974,7 @@
                 </table>
             </div>
         </div>
-    </div> </div> </div>
+    </div>
 
 
   <!-- MODALS (teacher re-used from original) -->
@@ -6977,10 +7008,8 @@ function setupAssignmentFilters() {
 
     // --- XỬ LÝ TRƯỜNG HỢP KHÔNG CÓ DỮ LIỆU ---
     if (!assignmentState.allResults || assignmentState.allResults.length === 0) {
-        filterContainer.innerHTML = `
-            <h5>Bộ lọc Bài làm</h5>
-            <p class="text-muted small mb-0">Không có bài làm để lọc.</p>
-        `;
+        // (Không cần hiển thị gì trong card filter nếu không có dữ liệu)
+        filterContainer.innerHTML = ''; 
         return;
     }
     // --- KẾT THÚC ---
@@ -6996,9 +7025,9 @@ function setupAssignmentFilters() {
         })
         .join('');
 
-    // --- ✅ HTML MỚI CHO BỘ LỌC ---
+    // --- ✅ HTML MỚI (ĐÃ XÓA DÒNG H5) ---
     const filtersHtml = `
-        <h5>Bộ lọc Bài làm</h5>
+        
         <div class="row g-2 align-items-end">
 
             <div class="col-md-3 col-sm-6">
@@ -7013,7 +7042,6 @@ function setupAssignmentFilters() {
                 <label for="filter-status-done" class="form-label small">Trạng thái chấm</label>
                 <select id="filter-status-done" class="form-select form-select-sm">
                     <option value="all">-- Tất cả --</option>
-                    {/* Backend trả về: Hoàn tất, Đã Chấm, Đang Chấm */}
                     <option value="Hoàn tất">Hoàn tất</option>
                     <option value="Đã Chấm">Đã Chấm</option>
                     <option value="Đang Chấm">Đang Chấm</option>
@@ -7023,10 +7051,8 @@ function setupAssignmentFilters() {
             <div class="col-md-3 col-sm-6">
                 <label for="sort-done-time" class="form-label small">Sắp xếp theo</label>
                 <select id="sort-done-time" class="form-select form-select-sm">
-                    {/* Giá trị value sẽ dùng để sort: submittedAt_desc/asc */}
                     <option value="submittedAt_desc">Thời gian nộp (Mới nhất)</option>
                     <option value="submittedAt_asc">Thời gian nộp (Cũ nhất)</option>
-                    {/* Thêm sắp xếp điểm nếu muốn sau */}
                     <option value="totalScore_desc">Điểm tổng (Cao nhất)</option>
                     <option value="totalScore_asc">Điểm tổng (Thấp nhất)</option>
                 </select>
@@ -7042,41 +7068,30 @@ function setupAssignmentFilters() {
 
     filterContainer.innerHTML = filtersHtml;
 
-    // --- GÁN SỰ KIỆN NGHE MỚI ---
+    // --- GÁN SỰ KIỆN NGHE MỚI (Giữ nguyên) ---
     const subjectSelect = qs('#filter-subject-done');
     const statusSelect = qs('#filter-status-done');
-    const sortSelect = qs('#sort-done-time'); // Dropdown sắp xếp mới
+    const sortSelect = qs('#sort-done-time');
     const resetButton = qs('#reset-filters-done');
 
-    // Hàm xử lý chung khi filter/sort thay đổi
     const handleFilterOrSortChange = () => {
-        // Cập nhật state chung (lấy từ các ID mới)
         assignmentState.currentFilters.subject = subjectSelect ? subjectSelect.value : 'all';
         assignmentState.currentFilters.status = statusSelect ? statusSelect.value : 'all';
-        // Lưu lựa chọn sắp xếp vào một thuộc tính mới (ví dụ: sortBy)
         assignmentState.currentFilters.sortBy = sortSelect ? sortSelect.value : 'submittedAt_desc';
-
-        // Gọi hàm lọc và render
         filterAndRenderAssignments();
     };
 
-    // Gán sự kiện
     if (subjectSelect) subjectSelect.addEventListener('change', handleFilterOrSortChange);
     if (statusSelect) statusSelect.addEventListener('change', handleFilterOrSortChange);
-    if (sortSelect) sortSelect.addEventListener('change', handleFilterOrSortChange); // Gán cho dropdown sắp xếp
+    if (sortSelect) sortSelect.addEventListener('change', handleFilterOrSortChange); 
 
-    // Xử lý nút Reset
     if (resetButton) resetButton.addEventListener('click', () => {
-        // Reset state
         assignmentState.currentFilters = { subject: 'all', status: 'all', sortBy: 'submittedAt_desc' };
-        // Reset UI
         if (subjectSelect) subjectSelect.value = 'all';
         if (statusSelect) statusSelect.value = 'all';
-        if (sortSelect) sortSelect.value = 'submittedAt_desc'; // Reset về mặc định
-
-        filterAndRenderAssignments(); // Tải lại
+        if (sortSelect) sortSelect.value = 'submittedAt_desc'; 
+        filterAndRenderAssignments(); 
     });
-    // --- KẾT THÚC GÁN SỰ KIỆN ---
 }
 
 
