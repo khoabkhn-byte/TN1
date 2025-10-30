@@ -834,87 +834,116 @@
 </div>
 </div>
     <!-- STUDENT APP -->
-    <div id="student-app">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="brand">Giao diện Học sinh</h2>
-        <div>
-          <span id="who-stu" class="me-3 muted-small"></span>
-          <button class="btn btn-outline-secondary" onclick="logout()">Đăng xuất</button>
-        </div>
-      </div>
-
-      <ul class="nav nav-tabs" id="studentTabs" role="tablist">
-        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#stu-assigned">Đề được giao</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#stu-done">Bài đã làm</button></li>
-      </ul>
-
-      <div class="tab-content mt-3">
-        <div class="tab-pane fade show active" id="stu-assigned">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4>Bài được giao</h4>
-        <div class="d-flex"> 
-            <select id="filter-stu-subject" class="form-select form-select-sm me-3" style="width: 200px;" onchange="renderPendingAssignments()">
-                <option value="">Lọc theo Môn...</option>
-                </select>
-
-            <select id="sort-stu-assignment" class="form-select form-select-sm" style="width: 200px;" onchange="renderPendingAssignments()">
-                <option value="newest">Sắp xếp: Ngày giao (Mới nhất)</option>
-                <option value="oldest">Sắp xếp: Ngày giao (Cũ nhất)</option>
-            </select>
-        </div>
+ <div id="student-app">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="brand">Giao diện Học sinh</h2>
+    <div>
+      <span id="who-stu" class="me-3 muted-small"></span>
+      <button class="btn btn-outline-secondary" onclick="logout()">Đăng xuất</button>
     </div>
+  </div>
 
-    <div class="card shadow-sm">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-sm mb-0 table-assigned"> 
-                <thead>
-                    <tr>
-                        <th scope="col" style="width: 5%;">STT</th>
-                        <th scope="col" style="width: 15%;">Môn học</th>
-                        <th scope="col" style="width: 25%;">Tên đề thi</th>
-                        <th scope="col" style="width: 8%;" class="text-center" title="Số câu Tự luận">TL</th>
-                        <th scope="col" style="width: 8%;" class="text-center" title="Số câu Trắc nghiệm">TN</th>
-                        <th scope="col" style="width: 10%;" class="text-center">Thời gian</th>
-                        <th scope="col" style="width: 14%;">Ngày giao</th>
-                        <th scope="col" style="width: 15%;" class="text-center">Hành động</th>
-                    </tr>
-                </thead>
-                <tbody id="assigned-tbody">
-                    <tr><td colspan="8" class="text-center">Đang tải danh sách bài được giao...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-</div>
-        <div class="tab-pane fade" id="stu-done">
+  <ul class="nav nav-tabs" id="studentTabs" role="tablist">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#stu-assigned">Đề được giao</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#stu-done">Bài đã làm</button></li>
+  </ul>
+
+  <div class="tab-content mt-3">
     
-    <div id="assignment-filters-container" class="card p-3 mb-3">
+    <div class="tab-pane fade show active" id="stu-assigned">
+        
+        <div id="pending-stats-container" class="alert alert-light py-2 mb-3" role="alert">
+            <div class="d-flex align-items-center mb-2">
+                <strong class="me-3">Thống kê (Đề được giao):</strong>
+                <span id="pending-stats-total">Đang tải...</span>
+            </div>
+            <div id="pending-stats-details" class="d-flex flex-wrap align-items-center gap-2">
+                Đang tải...
+            </div>
         </div>
-    <div class="card p-3">
-        <div class="table-wrap">
-            <table class="table table-sm table-hover">
-                <thead>
-                    <tr>
-                        <th>STT</th>
-                        <th>Bài thi</th>
-                        <th>Môn</th>             <th>Thời gian nộp</th>
-                        <th class="text-center">Trạng thái chấm</th>
-                        <th class="text-center">Điểm TN</th> 
-                        <th class="text-center">Điểm TL</th>
-                        <th class="text-center">Điểm (Tổng)</th> 
-                        <th class="text-center">Ngày chấm</th> 
-                        <th class="text-center">Hành động</th>
-                    </tr>
-                </thead>
-                <tbody id="done-tbody"></tbody> 
-            </table>
+
+        <div class="card p-3 mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label for="filter-stu-subject" class="form-label small mb-1">Lọc theo Môn</label>
+                    <select id="filter-stu-subject" class="form-select form-select-sm" onchange="renderPendingAssignments()">
+                        <option value="">-- Tất cả Môn học --</option>
+                        </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="sort-stu-assignment" class="form-label small mb-1">Sắp xếp theo</label>
+                    <select id="sort-stu-assignment" class="form-select form-select-sm" onchange="renderPendingAssignments()">
+                        <option value="newest">Ngày giao (Mới nhất)</option>
+                        <option value="oldest">Ngày giao (Cũ nhất)</option>
+                    </select>
+                </div>
+                <div class="col-md-4 text-end">
+                    <label class="form-label small invisible d-block mb-1">.</label>
+                    <button class="btn btn-sm btn-outline-primary me-2" onclick="loadAssignments(true)">Tải lại</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="clearPendingFilters()">Xóa lọc</button>
+                </div>
+            </div>
         </div>
-    </div>
-</div>
-      </div>
-    </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 table-assigned"> 
+                        <thead>
+                            <tr>
+                                <th scope="col" style="width: 5%;">STT</th>
+                                <th scope="col" style="width: 15%;">Môn học</th>
+                                <th scope="col" style="width: 25%;">Tên đề thi</th>
+                                <th scope="col" style="width: 8%;" class="text-center" title="Số câu Tự luận">TL</th>
+                                <th scope="col" style="width: 8%;" class="text-center" title="Số câu Trắc nghiệm">TN</th>
+                                <th scope="col" style="width: 10%;" class="text-center">Thời gian</th>
+                                <th scope="col" style="width: 14%;">Ngày giao</th>
+                                <th scope="col" style="width: 15%;" class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assigned-tbody">
+                            <tr><td colspan="8" class="text-center">Đang tải danh sách bài được giao...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div> <div class="tab-pane fade" id="stu-done">
+    
+        <div id="assignment-filters-container" class="card p-3 mb-3">
+            </div>
+        
+        <div id="done-stats-container" class="alert alert-light py-2 mb-3" role="alert">
+            <div class="d-flex align-items-center mb-2">
+                <strong class="me-3">Thống kê (Bài đã làm):</strong>
+                <span id="done-stats-total">Đang tải...</span>
+            </div>
+            <div id="done-stats-details" class="d-flex flex-wrap align-items-center gap-2">
+                Đang tải...
+            </div>
+        </div>
+        
+        <div class="card p-3">
+            <div class="table-wrap">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Bài thi</th>
+                            <th>Môn</th>             <th>Thời gian nộp</th>
+                            <th class="text-center">Trạng thái chấm</th>
+                            <th class="text-center">Điểm TN</th> 
+                            <th class="text-center">Điểm TL</th>
+                            <th class="text-center">Điểm (Tổng)</th> 
+                            <th class="text-center">Ngày chấm</th> 
+                            <th class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="done-tbody"></tbody> 
+                </table>
+            </div>
+        </div>
+    </div> </div> </div>
 
 
   <!-- MODALS (teacher re-used from original) -->
@@ -5700,6 +5729,58 @@ async function openAssignModal(testId, testName) {
 }
 
 
+// HÀM MỚI: DÙNG ĐỂ RENDER KHỐI THỐNG KÊ CHUNG CỦA HỌC SINH
+function renderStudentGlobalStats(pendingList, completedList) {
+    const totalDisplay = qs('#student-stats-total-display');
+    const statsContainer = qs('#student-stats-detailed-info');
+    if (!totalDisplay || !statsContainer) return;
+
+    const pendingCount = pendingList.length;
+    const completedCount = completedList.length;
+    const totalCount = pendingCount + completedCount;
+
+    // --- HIỂN THỊ HÀNG 1: TỔNG SỐ ---
+    totalDisplay.innerHTML = `<span class="badge bg-primary fs-6">Tổng số bài: ${totalCount}</span>`;
+
+    // --- HIỂN THỊ HÀNG 2: CHI TIẾT ---
+    let html = '';
+
+    // 1. Phân loại Trạng thái
+    html += `<span class="d-inline-block me-3">Trạng thái: `;
+    html += `<span class="badge bg-warning text-dark me-1">Đang chờ: ${pendingCount}</span>`;
+    html += `<span class="badge bg-success me-1">Đã nộp: ${completedCount}</span>`;
+    html += `</span>`;
+
+    // 2. Phân loại Môn học (Đếm trên TẤT CẢ bài)
+    const allAssignments = [...pendingList, ...completedList];
+    const subjectCounts = {};
+    allAssignments.forEach(a => {
+        const subj = a.subject || 'khac'; // 'khac' cho các môn không xác định
+        subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
+    });
+
+    html += `<span class="me-3">|</span> <span class="d-inline-block me-3">Môn học: `;
+    const sortedSubjects = Object.keys(subjectCounts).sort();
+    
+    sortedSubjects.forEach(subjCode => {
+        // Sử dụng SUBJECT_NAMES đã có để lấy tên Tiếng Việt
+        html += `<span class="badge bg-secondary me-1">${SUBJECT_NAMES[subjCode] || subjCode}: ${subjectCounts[subjCode]}</span>`;
+    });
+    html += `</span>`;
+    
+    statsContainer.innerHTML = html;
+}
+
+// HÀM MỚI: DÙNG CHO NÚT "XÓA LỌC" TRÊN TAB "ĐỀ ĐƯỢC GIAO"
+function clearPendingFilters() {
+    if (qs('#filter-stu-subject')) qs('#filter-stu-subject').value = '';
+    if (qs('#sort-stu-assignment')) qs('#sort-stu-assignment').value = 'newest';
+    
+    // Gọi lại hàm render của tab pending
+    renderPendingAssignments(); 
+}
+
+
 function renderAssignmentLists(students, assignments) {
     
     // 🔥 1. LỌC: Loại bỏ Admin và Teacher trước khi xử lý
@@ -6399,7 +6480,12 @@ async function loadAssignments(forceReload = false) {
 
     // Logic cache/render nhanh
     if (!forceReload && allAssignedTestsData && allAssignedTestsData.length > 0 && assignmentState.allResults && assignmentState.allResults.length > 0) {
-        renderPendingAssignments();
+        
+        // ✅ BƯỚC 1: THÊM HÀM GỌI THỐNG KÊ (KHI DÙNG CACHE)
+        renderStudentGlobalStats(assignmentState.pending || [], assignmentState.completed || []);
+        
+        // Sửa lại để truyền tham số (nếu logic của bạn cần)
+        renderPendingAssignments(assignmentState.pending); 
         filterAndRenderAssignments();
         return;
     }
@@ -6411,63 +6497,66 @@ async function loadAssignments(forceReload = false) {
         '<tr><td colspan="10" class="text-center"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải bài đã làm...</td></tr>';
 
    try {
-    const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
-    if (!s || !s.id) throw new Error("Không tìm thấy thông tin học sinh.");
-    const studentId = s.id;
-    const q = `?studentId=${encodeURIComponent(studentId)}`;
+        const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
+        if (!s || !s.id) throw new Error("Không tìm thấy thông tin học sinh.");
+        const studentId = s.id;
+        const q = `?studentId=${encodeURIComponent(studentId)}`;
 
-    // LOG: trước khi gọi API
-    //console.log('>>> loadAssignments: calling APIs for studentId=', studentId, 'forceReload=', forceReload);
+        // LOG: trước khi gọi API
+        console.log('>>> loadAssignments: calling APIs for studentId=', studentId, 'forceReload=', forceReload);
 
-    // Gọi API song song
-    const [assignedResponse, resultsResponse] = await Promise.all([
-        fetchJson(`${serverUrl}/api/assignments${q}`),
-        fetchJson(`${serverUrl}/api/results${q}`)
-    ]);
+        // Gọi API song song
+        const [assignedResponse, resultsResponse] = await Promise.all([
+            fetchJson(`${serverUrl}/api/assignments${q}`),
+            fetchJson(`${serverUrl}/api/results${q}`)
+        ]);
 
-    // LOG: in response nguyên gốc để kiểm tra shape
-    //console.log('<<< loadAssignments: assignedResponse =', assignedResponse);
-    //console.log('<<< loadAssignments: resultsResponse =', resultsResponse);
+        // LOG: in response nguyên gốc để kiểm tra shape
+        console.log('<<< loadAssignments: assignedResponse =', assignedResponse);
+        console.log('<<< loadAssignments: resultsResponse =', resultsResponse);
 
-    // Xử lý kết quả assignments
-    const assignsRaw = assignedResponse.assignments || assignedResponse;
-    //console.log('>>> loadAssignments: assignsRaw (length) =', Array.isArray(assignsRaw) ? assignsRaw.length : '(not array)', assignsRaw);
+        // Xử lý kết quả assignments
+        const assignsRaw = assignedResponse.assignments || assignedResponse;
+        console.log('>>> loadAssignments: assignsRaw (length) =', Array.isArray(assignsRaw) ? assignsRaw.length : '(not array)', assignsRaw);
 
-    const standardizedAssigns = (Array.isArray(assignsRaw) ? assignsRaw : []).map(a => {
-        a.essayCount = a.essayCount || 0;
-        a.mcCount = a.mcCount || 0;
-        a.assignedAt = a.assignedAt || a.createdAt;
-        return a;
-    });
-    allAssignedTestsData = standardizedAssigns;
+        const standardizedAssigns = (Array.isArray(assignsRaw) ? assignsRaw : []).map(a => {
+            a.essayCount = a.essayCount || 0;
+            a.mcCount = a.mcCount || 0;
+            a.assignedAt = a.assignedAt || a.createdAt;
+            return a;
+        });
+        allAssignedTestsData = standardizedAssigns;
 
-    // LOG: after standardize
-    //console.log('>>> loadAssignments: standardizedAssigns =', standardizedAssigns);
+        // LOG: after standardize
+        console.log('>>> loadAssignments: standardizedAssigns =', standardizedAssigns);
 
-    // Xử lý kết quả results
-    const results = Array.isArray(resultsResponse) ? resultsResponse : [];
-    //console.log('>>> loadAssignments: results (length)=', results.length, results);
+        // Xử lý kết quả results
+        const results = Array.isArray(resultsResponse) ? resultsResponse : [];
+        console.log('>>> loadAssignments: results (length)=', results.length, results);
 
-    // Gọi processAssignments SAU KHI CÓ CẢ HAI DỮ LIỆU
-    const { pending, completed } = processAssignments(standardizedAssigns, results);
+        // Gọi processAssignments SAU KHI CÓ CẢ HAI DỮ LIỆU
+        const { pending, completed } = processAssignments(standardizedAssigns, results);
 
-    // LOG: kết quả processAssignments
-    //console.log('>>> loadAssignments: processAssignments -> pending.length=', pending.length, 'completed.length=', completed.length);
+        // LOG: kết quả processAssignments
+        console.log('>>> loadAssignments: processAssignments -> pending.length=', pending.length, 'completed.length=', completed.length);
 
-    // Render bảng Pending (chỉ dùng mảng pending đã lọc)
-    renderPendingAssignments(pending);
-    updateStudentSubjectFilter(allAssignedTestsData);
+        // ✅ BƯỚC 2: THÊM HÀM GỌI THỐNG KÊ (KHI TẢI MỚI)
+        renderStudentGlobalStats(pending, completed);
 
-    // Setup filter và render bảng Done
-    setupAssignmentFilters();
-    filterAndRenderAssignments();
+        // Render bảng Pending (chỉ dùng mảng pending đã lọc)
+        renderPendingAssignments(pending);
+        updateStudentSubjectFilter(allAssignedTestsData);
 
-} catch (e) {
-    // Hiển thị lỗi nếu tải dữ liệu thất bại
-    console.error('!!! loadAssignments: caught error:', e);
-    if (pendingTbody) pendingTbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Lỗi tải đề được giao: ${e.message}</td></tr>`;
-    if (doneTbody) doneTbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Lỗi tải bài đã làm: ${e.message}</td></tr>`;
-}
+        // Setup filter và render bảng Done
+        setupAssignmentFilters();
+        filterAndRenderAssignments();
+
+    } catch (e) {
+        // Hiển thị lỗi nếu tải dữ liệu thất bại
+        console.error('!!! loadAssignments: caught error:', e);
+        if (pendingTbody) pendingTbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Lỗi tải đề được giao: ${e.message}</td></tr>`;
+        if (doneTbody) doneTbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Lỗi tải bài đã làm: ${e.message}</td></tr>`;
+    }
 }
 
 
@@ -6573,53 +6662,81 @@ function processAssignments(assigns, results) {
 
 // Thay thế hàm filterAndRenderAssignments (khoảng dòng 5716)
 function filterAndRenderAssignments() {
-    // Luôn bắt đầu với danh sách completed đầy đủ
+    // 1. Lọc và Sắp xếp (Giữ nguyên)
     let filteredList = [...(assignmentState.completed || [])];
     const currentFilters = assignmentState.currentFilters;
 
-    // --- ✅ LOGIC LỌC MỚI ---
-    // 1. Lọc môn học
     if (currentFilters.subject && currentFilters.subject !== 'all') {
         filteredList = filteredList.filter(a => a.subject === currentFilters.subject);
     }
-
-    // 2. Lọc trạng thái chấm
-    // Giá trị từ dropdown là: "Hoàn tất", "Đã Chấm", "Đang Chấm"
     if (currentFilters.status && currentFilters.status !== 'all') {
         filteredList = filteredList.filter(a => (a.gradingStatus || 'Đang Chấm') === currentFilters.status);
     }
-    // --- KẾT THÚC LỌC ---
 
-
-    // --- ✅ LOGIC SẮP XẾP MỚI ---
-    const sortBy = currentFilters.sortBy || 'submittedAt_desc'; // Mặc định là mới nhất
+    const sortBy = currentFilters.sortBy || 'submittedAt_desc';
     const sortParts = sortBy.split('_');
-    const sortField = sortParts[0]; // 'submittedAt', 'totalScore'
-    const sortDir = sortParts[1] === 'desc' ? -1 : 1; // -1 cho desc, 1 cho asc
+    const sortField = sortParts[0]; 
+    const sortDir = sortParts[1] === 'desc' ? -1 : 1; 
 
     filteredList.sort((a, b) => {
         let valA = a[sortField];
         let valB = b[sortField];
-
-        // Chuyển đổi giá trị nếu cần so sánh số hoặc ngày
         if (sortField === 'totalScore') {
-            valA = parseFloat(valA) || 0; // Chuyển điểm thành số
+            valA = parseFloat(valA) || 0; 
             valB = parseFloat(valB) || 0;
         } else if (sortField === 'submittedAt') {
-            // Chuyển chuỗi ISO thành mili giây để so sánh
             valA = valA ? new Date(valA).getTime() : 0;
             valB = valB ? new Date(valB).getTime() : 0;
         }
-
-        // So sánh
         if (valA < valB) return -1 * sortDir;
         if (valA > valB) return 1 * sortDir;
         return 0;
     });
-    // --- KẾT THÚC SẮP XẾP ---
 
-    // Render bảng với danh sách đã lọc và sắp xếp
+    // 2. Render bảng (Giữ nguyên)
     renderDoneAssignments(filteredList);
+
+    // 3. ✅ THÊM LOGIC RENDER THỐNG KÊ (MỚI)
+    const totalDone = filteredList.length;
+    const doneTotalEl = qs('#done-stats-total');
+    const doneDetailsEl = qs('#done-stats-details');
+
+    if (doneTotalEl && doneDetailsEl) {
+        // Hàng 1: Tổng số
+        doneTotalEl.innerHTML = `<span class="badge bg-success fs-6">Tổng số: ${totalDone}</span>`;
+
+        // Hàng 2: Chi tiết (Trạng thái chấm & Môn học)
+        const subjectCounts = {};
+        const statusCounts = { 'Hoàn tất': 0, 'Đã Chấm': 0, 'Đang Chấm': 0 }; 
+
+        filteredList.forEach(a => {
+            const subj = a.subject || 'khac';
+            subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
+            
+            const status = a.gradingStatus || 'Đang Chấm';
+            if (statusCounts.hasOwnProperty(status)) {
+                statusCounts[status]++;
+            }
+        });
+
+        let detailsHtml = '<span class="d-inline-block me-3">Trạng thái: ';
+        detailsHtml += `<span class="badge bg-success me-1">Hoàn tất: ${statusCounts['Hoàn tất']}</span>`;
+        detailsHtml += `<span class="badge bg-info text-dark me-1">Đã chấm: ${statusCounts['Đã Chấm']}</span>`;
+        detailsHtml += `<span class="badge bg-warning text-dark me-1">Đang chấm: ${statusCounts['Đang Chấm']}</span>`;
+        detailsHtml += '</span>';
+
+        detailsHtml += '<span class="me-3">|</span> <span class="d-inline-block me-3">Môn học: ';
+        const sortedSubjects = Object.keys(subjectCounts).sort();
+        if (sortedSubjects.length > 0) {
+             sortedSubjects.forEach(subjCode => {
+                detailsHtml += `<span class="badge bg-secondary me-1">${SUBJECT_NAMES[subjCode] || subjCode}: ${subjectCounts[subjCode]}</span>`;
+            });
+        } else {
+            detailsHtml += '<span class="badge bg-secondary me-1">Không có bài nào</span>';
+        }
+        detailsHtml += '</span>';
+        doneDetailsEl.innerHTML = detailsHtml;
+    }
 }
 
 /**
@@ -6659,14 +6776,14 @@ function renderPendingAssignments(pendingAssigns) {
     const subjectFilter = qs('#filter-stu-subject') ? qs('#filter-stu-subject').value : '';
     const sortValue = qs('#sort-stu-assignment') ? qs('#sort-stu-assignment').value : 'newest';
 
-    // 2. Nguồn dữ liệu là đối số được truyền vào (pendingAssigns)
+    // 2. Nguồn dữ liệu
     let sourceData = pendingAssigns || assignmentState.pending || [];
     
     let filteredData = sourceData.filter(test => 
         !subjectFilter || test.subject === subjectFilter
     );
 
-    // 3. Sắp xếp dữ liệu (Logic này đã đúng)
+    // 3. Sắp xếp dữ liệu
     filteredData.sort((a, b) => {
         const dateA = convertDateStringToDate(a.assignedAt); 
         const dateB = convertDateStringToDate(b.assignedAt);
@@ -6679,31 +6796,60 @@ function renderPendingAssignments(pendingAssigns) {
         }
     });
 
-    // 4. Render vào bảng (Logic này đã đúng)
+    // 4. Render vào bảng (Giữ nguyên)
     const tableBody = qs('#assigned-tbody');
     if (!tableBody) return; 
+    
     if (filteredData.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="8" class="text-center">Không tìm thấy bài được giao nào.</td></tr>';
-        return;
+    } else {
+        tableBody.innerHTML = filteredData.map((a, index) => {
+            const displayName = mapSubjectToDisplayName(a.subject);
+            const actionButton = `<button class="btn btn-sm btn-primary" onclick="startQuiz('${a.testId}', '${a.assignmentId}', ${a.time})">Làm bài</button>`; 
+            const formattedDate = formatDateTimeForTable(a.assignedAt); 
+            return `
+                <tr>
+                    <td class="text-center">${index + 1}</td>
+                    <td>${displayName || '—'}</td> <td>${a.testName || '—'}</td>
+                    <td class="text-center">${a.essayCount || 0}</td>
+                    <td class="text-center">${a.mcCount || 0}</td>
+                    <td class="text-center">${a.time || '—'}</td>
+                    <td class="text-center">${formattedDate}</td>
+                    <td class="text-center">${actionButton}</td> 
+                </tr>
+            `;
+        }).join('');
     }
-    tableBody.innerHTML = filteredData.map((a, index) => {
-        const displayName = mapSubjectToDisplayName(a.subject);
-        const actionButton = `<button class="btn btn-sm btn-primary" onclick="startQuiz('${a.testId}', '${a.assignmentId}', ${a.time})">Làm bài</button>`; 
-        const formattedDate = formatDateTimeForTable(a.assignedAt); 
-        return `
-            <tr>
-                <td class="text-center">${index + 1}</td>
-                <td>${displayName || '—'}</td> <td>${a.testName || '—'}</td>
-                <td class="text-center">${a.essayCount || 0}</td>
-                <td class="text-center">${a.mcCount || 0}</td>
-                <td class="text-center">${a.time || '—'}</td>
-                <td class="text-center">${formattedDate}</td>
-                <td class="text-center">${actionButton}</td> 
-            </tr>
-        `;
-    }).join('');
-}
 
+    // 5. ✅ THÊM LOGIC RENDER THỐNG KÊ (MỚI)
+    const totalPending = filteredData.length;
+    const pendingTotalEl = qs('#pending-stats-total');
+    const pendingDetailsEl = qs('#pending-stats-details');
+
+    if (pendingTotalEl && pendingDetailsEl) {
+        // Hàng 1: Tổng số
+        pendingTotalEl.innerHTML = `<span class="badge bg-primary fs-6">Tổng số: ${totalPending}</span>`;
+
+        // Hàng 2: Chi tiết (Môn học)
+        const subjectCounts = {};
+        filteredData.forEach(a => {
+            const subj = a.subject || 'khac';
+            subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
+        });
+
+        let detailsHtml = '<span class="d-inline-block me-3">Môn học: ';
+        const sortedSubjects = Object.keys(subjectCounts).sort();
+        if (sortedSubjects.length > 0) {
+            sortedSubjects.forEach(subjCode => {
+                detailsHtml += `<span class="badge bg-secondary me-1">${SUBJECT_NAMES[subjCode] || subjCode}: ${subjectCounts[subjCode]}</span>`;
+            });
+        } else {
+            detailsHtml += '<span class="badge bg-secondary me-1">Không có bài nào</span>';
+        }
+        detailsHtml += '</span>';
+        pendingDetailsEl.innerHTML = detailsHtml;
+    }
+}
 
 function renderDoneAssignments(completed) {
     const tbody = qs('#done-tbody');
