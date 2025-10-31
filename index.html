@@ -377,6 +377,15 @@
     text-align: left; 
 }
 
+/* Thêm lớp này để giả lập trạng thái khóa mà vẫn cho phép click */
+.btn-locked {
+    opacity: 0.65;
+    /* Con trỏ chuột hình "cấm" */
+    cursor: not-allowed !important; 
+    /* Quan trọng: Đảm bảo nó vẫn nhận sự kiện click (ngược lại với 'pointer-events: none') */
+    pointer-events: auto !important; 
+}
+
 
   </style>
 </head>
@@ -848,8 +857,8 @@
                 </div>
             </div>
         </div>
-</div>
-</div>
+ </div>
+ </div>
     <!-- STUDENT APP -->
  <div id="student-app">
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1032,7 +1041,7 @@
             
         </div>
     </div>
-
+</div>
 
   <!-- MODALS (teacher re-used from original) -->
   <!-- Question modal -->
@@ -2254,11 +2263,20 @@ function renderQuestions(items){
       const typeDisplay = q.type === 'essay' ? 'TL' : 'TN'; 
       const qId = q.id || q._id || ''; 
       
+      const isAssigned = q.isAssigned === true;
+
       const subjectName = SUBJECT_NAMES[q.subject] || q.subject || 'N/A';
       
-      // THAY ĐỔI CĂN CHỈNH TẠI ĐÂY:
-      // text-start: căn trái (chỉ dùng cho cột Câu hỏi)
-      // text-center: căn giữa (dùng cho các cột còn lại)
+      // === CẬP NHẬT LOGIC NÚT ===
+      const editButtonHtml = isAssigned
+            ? `<button class="btn btn-sm btn-outline-primary btn-locked" title="Câu hỏi nằm trong đề đã được giao không thể sửa." onclick='alert("Câu hỏi nằm trong đề đã được giao không thể sửa.")'>Sửa</button>`
+            : `<button class="btn btn-sm btn-outline-primary" onclick='openQuestionModalById("${qId}")'>Sửa</button>`;
+      
+      const deleteButtonHtml = isAssigned
+            ? `<button class="btn btn-sm btn-outline-danger btn-locked" title="Câu hỏi nằm trong đề đã được giao, không thể xóa." onclick='alert("Câu hỏi nằm trong đề đã được giao, không thể xóa.")'>Xóa</button>`
+            : `<button class="btn btn-sm btn-outline-danger" onclick='deleteQuestion("${qId}")'>Xóa</button>`;
+      // === KẾT THÚC CẬP NHẬT ===
+
       tr.innerHTML = `
         <td class="text-center">${stt++}</td> 
         <td class="text-start">${qText}</td>
@@ -2277,8 +2295,8 @@ function renderQuestions(items){
         </td>
         <td class="text-center">
           <div class="d-flex justify-content-center gap-1">
-              <button class="btn btn-sm btn-outline-primary" onclick='openQuestionModalById("${qId}")'>Sửa</button>
-              <button class="btn btn-sm btn-outline-danger" onclick='deleteQuestion("${qId}")'>Xóa</button>
+              ${editButtonHtml}
+              ${deleteButtonHtml}
           </div>
         </td>
       `; 
@@ -2286,6 +2304,9 @@ function renderQuestions(items){
     }); 
     tbody.appendChild(frag); 
 }
+
+
+
 	
     function openQuestionModalFromRow(qStr){ 
     try { 
@@ -3956,28 +3977,35 @@ function updateTestLevelFilter(tests) {
 	// Bạn cần sửa hàm renderTests trong file JS của bạn
 function renderTests(items) {
     const tbody = qs('#tests-tbody');
-    // ... (phần đầu hàm giữ nguyên: kiểm tra tbody, TOTAL_COLUMNS, xử lý rỗng) ...
      if (!tbody) return; const TOTAL_COLUMNS = 11; tbody.innerHTML = ''; if (!items || items.length === 0) { tbody.innerHTML = `<tr><td colspan="${TOTAL_COLUMNS}" class="text-center text-muted">Không có bài kiểm tra nào phù hợp.</td></tr>`; return; }
 
     const frag = document.createDocumentFragment();
-    // ... (lấy currentPage, PAGE_SIZE, stt) ...
      const currentPage = parseInt(state?.tests?.page) || 1; const PAGE_SIZE = 10; let stt = (currentPage - 1) * PAGE_SIZE + 1;
 
 
     items.forEach(t => {
         const tr = document.createElement('tr');
-        // ... (lấy testId, subjectName, counts, status, timeDisplay, creationDate) ...
-         const testId = t.id || t._id || ''; const subjectName = SUBJECT_NAMES[t.subject] || t.subject || '—'; const essayCount = t.essayCount ?? 0; const mcCount = t.mcCount ?? 0; const status = (t.assignmentStatus || '').toLowerCase(); const isAssigned = status === 'assigned'; const statusText = isAssigned ? 'Đã giao' : 'Chưa giao'; const statusClass = isAssigned ? 'text-success' : 'text-secondary'; const timeDisplay = t.time || '—'; const creationDate = t.createdAt ? formatDateTimeForTable(t.createdAt) : '—';
+         const testId = t.id || t._id || ''; const subjectName = SUBJECT_NAMES[t.subject] || t.subject || '—'; const essayCount = t.essayCount ?? 0; const mcCount = t.mcCount ?? 0; const status = (t.assignmentStatus || '').toLowerCase(); 
+         
+         const isAssigned = status === 'assigned';
+         
+         const statusText = isAssigned ? 'Đã giao' : 'Chưa giao'; const statusClass = isAssigned ? 'text-success' : 'text-secondary'; const timeDisplay = t.time || '—'; const creationDate = t.createdAt ? formatDateTimeForTable(t.createdAt) : '—';
 
 
-        // --- ✅ SỬA LOGIC XÁC ĐỊNH LOẠI ĐỀ ---
-        // Kiểm tra trực tiếp giá trị boolean của t.isAutoGenerated
         const testType = t.isAutoGenerated === true
                        ? '<span class="badge bg-info text-dark">Tự động</span>'
                        : '<span class="badge bg-light text-dark border">Thủ công</span>';
-        // --- KẾT THÚC ---
 
-        // Render tr.innerHTML (giữ nguyên cấu trúc cột)
+        // === CẬP NHẬT LOGIC NÚT ===
+        const editButtonHtml = isAssigned
+            ? `<button class="btn btn-sm btn-outline-primary btn-locked" title="Đề thi đã được giao, không sửa được đề." onclick='alert("Đề thi đã được giao, không sửa được đề.")'>Sửa</button>`
+            : `<button class="btn btn-sm btn-outline-primary" onclick='openTestEditModal("${testId}")'>Sửa</button>`;
+        
+        const deleteButtonHtml = isAssigned
+            ? `<button class="btn btn-sm btn-outline-danger btn-locked" title="Đề thi đã được giao, không thể xóa." onclick='alert("Đề thi đã được giao, không thể xóa.")'>Xóa</button>`
+            : `<button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${escapeHtml(t.name).replace(/"/g, '&quot;')}")'>Xóa</button>`;
+        // === KẾT THÚC CẬP NHẬT ===
+
         tr.innerHTML = `
             <td class="text-center"><input type="checkbox" class="select-test-checkbox" data-testid="${testId}"></td>
             <td class="text-center">${stt++}</td>
@@ -3990,12 +4018,19 @@ function renderTests(items) {
             <td class="text-center">${testType}</td>
             <td class="text-center ${statusClass} fw-bold">${statusText}</td>
            
-             <td class="text-center p-1"><div class="d-flex justify-content-center flex-wrap" style="gap: 1px;"><button class="btn btn-sm btn-outline-primary" onclick='openTestEditModal("${testId}")'>Sửa</button><button class="btn btn-sm btn-outline-success" onclick='openAssignModal("${testId}", "${escapeHtml(t.name).replace(/"/g, '&quot;')}")'>Giao đề</button><button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${escapeHtml(t.name).replace(/"/g, '&quot;')}")'>Xóa</button></div></td>
+             <td class="text-center p-1">
+                <div class="d-flex justify-content-center flex-wrap" style="gap: 1px;">
+                    ${editButtonHtml}
+                    <button class="btn btn-sm btn-outline-success" onclick='openAssignModal("${testId}", "${escapeHtml(t.name).replace(/"/g, '&quot;')}")'>Giao đề</button>
+                    ${deleteButtonHtml}
+                </div>
+            </td>
         `;
         frag.appendChild(tr);
     });
     tbody.appendChild(frag);
 }
+
 
 function toggleBulkAssignButton() {
     // 1. Đếm số lượng checkbox đề thi đã được chọn
@@ -4340,82 +4375,84 @@ async function openReviewQuiz(resultId) {
 
 
 async function openTestEditModal(testId) {
-  try {
-    const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
-    if (!test) return alert("Không tìm thấy đề thi!");
+  try {
+    const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
+    if (!test) return alert("Không tìm thấy đề thi!");
 
-    const modalEl = qs('modalTestEdit');
-    const modal = new bootstrap.Modal(modalEl);
+    const modalEl = qs('modalTestEdit');
+    const modal = new bootstrap.Modal(modalEl);
     
     window.editState = window.editState || {};
     window.editState.currentTest = test; 
     
     let questionsToEdit = test.questions || [];
 
-    // ✅ BƯỚC 1: BÙ ĐẮP NỘI DUNG NẾU LÀ ĐỀ TỰ ĐỘNG VÀ THIẾU DỮ LIỆU
-    // Kiểm tra: Nếu đề thi là tự động và câu hỏi chỉ có ID (không có nội dung 'q' hoặc 'question')
+    // BÙ ĐẮP NỘI DUNG NẾU LÀ ĐỀ TỰ ĐỘNG (Logic cũ của bạn, rất tốt)
     if (questionsToEdit.length > 0 && test.isAutoGenerated && !questionsToEdit[0].q && !questionsToEdit[0].question) {
-        
-        // Tải toàn bộ ngân hàng câu hỏi (Sử dụng hàm mới không bị lọc)
         const allQuestions = await listAllQuestions(); 
-        
         const questionBankMap = new Map();
         allQuestions.forEach(q => {
-            questionBankMap.set(q._id, q);
+            // Sử dụng _id (ObjectId string) làm key
+            questionBankMap.set(String(q._id), q);
         });
-
-        // Thay thế câu hỏi rút gọn bằng câu hỏi đầy đủ từ ngân hàng
         questionsToEdit = questionsToEdit.map(qLite => {
-            const fullQuestion = questionBankMap.get(qLite._id);
+            // Đề tự động cũ lưu _id, đề mới lưu id (UUID)
+            const keyToFind = qLite.id || qLite._id; 
+            const fullQuestion = questionBankMap.get(String(keyToFind));
             return fullQuestion ? JSON.parse(JSON.stringify(fullQuestion)) : qLite;
         });
-        
-        // Loại bỏ câu hỏi không tìm thấy (giả định trường nội dung là q, question, hoặc text)
-        questionsToEdit = questionsToEdit.filter(q => q && (q.q || q.question || q.text));
+        questionsToEdit = questionsToEdit.filter(q => q && (q.q || q.question));
     }
 
-	// 2. Gán danh sách câu hỏi đã được bù đắp (hoặc nguyên vẹn) vào State
-    window.editState.selectedQuestions = JSON.parse(JSON.stringify(questionsToEdit));
+	// Gán danh sách câu hỏi vào State
+    window.editState.selectedQuestions = JSON.parse(JSON.stringify(questionsToEdit));
 
-    // 3. Gán thông tin chung và Render UI
-    qs('edit-test-id').value = testId;
-    qs('edit-test-name').value = test.name || '';
-    qs('edit-test-time').value = test.time || 45;
-    //qs('edit-test-level').value = test.level || '';
-    //qs('edit-test-subject').value = test.subject || ''; // Giá trị hiển thị
-
-// ✅ BƯỚC SỬA: KHÓA MÔN HỌC VÀ KHỐI LỚP 
+    // Gán thông tin chung
+    qs('edit-test-id').value = testId;
+    qs('edit-test-name').value = test.name || '';
+    qs('edit-test-time').value = test.time || 45;
+    
+    // KHÓA MÔN HỌC VÀ KHỐI LỚP (Logic cũ, đã đúng)
     const subjectEl = qs('edit-test-subject');
     const levelEl = qs('edit-test-level');
-    
-    // 1. Gán giá trị
     subjectEl.value = test.subject || '';
     levelEl.value = test.level || ''; 
-    
-    // 2. KHÓA (disabled) sau khi đã gán giá trị
     subjectEl.setAttribute('disabled', true); 
     levelEl.setAttribute('disabled', true);
     
-    // ✅ BƯỚC SỬA 2: ĐỒNG BỘ HÓA TRẠNG THÁI BỘ LỌC NGÂN HÀNG CÂU HỎI
-    if (typeof manualState !== 'undefined' && typeof manualState.filters !== 'undefined') {
-        manualState.filters.subject = test.subject || ''; 
-        manualState.filters.level = test.level || '';     
-    }
+    // Đồng bộ hóa bộ lọc
+    if (typeof manualState !== 'undefined') {
+        manualState.filters = manualState.filters || {}; // Đảm bảo filters tồn tại
+        manualState.filters.subject = test.subject || ''; 
+        manualState.filters.level = test.level || '';
+    }
 
-    renderSubjectFilters();
+    renderSubjectFilters();
 	subjectEl.value = test.subject || '';  
-    renderEditPreview(window.editState.selectedQuestions);
-    qs('edit-test-count').value = window.editState.selectedQuestions.length;
+    
+    // ✅ RENDER PREVIEW (Đã có điểm từ get_test)
+    renderEditPreview(window.editState.selectedQuestions);
+    
+    qs('edit-test-count').value = window.editState.selectedQuestions.length;
 
-    // 4. Tải và Render Ngân hàng câu hỏi (loadEditQuestions sử dụng manualState.filters)
-    await loadEditQuestions();
+    // Tải Ngân hàng câu hỏi
+    await loadEditQuestions();
 	renderEditQuestionBank();
+    
+    // ✅ KHÔI PHỤC LẠI NÚT (Quan trọng)
+    const btnSave = document.querySelector('#modalTestEdit .btn-primary');
+    const btnClose = document.querySelector('#modalTestEdit .btn-secondary');
+    if (btnSave) {
+        btnSave.style.display = 'inline-block';
+        btnSave.disabled = false;
+    }
+    if (btnClose) btnClose.textContent = 'Đóng';
 	
-    modal.show();
-  } catch (err) {
-    console.error(err);
-    alert("Lỗi khi tải dữ liệu đề thi.");
-  }
+    modal.show();
+  } catch (err) {
+    console.error(err);
+    alert("Lỗi khi tải dữ liệu đề thi.");
+  }
 }
 
 
@@ -4543,7 +4580,6 @@ function dragQuestion(event, qId) {
 function renderEditPreview(questions = []) {
   const container = qs('edit-preview-container');
   if (!container) return;
-
   container.innerHTML = '';
 
   if (!questions.length) {
@@ -4558,15 +4594,20 @@ function renderEditPreview(questions = []) {
     const questionText = q.q || q.question || '(Không có nội dung)'; 
     const subj = q.subject || '';
     const diff = q.difficulty || '';
-    const score = Number(q.score || 0);
+    
+    // ✅ SỬA LỖI: Đọc điểm từ 'q.points' (đã được 5 quy tắc tính)
+    const score = Number(q.points || 0); 
+    
     const item = document.createElement('div');
     item.className = 'list-group-item py-2 px-3 mb-1 rounded border';
     item.draggable = true;
-	item.dataset.qId = q._id;     // ID câu hỏi
-	item.dataset.index = i;       // Vị trí (index) hiện tại
+	item.dataset.qId = q._id || q.id; // Dùng _id hoặc id
+	item.dataset.index = i;
     item.ondragstart = (e) => dragEditQuestion(e, q);
 	item.ondragover = allowDrop; 
-    item.ondrop = (e) => dropToRearrangeEdit(e, i); // Thả vào vị trí 'i'
+    item.ondrop = (e) => dropToRearrangeEdit(e, i);
+    
+    // ✅ SỬA LỖI: Vô hiệu hóa (readonly) ô nhập điểm (THEO YÊU CẦU CỦA BẠN)
     item.innerHTML = `
       <div class="d-flex justify-content-between align-items-center">
         <div>
@@ -4575,8 +4616,7 @@ function renderEditPreview(questions = []) {
         </div>
         <div>
           <input type="number" class="form-control form-control-sm d-inline-block text-end"
-                 style="width:70px;" value="${score}" min="0"
-                 onchange="updateEditQuestionScore(${i}, this.value)">
+                 style="width:70px;" value="${score.toFixed(2)}" readonly>
           <button class="btn btn-sm btn-outline-danger ms-1" onclick="removeEditQuestion(${i})">🗑</button>
         </div>
       </div>
@@ -4588,9 +4628,6 @@ function renderEditPreview(questions = []) {
 
   qs('edit-total-score').textContent = totalScore.toFixed(2);
   qs('edit-test-count').value = questions.length;
-
-  //window.editState = window.editState || {};
-  //window.editState.selectedQuestions = questions;
 }
 
 
@@ -4852,55 +4889,75 @@ function toggleSelectEditQuestion(qId) {
 
 async function saveEditedTest() {
   const modalEl = qs('modalTestEdit'); 
-  
-  // ✅ Đọc ID đề thi trực tiếp từ trường input ẩn
   const testIdInput = qs('edit-test-id');
   const testId = testIdInput ? testIdInput.value : undefined;
 
   if (!testId) {
-    showToast("Lỗi: Không tìm thấy ID đề thi để lưu. Vui lòng thử lại.", "danger");
+    showToast("Lỗi: Không tìm thấy ID đề thi.", "danger");
     return;
   }
   
-  // ✅ Đọc các trường nhập liệu khác (ID đã được sửa ở lần trước)
   const nameInput = qs('edit-test-name'); 
   const timeInput = qs('edit-test-time');
   const levelInput = qs('edit-test-level');
   const subjectInput = qs('edit-test-subject');
-
-  if (!nameInput || !timeInput || !levelInput || !subjectInput) {
-    console.error("Lỗi: Không tìm thấy một hoặc nhiều trường nhập liệu (edit-test-...).");
-    showToast("Lỗi: Không tìm thấy các trường nhập liệu để lưu!", "danger");
-    return;
-  }
   
   const payload = {
     name: nameInput.value.trim(),
     time: parseInt(timeInput.value),
     level: levelInput.value,
     subject: subjectInput.value,
-    questions: getEditedTestQuestions()
+    questions: (window.editState.selectedQuestions || []).map(q => ({
+        _id: q._id, // _id từ MongoDB
+        id: q.id    // id (UUID)
+    }))
   };
+  
+  const btnSave = document.querySelector('#modalTestEdit .btn-primary');
+  const btnClose = document.querySelector('#modalTestEdit .btn-secondary');
 
   try {
-    // GỌI API VỚI ID ĐÃ ĐƯỢC ĐỌC TỪ INPUT
-    await fetch(`${serverUrl}/api/tests/${testId}`, { 
+    if (btnSave) btnSave.disabled = true;
+
+    // 1. GỌI API
+    const updatedTest = await fetchJson(`${serverUrl}/api/tests/${testId}`, { 
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     
-    // Kiểm tra modalEl tồn tại trước khi gọi getInstance
-    if (modalEl) {
-        bootstrap.Modal.getInstance(modalEl).hide();
+    if (!updatedTest || !updatedTest.questions) {
+        throw new Error("Server không trả về dữ liệu đề thi đã tính điểm.");
     }
-    await loadTests();
+
     showToast("Đã lưu đề thi thành công!");
+    
+    // 2. RENDER LẠI ĐIỂM
+    const pointsMap = new Map(updatedTest.questions.map(q => [q.id, q.points]));
+    window.editState.selectedQuestions.forEach(q => {
+        const key = q.id || q._id; 
+        q.points = pointsMap.get(key) || 0;
+    });
+    renderEditPreview(window.editState.selectedQuestions); 
+
+    // 3. ẨN NÚT "LƯU", CHỈ ĐỂ LẠI NÚT "ĐÓNG"
+    if (btnSave) btnSave.style.display = 'none';
+    if (btnClose) btnClose.textContent = 'Đóng';
+
+    // 4. ✅ VÔ HIỆU HÓA TẤT CẢ CÁC NÚT XÓA (THEO YÊU CẦU CỦA BẠN)
+    const removeButtons = document.querySelectorAll('#edit-preview-container .btn-outline-danger');
+    removeButtons.forEach(btn => {
+        btn.disabled = true;
+    });
+
+    loadTests(true); // Tải lại danh sách ở nền
+    
   } catch (err) {
     console.error(err);
-    showToast("Lỗi lưu đề thi!", "danger");
+    showToast("Lỗi lưu đề thi! " + err.message, "danger");
+    if (btnSave) btnSave.disabled = false; // Mở lại nút nếu lỗi
   }
 }
+
 
 // ✅ HÀM ĐÃ SỬA: Đọc từ window.editState.selectedQuestions
 function getEditedTestQuestions() {
@@ -5018,7 +5075,6 @@ function openManualTestModal() {
     manualState.selectedQuestions = [];
     manualState.questionBank = [];
     
-    // Đảm bảo dropdown môn học được điền dữ liệu
     populateSubjectFilters(); 
     
     // 2. Thiết lập UI mặc định
@@ -5026,16 +5082,25 @@ function openManualTestModal() {
     qs('m-test-time').value = 45;
     qs('m-test-level').value = ''; 
     qs('m-test-subject').value = '';
-    qs('m-q-level').value = '';
     qs('m-q-difficulty').value = '';
     qs('m-q-search').value = '';
 
-    // 3. Render ban đầu
-    renderManualPreview();
+    // 3. Render ban đầu (hiện "...")
+    renderManualPreview(null, false);
+    
     const tbody = qs('m-questions-tbody');
     tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Chọn môn học để tải câu hỏi...</td></tr>';
     
-    // 4. Mở modal
+    // 4. ✅ KHÔI PHỤC LẠI NÚT (Quan trọng)
+    const btnSave = document.querySelector('#modalTestManual .btn-primary');
+    const btnClose = document.querySelector('#modalTestManual .btn-secondary');
+    if (btnSave) {
+        btnSave.style.display = 'inline-block'; // Hiện lại nút Lưu
+        btnSave.disabled = false;
+    }
+    if (btnClose) btnClose.textContent = 'Đóng'; // Reset nút Đóng
+    
+    // 5. Mở modal
     const modal = new bootstrap.Modal(qs('modalTestManual'));
     modal.show();
 }
@@ -5047,58 +5112,62 @@ async function saveManualTest() {
         return;
     }
 
+    // Lấy ID (chỉ _id) để gửi đi
     const testData = {
         name: qs('m-test-name').value.trim() || 'Bài kiểm tra thủ công',
         time: parseInt(qs('m-test-time').value) || 45,
         level: qs('m-test-level').value,
         subject: qs('m-test-subject').value,
-        
-        // SỬA LỖI: Cần đồng nhất ID. Nếu máy chủ muốn _id, hãy dùng _id.
-        // Nếu máy chủ muốn id, hãy dùng id (cần kiểm tra dữ liệu)
-        questions: manualState.selectedQuestions.map(q => q._id),
-        
-        isManual: true,
-        scorePerQuestion: 10.00 / manualState.selectedQuestions.length
+        questions: manualState.selectedQuestions.map(q => q._id), // Gửi mảng _id
     };
     
     if (!testData.subject) { alert("Vui lòng chọn Môn học."); return; }
 
+    const url = `${serverUrl}/api/tests`;
+    const options = { 
+        method: 'POST', 
+        body: JSON.stringify(testData) 
+    };
+
+    const btnSave = document.querySelector('#modalTestManual .btn-primary');
+    const btnClose = document.querySelector('#modalTestManual .btn-secondary');
+    
     try {
-        const url = `${serverUrl}/api/tests`;
+        if (btnSave) btnSave.disabled = true;
         
-        // ✅ BỔ SUNG: Kiểm tra xem fetchJson có thêm Content-Type không.
-        // Nếu fetchJson KHÔNG tự thêm header 'Content-Type', bạn cần làm điều này:
+        // 1. GỌI API (Đã dùng fetchJson)
+        const newTestData = await fetchJson(url, options);
         
-        const options = { 
-            method: 'POST', 
-            headers: {
-                'Content-Type': 'application/json' // Khắc phục lỗi 415
-            },
-            body: JSON.stringify(testData) 
-        };
-        
-        // Giả sử fetchJson là một wrapper:
-        // Cần đảm bảo fetchJson cho phép bạn truyền header hoặc tự động thêm nó.
-        // Nếu không rõ, bạn có thể thay thế bằng hàm fetch chuẩn nếu cần.
-        
-        const response = await fetch(url, options); // Thay thế bằng fetch chuẩn để đảm bảo
-        
-        if (!response.ok) {
-             // Lỗi 415 sẽ được bắt ở đây
-            throw new Error(`Lưu đề thất bại. Status: ${response.status}`);
+        if (!newTestData || !newTestData.questions) {
+            throw new Error("Server không trả về dữ liệu đề thi đã tính điểm.");
         }
+
+        showToast(`Đã lưu thành công bài kiểm tra: ${testData.name}`);
         
-        // const data = await response.json(); // Có thể không cần nếu server trả về 204
+        // 2. ✅ GIAI ĐOẠN 2: RENDER LẠI ĐIỂM (THEO YÊU CẦU CỦA BẠN)
+        // newTestData.questions là [{id: "uuid", points: 1.5}, ...]
+        // Cần khớp nó với manualState.selectedQuestions (đang dùng _id)
+        const pointsMap = new Map(newTestData.questions.map(q => [q.id, q.points]));
         
-        alert(`Đã lưu thành công bài kiểm tra: ${testData.name}`);
+        // Gán điểm vào state
+        manualState.selectedQuestions.forEach(q => {
+            // Khớp q.id (UUID) với map
+            q.points = pointsMap.get(q.id) || 0; 
+        });
         
-        // Đóng modal và tải lại danh sách bài thi
-        const modal = bootstrap.Modal.getInstance(qs('modalTestManual'));
-        if (modal) modal.hide();
-        loadTests(true); // Tải lại danh sách để hiển thị đề mới
+        // Render lại preview với điểm thật (true)
+        renderManualPreview(manualState.selectedQuestions, true); 
+
+        // 3. ✅ ẨN NÚT "LƯU", CHỈ ĐỂ LẠI NÚT "ĐÓNG"
+        if (btnSave) btnSave.style.display = 'none';
+        if (btnClose) btnClose.textContent = 'Đóng';
+
+        loadTests(true); // Tải lại danh sách ở nền
+        
     } catch(e) {
         console.error("Lỗi khi lưu bài kiểm tra thủ công:", e);
         alert(`Lỗi khi lưu bài kiểm tra: ${e.message || 'Lỗi kết nối API'}`);
+        if (btnSave) btnSave.disabled = false;
     }
 }
 
@@ -6770,55 +6839,54 @@ function processAssignments(assigns, results) {
 }
 
 
-// HÀM 3: LỌC, SẮP XẾP VÀ GỌI PHÂN TRANG (TAB BÀI ĐÃ LÀM)
+
 function filterAndRenderAssignments(resetPage = true) {
-    // 1. Lọc và Sắp xếp
+    // 1. Lọc (Giữ nguyên)
     let filteredList = [...(assignmentState.completed || [])];
     const currentFilters = assignmentState.currentFilters;
 
-    // ✅ ĐỌC CÁC GIÁ TRỊ LỌC (ĐÃ XÓA assignedDate)
     const subject = currentFilters.subject || 'all';
     const status = currentFilters.status || 'all';
     const submittedDate = currentFilters.submittedDate || '';
     const gradedDate = currentFilters.gradedDate || '';
 
-    // ✅ ÁP DỤNG BỘ LỌC (ĐÃ XÓA LỌC NGÀY GIAO)
     if (subject && subject !== 'all') {
         filteredList = filteredList.filter(a => a.subject === subject);
     }
     if (status && status !== 'all') {
         filteredList = filteredList.filter(a => (a.gradingStatus || 'Đang Chấm') === status);
     }
-    // Lọc kết hợp 2 ngày (Logic AND)
     filteredList = filteredList.filter(a => compareDates(a.submittedAt, submittedDate));
     filteredList = filteredList.filter(a => compareDates(a.gradedAt, gradedDate));
 
 
-    // Sắp xếp
-    const sortBy = currentFilters.sortBy || 'none'; // Mặc định là 'none'
-
-    // CHỈ SẮP XẾP KHI sortBy KHÁC 'none'
-    if (sortBy !== 'none') {
-        const sortParts = sortBy.split('_');
-        const sortField = sortParts[0]; 
-        const sortDir = sortParts[1] === 'desc' ? -1 : 1; 
-        filteredList.sort((a, b) => {
-            let valA = a[sortField];
-            let valB = b[sortField];
-            if (sortField === 'totalScore') {
-                valA = parseFloat(valA) || 0; 
-                valB = parseFloat(valB) || 0;
-            } else if (sortField === 'submittedAt') {
-                valA = valA ? new Date(valA).getTime() : 0;
-                valB = valB ? new Date(valB).getTime() : 0;
-            }
-            if (valA < valB) return -1 * sortDir;
-            if (valA > valB) return 1 * sortDir;
-            return 0;
-        });
+    // 2. ✅ SỬA LỖI LOGIC SẮP XẾP
+    // Coi "Mặc định" (none) là "Ngày nộp mới nhất" (submittedAt_desc)
+    let sortBy = currentFilters.sortBy || 'submittedAt_desc';
+    if (sortBy === 'none') {
+        sortBy = 'submittedAt_desc';
     }
+
+    // Luôn chạy sắp xếp (đã bỏ khối if)
+    const sortParts = sortBy.split('_');
+    const sortField = sortParts[0]; 
+    const sortDir = sortParts[1] === 'desc' ? -1 : 1; 
+    filteredList.sort((a, b) => {
+        let valA = a[sortField];
+        let valB = b[sortField];
+        if (sortField === 'totalScore') {
+            valA = parseFloat(valA) || 0; 
+            valB = parseFloat(valB) || 0;
+        } else if (sortField === 'submittedAt') {
+            valA = valA ? new Date(valA).getTime() : 0;
+            valB = valB ? new Date(valB).getTime() : 0;
+        }
+        if (valA < valB) return -1 * sortDir;
+        if (valA > valB) return 1 * sortDir;
+        return 0;
+    });
     
-    // 2. Lưu vào State và gọi Phân trang
+    // 3. Lưu vào State và gọi Phân trang (Giữ nguyên)
     state.stuDone.list = filteredList;
     state.stuDone.total = filteredList.length;
     if (resetPage) {
@@ -6826,7 +6894,8 @@ function filterAndRenderAssignments(resetPage = true) {
     }
     renderPaged('stuDone');
     
-    // 3. Render Thống kê (Toàn bộ logic thống kê giữ nguyên)
+    // 4. Render Thống kê (Giữ nguyên)
+    // ... (toàn bộ code render thống kê của bạn giữ nguyên) ...
     const totalDone = filteredList.length;
     const doneTotalEl = qs('#done-stats-total');
     const doneDetailsEl = qs('#done-stats-details');
@@ -6860,6 +6929,7 @@ function filterAndRenderAssignments(resetPage = true) {
         doneDetailsEl.innerHTML = detailsHtml;
     }
 }
+
 
 // HÀM 2: CHỈ VẼ BẢNG "ĐỀ ĐƯỢC GIAO" (HÀM BỊ THIẾU)
 function renderPendingTable(items) {
@@ -7014,15 +7084,22 @@ function formatDateTimeForTable(isoString) {
         return '—';
     }
 }
- 
-// HÀM 1: LỌC, SẮP XẾP VÀ GỌI PHÂN TRANG (TAB 1)
+
+
+
 function renderPendingAssignments(pendingAssigns, resetPage = true) {
     // 1. Lấy giá trị lọc
     const subjectFilter = qs('#filter-stu-subject') ? qs('#filter-stu-subject').value : '';
-    const sortValue = qs('#sort-stu-assignment') ? qs('#sort-stu-assignment').value : 'none'; 
+    
+    // ✅ SỬA LỖI LOGIC: Coi "Mặc định" (none) là "Mới nhất" (newest)
+    let sortValue = qs('#sort-stu-assignment') ? qs('#sort-stu-assignment').value : 'newest';
+    if (sortValue === 'none') {
+        sortValue = 'newest';
+    }
+    
     const dateFilter = qs('#filter-stu-assigned-date') ? qs('#filter-stu-assigned-date').value : '';
 
-    // 2. Nguồn dữ liệu (ưu tiên state)
+    // 2. Nguồn dữ liệu
     let sourceData = assignmentState.pending || pendingAssigns || [];
     
     // 3. Áp dụng lọc
@@ -7030,33 +7107,32 @@ function renderPendingAssignments(pendingAssigns, resetPage = true) {
         .filter(test => !subjectFilter || test.subject === subjectFilter)
         .filter(test => compareDates(test.assignedAt, dateFilter)); 
 
-    // 4. SẮP XẾP (Chỉ sort khi KHÁC 'none')
-    if (sortValue === 'newest' || sortValue === 'oldest') {
-        filteredData.sort((a, b) => {
-            const dateA = convertDateStringToDate(a.assignedAt); 
-            const dateB = convertDateStringToDate(b.assignedAt);
-            const timeA = dateA ? dateA.getTime() : 0;
-            const timeB = dateB ? dateB.getTime() : 0;
-            if (sortValue === 'newest') {
-                return timeB - timeA; 
-            } else {
-                return timeA - timeB; 
-            }
-        });
-    }
+    // 4. ✅ SỬA LỖI LOGIC: Luôn chạy sắp xếp (đã bỏ khối if)
+    filteredData.sort((a, b) => {
+        const dateA = convertDateStringToDate(a.assignedAt); 
+        const dateB = convertDateStringToDate(b.assignedAt);
+        const timeA = dateA ? dateA.getTime() : 0;
+        const timeB = dateB ? dateB.getTime() : 0;
+        if (sortValue === 'newest') {
+            return timeB - timeA; 
+        } else { // 'oldest'
+            return timeA - timeB; 
+        }
+    });
 
-    // 5. Lưu vào State và gọi Phân trang
+    // 5. Lưu vào State và gọi Phân trang (Giữ nguyên)
     state.stuPending.list = filteredData;
     state.stuPending.total = filteredData.length;
     if (resetPage) {
         state.stuPending.page = 1;
     }
-    renderPaged('stuPending'); // <-- Gọi hàm renderPaged
+    renderPaged('stuPending'); 
 
-    // 6. Render Thống kê
+    // 6. Render Thống kê (Giữ nguyên)
     const totalPending = filteredData.length;
     const pendingTotalEl = qs('#pending-stats-total');
     const pendingDetailsEl = qs('#pending-stats-details');
+    // ... (toàn bộ code render thống kê của bạn giữ nguyên) ...
     if (pendingTotalEl && pendingDetailsEl) {
         pendingTotalEl.innerHTML = `<span class="badge bg-primary fs-6">Tổng số: ${totalPending}</span>`;
         const subjectCounts = {};
@@ -7549,64 +7625,55 @@ function translateDifficulty(difficulty) {
 let previewedQuestions = [];
 
 async function previewAutoTest() {
-  const subject = qs('a-test-subject').value;
-  const level = qs('a-test-level').value;
-  const total = Number(qs('a-test-count').value) || 10;
-  const dist = {
-    easy: Number(qs('dist-easy').value) || 0,
-    medium: Number(qs('dist-medium').value) || 0,
-    hard: Number(qs('dist-hard').value) || 0
-  };
+    const previewContainer = qs('preview-container');
+    previewContainer.innerHTML = '<div class="spinner-row"><div class="spinner-border text-success spinner-border-sm"></div> Đang chọn câu hỏi...</div>';
 
-  try {
-    const query = `${serverUrl}/api/questions${subject || level ? '?' : ''}${subject ? 'subject=' + subject : ''}${subject && level ? '&' : ''}${level ? 'level=' + level : ''}`;
-    const all = await fetchJson(query);
+    // 1. Lấy cấu hình
+    const payload = {
+        subject: qs('a-test-subject').value,
+        level: qs('a-test-level').value,
+        dist: {
+            easy: Number(qs('dist-easy').value) || 0,
+            medium: Number(qs('dist-medium').value) || 0,
+            hard: Number(qs('dist-hard').value) || 0
+        }
+    };
 
-    if (!Array.isArray(all) || all.length === 0) {
-      qs('preview-container').innerHTML = '<div class="text-danger">Không có câu hỏi nào phù hợp.</div>';
-      return;
+    try {
+        // 2. ✅ GỌI API MỚI ĐỂ LẤY ĐIỂM
+        const questionsWithPoints = await fetchJson(`${serverUrl}/api/tests/preview-auto`, {
+            method: 'POST',
+            body: payload
+        });
+
+        if (!Array.isArray(questionsWithPoints) || questionsWithPoints.length === 0) {
+            previewContainer.innerHTML = '<div class="text-danger">Không có câu hỏi nào phù hợp.</div>';
+            return;
+        }
+        
+        // 3. ✅ RENDER BẢNG VỚI ĐIỂM CHÍNH XÁC (TỪ 5 QUY TẮC)
+        let html = `<table class="table table-sm table-hover table-bordered"><thead><tr><th>#</th><th>Câu hỏi</th><th>Mức độ</th><th>Điểm</th></tr></thead><tbody>`;
+        let totalPoints = 0;
+        
+        questionsWithPoints.forEach((q, i) => {
+            const points = parseFloat(q.points || 0);
+            totalPoints += points;
+            html += `<tr><td>${i + 1}</td>
+            <td>${escapeHtml(q.q || q.question)}</td>
+            <td class="text-center">${translateDifficulty(q.difficulty)}</td> 
+            <td>${points.toFixed(2)}</td>
+            </tr>`;
+        });
+        
+        html += `</tbody></table>`;
+        html += `<div class="text-end text-muted small">Tổng điểm: ${totalPoints.toFixed(2)} (${questionsWithPoints.length} câu)</div>`;
+
+        previewContainer.innerHTML = html;
+        
+    } catch (e) {
+        console.error(e);
+        previewContainer.innerHTML = `<div class="text-danger">Lỗi tải dữ liệu xem trước: ${e.message}</div>`;
     }
-
-    // Giả lập độ khó bằng trường level (nếu chưa có trường "difficulty")
-    const easyQ = all.filter(q => q.difficulty === 'easy');
-    const mediumQ = all.filter(q => q.difficulty === 'medium');
-    const hardQ = all.filter(q => q.difficulty === 'hard');
-
-    const selectRandom = (arr, n) => arr.sort(() => 0.5 - Math.random()).slice(0, n);
-
-    previewedQuestions = [
-      ...selectRandom(easyQ, dist.easy),
-      ...selectRandom(mediumQ, dist.medium),
-      ...selectRandom(hardQ, dist.hard)
-    ];
-
-    if (previewedQuestions.length === 0) {
-      qs('preview-container').innerHTML = '<div class="text-warning">Không chọn được câu hỏi nào. Hãy tăng số lượng.</div>';
-      return;
-    }
-
-// Đảm bảo tổng số câu được chọn không vượt quá total (mặc dù dist đã kiểm soát)
-    previewedQuestions = previewedQuestions.slice(0, total);
-	
-    const totalPoints = 10;
-    const perPoint = totalPoints / previewedQuestions.length;
-
-    let html = `<table class="table table-sm table-hover table-bordered"><thead><tr><th>#</th><th>Câu hỏi</th><th>Mức độ</th><th>Điểm</th></tr></thead><tbody>`;
-    previewedQuestions.forEach((q, i) => {
-      html += `<tr><td>${i + 1}</td>
-	  <td>${escapeHtml(q.q || q.question)}</td>
-	  <td class="text-center">${translateDifficulty(q.difficulty)}</td> 
-	  <td>${perPoint.toFixed(2)}</td>
-	  </tr>`;
-    });
-    html += `</tbody></table>`;
-    html += `<div class="text-end text-muted small">Tổng điểm: 10.00 (${previewedQuestions.length} câu)</div>`;
-
-    qs('preview-container').innerHTML = html;
-  } catch (e) {
-    console.error(e);
-    qs('preview-container').innerHTML = '<div class="text-danger">Lỗi tải dữ liệu câu hỏi.</div>';
-  }
 }
 
 
@@ -7719,57 +7786,63 @@ function toggleSelectManualQuestion(qId) {
 }
 
 // =================== HIỂN THỊ KHUNG ĐỀ THI ===================
-function renderManualPreview() {
+function renderManualPreview(questions = null, showCalculatedPoints = false) {
     const container = document.getElementById('manual-preview-container');
     if (!container) return;
     container.innerHTML = '';
     
-    // Rất quan trọng: Thêm sự kiện dropToPreview vào container để nhận thả từ Ngân hàng
-    // Nếu không có, bạn không thể thả vào vùng trống
+    const questionsToRender = questions || manualState.selectedQuestions || [];
+    
     container.addEventListener('dragover', allowDrop);
     container.addEventListener('drop', dropToPreview);
 
-    const questions = manualState.selectedQuestions || [];
-    if (questions.length === 0) {
+    if (questionsToRender.length === 0) {
         container.innerHTML = `<p class="text-muted small text-center m-0">Kéo thả hoặc click chọn câu hỏi để thêm vào đề thi.</p>`;
         document.getElementById('m-test-count').value = 0;
-        document.getElementById('m-total-score').textContent = '0.00';
+        document.getElementById('m-total-score').textContent = '10.00';
         return;
     }
 
-    const per = 10 / questions.length;
-    let total = 0;
+    let totalScore = 0;
 
-    questions.forEach((q, idx) => {
-        // Lấy ID độc lập (tempId hoặc _id) để đảm bảo tính duy nhất
-        const displayId = q.tempId || q._id; 
-        
-        // ✅ ĐÃ SỬA LỖI: Thêm 'const' để tạo phần tử mới cho mỗi lần lặp
+    questionsToRender.forEach((q, idx) => {
+        const displayId = q.tempId || q._id || q.id; 
         const item = document.createElement('div');
         item.className = 'list-group-item d-flex justify-content-between align-items-center';
         item.draggable = true;
-        item.dataset.id = displayId; // Dùng ID độc lập
+        item.dataset.id = displayId; 
+        item.dataset.index = idx; // Thêm index để Sắp xếp
+
+        // ✅ LOGIC HIỂN THỊ ĐIỂM MỚI (THEO YÊU CẦU CỦA BẠN)
+        let pointsHtml = '';
+        if (showCalculatedPoints) {
+            // Giai đoạn 2: Hiển thị điểm thật (màu xanh)
+            const points = parseFloat(q.points || 0);
+            totalScore += points;
+            pointsHtml = `<span class="badge bg-success me-2">${points.toFixed(2)}đ</span>`;
+        } else {
+            // Giai đoạn 1: Đang chọn (màu cam)
+            pointsHtml = `<span class="badge bg-warning text-dark me-2">...đ</span>`;
+        }
 
         item.innerHTML = `
             <div><strong>${idx + 1}.</strong> ${escapeHtml(q.q || q.question)}</div>
             <div class="d-flex align-items-center">
                 <span class="badge bg-secondary me-2">${q.difficulty || ''}</span>
-                <span class="badge bg-info me-2">${per.toFixed(2)}đ</span>
+                ${pointsHtml}
                 <button class="btn-close" onclick="removeQuestionFromPreview('${displayId}')" aria-label="Xóa"></button>
             </div>
         `;
         
-        // DND cho Sắp xếp lại
-        item.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', displayId));
-        item.addEventListener('dragover', allowDrop); // Cho phép thả lên item này
-        item.addEventListener('drop', dropPreviewItem); // Logic sắp xếp lại
+        item.addEventListener('dragstart', (e) => dragPreviewItem(e)); // Sửa: gọi hàm DND
+        item.addEventListener('dragover', allowDrop);
+        item.addEventListener('drop', dropPreviewItem); 
 
         container.appendChild(item);
-        total += per;
     });
 
-    document.getElementById('m-test-count').value = questions.length;
-    document.getElementById('m-total-score').textContent = total.toFixed(2);
+    document.getElementById('m-test-count').value = questionsToRender.length;
+    document.getElementById('m-total-score').textContent = showCalculatedPoints ? totalScore.toFixed(2) : '10.00 (Tự động)';
 }
 
 // =================== KÉO THẢ TRONG KHUNG PREVIEW ===================
