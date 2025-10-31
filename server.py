@@ -775,6 +775,69 @@ def create_test_auto():
         return jsonify({"success": False, "message": f"Lỗi server: {e}"}), 500
 
 # ==================================================
+# ✅ DÁN HÀM MỚI NÀY VÀO (Khoảng dòng 628)
+# ==================================================
+@app.route("/api/tests/preview-auto", methods=["POST"])
+def preview_auto_test():
+    """
+    API mới: Chỉ xem trước đề tự động, tính điểm, và trả về, KHÔNG LƯU.
+    """
+    data = request.get_json() or {}
+    
+    # 1. Lấy cấu hình
+    subject = data.get("subject", "")
+    level = data.get("level", "")
+    dist = data.get("dist", {"easy": 0, "medium": 0, "hard": 0})
+    
+    num_easy = int(dist.get("easy", 0))
+    num_medium = int(dist.get("medium", 0))
+    num_hard = int(dist.get("hard", 0))
+    total_questions_needed = num_easy + num_medium + num_hard
+    
+    if total_questions_needed == 0:
+        return jsonify({"success": False, "message": "Vui lòng chọn ít nhất 1 câu hỏi"}), 400
+
+    query = {}
+    if subject: query["subject"] = subject
+    if level: query["level"] = level
+
+    # 2. Lấy câu hỏi ngẫu nhiên (dùng $sample)
+    def pick(diff, count):
+        if count == 0: return []
+        q = {**query, "difficulty": diff}
+        pipeline = [
+            {"$match": q},
+            {"$sample": {"size": count}}
+            # Lấy đầy đủ nội dung để xem trước
+        ]
+        return list(db.questions.aggregate(pipeline))
+
+    easy_questions = pick("easy", num_easy)
+    medium_questions = pick("medium", num_medium)
+    hard_questions = pick("hard", num_hard)
+    
+    all_questions = easy_questions + medium_questions + hard_questions
+    
+    # Lấy ID (ưu tiên 'id', fallback về str(_id))
+    all_question_ids = [q.get('id') or str(q.get('_id')) for q in all_questions]
+    
+    if not all_question_ids:
+         return jsonify({"success": False, "message": "Không tìm thấy câu hỏi nào phù hợp"}), 404
+
+    # 3. ✅ GỌI HÀM TÍNH ĐIỂM
+    points_map = calculate_question_points(all_question_ids, db)
+
+    # 4. Gán điểm vào các câu hỏi
+    for q in all_questions:
+        q_id = q.get('id') or str(q.get('_id'))
+        q["points"] = points_map.get(q_id, 0)
+        q["_id"] = str(q.get("_id")) # Đảm bảo _id là string
+
+    # 5. Trả về danh sách câu hỏi đã được gán điểm
+    return jsonify(all_questions), 200
+
+
+# ==================================================
 # ✅ THAY THẾ HÀM CẬP NHẬT ĐỀ THI (Dòng 629)
 # ==================================================
 @app.route("/tests/<test_id>", methods=["PUT"])
