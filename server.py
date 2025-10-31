@@ -1548,109 +1548,97 @@ def create_result():
 from flask import abort
 #from datetime import datetime, timedelta
 
-# API Chấm bài Tự luận (Thay thế grade_result)
+# ==================================================
+# ✅ THAY THẾ HÀM CHẤM ĐIỂM (Dòng 924)
+# ==================================================
 @app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
     """
-    Giáo viên chấm điểm bài làm học sinh (Chỉ cần gửi các câu tự luận đã chấm).
-    - Chống crash essays chứa string
-    - Cập nhật điểm vào detailedResults
-    - Tính toán lại totalScore, mcScore, essayScore
-    - Lần 2 => Hoàn tất
+    Giáo viên chấm điểm (Logic đã sửa theo yêu cầu):
+    1. Nhận điểm tự luận (Essay) từ payload.
+    2. Lấy điểm trắc nghiệm (MC) đã được chấm tự động (lúc nộp bài) từ 'db.results'.
+    3. Lấy điểm tối đa (maxPoints) của câu tự luận từ 'db.tests' (đã tính theo 5 quy tắc).
+    4. Khống chế điểm giáo viên chấm không vượt quá maxPoints.
+    5. Tính tổng = (Điểm MC cũ) + (Điểm Essay mới).
     """
     try:
         data = request.get_json() or {}
-        essays = data.get("essays", []) or []
+        essays_payload = [e for e in data.get("essays", []) if isinstance(e, dict)] # Lấy payload của GV
 
-        # ✅ FILTER: chỉ nhận dict — tránh "'str' has no attribute get"
-        clean_essays = []
-        for e in essays:
-            if isinstance(e, dict):
-                clean_essays.append(e)
-            else:
-                print("⚠️ Bỏ qua essay lỗi:", e)
-        essays = clean_essays
-
-        # === Lấy result ===
+        # === 1. Lấy bài làm (Result) ===
         result = db.results.find_one({"id": result_id})
         if not result:
             return jsonify({"error": "Không tìm thấy bài làm"}), 404
 
-        # current regradeCount
         current_regrade = result.get("regradeCount", 0)
-
-        # === map detailedResults ===
         detailed_list = result.get("detailedResults", [])
-        detailed_map = { str(d["questionId"]): d for d in detailed_list if "questionId" in d }
+        detailed_map = { str(d.get("questionId")): d for d in detailed_list if d.get("questionId") }
 
-        # === Update điểm GV ===
-        for e in essays:
-            qid = str(e.get("questionId"))
-            if qid not in detailed_map:
-                continue
+        # === 2. LẤY BÀI THI GỐC (ĐỂ LẤY ĐIỂM TỐI ĐA CỦA TỪNG CÂU) ===
+        test_id = result.get("testId")
+        test_doc = db.tests.find_one({"id": test_id})
+        if not test_doc:
+            return jsonify({"error": f"Không tìm thấy bài thi gốc (ID: {test_id})."}), 404
+        
+        # Tạo "Master Point Map" (Nguồn điểm chuẩn)
+        # test_doc["questions"] là: [{'id': 'q1', 'points': 1.5}, {'id': 'q2', 'points': 0.5}, ...]
+        points_map = {q.get('id'): q.get('points', 1) for q in test_doc.get('questions', [])}
 
-            ts_raw = e.get("teacherScore") # Có thể là None, 0, 0.5, ...
-            ts_note = e.get("teacherNote") or ""
+        # === 3. LẤY ĐIỂM TRẮC NGHIỆM ĐÃ CHẤM TỰ ĐỘNG (FIXED) ===
+        # Chúng ta tin tưởng điểm MC đã được tính đúng lúc nộp bài (create_result)
+        new_mc_score = result.get("mcScore", 0.0) 
+        new_essay_score = 0.0
+        
+        # === 4. XỬ LÝ ĐIỂM TỰ LUẬN MỚI TỪ GIÁO VIÊN ===
+        has_ungraded_essay = False # Flag để kiểm tra xem GV có bỏ sót câu nào không
 
-            det = detailed_map[qid]
+        # Lặp qua TẤT CẢ các câu trong bài làm
+        for q_id_str, det in detailed_map.items():
+            
+            if det.get("type") == "essay":
+                # Tìm xem GV có chấm câu này trong payload không
+                essay_data = next((e for e in essays_payload if str(e.get("questionId")) == q_id_str), None)
+                
+                # Lấy điểm tối đa (max_points) của câu này từ đề thi gốc
+                max_points = float(points_map.get(q_id_str, 1.0)) 
+                
+                if essay_data and essay_data.get("teacherScore") is not None:
+                    # Giáo viên CÓ chấm câu này
+                    ts_float = 0.0
+                    try: 
+                        ts_float = float(essay_data.get("teacherScore"))
+                    except: 
+                        ts_float = 0.0
+                    
+                    # ✅ LOGIC KHỐNG CHẾ ĐIỂM (THEO YÊU CẦU CỦA BẠN)
+                    if ts_float > max_points:
+                        ts_float = max_points # Không cho phép vượt điểm tối đa
+                    if ts_float < 0:
+                        ts_float = 0.0 # Không cho phép điểm âm
+                        
+                    # Cập nhật chi tiết
+                    det["teacherScore"] = ts_float
+                    det["teacherNote"] = essay_data.get("teacherNote", "")
+                    det["pointsGained"] = ts_float
+                    det["isCorrect"] = ts_float > 0
+                    
+                    new_essay_score += ts_float # Cộng vào điểm tự luận tổng
+                
+                else:
+                    # Giáo viên KHÔNG chấm câu này (bỏ qua/để trống)
+                    if det.get("teacherScore") is None:
+                        # Nếu trước đó nó chưa được chấm (vẫn là None)
+                        has_ungraded_essay = True # Đánh dấu là còn câu chưa chấm
+                    else:
+                        # Nếu GV không chấm, nhưng trước đó đã có điểm, ta giữ điểm đó
+                        new_essay_score += float(det.get("pointsGained", 0.0))
 
-            if ts_raw is None:
-                # GV không chấm câu này (để trống) -> Giữ nguyên trạng thái "chưa chấm"
-                det["teacherScore"] = det.get("teacherScore", None) # Giữ None nếu chưa chấm
-                det["teacherNote"] = det.get("teacherNote", "") # Giữ ghi chú cũ
-                det["pointsGained"] = det.get("pointsGained", 0) # Giữ điểm cũ
-                det["isCorrect"] = det.get("isCorrect", None) # Giữ trạng thái cũ
-            else:
-                # GV đã chấm (kể cả 0 điểm)
-                ts_float = 0.0
-                try: ts_float = float(ts_raw)
-                except: ts_float = 0.0
+            # (Chúng ta không cần làm gì với câu 'mc' vì new_mc_score đã lấy ở trên)
 
-                det["teacherScore"] = ts_float
-                det["teacherNote"] = ts_note
-                det["pointsGained"] = ts_float
-                det["isCorrect"] = ts_float > 0
-
-        # === Tính toán lại ===
-        new_total = 0.0
-        mc = 0.0
-        es = 0.0
-
-        print(f"--- Calculating scores for result {result_id} ---") # LOG MỚI
-
-        for d in detailed_map.values():
-            pts = float(d.get("pointsGained") or 0)
-            q_type = (d.get("type") or "").lower()
-            q_id_debug = d.get("questionId", "NO_ID") # LOG MỚI
-
-            # LOG CHI TIẾT TỪNG CÂU
-            print(f"  QID: {q_id_debug}, Type: {q_type}, PointsGained: {pts}")
-
-            new_total += pts
-
-            if q_type in ["essay", "tu_luan"]:
-                es += pts
-                print(f"    -> Added {pts} to essayScore. Current essayScore = {es}") # LOG MỚI
-            else:
-                mc += pts
-                print(f"    -> Added {pts} to mcScore. Current mcScore = {mc}") # LOG MỚI
-
-        print(f"--- Final Calculated Scores ---") # LOG MỚI
-        print(f"  MC Score: {mc}") # LOG MỚI
-        print(f"  Essay Score: {es}") # LOG MỚI
-        print(f"  Total Score: {new_total}") # LOG MỚI
-
+        # === 5. Tính điểm tổng và xác định trạng thái ===
+        new_total_score = new_mc_score + new_essay_score
         graded_at = now_vn_iso()
-
-        # === LOGIC TRẠNG THÁI CHÍNH THỨC ===
-        # Lần 1: "Đã Chấm"
-        # Lần 2+: "Hoàn tất"
-        # Kiểm tra xem có câu tự luận nào chưa được chấm không (teacherScore is None)
-        has_ungraded_essay = any(
-            (d.get("type") or "").lower() in ["essay", "tu_luan"] and d.get("teacherScore") is None
-            for d in detailed_map.values()
-        )
-
+        
         if has_ungraded_essay:
              new_status = "Đang Chấm" # Nếu còn câu chưa chấm -> Vẫn là Đang Chấm
         elif current_regrade + 1 >= 2:
@@ -1658,31 +1646,31 @@ def grade_result(result_id):
         else:
             new_status = "Đã Chấm" # Đã chấm hết lần 1 -> Đã Chấm
 
-
-        update = {
-            "detailedResults": list(detailed_map.values()),
-            "totalScore": round(new_total, 2),
-            "mcScore": round(mc, 2),
-            "essayScore": round(es, 2),
+        # === 6. Cập nhật DB ===
+        update_payload = {
+            "detailedResults": list(detailed_map.values()), # Lưu chi tiết mới
+            "totalScore": round(new_total_score, 2),       # Tổng điểm MỚI
+            "mcScore": round(new_mc_score, 2),             # Điểm MC (Giữ nguyên)
+            "essayScore": round(new_essay_score, 2),       # Điểm Tự luận MỚI
             "gradingStatus": new_status,
             "gradedAt": graded_at,
         }
 
-        # === SAVE ===
         db.results.update_one(
             {"id": result_id},
             {
-                "$set": update,
-                "$inc": { "regradeCount": 1 } # Vẫn tăng regradeCount mỗi lần gọi API
+                "$set": update_payload,
+                "$inc": { "regradeCount": 1 }
             }
         )
 
+        # === 7. Trả về ===
         return jsonify({
             "success": True,
-            "message": f"{new_status}! Tổng: {round(new_total,2):.2f}",
-            "totalScore": round(new_total,2),
-            "mcScore": round(mc, 2), # Trả về điểm MC đã tính
-            "essayScore": round(es, 2), # Trả về điểm Essay đã tính
+            "message": f"{new_status}! Tổng điểm: {round(new_total_score,2):.2f}",
+            "totalScore": round(new_total_score,2),
+            "mcScore": round(new_mc_score, 2),
+            "essayScore": round(new_essay_score, 2),
             "gradingStatus": new_status,
             "regradeCount": current_regrade + 1
         })
@@ -1690,7 +1678,6 @@ def grade_result(result_id):
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({"error": str(e), "message": "Internal Server Error"}), 500
-        
 
 
 # API mới để lấy danh sách kết quả tổng hợp cho giáo viên (Yêu cầu 1)
