@@ -982,6 +982,13 @@ def update_test(test_id):
 @app.route("/tests/<test_id>", methods=["DELETE"])
 @app.route("/api/tests/<test_id>", methods=["DELETE"])
 def delete_test(test_id):
+    
+    # === LOGIC MỚI BẮT ĐẦU ===
+    # Kiểm tra xem testId này đã có trong collection 'assignments' chưa
+    if db.assignments.find_one({"testId": test_id}):
+        return jsonify({"success": False, "message": "Đề thi đã được giao, không thể xóa."}), 403 # 403 Forbidden
+    # === LOGIC MỚI KẾT THÚC ===
+
     try:
         result = db.tests.delete_one({"id": test_id})
         if result.deleted_count == 0:
