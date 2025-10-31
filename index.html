@@ -380,11 +380,31 @@
 /* Thêm lớp này để giả lập trạng thái khóa mà vẫn cho phép click */
 .btn-locked {
     opacity: 0.65;
-    /* Con trỏ chuột hình "cấm" */
     cursor: not-allowed !important; 
-    /* Quan trọng: Đảm bảo nó vẫn nhận sự kiện click (ngược lại với 'pointer-events: none') */
     pointer-events: auto !important; 
 }
+
+/* CSS MỚI DÀNH RIÊNG CHO VIỆC IN */
+@media print {
+  /* Ẩn tất cả mọi thứ trên trang */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Chỉ hiển thị khu vực in và nội dung bên trong nó */
+  #print-area, #print-area * {
+    visibility: visible;
+  }
+
+  /* Đặt khu vực in lên đầu trang */
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+
 
 
   </style>
@@ -1048,8 +1068,14 @@
     <div class="modal fade" id="modalQuestion" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title">Thêm / Sửa Câu hỏi</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
+
+      <div id="q-warning-locked" class="alert alert-danger" style="display:none;">
+        <strong>Câu hỏi đã khóa:</strong> Câu hỏi này nằm trong một đề thi đã được giao và không thể chỉnh sửa.
+      </div>
       <input type="hidden" id="m-q-id">
       <div class="mb-2"><label class="form-label">Câu hỏi</label><textarea id="m-q-q" class="form-control" rows="3"></textarea></div>
+      <input type="hidden" id="m-q-id">
+     
       <div class="mb-3">
     <label for="q-image-file" class="form-label">Tải lên Hình ảnh (tùy chọn)</label>
     <input type="file" class="form-control" id="q-image-file" accept="image/*">
@@ -1227,6 +1253,9 @@
       </div>
       
       <div class="modal-body">
+        <div id="t-warning-locked" class="alert alert-danger" style="display:none;">
+          <strong>Đề thi đã khóa:</strong> Đề thi này đã được giao và không thể chỉnh sửa. Bạn chỉ có thể xem.
+        </div>
         <div class="row mb-3">
           <!-- Thông tin chung -->
           <div class="col-lg-5">
@@ -1517,6 +1546,10 @@
       </div>
 
       <div class="modal-footer">
+        <button type="button" class="btn btn-info me-auto" onclick="exportResultToPDF()">
+            🖨️ Xuất PDF
+        </button>
+        
         <button class="btn btn-success" id="btn-save-grading" onclick="saveGrading()">💾 Lưu chấm</button>
         <button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
       </div>
@@ -1631,11 +1664,10 @@
       </div>
     </div>
   </div>
-  <div class="modal fade" id="modalConfirmDelete" tabindex="-1">
-  ...
+
+
 	
-	
-	
+	<div id="print-area"></div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
  <script>
@@ -2095,12 +2127,33 @@ function toggleOptionFields() {
     const mcSection = qs('mc-options-section');
     const essaySection = qs('essay-options-section');
     
+    // === LOGIC MỚI BẮT ĐẦU ===
+    const btnAddOption = document.querySelector('#mc-options-section button');
+    
+    // 1. Lấy trạng thái khóa từ modal (sẽ được gán bởi openQuestionModal)
+    const modalEl = qs('modalQuestion');
+    const isLocked = (modalEl.dataset.isLocked === 'true');
+    // === KẾT THÚC LOGIC MỚI ===
+
     if (type === 'mc') {
         mcSection.style.display = 'block';
         essaySection.style.display = 'none';
+        
+        // === LOGIC MỚI: Chỉ bật nút khi (KHÔNG bị khóa) VÀ (loại là MC)
+        if (btnAddOption) {
+            btnAddOption.disabled = isLocked;
+        }
+        // === KẾT THÚC LOGIC MỚI ===
+        
     } else if (type === 'essay') {
         mcSection.style.display = 'none';
         essaySection.style.display = 'block';
+        
+        // === LOGIC MỚI: Luôn khóa nút khi là Tự luận
+        if (btnAddOption) {
+            btnAddOption.disabled = true;
+        }
+        // === KẾT THÚC LOGIC MỚI ===
     }
 }
 
@@ -2294,10 +2347,13 @@ function renderQuestions(items){
       const subjectName = SUBJECT_NAMES[q.subject] || q.subject || 'N/A';
       
       // === CẬP NHẬT LOGIC NÚT ===
+      
+      // Sửa: Nút "Sửa" giờ có màu đỏ (outline-danger) nếu bị khóa, nhưng VẪN GỌI HÀM MỞ MODAL
       const editButtonHtml = isAssigned
-            ? `<button class="btn btn-sm btn-outline-primary btn-locked" title="Câu hỏi nằm trong đề đã được giao không thể sửa." onclick='alert("Câu hỏi nằm trong đề đã được giao không thể sửa.")'>Sửa</button>`
+            ? `<button class="btn btn-sm btn-outline-danger" title="Xem chi tiết câu hỏi (đã khóa)" onclick='openQuestionModalById("${qId}")'>Xem</button>`
             : `<button class="btn btn-sm btn-outline-primary" onclick='openQuestionModalById("${qId}")'>Sửa</button>`;
       
+      // Xóa: Nút "Xóa" có màu đỏ, bị khóa (btn-locked) và gọi alert
       const deleteButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-danger btn-locked" title="Câu hỏi nằm trong đề đã được giao, không thể xóa." onclick='alert("Câu hỏi nằm trong đề đã được giao, không thể xóa.")'>Xóa</button>`
             : `<button class="btn btn-sm btn-outline-danger" onclick='deleteQuestion("${qId}")'>Xóa</button>`;
@@ -3541,11 +3597,13 @@ function clearResultFilters() {
 
 
 
-// ====================== OPEN QUESTION MODAL ======================
+// ====================== OPEN QUESTION MODAL (ĐÃ CẬP NHẬT) ======================
 function openQuestionModal(q) {
     const modalEl = qs('modalQuestion'); 
     const modal = new bootstrap.Modal(modalEl);
 
+    // === Lấy các phần tử ===
+    const warningDiv = qs('q-warning-locked');
     const inputId = qs('m-q-id');
     const inputQ = qs('m-q-q');
     const inputSubject = qs('m-q-subject');
@@ -3557,14 +3615,16 @@ function openQuestionModal(q) {
     const inputEssayAnswer = qs('m-q-essay-answer');
     const imageFileEl = qs('q-image-file');       
     const imagePreviewEl = qs('q-image-preview'); 
-    const btnRemoveImage = qs('btn-remove-image'); 
+    const btnRemoveImage = qs('btn-remove-image');
+    const btnSave = document.querySelector('#modalQuestion .btn-primary');
+    
+    // === SỬA LỖI: BỎ 'btnAddOption' ra khỏi danh sách này ===
+    const coreInputs = [
+        inputQ, inputSubject, inputLevel, inputType, inputPoints, inputDifficulty,
+        inputEssayAnswer, imageFileEl, btnRemoveImage, btnSave
+    ];
 
-    if (!inputId || !inputQ || !inputOptionsContainer || !inputEssayAnswer || !imageFileEl || !imagePreviewEl || !btnRemoveImage) {
-        console.error("Modal element missing");
-        return;
-    }
-
-    // Reset modal
+    // === Reset modal ===
     inputOptionsContainer.innerHTML = '';
     inputEssayAnswer.value = '';
     inputDifficulty && (inputDifficulty.value = 'medium');
@@ -3573,8 +3633,14 @@ function openQuestionModal(q) {
     imagePreviewEl.style.display = 'none';
     btnRemoveImage.style.display = 'none';
     imageFileEl.dataset.removeOldImage = 'false';
+    warningDiv.style.display = 'none'; // Ẩn cảnh báo
+    modalEl.dataset.isLocked = 'false'; // Đặt trạng thái mặc định
 
+    let isLocked = false; 
+
+    // === Tải dữ liệu (nếu có) ===
     if (q) {
+        // === CHẾ ĐỘ SỬA/XEM ===
         inputId.value = q.id || q._id || '';
         inputQ.value = q.q || '';
         inputSubject.value = q.subject || '';
@@ -3583,14 +3649,12 @@ function openQuestionModal(q) {
         inputPoints.value = q.points || 1;
         inputDifficulty && (inputDifficulty.value = q.difficulty || 'medium');
 
-        // Hiển thị ảnh cũ nếu có
         if (q.imageId) {
             imagePreviewEl.innerHTML = `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid" style="object-fit: contain;">`;
             imagePreviewEl.style.display = 'block';
             btnRemoveImage.style.display = 'inline-block';
         }
 
-        // Load đáp án
         if (q.type === 'mc' && Array.isArray(q.options) && q.options.length > 0) {
             q.options.forEach(opt => addQuestionOption(opt.text, opt.correct));
         } else if (q.type === 'essay') {
@@ -3599,7 +3663,11 @@ function openQuestionModal(q) {
             addQuestionOption();
             addQuestionOption();
         }
+        
+        isLocked = q.isAssigned === true; // Xác định trạng thái khóa
+        
     } else {
+        // === CHẾ ĐỘ TẠO MỚI ===
         inputId.value = '';
         inputQ.value = '';
         inputSubject.value = '';
@@ -3608,8 +3676,23 @@ function openQuestionModal(q) {
         inputPoints.value = 1;
         inputDifficulty && (inputDifficulty.value = 'medium');
         addQuestionOption();
- 
+        isLocked = false; // Mới luôn mở khóa
     }
+
+    // === ÁP DỤNG TRẠNG THÁI KHÓA ===
+    modalEl.dataset.isLocked = isLocked; // <-- Gán trạng thái vào modal
+    if (isLocked) {
+        warningDiv.style.display = 'block'; // Hiện cảnh báo
+    }
+
+    // Khóa/Mở khóa các trường chính
+    coreInputs.forEach(el => { if (el) el.disabled = isLocked; });
+    
+    // Khóa/Mở khóa các nút trong danh sách đáp án (nút Xóa)
+    inputOptionsContainer.querySelectorAll('input, button').forEach(el => el.disabled = isLocked);
+    
+    // === XÓA BỎ LOGIC 'btnAddOption' CŨ Ở ĐÂY ===
+    // (Toàn bộ khối "SỬA LỖI 1" đã bị xóa)
 
     // Nút xóa ảnh
     btnRemoveImage.onclick = () => {
@@ -3633,7 +3716,6 @@ function openQuestionModal(q) {
             };
             reader.readAsDataURL(file);
         } else if (q && q.imageId && imageFileEl.dataset.removeOldImage !== 'true') {
-            // hiển thị lại ảnh cũ nếu cancel
             imagePreviewEl.innerHTML = `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid" style="object-fit: contain;">`;
             imagePreviewEl.style.display = 'block';
             btnRemoveImage.style.display = 'inline-block';
@@ -3645,10 +3727,9 @@ function openQuestionModal(q) {
     };
 
     inputType.onchange = toggleOptionFields;
-    toggleOptionFields();
+    toggleOptionFields(); // <-- Gọi hàm này (đã được cập nhật)
     modal.show();
 }
-
 
 
 // ====================== SAVE QUESTION ======================
@@ -4022,14 +4103,17 @@ function renderTests(items) {
                        ? '<span class="badge bg-info text-dark">Tự động</span>'
                        : '<span class="badge bg-light text-dark border">Thủ công</span>';
 
-        // --- CẬP NHẬT LOGIC NÚT ---
+        // === CẬP NHẬT LOGIC NÚT ===
+        
+        // Sửa: Nút "Sửa" giờ có màu đỏ (outline-danger) nếu bị khóa, nhưng VẪN GỌI HÀM MỞ MODAL
         const editButtonHtml = isAssigned
-            ? `<button class="btn btn-sm btn-outline-primary btn-locked" title="Đề thi đã được giao, không sửa được đề." onclick='alert("Đề thi đã được giao, không sửa được đề.")'>Sửa</button>`
+            ? `<button class="btn btn-sm btn-outline-danger" title="Xem chi tiết đề thi (đã khóa)" onclick='openTestEditModal("${testId}")'>Xem</button>`
             : `<button class="btn btn-sm btn-outline-primary" onclick='openTestEditModal("${testId}")'>Sửa</button>`;
         
-        // NÚT IN MỚI (Luôn hiển thị)
+        // In: Giữ nguyên
         const printButtonHtml = `<button class="btn btn-sm btn-outline-info" title="In đề thi ra PDF" onclick='handlePrintClick("${testId}")'>In</button>`;
         
+        // Xóa: Nút "Xóa" có màu đỏ, bị khóa (btn-locked) và gọi alert
         const deleteButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-danger btn-locked" title="Đề thi đã được giao, không thể xóa." onclick='alert("Đề thi đã được giao, không thể xóa.")'>Xóa</button>`
             : `<button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${escapeHtml(t.name).replace(/"/g, '&quot;')}")'>Xóa</button>`;
@@ -4404,6 +4488,7 @@ async function openReviewQuiz(resultId) {
 
 
 
+// ====================== OPEN TEST EDIT MODAL (ĐÃ CẬP NHẬT) ======================
 async function openTestEditModal(testId) {
   try {
     const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
@@ -4412,21 +4497,58 @@ async function openTestEditModal(testId) {
     const modalEl = qs('modalTestEdit');
     const modal = new bootstrap.Modal(modalEl);
     
+    // === Lấy các phần tử ===
+    const warningDiv = qs('t-warning-locked');
+    const previewContainer = qs('edit-preview-container');
+    const bankContainer = qs('edit-question-bank');
+    
+    // === SỬA LỖI 2: Lấy các phần tử cần khóa một cách RÕ RÀNG ===
+    const btnSave = document.querySelector('#modalTestEdit .btn-primary');
+    const inputTestName = qs('edit-test-name');
+    const inputTestTime = qs('edit-test-time');
+    const inputBankDifficulty = qs('edit-q-difficulty');
+    const inputBankSearch = qs('edit-q-search');
+    // (Lưu ý: subject và level đã bị khóa cứng từ trước)
+    // === KẾT THÚC SỬA LỖI 2 ===
+    
+    // === LOGIC KHÓA MỚI ===
+    const isLocked = (test.assignmentStatus || '').toLowerCase() === 'assigned';
+    
+    // 1. Hiển thị/Ẩn cảnh báo
+    warningDiv.style.display = isLocked ? 'block' : 'none';
+    
+    // 2. SỬA LỖI 2: Khóa/Mở khóa các trường nhập chính
+    if (btnSave) btnSave.disabled = isLocked;
+    if (inputTestName) inputTestName.disabled = isLocked;
+    if (inputTestTime) inputTestTime.disabled = isLocked;
+    if (inputBankDifficulty) inputBankDifficulty.disabled = isLocked;
+    if (inputBankSearch) inputBankSearch.disabled = isLocked;
+    
+    // 3. Khóa/Mở khóa Ngân hàng câu hỏi (Tắt sự kiện chuột)
+    if (bankContainer) {
+        bankContainer.style.pointerEvents = isLocked ? 'none' : 'auto';
+        bankContainer.style.opacity = isLocked ? 0.7 : 1;
+    }
+    
+    // 4. SỬA LỖI 2: Khóa/Mở khóa Khung đề thi (khóa kéo thả và nút xóa)
+    // Chúng ta sẽ truyền cờ 'isLocked' vào renderEditPreview
+    
+    // === KẾT THÚC SỬA LỖI 2 ===
+
+
+    // === Tải dữ liệu (Như cũ) ===
     window.editState = window.editState || {};
     window.editState.currentTest = test; 
     
     let questionsToEdit = test.questions || [];
 
-    // BÙ ĐẮP NỘI DUNG NẾU LÀ ĐỀ TỰ ĐỘNG (Logic cũ của bạn, rất tốt)
     if (questionsToEdit.length > 0 && test.isAutoGenerated && !questionsToEdit[0].q && !questionsToEdit[0].question) {
         const allQuestions = await listAllQuestions(); 
         const questionBankMap = new Map();
         allQuestions.forEach(q => {
-            // Sử dụng _id (ObjectId string) làm key
             questionBankMap.set(String(q._id), q);
         });
         questionsToEdit = questionsToEdit.map(qLite => {
-            // Đề tự động cũ lưu _id, đề mới lưu id (UUID)
             const keyToFind = qLite.id || qLite._id; 
             const fullQuestion = questionBankMap.get(String(keyToFind));
             return fullQuestion ? JSON.parse(JSON.stringify(fullQuestion)) : qLite;
@@ -4434,7 +4556,6 @@ async function openTestEditModal(testId) {
         questionsToEdit = questionsToEdit.filter(q => q && (q.q || q.question));
     }
 
-	// Gán danh sách câu hỏi vào State
     window.editState.selectedQuestions = JSON.parse(JSON.stringify(questionsToEdit));
 
     // Gán thông tin chung
@@ -4442,7 +4563,6 @@ async function openTestEditModal(testId) {
     qs('edit-test-name').value = test.name || '';
     qs('edit-test-time').value = test.time || 45;
     
-    // KHÓA MÔN HỌC VÀ KHỐI LỚP (Logic cũ, đã đúng)
     const subjectEl = qs('edit-test-subject');
     const levelEl = qs('edit-test-level');
     subjectEl.value = test.subject || '';
@@ -4450,41 +4570,40 @@ async function openTestEditModal(testId) {
     subjectEl.setAttribute('disabled', true); 
     levelEl.setAttribute('disabled', true);
     
-    // Đồng bộ hóa bộ lọc
     if (typeof manualState !== 'undefined') {
-        manualState.filters = manualState.filters || {}; // Đảm bảo filters tồn tại
+        manualState.filters = manualState.filters || {};
         manualState.filters.subject = test.subject || ''; 
         manualState.filters.level = test.level || '';
     }
 
     renderSubjectFilters();
-	subjectEl.value = test.subject || '';  
+    subjectEl.value = test.subject || '';  
     
-    // ✅ RENDER PREVIEW (Đã có điểm từ get_test)
-    renderEditPreview(window.editState.selectedQuestions);
+    // ✅ SỬA LỖI 2: Truyền cờ isLocked
+    renderEditPreview(window.editState.selectedQuestions, isLocked); 
     
     qs('edit-test-count').value = window.editState.selectedQuestions.length;
 
-    // Tải Ngân hàng câu hỏi
     await loadEditQuestions();
-	renderEditQuestionBank();
     
-    // ✅ KHÔI PHỤC LẠI NÚT (Quan trọng)
-    const btnSave = document.querySelector('#modalTestEdit .btn-primary');
-    const btnClose = document.querySelector('#modalTestEdit .btn-secondary');
-    if (btnSave) {
-        btnSave.style.display = 'inline-block';
-        btnSave.disabled = false;
+    // ✅ SỬA LỖI 2: Truyền cờ isLocked
+    renderEditQuestionBank(isLocked); 
+    
+    // Khôi phục nút (nếu không bị khóa)
+    if (!isLocked) {
+        if (btnSave) {
+            btnSave.style.display = 'inline-block';
+            btnSave.disabled = false;
+        }
     }
-    if (btnClose) btnClose.textContent = 'Đóng';
-	
+    if (qs('#modalTestEdit .btn-secondary')) qs('#modalTestEdit .btn-secondary').textContent = 'Đóng';
+    
     modal.show();
   } catch (err) {
     console.error(err);
     alert("Lỗi khi tải dữ liệu đề thi.");
   }
 }
-
 
 
 
@@ -4511,7 +4630,7 @@ async function listAllQuestions() {
  * Hiển thị Ngân hàng Câu hỏi trong modal Sửa/Tạo đề thi.
  * Áp dụng class 'selected-question' (tô màu xám/xanh) cho các câu hỏi đã chọn.
  */
-function renderEditQuestionBank() {
+function renderEditQuestionBank(isLocked = false) { // <-- THÊM THAM SỐ isLocked
     // 1. KIỂM TRA AN TOÀN TRẠNG THÁI
     if (!window.editState || !window.editState.questionBank) {
         console.warn("Lỗi render: editState hoặc questionBank chưa sẵn sàng.");
@@ -4524,44 +4643,41 @@ function renderEditQuestionBank() {
     
     const tbody = qs('edit-questions-tbody'); 
     if (!tbody) return;
-
+    
     tbody.innerHTML = '';
     
     const questions = window.editState.questionBank || [];
     const selectedQuestions = window.editState.selectedQuestions || [];
     
-    // Tạo Set chứa TẤT CẢ ID CÓ THỂ CÓ của các câu hỏi đã chọn
     const selectedIds = new Set();
     selectedQuestions.forEach(q => {
         if (q._id) selectedIds.add(q._id); 
         if (q.id) selectedIds.add(q.id); 
     });
 
-    // 3. Kiểm tra trường hợp không có câu hỏi nào được lọc
     if (questions.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Không tìm thấy câu hỏi phù hợp. Vui lòng chọn chủ đề/cấp độ khác.</td></tr>';
         return;
     }
     
-    // 4. Duyệt và render Ngân hàng Câu hỏi
     questions.forEach((q, index) => {
         let tr = document.createElement('tr');
         tr.setAttribute('data-id', q._id);
-        tr.setAttribute('draggable', true);
-        tr.setAttribute('ondragstart', `dragQuestion(event, '${q._id}')`);
-        
-        // Kiểm tra sự đồng bộ bằng CẢ HAI trường ID
+
+        // === CẬP NHẬT LOGIC KHÓA ===
+        tr.setAttribute('draggable', !isLocked); // KHÓA KÉO
+        if (!isLocked) {
+            tr.setAttribute('ondragstart', `dragQuestion(event, '${q._id}')`);
+            tr.onclick = () => toggleSelectEditQuestion(q._id); // KHÓA CLICK
+        }
+        tr.style.cursor = isLocked ? 'not-allowed' : 'pointer'; // Đổi con trỏ
+        // === KẾT THÚC CẬP NHẬT ===
+
         const isSelected = selectedIds.has(q._id) || (q.id && selectedIds.has(q.id));
-        
-        // 5. ÁP DỤNG CLASS HIGHLIGHT
         if (isSelected) { 
             tr.classList.add('selected-question'); 
         }
 
-        // 6. Sự kiện click để chọn/bỏ chọn
-        tr.onclick = () => toggleSelectEditQuestion(q._id); 
-        
-        // 7. Thêm nội dung hàng
         const content = q.question || q.q || 'Không có nội dung';
         tr.innerHTML = `
             <td class="text-center">${index + 1}</td>
@@ -4572,7 +4688,6 @@ function renderEditQuestionBank() {
         tbody.appendChild(tr);
     });
     
-    // ✅ BƯỚC SỬA LỖI QUAN TRỌNG: Kiểm tra null trước khi gán textContent
     const countEl = qs('edit-question-bank-count');
     if (countEl) {
         countEl.textContent = questions.length;
@@ -4607,7 +4722,7 @@ function dragQuestion(event, qId) {
 }
 
 // 🧩 Hiển thị danh sách câu hỏi trong khung sửa đề
-function renderEditPreview(questions = []) {
+function renderEditPreview(questions = [], isLocked = false) { // <-- THÊM THAM SỐ isLocked
   const container = qs('edit-preview-container');
   if (!container) return;
   container.innerHTML = '';
@@ -4624,20 +4739,23 @@ function renderEditPreview(questions = []) {
     const questionText = q.q || q.question || '(Không có nội dung)'; 
     const subj = q.subject || '';
     const diff = q.difficulty || '';
-    
-    // ✅ SỬA LỖI: Đọc điểm từ 'q.points' (đã được 5 quy tắc tính)
     const score = Number(q.points || 0); 
     
     const item = document.createElement('div');
     item.className = 'list-group-item py-2 px-3 mb-1 rounded border';
-    item.draggable = true;
-	item.dataset.qId = q._id || q.id; // Dùng _id hoặc id
-	item.dataset.index = i;
-    item.ondragstart = (e) => dragEditQuestion(e, q);
-	item.ondragover = allowDrop; 
-    item.ondrop = (e) => dropToRearrangeEdit(e, i);
     
-    // ✅ SỬA LỖI: Vô hiệu hóa (readonly) ô nhập điểm (THEO YÊU CẦU CỦA BẠN)
+    // === CẬP NHẬT LOGIC KHÓA ===
+    item.draggable = !isLocked; // KHÓA KÉO THẢ
+    item.dataset.qId = q._id || q.id;
+    item.dataset.index = i;
+    // Gán sự kiện chỉ khi không bị khóa
+    if (!isLocked) {
+        item.ondragstart = (e) => dragEditQuestion(e, q);
+        item.ondragover = allowDrop; 
+        item.ondrop = (e) => dropToRearrangeEdit(e, i);
+    }
+    // === KẾT THÚC CẬP NHẬT ===
+    
     item.innerHTML = `
       <div class="d-flex justify-content-between align-items-center">
         <div>
@@ -4647,7 +4765,7 @@ function renderEditPreview(questions = []) {
         <div>
           <input type="number" class="form-control form-control-sm d-inline-block text-end"
                  style="width:70px;" value="${score.toFixed(2)}" readonly>
-          <button class="btn btn-sm btn-outline-danger ms-1" onclick="removeEditQuestion(${i})">🗑</button>
+          <button class="btn btn-sm btn-outline-danger ms-1" onclick="removeEditQuestion(${i})" ${isLocked ? 'disabled' : ''}>🗑</button>
         </div>
       </div>
     `;
@@ -5366,8 +5484,48 @@ document.getElementById('modalTestAuto').addEventListener('show.bs.modal', () =>
     }
   } catch(e) {}
 });
-    async function deleteTest(id){ if(!confirm('Xóa bài thi?')) return; try{ await fetch(`${serverUrl}/api/tests/${id}`, { method:'DELETE' }); await loadTests(); } catch(e){ alert('Lỗi xóa'); } }
 
+
+ async function performDeleteTest(id) {
+    try {
+        const response = await fetch(`${serverUrl}/api/tests/${id}`, { method: 'DELETE' });
+        
+        // Đọc phản hồi JSON từ server (quan trọng để lấy thông báo)
+        const data = await response.json(); 
+
+        if (response.ok) {
+            // ✅ SỬA LỖI TẠI ĐÂY:
+            // Gọi loadTests(true) để buộc tải lại dữ liệu mới từ máy chủ
+            await loadTests(true); 
+            
+            // Hiển thị thông báo thành công từ server
+            showToast(data.message || 'Đã xóa đề thi thành công!', 'success');
+        } else {
+            // Hiển thị thông báo lỗi từ server (ví dụ: "Đề đã được giao")
+            throw new Error(data.message || `Xóa thất bại. Status: ${response.status}`);
+        }
+    } catch(e) {
+        console.error("Lỗi xóa đề thi:", e);
+        // Hiển thị lỗi ra alert
+        alert('Lỗi xóa đề thi: ' + e.message);
+    }
+}
+
+/**
+ * HÀM MỚI 2: Mở Modal xác nhận (Thay thế hàm deleteTest cũ)
+ * Hàm này được gọi từ nút "Xóa"
+ */
+function deleteTest(id, name) {
+    // Lấy tên đề thi (truyền từ onclick) để hiển thị thông báo đẹp hơn
+    const resourceName = `đề thi "${name || 'này'}"`;
+    
+    // Gọi modal xác nhận (giống hệt deleteQuestion)
+    openConfirmDeleteModal(
+        id, 
+        resourceName, 
+        performDeleteTest // Đây là hàm callback sẽ chạy khi bấm "Xóa"
+    );
+}
 
 
     // STUDENTS (teacher)
@@ -5782,7 +5940,50 @@ async function saveStudent() {
     }
 }
 	
-    async function deleteStudent(id){ if(!confirm('Xóa học sinh?')) return; try{ await fetch(`${serverUrl}/api/users/${id}`, { method:'DELETE' }); await loadStudents(); } catch(e){ alert('Lỗi xóa'); } }
+async function performDeleteStudent(id) {
+    try {
+        const response = await fetch(`${serverUrl}/api/users/${id}`, { method: 'DELETE' });
+
+        if (response.ok || response.status === 204) {
+            // ✅ SỬA LỖI TẠI ĐÂY:
+            // Gọi loadStudents(true) để buộc tải lại dữ liệu mới từ máy chủ
+            await loadStudents(true); 
+            
+            showToast('Đã xóa học sinh thành công!', 'success');
+        } else {
+            // Xử lý lỗi (nếu có)
+            let errorMsg = 'Xóa thất bại. Status: ' + response.status;
+            try {
+                const data = await response.json();
+                errorMsg = data.message || errorMsg;
+            } catch(e) {}
+            throw new Error(errorMsg);
+        }
+    } catch(e) {
+        console.error("Lỗi xóa học sinh:", e);
+        alert('Lỗi xóa học sinh: ' + e.message);
+    }
+}
+
+/**
+ * HÀM MỚI 2: Mở Modal xác nhận (Thay thế hàm deleteTest cũ)
+ * Hàm này được gọi từ nút "Xóa"
+ */
+function deleteStudent(id) {
+    // Tìm tên học sinh từ dữ liệu đã tải để hiển thị thông báo
+    const student = allStudentData.find(s => (s.id || s._id) === id);
+    const studentName = student ? student.fullName : 'này';
+    
+    const resourceName = `học sinh "${studentName}"`;
+    
+    // Gọi modal xác nhận
+    openConfirmDeleteModal(
+        id, 
+        resourceName, 
+        performDeleteStudent // Đây là hàm callback
+    );
+}
+
 
     // ASSIGN
     // ====== GIAO ĐỀ ======
@@ -6580,12 +6781,8 @@ function renderResultsStats(statsApiData, resultsData) {
 function renderResultsTable(pageItems) { // Đổi tên tham số thành 'pageItems'
     const tbody = qs('#results-tbody');
 
-    // --- BẮT ĐẦU: Thêm logic tính STT dựa trên trang ---
-    // Lấy trang hiện tại từ state.results
     const currentPage = state.results.page || 1;
-    // Tính STT bắt đầu (PAGE_SIZE đã được định nghĩa là 20)
     const startStt = (currentPage - 1) * PAGE_SIZE + 1;
-    // --- KẾT THÚC: Thêm logic tính STT ---
 
     let html = '';
 
@@ -6601,41 +6798,37 @@ function renderResultsTable(pageItems) { // Đổi tên tham số thành 'pageIt
         const studentName = r.studentName || 'Học sinh [Đã xóa]';
         const className = r.className || 'N/A';
         const submittedAt = formatSubmittedAt(r.submittedAt);
-
-        // Trạng thái từ backend đã được chuẩn hóa (Hoàn tất, Đã Chấm, Đang Chấm)
         const gradingStatus = r.gradingStatus || 'Đang Chấm';
-        // Đảm bảo điểm được hiển thị đúng định dạng hoặc 'N/A'
-        const score = (r.totalScore !== undefined && r.totalScore !== null) ? Number(r.totalScore).toFixed(1) : 'N/A'; // Làm tròn 1 chữ số thập phân
+        const score = (r.totalScore !== undefined && r.totalScore !== null) ? Number(r.totalScore).toFixed(1) : 'N/A'; 
 
-        // --- LOGIC HIỂN THỊ ĐÃ KHẮC PHỤC ---
         let statusBadge = '';
         let buttonClass = 'btn-secondary';
         let buttonDisabled = '';
         let buttonText = 'Xem chi tiết';
 
-        // 1. HOÀN TẤT
         if (gradingStatus === 'Hoàn tất') {
             statusBadge = `<span class="badge bg-success">Hoàn tất</span>`;
             buttonClass = 'btn-secondary';
             buttonText = 'Xem';
         }
-        // 2. ĐÃ CHẤM (Lần 1)
         else if (gradingStatus === 'Đã Chấm') {
             statusBadge = `<span class="badge bg-info text-dark">Đã Chấm</span>`;
             buttonClass = 'btn-warning';
             buttonText = 'Xem & Chấm Lại';
         }
-        // 3. ĐANG CHẤM
         else {
             statusBadge = `<span class="badge bg-warning text-dark">Đang Chấm</span>`;
             buttonClass = 'btn-danger';
             buttonText = 'Xem và Chấm';
         }
 
-        // Lấy resultId an toàn
         const resultId = r.id || ''; // Lấy id từ bản ghi kết quả
 
-        // Cấu trúc HTML
+        // === LOGIC MỚI: THÊM NÚT IN ===
+        // Gọi hàm exportResultToPDF với resultId
+        const printButtonHtml = `<button class="btn btn-sm btn-outline-info" title="In kết quả PDF" onclick="exportResultToPDF('${escapeHtml(resultId)}')">In</button>`;
+        // === KẾT THÚC LOGIC MỚI ===
+
         html += `
             <tr>
                 <td class="text-center">${globalIndex}</td>
@@ -6646,11 +6839,14 @@ function renderResultsTable(pageItems) { // Đổi tên tham số thành 'pageIt
                 <td class="text-center">${statusBadge}</td>
                 <td class="text-center fw-bold">${score}</td>
                 <td class="text-center">
-                    <button class="btn btn-sm ${buttonClass}"
-                                ${buttonDisabled}
-                                onclick="openResultDetail('${escapeHtml(resultId)}')">
-                        ${buttonText}
-                    </button>
+                    <div class="d-flex justify-content-center flex-wrap" style="gap: 1px;">
+                        <button class="btn btn-sm ${buttonClass}"
+                                    ${buttonDisabled}
+                                    onclick="openResultDetail('${escapeHtml(resultId)}')">
+                            ${buttonText}
+                        </button>
+                        ${printButtonHtml}
+                    </div>
                 </td>
             </tr>
         `;
@@ -7625,7 +7821,8 @@ function renderQuestionStats(questions) {
 
 /**
  * HÀM 1 (CẬP NHẬT): TẠO HTML SẠCH CHO VIỆC IN ĐỀ THI
- * Thay đổi: Dùng font Arial, 12pt. Thêm class 'question-block' để kiểm soát ngắt trang.
+ * Sửa lỗi: Thay thế CSS 'background-image' (bị lỗi khi in)
+ * bằng các thẻ <p> có 'border-bottom' (HTML) để tạo dòng kẻ.
  */
 function generateTestPrintHTML(testName, questions, time, subject, level, createdAt) {
     let questionHtml = '';
@@ -7643,19 +7840,20 @@ function generateTestPrintHTML(testName, questions, time, subject, level, create
             answerSection += '</ol>';
         } else {
             answerSection = `
-                <div style="padding-top: 5px; padding-left: 15px;">
+                <div style="padding-top: 5px; padding-left: 15px;padding-right: 15px;">
                     <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
-                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
-                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
-                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
-                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
+                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
+                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
+                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
+                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
+					<p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
                 </div>
             `;
         }
 
         // === THÊM class="question-block" ===
         questionHtml += `
-            <div class="question-block" style="margin-bottom: 20px; page-break-inside: avoid;">
+            <div class="question-block" style="margin-bottom: 20px; page-break-inside: avoid; page-break-after: avoid;">
                 <p style="font-weight: bold; margin-bottom: 8px;">
                     Câu ${index + 1}: (${(q.points || 1).toFixed(1)} điểm)
                 </p>
@@ -7667,7 +7865,7 @@ function generateTestPrintHTML(testName, questions, time, subject, level, create
 
     // === THAY ĐỔI: Dùng font Arial, 12pt ===
     return `
-        <div style="font-family: Arial, sans-serif; padding: 25px; color: #000; font-size: 12pt;">
+        <div style="font-family: Arial, sans-serif; padding: 0; color: #000; font-size: 12pt;">
             
             <h1 style="text-align: center; font-size: 1.3rem; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; font-weight: bold;">
                 Đề: ${escapeHtml(testName)}
@@ -7691,6 +7889,49 @@ function generateTestPrintHTML(testName, questions, time, subject, level, create
 }
 
 
+//async function handlePrintClick(testId) {
+    
+    // (Bạn có thể thêm một toast/spinner thông báo "Đang chuẩn bị bản in...")
+    
+    //try {
+        // 1. Lấy dữ liệu đầy đủ của đề thi
+       // const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
+       // if (!test || !test.questions) {
+       //     throw new Error("Không tìm thấy dữ liệu đề thi hoặc đề thi không có câu hỏi.");
+       // }
+        
+        // 2. Tạo HTML sạch (gọi hàm generateTestPrintHTML đã có)
+       // const printHtml = generateTestPrintHTML(
+       //     test.name, 
+       //     test.questions, 
+       //     test.time, 
+       //     test.subject, 
+       //     test.level,
+       //     test.createdAt
+     //   );
+
+        // 3. Đổ HTML vào khu vực in
+      //  const printArea = document.getElementById('print-area');
+     //   if (!printArea) {
+      //       throw new Error("Không tìm thấy #print-area.");
+     //   }
+     //   printArea.innerHTML = printHtml;
+        
+        // 4. Gọi hộp thoại IN của trình duyệt
+        // CSS @media print sẽ tự động xử lý việc ẩn/hiện
+       // window.print();
+        
+        // 5. (Tùy chọn) Xóa nội dung sau khi in
+        // printArea.innerHTML = '';
+
+   // } catch (err) {
+     //   console.error("Lỗi khi chuẩn bị in:", err);
+     //   alert("Lỗi khi tải dữ liệu đề thi để in: " + err.message);
+   // }
+//}
+
+
+//=in bằng html2pdf
 async function handlePrintClick(testId) {
     if (typeof html2pdf === 'undefined') {
         alert("Lỗi: Không thể tải thư viện in PDF.");
@@ -7744,9 +7985,9 @@ async function handlePrintClick(testId) {
 
 
 /**
- * HÀM XUẤT PDF (QUAY VỀ PHIÊN BẢN BAN ĐẦU)
- * In trực tiếp nội dung đang xem trước.
- * Sẽ khắc phục lỗi trang trắng, nhưng có thể bị lỗi ngắt trang/khoảng trống.
+ * HÀM 2 (CẬP NHẬT): XUẤT PDF
+ * Sửa lỗi: Thêm 'alignItems: flex-start' để buộc 
+ * modal căn lề trên, giải quyết lỗi lề trên bị lớn.
  */
 function executePdfExport() {
     // 1. Lấy nội dung TỪ CHÍNH MODAL
@@ -7754,6 +7995,10 @@ function executePdfExport() {
     
     const button = document.getElementById('btn-confirm-print-pdf');
     const footer = button.closest('.modal-footer');
+    
+    // === Lấy các phần tử cha của modal ===
+    const dialog = element.closest('.modal-dialog');
+    const modal = element.closest('.modal');
     
     // Lấy tên file đã lưu
     const filename = button.dataset.filename || 'DeThi.pdf';
@@ -7768,28 +8013,84 @@ function executePdfExport() {
         margin:       15, // 15mm cho mọi lề
         filename:     filename,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 3 }, // Tăng độ nét
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: 'css', before: '.question-block' }
+        html2canvas:  { scale: 3 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     
-    // 2. Gọi in TRỰC TIẾP trên 'element' (nội dung modal)
-    html2pdf().from(element).set(opt).save().then(() => {
-        // Đóng modal (như cũ)
-        const previewModalEl = qs('#modalPrintPreview');
-        const previewModal = bootstrap.Modal.getInstance(previewModalEl);
-        if (previewModal) previewModal.hide();
+    // === KỸ THUẬT GỠ BỎ THANH CUỘN VÀ CĂN LỀ ===
+    // 1. Lưu lại style cũ
+    const oldDialogMaxWidth = dialog ? dialog.style.maxWidth : '';
+    const oldModalOverflowY = modal ? modal.style.overflowY : '';
+    const oldModalDialogScrollable = dialog ? dialog.classList.contains('modal-dialog-scrollable') : false;
+    const oldElementPadding = element ? element.style.padding : '';
+    const oldModalAlignItems = modal ? modal.style.alignItems : ''; // <-- LƯU STYLE CĂN CHỈNH CŨ
 
-    }).catch(err => {
-        console.error("Lỗi khi tạo PDF:", err);
-        alert("Đã xảy ra lỗi khi tạo file PDF.");
-    }).finally(() => {
-        // 3. Khôi phục UI
-        if (footer) footer.style.display = 'flex';
-        button.disabled = false;
-        button.textContent = '🖨️ Tải về PDF';
-        // Không cần xóa element vì chúng ta không tạo
-    });
+    // 2. Áp dụng style A4, GỠ BỎ thanh cuộn và GỠ PADDING
+    if (dialog) {
+        dialog.style.maxWidth = '210mm';
+        if (oldModalDialogScrollable) {
+            dialog.classList.remove('modal-dialog-scrollable');
+        }
+    }
+    if (modal) {
+        modal.style.overflowY = 'visible';
+        modal.style.alignItems = 'flex-start'; // <-- SỬA LỖI: BUỘC CĂN LỀ TRÊN
+    }
+    if (element) {
+        element.style.maxHeight = 'none'; 
+        element.style.padding = '0'; // GỠ PADDING CỦA MODAL-BODY
+    }
+    // === KẾT THÚC ===
+    
+    // 3. Đợi 200ms để trình duyệt vẽ lại
+    setTimeout(() => {
+        // 4. Gọi in TRỰC TIẾP trên 'element' (nội dung modal)
+        html2pdf().from(element).set(opt).toPdf().get('pdf').then(function (pdf) {
+            // Thêm số trang (như cũ)
+            const totalPages = pdf.internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                pdf.setPage(i); 
+                pdf.setFontSize(10); 
+                pdf.setTextColor(150);
+                pdf.text(
+                    `Trang ${i} / ${totalPages}`,
+                    pdf.internal.pageSize.getWidth() / 2, 
+                    pdf.internal.pageSize.getHeight() - 10,
+                    { align: 'center' }
+                );
+            }
+        }).save().then(() => {
+            // Đóng modal
+            const previewModalEl = qs('#modalPrintPreview');
+            const previewModal = bootstrap.Modal.getInstance(previewModalEl);
+            if (previewModal) previewModal.hide();
+
+        }).catch(err => {
+            console.error("Lỗi khi tạo PDF:", err);
+            alert("Đã xảy ra lỗi khi tạo file PDF.");
+        }).finally(() => {
+            // 5. Khôi phục UI
+            if (footer) footer.style.display = 'flex';
+            button.disabled = false;
+            button.textContent = '🖨️ Tải về PDF';
+            
+            // Khôi phục style cũ
+            if (dialog) {
+                dialog.style.maxWidth = oldDialogMaxWidth;
+                if (oldModalDialogScrollable) {
+                    dialog.classList.add('modal-dialog-scrollable');
+                }
+            }
+            if (modal) {
+                modal.style.overflowY = oldModalOverflowY;
+                modal.style.alignItems = oldModalAlignItems; // <-- KHÔI PHỤC CĂN CHỈNH
+            }
+            if (element) {
+                element.style.maxHeight = ''; 
+                element.style.padding = oldElementPadding; 
+            }
+        });
+    }, 200); // Đợi 200ms
 }
 
 /**
@@ -7842,7 +8143,137 @@ function exportResultToPDF() {
     });
 }
 
+/**
+ * HÀM MỚI (Hỗ trợ): TẠO HTML SẠCH CHO VIỆC IN KẾT QUẢ
+ * (Hàm này dùng chung cho cả 2 kịch bản in)
+ */
+function generateResultPrintHTML(data, quiz) {
+    
+    // Tạo map câu hỏi gốc để lấy nội dung
+    const questionMap = new Map();
+    if (quiz && quiz.questions) {
+        quiz.questions.forEach(q => {
+            if(q.id) questionMap.set(String(q.id), q);
+            if(q._id) questionMap.set(String(q._id), q);
+        });
+    }
 
+    // Xử lý nội dung câu hỏi
+    let questionHtml = '';
+    (data.detailedResults || []).forEach((ans, i) => {
+        const qId = String(ans.questionId);
+        const q = questionMap.get(qId) || {};
+        
+        const questionContent = q.q || '(Nội dung câu hỏi bị thiếu)';
+        const q_type = (ans.type || q.type || '').toLowerCase();
+        const isEssay = q_type === 'essay';
+        
+        const studentAnswerText = String(ans.studentAnswer || '');
+        const correctAns = String(ans.correctAnswer || q.answer || '').trim().toLowerCase();
+        const maxPoints = ans.maxPoints ?? q.points ?? 1;
+        const gainedPoints = ans.pointsGained ?? 0;
+        const isCorrect = ans.isCorrect;
+
+        let answerDisplay = '';
+        
+        if (!isEssay) {
+            // Câu trắc nghiệm
+            const studentAnswerTrimmedLower = studentAnswerText.trim().toLowerCase();
+            answerDisplay = (q.options || []).map(opt => {
+                const optionText = String(opt.text || opt.value || '').trim();
+                const optionTextLower = optionText.toLowerCase();
+                let cls = '';
+                if (correctAns && optionTextLower === correctAns) { 
+                    cls = 'style="background-color: #d1e7dd; border: 1px solid #28a745; font-weight: bold;"';
+                } else if (optionTextLower === studentAnswerTrimmedLower) { 
+                    cls = 'style="background-color: #fff3cd; border: 1px solid #dc3545;"';
+                }
+                return `<div ${cls} style="border: 1px solid #ccc; border-radius: 4px; padding: 5px; margin-bottom: 5px;">${escapeHtml(optionText)}</div>`;
+            }).join('');
+        } else {
+            // Câu tự luận
+            answerDisplay = `<p style="font-weight: bold; margin-bottom: 2px;">Câu trả lời của Học sinh:</p>
+                             <div style="border: 1px solid #ccc; border-radius: 4px; padding: 5px; min-height: 50px; background: #f8f9fa;">
+                                 ${escapeHtml(studentAnswerText)}
+                             </div>`;
+        }
+        
+        // Khung điểm
+        const scoreBox = isEssay 
+            ? `Điểm GV: ${ans.teacherScore ?? 0} / ${maxPoints}`
+            : `Điểm: ${gainedPoints} / ${maxPoints}`;
+        
+        questionHtml += `
+            <div class="question-block" style="margin-bottom: 20px; page-break-inside: avoid; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                <p style="font-weight: bold; margin-bottom: 8px;">
+                    Câu ${index + 1} (${maxPoints} điểm)
+                    <span style="float: right; font-weight: normal; color: ${isCorrect ? 'green' : 'red'};">${isCorrect ? 'Đúng' : (isEssay ? 'Chờ chấm' : 'Sai')}</span>
+                </p>
+                <div style="margin-bottom: 10px;">${questionContent}</div>
+                <div style="margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px;">
+                    ${answerDisplay}
+                </div>
+                <p style="text-align: right; font-weight: bold; margin-top: 5px;">${scoreBox}</p>
+            </div>
+        `;
+    });
+
+    // Tạo HTML đầy đủ
+    return `
+        <div style="font-family: Arial, sans-serif; padding: 0; color: #000; font-size: 12pt;">
+            <h1 style="text-align: center; font-size: 1.3rem; border-bottom: 2px solid #000; padding-bottom: 10px;">
+                PHIẾU KẾT QUẢ BÀI LÀM
+            </h1>
+            <div style="margin: 15px 0; font-size: 1.0rem; line-height: 1.6; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;">
+                <p><strong>Học sinh:</strong> ${escapeHtml(data.studentName)}</p>
+                <p><strong>Lớp:</strong> ${escapeHtml(data.className)}</p>
+                <p><strong>Đề thi:</strong> ${escapeHtml(data.testName)}</p>
+                <p><strong>Thời gian nộp:</strong> ${data.submittedAt ? new Date(data.submittedAt).toLocaleString('vi-VN') : '-'}</p>
+                <hr style="border: 0; border-top: 1px solid #ccc;">
+                <p style="font-weight: bold;">
+                    Điểm TN: ${data.mcScore ?? 0} | 
+                    Điểm TL: ${data.essayScore ?? 0} | 
+                    Tổng điểm: ${data.totalScore ?? 0}
+                </p>
+            </div>
+            ${questionHtml}
+        </div>
+    `;
+}
+
+/**
+ * HÀM MỚI (Hỗ trợ): In bằng 'div' ẩn đáng tin cậy
+ */
+async function runPdfGeneration(htmlString, filename, opt) {
+    // 1. Tạo một div ẩn mới (bản sao để in)
+    const printElement = document.createElement('div');
+    
+    printElement.style.position = 'fixed';
+    printElement.style.top = '0';
+    printElement.style.left = '0';
+    printElement.style.width = '210mm';       // Đặt chiều rộng A4
+    printElement.style.zIndex = '-9999';      
+    printElement.style.visibility = 'hidden'; 
+    
+    printElement.innerHTML = htmlString;
+    document.body.appendChild(printElement); // Thêm vào body
+
+    // 2. Trả về một Promise
+    return new Promise((resolve, reject) => {
+        // 3. Đợi 200ms để trình duyệt VẼ (render)
+        setTimeout(() => {
+            html2pdf().from(printElement).set(opt).save()
+                .then(() => {
+                    document.body.removeChild(printElement); // Dọn dẹp
+                    resolve();
+                })
+                .catch(err => {
+                    document.body.removeChild(printElement); // Dọn dẹp
+                    reject(err);
+                });
+        }, 200);
+    });
+}
 
 
 // Hàm chuyển đổi (nên đặt ở phần đầu của file JS)
