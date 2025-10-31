@@ -847,7 +847,7 @@ def update_test(test_id):
     level = data.get("level")
     subject = data.get("subject")
     
-    # JS (hàm getEditedTestQuestions) gửi: [{"_id": "oid_str", "points": 0}, ...]
+    # JS (hàm getEditedTestQuestions) gửi: [{"_id": "oid_str", ...}, ...]
     questions_from_js = data.get("questions", [])
     
     # Lấy _id string từ payload
@@ -858,7 +858,7 @@ def update_test(test_id):
     if not question_oids_from_fe:
         return jsonify({"success": False, "message": "Vui lòng chọn ít nhất 1 câu hỏi"}), 400
 
-    # ✅ SỬA LỖI: CHUYỂN ĐỔI _id SANG id (UUID)
+    # ✅ SỬA LỖI: CHUYỂN ĐỔI _id SANG id (UUID) (Giống hệt create_test)
     object_ids = []
     for oid_str in question_oids_from_fe:
         try:
@@ -903,7 +903,7 @@ def update_test(test_id):
         "questions": formatted_questions, # ✅ Danh sách MỚI với điểm MỚI
         "mcCount": mc_count,
         "essayCount": essay_count,
-        "count": len(question_ids)
+        "count": len(question_uuids_to_save) # ✅ Sửa: Dùng biến đã qua xử lý
     }
 
     # 5. Cập nhật vào DB
