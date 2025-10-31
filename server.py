@@ -385,9 +385,30 @@ def list_questions():
     if search_keyword:
         query["q"] = {"$regex": search_keyword, "$options": "i"} 
     
+    # === LOGIC MỚI BẮT ĐẦU ===
+    # 1. Lấy tất cả ID câu hỏi (UUID) nằm trong các đề đã được giao
+    assigned_test_ids = set(db.assignments.distinct("testId"))
+    assigned_q_ids = set()
+    
+    if assigned_test_ids:
+        # Dùng pipeline để lấy tất cả question.id từ các test đã giao
+        pipeline = [
+            {"$match": {"id": {"$in": list(assigned_test_ids)}}},
+            {"$unwind": "$questions"},
+            {"$group": {"_id": "$questions.id"}} # Gom nhóm theo question.id
+        ]
+        assigned_q_refs = list(db.tests.aggregate(pipeline))
+        # Tạo một Set chứa các ID (UUID) của câu hỏi đã được giao
+        assigned_q_ids = {q_ref["_id"] for q_ref in assigned_q_refs if q_ref["_id"]}
+    # === LOGIC MỚI KẾT THÚC ===
+
     docs = list(db.questions.find(query))
     for doc in docs:
+        # Thêm cờ 'isAssigned' vào tài liệu
+        q_uuid = doc.get("id")
+        doc['isAssigned'] = (q_uuid in assigned_q_ids)
         doc['_id'] = str(doc['_id'])
+        
     return jsonify(docs)
 
 @app.route("/questions", methods=["POST"])
@@ -435,6 +456,19 @@ def get_question(q_id):
 @app.route("/questions/<q_id>", methods=["PUT"])
 @app.route("/api/questions/<q_id>", methods=["PUT"])
 def update_question(q_id):
+    
+    # === LOGIC MỚI BẮT ĐẦU ===
+    # q_id ở đây là UUID (question.id)
+    # 1. Tìm tất cả các test ID có chứa câu hỏi này
+    tests_with_q = list(db.tests.find({"questions.id": q_id}, {"id": 1}))
+    if tests_with_q:
+        test_ids = [t['id'] for t in tests_with_q]
+        
+        # 2. Kiểm tra xem bất kỳ test nào trong số đó đã được giao chưa
+        if db.assignments.find_one({"testId": {"$in": test_ids}}):
+            return jsonify({"success": False, "message": "Câu hỏi nằm trong đề đã được giao không thể sửa."}), 403 # 403 Forbidden
+    # === LOGIC MỚI KẾT THÚC ===
+
     data = request.form
     image_file = request.files.get("image")
     remove_old = data.get("removeOldImage", "false") == "true"
@@ -839,6 +873,13 @@ def preview_auto_test():
 @app.route("/tests/<test_id>", methods=["PUT"])
 @app.route("/api/tests/<test_id>", methods=["PUT"])
 def update_test(test_id):
+    
+    # === LOGIC MỚI BẮT ĐẦU ===
+    # Kiểm tra xem testId này đã có trong collection 'assignments' chưa
+    if db.assignments.find_one({"testId": test_id}):
+        return jsonify({"success": False, "message": "Đề thi đã được giao, không sửa được đề."}), 403 # 403 Forbidden
+    # === LOGIC MỚI KẾT THÚC ===
+
     data = request.get_json() or {}
     
     # 1. Lấy dữ liệu mới từ JS
