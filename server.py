@@ -515,6 +515,19 @@ def update_question(q_id):
 @app.route("/questions/<q_id>", methods=["DELETE"])
 @app.route("/api/questions/<q_id>", methods=["DELETE"])
 def delete_question(q_id):
+    
+    # === LOGIC MỚI BẮT ĐẦU ===
+    # q_id ở đây là UUID (question.id)
+    # 1. Tìm tất cả các test ID có chứa câu hỏi này
+    tests_with_q = list(db.tests.find({"questions.id": q_id}, {"id": 1}))
+    if tests_with_q:
+        test_ids = [t['id'] for t in tests_with_q]
+        
+        # 2. Kiểm tra xem bất kỳ test nào trong số đó đã được giao chưa
+        if db.assignments.find_one({"testId": {"$in": test_ids}}):
+            return jsonify({"success": False, "message": "Câu hỏi nằm trong đề đã được giao, không thể xóa."}), 403 # 403 Forbidden
+    # === LOGIC MỚI KẾT THÚC ===
+
     res = db.questions.delete_one({"id": q_id})
     if res.deleted_count > 0:
         return "", 204
