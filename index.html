@@ -1610,8 +1610,34 @@
 	</div>
 	</div>
 	
+	<!--Modal Privew Print -->
+	<div class="modal fade" id="modalPrintPreview" tabindex="-1" aria-labelledby="modalPrintPreviewLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalPrintPreviewLabel">Xem trước Bản in</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        
+        <div class="modal-body" id="print-preview-content">
+          </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+          <button type="button" class="btn btn-primary" id="btn-confirm-print-pdf" onclick="executePdfExport()">
+            🖨️ Tải về PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="modalConfirmDelete" tabindex="-1">
+  ...
+	
+	
+	
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
- 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
  <script>
  
   
@@ -3996,10 +4022,13 @@ function renderTests(items) {
                        ? '<span class="badge bg-info text-dark">Tự động</span>'
                        : '<span class="badge bg-light text-dark border">Thủ công</span>';
 
-        // === CẬP NHẬT LOGIC NÚT ===
+        // --- CẬP NHẬT LOGIC NÚT ---
         const editButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-primary btn-locked" title="Đề thi đã được giao, không sửa được đề." onclick='alert("Đề thi đã được giao, không sửa được đề.")'>Sửa</button>`
             : `<button class="btn btn-sm btn-outline-primary" onclick='openTestEditModal("${testId}")'>Sửa</button>`;
+        
+        // NÚT IN MỚI (Luôn hiển thị)
+        const printButtonHtml = `<button class="btn btn-sm btn-outline-info" title="In đề thi ra PDF" onclick='handlePrintClick("${testId}")'>In</button>`;
         
         const deleteButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-danger btn-locked" title="Đề thi đã được giao, không thể xóa." onclick='alert("Đề thi đã được giao, không thể xóa.")'>Xóa</button>`
@@ -4021,6 +4050,7 @@ function renderTests(items) {
              <td class="text-center p-1">
                 <div class="d-flex justify-content-center flex-wrap" style="gap: 1px;">
                     ${editButtonHtml}
+                    ${printButtonHtml}
                     <button class="btn btn-sm btn-outline-success" onclick='openAssignModal("${testId}", "${escapeHtml(t.name).replace(/"/g, '&quot;')}")'>Giao đề</button>
                     ${deleteButtonHtml}
                 </div>
@@ -7591,6 +7621,229 @@ function renderQuestionStats(questions) {
 
     statsContainer.innerHTML = html;
 }
+
+
+/**
+ * HÀM 1 (CẬP NHẬT): TẠO HTML SẠCH CHO VIỆC IN ĐỀ THI
+ * Thay đổi: Dùng font Arial, 12pt. Thêm class 'question-block' để kiểm soát ngắt trang.
+ */
+function generateTestPrintHTML(testName, questions, time, subject, level, createdAt) {
+    let questionHtml = '';
+    
+    questions.forEach((q, index) => {
+        const questionText = q.q || q.question || '(Lỗi nội dung câu hỏi)';
+        const qType = (q.type || 'mc').toLowerCase();
+        
+        let answerSection = '';
+        if (qType === 'mc' && q.options && q.options.length > 0) {
+            answerSection = '<ol type="A" style="margin: 0; padding-left: 30px; list-style-position: outside;">';
+            q.options.forEach(opt => {
+                answerSection += `<li style="margin-bottom: 8px;">${escapeHtml(opt.text || opt.value || '')}</li>`;
+            });
+            answerSection += '</ol>';
+        } else {
+            answerSection = `
+                <div style="padding-top: 5px; padding-left: 15px;">
+                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
+                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
+                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
+                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
+                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
+                </div>
+            `;
+        }
+
+        // === THÊM class="question-block" ===
+        questionHtml += `
+            <div class="question-block" style="margin-bottom: 20px; page-break-inside: avoid;">
+                <p style="font-weight: bold; margin-bottom: 8px;">
+                    Câu ${index + 1}: (${(q.points || 1).toFixed(1)} điểm)
+                </p>
+                <div style="margin-bottom: 10px; padding-left: 15px;">${questionText}</div>
+                ${answerSection}
+            </div>
+        `;
+    });
+
+    // === THAY ĐỔI: Dùng font Arial, 12pt ===
+    return `
+        <div style="font-family: Arial, sans-serif; padding: 25px; color: #000; font-size: 12pt;">
+            
+            <h1 style="text-align: center; font-size: 1.3rem; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; font-weight: bold;">
+                Đề: ${escapeHtml(testName)}
+            </h1>
+            
+            <div style="text-align: center; margin-bottom: 20px; font-size: 1.0rem; line-height: 1.5;">
+                <strong>Môn:</strong> ${SUBJECT_NAMES[subject] || subject}
+                &nbsp; | &nbsp; <strong>Khối:</strong> ${level || 'Chưa chọn khối'}
+                &nbsp; | &nbsp; <strong>Thời gian:</strong> ${time} phút
+                <br>
+                <strong>Ngày tạo:</strong> ${formatDateTimeForTable(createdAt)}
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid #666;">
+            ${questionHtml}
+            <p style="text-align: center; font-weight: bold; margin-top: 30px;">
+                --- HẾT ---
+            </p>
+        </div>
+    `;
+}
+
+
+async function handlePrintClick(testId) {
+    if (typeof html2pdf === 'undefined') {
+        alert("Lỗi: Không thể tải thư viện in PDF.");
+        return;
+    }
+    
+    const previewModalEl = qs('#modalPrintPreview');
+    const previewModal = bootstrap.Modal.getInstance(previewModalEl) || new bootstrap.Modal(previewModalEl);
+    const previewContent = qs('#print-preview-content');
+    const previewTitle = qs('#modalPrintPreviewLabel');
+    const confirmButton = qs('#btn-confirm-print-pdf');
+
+    // Hiển thị trạng thái tải
+    previewTitle.textContent = "Đang tải dữ liệu in...";
+    previewContent.innerHTML = '<div class="spinner-row"><div class="spinner-border text-success"></div></div>';
+    confirmButton.disabled = true;
+    previewModal.show();
+
+    try {
+        // 1. Lấy dữ liệu đầy đủ của đề thi
+        const test = await fetchJson(`${serverUrl}/api/tests/${testId}`);
+        if (!test || !test.questions) {
+            throw new Error("Không tìm thấy dữ liệu đề thi hoặc đề thi không có câu hỏi.");
+        }
+        
+        // 2. Tạo HTML sạch (gọi hàm đã có)
+        const printHtml = generateTestPrintHTML(
+            test.name, 
+            test.questions, 
+            test.time, 
+            test.subject, 
+            test.level,
+            test.createdAt // <-- THÊM THAM SỐ NÀY
+        );
+
+        // 3. Đổ HTML vào Modal
+        previewTitle.textContent = `Xem trước: ${test.name}`;
+        previewContent.innerHTML = printHtml;
+        
+        // 4. Gán tên file vào nút "Tải về PDF"
+        const safeName = (test.name || 'De_Thi').replace(/[^a-z0-9_-\s]/gi, '').trim() || 'De_Thi';
+        confirmButton.dataset.filename = `${safeName}.pdf`; // Lưu tên file vào nút
+        confirmButton.disabled = false;
+
+    } catch (err) {
+        console.error("Lỗi khi chuẩn bị in PDF:", err);
+        previewTitle.textContent = "Lỗi";
+        previewContent.innerHTML = `<div class="alert alert-danger">Lỗi khi tải dữ liệu đề thi để in: ${err.message}</div>`;
+    }
+}
+
+
+/**
+ * HÀM XUẤT PDF (QUAY VỀ PHIÊN BẢN BAN ĐẦU)
+ * In trực tiếp nội dung đang xem trước.
+ * Sẽ khắc phục lỗi trang trắng, nhưng có thể bị lỗi ngắt trang/khoảng trống.
+ */
+function executePdfExport() {
+    // 1. Lấy nội dung TỪ CHÍNH MODAL
+    const element = document.getElementById('print-preview-content'); 
+    
+    const button = document.getElementById('btn-confirm-print-pdf');
+    const footer = button.closest('.modal-footer');
+    
+    // Lấy tên file đã lưu
+    const filename = button.dataset.filename || 'DeThi.pdf';
+    
+    // Ẩn footer và vô hiệu hóa nút (như cũ)
+    if (footer) footer.style.display = 'none';
+    button.disabled = true;
+    button.textContent = 'Đang xử lý...';
+
+    // Cấu hình (như cũ)
+    const opt = {
+        margin:       15, // 15mm cho mọi lề
+        filename:     filename,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 3 }, // Tăng độ nét
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: 'css', before: '.question-block' }
+    };
+    
+    // 2. Gọi in TRỰC TIẾP trên 'element' (nội dung modal)
+    html2pdf().from(element).set(opt).save().then(() => {
+        // Đóng modal (như cũ)
+        const previewModalEl = qs('#modalPrintPreview');
+        const previewModal = bootstrap.Modal.getInstance(previewModalEl);
+        if (previewModal) previewModal.hide();
+
+    }).catch(err => {
+        console.error("Lỗi khi tạo PDF:", err);
+        alert("Đã xảy ra lỗi khi tạo file PDF.");
+    }).finally(() => {
+        // 3. Khôi phục UI
+        if (footer) footer.style.display = 'flex';
+        button.disabled = false;
+        button.textContent = '🖨️ Tải về PDF';
+        // Không cần xóa element vì chúng ta không tạo
+    });
+}
+
+/**
+ * HÀM MỚI 3: XỬ LÝ VIỆC XUẤT PDF CHO KẾT QUẢ BÀI LÀM
+ * Lấy nội dung trực tiếp từ modal 'modalGrading' và gọi html2pdf
+ */
+function exportResultToPDF() {
+    // 1. Kiểm tra thư viện
+    if (typeof html2pdf === 'undefined') {
+        alert("Lỗi: Không thể tải thư viện in PDF. Vui lòng kiểm tra kết nối mạng và thử lại.");
+        return;
+    }
+
+    // 2. Lấy phần tử nội dung modal để in
+    const element = document.querySelector("#modalGrading .modal-body");
+    if (!element) {
+        alert("Lỗi: Không tìm thấy nội dung bài làm để in.");
+        return;
+    }
+
+    // 3. Lấy thông tin để đặt tên file
+    const studentName = (qs('#sum-studentName')?.textContent || 'HocSinh').trim();
+    const testName = (qs('#sum-testName')?.textContent || 'BaiLam').trim();
+    
+    // Tạo tên file
+    const safeStudent = studentName.replace(/[^a-z0-9_-\s]/gi, '').trim() || 'HocSinh';
+    const safeTest = testName.replace(/[^a-z0-9_-\s]/gi, '').trim() || 'BaiLam';
+    const filename = `BaiLam_${safeStudent}_${safeTest}.pdf`;
+
+    // 4. Cấu hình và gọi html2pdf
+    const opt = {
+        margin:       [10, 10, 10, 10], // mm
+        filename:     filename,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    // Ẩn nút "Lưu chấm" và "Đóng" tạm thời để không bị in vào PDF
+    const footer = document.querySelector("#modalGrading .modal-footer");
+    if (footer) footer.style.display = 'none';
+
+    html2pdf().from(element).set(opt).save().then(() => {
+        // Hiện lại footer sau khi in
+        if (footer) footer.style.display = 'block';
+    }).catch(err => {
+        console.error("Lỗi khi tạo PDF kết quả:", err);
+        // Hiện lại footer nếu có lỗi
+        if (footer) footer.style.display = 'block';
+    });
+}
+
+
+
 
 // Hàm chuyển đổi (nên đặt ở phần đầu của file JS)
 function translateDifficulty(difficulty) {
