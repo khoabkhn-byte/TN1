@@ -1643,7 +1643,7 @@ def get_results_for_student():
 @app.route("/", methods=["GET"])
 def index():
     try:
-        return send_from_directory(".", "index31.html") # ✅ Sửa: Luôn trỏ đến index31.html
+        return send_from_directory(".", "index.html") # ✅ Sửa: Luôn trỏ đến index.html
     except Exception:
         return jsonify({"message": "Index not found"}), 404
 
