@@ -361,6 +361,23 @@
     }
 
 
+/* Style cho tiêu đề bảng "Bài đã làm" */
+#stu-done .table thead th {
+    background-color: #e9ecef; /* Màu xám nhạt (Giống hệt tab 1) */
+    color: #495057; /* Màu chữ đen xám đậm (Giống hệt tab 1) */
+    font-weight: 600;
+    vertical-align: middle;
+    text-align: center;
+    border-bottom: 2px solid #ced4da; /* Viền xám (Giống hệt tab 1) */
+}
+
+/* Căn trái cho các cột tiêu đề Tên/Môn (Giống hệt tab 1) */
+#stu-done .table thead th:nth-child(2), /* Bài thi */
+#stu-done .table thead th:nth-child(3) { /* Môn */
+    text-align: left; 
+}
+
+
   </style>
 </head>
 <body>
@@ -864,20 +881,30 @@
 
         <div class="card p-3 mb-3">
             <div class="row g-2 align-items-end">
-                <div class="col-md-4">
+                
+                <div class="col-md-3">
                     <label for="filter-stu-subject" class="form-label small mb-1">Lọc theo Môn</label>
-                    <select id="filter-stu-subject" class="form-select form-select-sm" onchange="renderPendingAssignments()">
+                    <select id="filter-stu-subject" class="form-select form-select-sm">
                         <option value="">-- Tất cả Môn học --</option>
-                        </select>
+                    </select>
                 </div>
-                <div class="col-md-4">
+                
+                <div class="col-md-3">
+                    <label for="filter-stu-assigned-date" class="form-label small mb-1">Lọc theo Ngày giao</label>
+                    <input type="date" id="filter-stu-assigned-date" class="form-control form-control-sm">
+                </div>
+
+                <div class="col-md-3">
                     <label for="sort-stu-assignment" class="form-label small mb-1">Sắp xếp theo</label>
-                    <select id="sort-stu-assignment" class="form-select form-select-sm" onchange="renderPendingAssignments()">
+                    <select id="sort-stu-assignment" class="form-select form-select-sm">
+                        <option value="none">-- Mặc định --</option>
                         <option value="newest">Ngày giao (Mới nhất)</option>
                         <option value="oldest">Ngày giao (Cũ nhất)</option>
                     </select>
                 </div>
-                <div class="col-md-4 text-end">
+                
+            
+                <div class="col-md-3 text-end">
                     <label class="form-label small invisible d-block mb-1">.</label>
                     <button class="btn btn-sm btn-outline-primary me-2" onclick="loadAssignments(true)">Tải lại</button>
                     <button class="btn btn-sm btn-outline-danger" onclick="clearPendingFilters()">Xóa lọc</button>
@@ -906,9 +933,15 @@
                         </tbody>
                     </table>
                 </div>
+				</div> <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2 p-2">
+              <div class="muted-small me-auto" id="stuPending-info">Hiển thị 0 - 0 trên 0</div>
+              <button id="stuPending-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('stuPending', -1)">Trang trước</button>
+              <button id="stuPending-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('stuPending', 1)">Trang sau</button>
+            </div>
             </div>
         </div>
-    </div> <div class="tab-pane fade" id="stu-done">
+    </div> 
+	<div class="tab-pane fade" id="stu-done">
     
         <div id="done-stats-container" class="alert alert-light py-2 mb-3" role="alert">
             <div class="d-flex align-items-center mb-2">
@@ -923,13 +956,15 @@
         <div id="assignment-filters-container" class="card p-3 mb-3">
             
             <div class="row g-2 align-items-end">
-                <div class="col-md-3 col-sm-6">
+                
+                <div class="col-md-2">
                     <label for="filter-subject-done" class="form-label small">Môn học</label>
                     <select id="filter-subject-done" class="form-select form-select-sm">
                         <option value="all">-- Tất cả --</option>
                     </select>
                 </div>
-                <div class="col-md-3 col-sm-6">
+                
+                <div class="col-md-2">
                     <label for="filter-status-done" class="form-label small">Trạng thái chấm</label>
                     <select id="filter-status-done" class="form-select form-select-sm">
                         <option value="all">-- Tất cả --</option>
@@ -938,20 +973,35 @@
                         <option value="Đang Chấm">Đang Chấm</option>
                     </select>
                 </div>
-                <div class="col-md-3 col-sm-6">
+
+                <div class="col-md-2">
+                    <label for="filter-done-submitted-date" class="form-label small">Lọc theo Ngày Nộp</label>
+                    <input type="date" id="filter-done-submitted-date" class="form-control form-control-sm">
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="filter-done-graded-date" class="form-label small">Lọc theo Ngày Chấm</label>
+                    <input type="date" id="filter-done-graded-date" class="form-control form-control-sm">
+                </div>
+                
+                <div class="col-md-2">
                     <label for="sort-done-time" class="form-label small">Sắp xếp theo</label>
                     <select id="sort-done-time" class="form-select form-select-sm">
+                        <option value="none">-- Mặc định --</option>
                         <option value="submittedAt_desc">Thời gian nộp (Mới nhất)</option>
                         <option value="submittedAt_asc">Thời gian nộp (Cũ nhất)</option>
                         <option value="totalScore_desc">Điểm tổng (Cao nhất)</option>
                         <option value="totalScore_asc">Điểm tổng (Thấp nhất)</option>
                     </select>
                 </div>
-                <div class="col-md-3 col-sm-6 text-end">
+                
+                <div class="col-md-2 text-end">
                     <label class="form-label small invisible d-block">.</label>
-                    <button id="reset-filters-done" class="btn btn-sm btn-outline-secondary">Xóa lọc</button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadAssignments(true)">Tải lại</button>
+                    <button id="reset-filters-done" class="btn btn-sm btn-outline-danger ms-1">Xóa lọc</button>
                 </div>
             </div>
+            
         </div>
         
         <div class="card p-3">
@@ -973,6 +1023,13 @@
                     <tbody id="done-tbody"></tbody> 
                 </table>
             </div>
+            
+            <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
+              <div class="muted-small me-auto" id="stuDone-info">Hiển thị 0 - 0 trên 0</div>
+              <button id="stuDone-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('stuDone', -1)">Trang trước</button>
+              <button id="stuDone-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('stuDone', 1)">Trang sau</button>
+            </div>
+            
         </div>
     </div>
 
@@ -1769,8 +1826,16 @@ function qs(selector) {
 	
 
 // Pagination state
-const state = { questions: { list: [], page:1, total:0 }, tests: { list: [], page:1, total:0 }, students: { list: [], page:1, total:0 }, results: { list: [], page:1, total:0 } };
-
+const state = { 
+    questions: { list: [], page:1, total:0 }, 
+    tests: { list: [], page:1, total:0 }, 
+    students: { list: [], page:1, total:0 }, 
+    results: { list: [], page:1, total:0 },
+    
+    // ✅ ĐẢM BẢO 2 DÒNG NÀY CÓ Ở ĐÂY
+    stuPending: { list: [], page: 1, total: 0 },
+    stuDone: { list: [], page: 1, total: 0 }
+};
     
 	//const qs = id => document.getElementById(id);
 	
@@ -2083,31 +2148,32 @@ function updateQuestionLevelFilter(questions) {
     }
 }
 		
- function renderPaged(resource){
+ // THAY THẾ HÀM NÀY (khoảng dòng 2187)
+function renderPaged(resource){
     const s = state[resource];
-    // Đảm bảo s tồn tại trước khi truy cập thuộc tính
     if (!s) {
         console.error(`Lỗi: Không tìm thấy state cho resource '${resource}'`);
         return;
     }
-    const listToPage = s.list || []; // Sử dụng mảng rỗng nếu list không tồn tại
-    const start = (s.page - 1) * PAGE_SIZE;
+    const listToPage = s.list || []; 
+    // Dùng PAGE_SIZE = 20 (đã khai báo ở đầu file)
+    const start = (s.page - 1) * PAGE_SIZE; 
     const pageItems = listToPage.slice(start, start + PAGE_SIZE);
 
     // Render nội dung bảng tương ứng
     if (resource === 'questions') renderQuestions(pageItems);
     if (resource === 'tests') {
         renderTests(pageItems);
-        // --- ✅ GỌI LẠI SETUP LISTENERS CHO TAB BÀI THI ---
         if (typeof setupTestCheckboxListeners === 'function') {
             setupTestCheckboxListeners();
-        } else {
-            console.warn("renderPaged: setupTestCheckboxListeners function not found.");
         }
-        // --- KẾT THÚC ---
     }
     if (resource === 'students') renderStudents(pageItems);
-    if (resource === 'results') renderResultsTable(pageItems); // <-- DÒNG ĐÃ THÊM
+    if (resource === 'results') renderResultsTable(pageItems); 
+    
+    // ✅ BỔ SUNG LOGIC GỌI CHO HỌC SINH
+    if (resource === 'stuPending') renderPendingTable(pageItems);
+    if (resource === 'stuDone') renderDoneTable(pageItems);
 
     // Cập nhật UI phân trang
     updatePaginationUI(resource);
@@ -4067,6 +4133,34 @@ function populateSubjectFilters() {
     });
 }
 
+
+
+function compareDates(isoString, dateInputValue) {
+    // 1. Nếu người dùng không chọn ngày (input rỗng), luôn hiển thị
+    if (!dateInputValue) {
+        return true;
+    }
+    
+    // 2. ✅ SỬA LỖI: Nếu người dùng CÓ chọn ngày (input có),
+    //    nhưng bản ghi KHÔNG CÓ NGÀY (isoString rỗng), thì phải ẨN (return false)
+    if (!isoString) { 
+        return false; 
+    }
+    
+    // 3. Nếu cả hai đều có giá trị, tiến hành so sánh
+    try {
+        // Lấy 10 ký tự đầu tiên của chuỗi ISO (VD: "2025-10-28")
+        const isoDatePart = isoString.substring(0, 10);
+        
+        // So sánh
+        return isoDatePart === dateInputValue;
+        
+    } catch (e) {
+        console.error("Lỗi so sánh ngày:", e);
+        return false; // An toàn hơn là ẩn đi nếu có lỗi
+    }
+}
+
 	
     function viewTest(tStr){ 
 		try{ const t = JSON.parse(decodeURIComponent(tStr)); 
@@ -5805,10 +5899,12 @@ function renderStudentGlobalStats(pendingList, completedList) {
 // HÀM MỚI: DÙNG CHO NÚT "XÓA LỌC" TRÊN TAB "ĐỀ ĐƯỢC GIAO"
 function clearPendingFilters() {
     if (qs('#filter-stu-subject')) qs('#filter-stu-subject').value = '';
-    if (qs('#sort-stu-assignment')) qs('#sort-stu-assignment').value = 'newest';
+    // ✅ Reset Sắp xếp về 'none'
+    if (qs('#sort-stu-assignment')) qs('#sort-stu-assignment').value = 'none'; 
+    if (qs('#filter-stu-assigned-date')) qs('#filter-stu-assigned-date').value = '';
     
-    // Gọi lại hàm render của tab pending
-    renderPendingAssignments(); 
+    // Gọi lại hàm render (với resetPage = true)
+    renderPendingAssignments(null, true); 
 }
 
 
@@ -6505,6 +6601,9 @@ let assignmentFilterStatus = 'all';
 /**
  * Tải tất cả Assignments và Results của học sinh hiện tại, sau đó xử lý và hiển thị.
  */
+// =================================================================
+// THAY THẾ TOÀN BỘ HÀM NÀY (Khoảng dòng 5650)
+// =================================================================
 async function loadAssignments(forceReload = false) {
     const pendingTbody = qs('#assigned-tbody');
     const doneTbody = qs('#done-tbody');
@@ -6512,20 +6611,20 @@ async function loadAssignments(forceReload = false) {
     // Logic cache/render nhanh
     if (!forceReload && allAssignedTestsData && allAssignedTestsData.length > 0 && assignmentState.allResults && assignmentState.allResults.length > 0) {
         
-        // ✅ BƯỚC 1: THÊM HÀM GỌI THỐNG KÊ (KHI DÙNG CACHE)
+        // Gọi lại thống kê và các hàm filter
         renderStudentGlobalStats(assignmentState.pending || [], assignmentState.completed || []);
         
-        // Sửa lại để truyền tham số (nếu logic của bạn cần)
-        renderPendingAssignments(assignmentState.pending); 
-        filterAndRenderAssignments();
+        // ✅ GỌI LẠI HÀM ĐIỀN FILTER (CHO CACHE)
+        updateStudentSubjectFilter(allAssignedTestsData); 
+        
+        renderPendingAssignments(null, false); // false = không reset trang
+        filterAndRenderAssignments(false); // false = không reset trang
         return;
     }
 
-    // Spinner loading (Colspan cho assigned là 8, cho done là 10)
-    if (pendingTbody) pendingTbody.innerHTML =
-        '<tr><td colspan="8" class="text-center"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải đề được giao...</td></tr>';
-    if (doneTbody) doneTbody.innerHTML =
-        '<tr><td colspan="10" class="text-center"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải bài đã làm...</td></tr>';
+    // Spinner loading
+    if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="8" class="text-center spinner-row"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải đề được giao...</td></tr>';
+    if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="10" class="text-center spinner-row"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải bài đã làm...</td></tr>';
 
    try {
         const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
@@ -6533,23 +6632,12 @@ async function loadAssignments(forceReload = false) {
         const studentId = s.id;
         const q = `?studentId=${encodeURIComponent(studentId)}`;
 
-        // LOG: trước khi gọi API
-        console.log('>>> loadAssignments: calling APIs for studentId=', studentId, 'forceReload=', forceReload);
-
-        // Gọi API song song
         const [assignedResponse, resultsResponse] = await Promise.all([
             fetchJson(`${serverUrl}/api/assignments${q}`),
             fetchJson(`${serverUrl}/api/results${q}`)
         ]);
 
-        // LOG: in response nguyên gốc để kiểm tra shape
-        console.log('<<< loadAssignments: assignedResponse =', assignedResponse);
-        console.log('<<< loadAssignments: resultsResponse =', resultsResponse);
-
-        // Xử lý kết quả assignments
         const assignsRaw = assignedResponse.assignments || assignedResponse;
-        console.log('>>> loadAssignments: assignsRaw (length) =', Array.isArray(assignsRaw) ? assignsRaw.length : '(not array)', assignsRaw);
-
         const standardizedAssigns = (Array.isArray(assignsRaw) ? assignsRaw : []).map(a => {
             a.essayCount = a.essayCount || 0;
             a.mcCount = a.mcCount || 0;
@@ -6557,33 +6645,24 @@ async function loadAssignments(forceReload = false) {
             return a;
         });
         allAssignedTestsData = standardizedAssigns;
-
-        // LOG: after standardize
-        console.log('>>> loadAssignments: standardizedAssigns =', standardizedAssigns);
-
-        // Xử lý kết quả results
         const results = Array.isArray(resultsResponse) ? resultsResponse : [];
-        console.log('>>> loadAssignments: results (length)=', results.length, results);
 
-        // Gọi processAssignments SAU KHI CÓ CẢ HAI DỮ LIỆU
         const { pending, completed } = processAssignments(standardizedAssigns, results);
 
-        // LOG: kết quả processAssignments
-        console.log('>>> loadAssignments: processAssignments -> pending.length=', pending.length, 'completed.length=', completed.length);
-
-        // ✅ BƯỚC 2: THÊM HÀM GỌI THỐNG KÊ (KHI TẢI MỚI)
+        // Gọi hàm thống kê
         renderStudentGlobalStats(pending, completed);
-
-        // Render bảng Pending (chỉ dùng mảng pending đã lọc)
-        renderPendingAssignments(pending);
+        
+        // ✅ THÊM LẠI DÒNG BỊ THIẾU Ở ĐÂY (ĐỂ ĐIỀN FILTER KHI TẢI MỚI)
         updateStudentSubjectFilter(allAssignedTestsData);
 
-        // Setup filter và render bảng Done
+        // Gọi hàm lọc/sort (sẽ tự gọi renderPaged)
+        renderPendingAssignments(null, true); // true = reset trang
+        
+        // Setup filter và gọi hàm lọc/sort cho tab 2
         setupAssignmentFilters();
-        filterAndRenderAssignments();
+        filterAndRenderAssignments(true); // true = reset trang
 
     } catch (e) {
-        // Hiển thị lỗi nếu tải dữ liệu thất bại
         console.error('!!! loadAssignments: caught error:', e);
         if (pendingTbody) pendingTbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Lỗi tải đề được giao: ${e.message}</td></tr>`;
         if (doneTbody) doneTbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Lỗi tải bài đã làm: ${e.message}</td></tr>`;
@@ -6691,71 +6770,83 @@ function processAssignments(assigns, results) {
 }
 
 
-// Thay thế hàm filterAndRenderAssignments (khoảng dòng 5716)
-function filterAndRenderAssignments() {
-    // 1. Lọc và Sắp xếp (Giữ nguyên)
+// HÀM 3: LỌC, SẮP XẾP VÀ GỌI PHÂN TRANG (TAB BÀI ĐÃ LÀM)
+function filterAndRenderAssignments(resetPage = true) {
+    // 1. Lọc và Sắp xếp
     let filteredList = [...(assignmentState.completed || [])];
     const currentFilters = assignmentState.currentFilters;
 
-    if (currentFilters.subject && currentFilters.subject !== 'all') {
-        filteredList = filteredList.filter(a => a.subject === currentFilters.subject);
+    // ✅ ĐỌC CÁC GIÁ TRỊ LỌC (ĐÃ XÓA assignedDate)
+    const subject = currentFilters.subject || 'all';
+    const status = currentFilters.status || 'all';
+    const submittedDate = currentFilters.submittedDate || '';
+    const gradedDate = currentFilters.gradedDate || '';
+
+    // ✅ ÁP DỤNG BỘ LỌC (ĐÃ XÓA LỌC NGÀY GIAO)
+    if (subject && subject !== 'all') {
+        filteredList = filteredList.filter(a => a.subject === subject);
     }
-    if (currentFilters.status && currentFilters.status !== 'all') {
-        filteredList = filteredList.filter(a => (a.gradingStatus || 'Đang Chấm') === currentFilters.status);
+    if (status && status !== 'all') {
+        filteredList = filteredList.filter(a => (a.gradingStatus || 'Đang Chấm') === status);
     }
+    // Lọc kết hợp 2 ngày (Logic AND)
+    filteredList = filteredList.filter(a => compareDates(a.submittedAt, submittedDate));
+    filteredList = filteredList.filter(a => compareDates(a.gradedAt, gradedDate));
 
-    const sortBy = currentFilters.sortBy || 'submittedAt_desc';
-    const sortParts = sortBy.split('_');
-    const sortField = sortParts[0]; 
-    const sortDir = sortParts[1] === 'desc' ? -1 : 1; 
 
-    filteredList.sort((a, b) => {
-        let valA = a[sortField];
-        let valB = b[sortField];
-        if (sortField === 'totalScore') {
-            valA = parseFloat(valA) || 0; 
-            valB = parseFloat(valB) || 0;
-        } else if (sortField === 'submittedAt') {
-            valA = valA ? new Date(valA).getTime() : 0;
-            valB = valB ? new Date(valB).getTime() : 0;
-        }
-        if (valA < valB) return -1 * sortDir;
-        if (valA > valB) return 1 * sortDir;
-        return 0;
-    });
+    // Sắp xếp
+    const sortBy = currentFilters.sortBy || 'none'; // Mặc định là 'none'
 
-    // 2. Render bảng (Giữ nguyên)
-    renderDoneAssignments(filteredList);
-
-    // 3. ✅ THÊM LOGIC RENDER THỐNG KÊ (MỚI)
+    // CHỈ SẮP XẾP KHI sortBy KHÁC 'none'
+    if (sortBy !== 'none') {
+        const sortParts = sortBy.split('_');
+        const sortField = sortParts[0]; 
+        const sortDir = sortParts[1] === 'desc' ? -1 : 1; 
+        filteredList.sort((a, b) => {
+            let valA = a[sortField];
+            let valB = b[sortField];
+            if (sortField === 'totalScore') {
+                valA = parseFloat(valA) || 0; 
+                valB = parseFloat(valB) || 0;
+            } else if (sortField === 'submittedAt') {
+                valA = valA ? new Date(valA).getTime() : 0;
+                valB = valB ? new Date(valB).getTime() : 0;
+            }
+            if (valA < valB) return -1 * sortDir;
+            if (valA > valB) return 1 * sortDir;
+            return 0;
+        });
+    }
+    
+    // 2. Lưu vào State và gọi Phân trang
+    state.stuDone.list = filteredList;
+    state.stuDone.total = filteredList.length;
+    if (resetPage) {
+        state.stuDone.page = 1;
+    }
+    renderPaged('stuDone');
+    
+    // 3. Render Thống kê (Toàn bộ logic thống kê giữ nguyên)
     const totalDone = filteredList.length;
     const doneTotalEl = qs('#done-stats-total');
     const doneDetailsEl = qs('#done-stats-details');
-
     if (doneTotalEl && doneDetailsEl) {
-        // Hàng 1: Tổng số
         doneTotalEl.innerHTML = `<span class="badge bg-success fs-6">Tổng số: ${totalDone}</span>`;
-
-        // Hàng 2: Chi tiết (Trạng thái chấm & Môn học)
         const subjectCounts = {};
         const statusCounts = { 'Hoàn tất': 0, 'Đã Chấm': 0, 'Đang Chấm': 0 }; 
-
         filteredList.forEach(a => {
             const subj = a.subject || 'khac';
             subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
-            
             const status = a.gradingStatus || 'Đang Chấm';
             if (statusCounts.hasOwnProperty(status)) {
                 statusCounts[status]++;
             }
         });
-
         let detailsHtml = '<span class="d-inline-block me-3">Trạng thái: ';
         detailsHtml += `<span class="badge bg-success me-1">Hoàn tất: ${statusCounts['Hoàn tất']}</span>`;
         detailsHtml += `<span class="badge bg-info text-dark me-1">Đã chấm: ${statusCounts['Đã Chấm']}</span>`;
         detailsHtml += `<span class="badge bg-warning text-dark me-1">Đang chấm: ${statusCounts['Đang Chấm']}</span>`;
         detailsHtml += '</span>';
-
         detailsHtml += '<span class="me-3">|</span> <span class="d-inline-block me-3">Môn học: ';
         const sortedSubjects = Object.keys(subjectCounts).sort();
         if (sortedSubjects.length > 0) {
@@ -6769,6 +6860,128 @@ function filterAndRenderAssignments() {
         doneDetailsEl.innerHTML = detailsHtml;
     }
 }
+
+// HÀM 2: CHỈ VẼ BẢNG "ĐỀ ĐƯỢC GIAO" (HÀM BỊ THIẾU)
+function renderPendingTable(items) {
+    const tableBody = qs('#assigned-tbody');
+    if (!tableBody) return; 
+    
+    if (items.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không tìm thấy bài được giao nào.</td></tr>';
+        return;
+    }
+    
+    // Tính STT dựa trên trang hiện tại (PAGE_SIZE = 20)
+    const currentPage = state.stuPending.page || 1;
+    const startStt = (currentPage - 1) * PAGE_SIZE + 1;
+
+    tableBody.innerHTML = items.map((a, index) => {
+        const displayName = mapSubjectToDisplayName(a.subject);
+        const actionButton = `<button class="btn btn-sm btn-primary" onclick="startQuiz('${a.testId}', '${a.assignmentId}', ${a.time})">Làm bài</button>`; 
+        const formattedDate = formatDateTimeForTable(a.assignedAt); 
+        return `
+            <tr>
+                <td class="text-center">${startStt + index}</td>
+                <td>${displayName || '—'}</td> <td>${a.testName || '—'}</td>
+                <td class="text-center">${a.essayCount || 0}</td>
+                <td class="text-center">${a.mcCount || 0}</td>
+                <td class="text-center">${a.time || '—'}</td>
+                <td class="text-center">${formattedDate}</td>
+                <td class="text-center">${actionButton}</td> 
+            </tr>
+        `;
+    }).join('');
+}
+
+
+// HÀM 4: CHỈ VẼ BẢNG "BÀI ĐÃ LÀM" (HÀM BỊ THIẾU)
+function renderDoneTable(items) {
+    const tbody = qs('#done-tbody');
+    if (!tbody) {
+        console.error("LỖI: Không tìm thấy phần tử <tbody> với ID: #done-tbody");
+        return;
+    }
+    tbody.innerHTML = '';
+    let htmlContent = "";
+
+    if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Chưa có bài đã làm.</td></tr>';
+        return;
+    }
+
+    // Tính STT dựa trên trang hiện tại (PAGE_SIZE = 20)
+    const currentPage = state.stuDone.page || 1;
+    const startStt = (currentPage - 1) * PAGE_SIZE + 1;
+
+    const safeHtml = (str) => { return str ? String(str).replace(/[&<>"']/g, s => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s])) : ''; };
+    const safeFormat = (dateStr) => { return dateStr ? dateStr.substring(0, 16).replace('T', ' ') : '—'; };
+
+    items.forEach((a, index) => {
+        const globalIndex = startStt + index; // STT chính xác
+        
+        const resultIdForButton = a.resultId || '';
+        const testName = a.testName;
+        const subjectDisplay = mapSubjectToDisplayName(a.subject);
+        const gradingStatus = a.gradingStatus || 'Đang Chấm';
+        const submittedAt = safeFormat(a.submittedAt);
+        const gradedAt = safeFormat(a.gradedAt);
+        const statusLower = gradingStatus.toLowerCase();
+        const isCompletedOrRegraded = statusLower.includes('hoàn tất') || statusLower.includes('đã chấm lại');
+        const isGraded = statusLower.includes('đã chấm');
+        let statusBadge;
+         if (isCompletedOrRegraded) { statusBadge = `<span class="badge bg-success">Hoàn tất</span>`; }
+         else if (isGraded) { statusBadge = `<span class="badge bg-info text-dark">Đã Chấm</span>`; }
+         else { statusBadge = `<span class="badge bg-warning text-dark">Đang Chấm</span>`; }
+
+        let formattedTotalScore = '—';
+        if (a.totalScore !== undefined && a.totalScore !== null) {
+            formattedTotalScore = (typeof a.totalScore === 'number') ? a.totalScore.toFixed(2) : a.totalScore;
+        }
+        const totalScore = formattedTotalScore; 
+
+        let formattedMcScore = '—';
+        if (a.mcScore !== undefined && a.mcScore !== null) {
+            formattedMcScore = (typeof a.mcScore === 'number') ? a.mcScore.toFixed(2) : a.mcScore;
+        }
+        const mcScore = formattedMcScore; 
+
+        let displayEssayScore;
+         if (a.essayScore !== undefined && a.essayScore !== null) {
+            displayEssayScore = (typeof a.essayScore === 'number' ? a.essayScore.toFixed(2) : a.essayScore);
+        } else if (isCompletedOrRegraded || isGraded) {
+            displayEssayScore = 'N/A';
+        } else {
+            displayEssayScore = '—';
+        }
+        const essayScore = displayEssayScore;
+
+        const buttonClass = 'btn-secondary';
+        const buttonText = 'Xem';
+
+        htmlContent += `
+            <tr>
+                <td class="text-center">${globalIndex}</td>
+                <td>${safeHtml(testName)}</td>
+                <td>${safeHtml(subjectDisplay)}</td>
+                <td>${submittedAt}</td>
+                <td class="text-center">${statusBadge}</td>
+                <td class="text-center fw-bold">${mcScore}</td>
+                <td class="text-center fw-bold">${essayScore}</td>
+                <td class="text-center fw-bold text-primary">${totalScore}</td>
+                <td class="text-center">${gradedAt}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm ${buttonClass}"
+                            onclick="viewResult('${safeHtml(resultIdForButton)}')">
+                        ${buttonText}
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = htmlContent;
+}
+
 
 /**
  * Hiển thị danh sách bài tập CHƯA LÀM vào bảng assigned-tbody.
@@ -6802,72 +7015,55 @@ function formatDateTimeForTable(isoString) {
     }
 }
  
-function renderPendingAssignments(pendingAssigns) {
-    // 1. Lấy giá trị lọc và sắp xếp
+// HÀM 1: LỌC, SẮP XẾP VÀ GỌI PHÂN TRANG (TAB 1)
+function renderPendingAssignments(pendingAssigns, resetPage = true) {
+    // 1. Lấy giá trị lọc
     const subjectFilter = qs('#filter-stu-subject') ? qs('#filter-stu-subject').value : '';
-    const sortValue = qs('#sort-stu-assignment') ? qs('#sort-stu-assignment').value : 'newest';
+    const sortValue = qs('#sort-stu-assignment') ? qs('#sort-stu-assignment').value : 'none'; 
+    const dateFilter = qs('#filter-stu-assigned-date') ? qs('#filter-stu-assigned-date').value : '';
 
-    // 2. Nguồn dữ liệu
-    let sourceData = pendingAssigns || assignmentState.pending || [];
+    // 2. Nguồn dữ liệu (ưu tiên state)
+    let sourceData = assignmentState.pending || pendingAssigns || [];
     
-    let filteredData = sourceData.filter(test => 
-        !subjectFilter || test.subject === subjectFilter
-    );
+    // 3. Áp dụng lọc
+    let filteredData = sourceData
+        .filter(test => !subjectFilter || test.subject === subjectFilter)
+        .filter(test => compareDates(test.assignedAt, dateFilter)); 
 
-    // 3. Sắp xếp dữ liệu
-    filteredData.sort((a, b) => {
-        const dateA = convertDateStringToDate(a.assignedAt); 
-        const dateB = convertDateStringToDate(b.assignedAt);
-        const timeA = dateA ? dateA.getTime() : 0;
-        const timeB = dateB ? dateB.getTime() : 0;
-        if (sortValue === 'newest') {
-            return timeB - timeA; 
-        } else {
-            return timeA - timeB; 
-        }
-    });
-
-    // 4. Render vào bảng (Giữ nguyên)
-    const tableBody = qs('#assigned-tbody');
-    if (!tableBody) return; 
-    
-    if (filteredData.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="8" class="text-center">Không tìm thấy bài được giao nào.</td></tr>';
-    } else {
-        tableBody.innerHTML = filteredData.map((a, index) => {
-            const displayName = mapSubjectToDisplayName(a.subject);
-            const actionButton = `<button class="btn btn-sm btn-primary" onclick="startQuiz('${a.testId}', '${a.assignmentId}', ${a.time})">Làm bài</button>`; 
-            const formattedDate = formatDateTimeForTable(a.assignedAt); 
-            return `
-                <tr>
-                    <td class="text-center">${index + 1}</td>
-                    <td>${displayName || '—'}</td> <td>${a.testName || '—'}</td>
-                    <td class="text-center">${a.essayCount || 0}</td>
-                    <td class="text-center">${a.mcCount || 0}</td>
-                    <td class="text-center">${a.time || '—'}</td>
-                    <td class="text-center">${formattedDate}</td>
-                    <td class="text-center">${actionButton}</td> 
-                </tr>
-            `;
-        }).join('');
+    // 4. SẮP XẾP (Chỉ sort khi KHÁC 'none')
+    if (sortValue === 'newest' || sortValue === 'oldest') {
+        filteredData.sort((a, b) => {
+            const dateA = convertDateStringToDate(a.assignedAt); 
+            const dateB = convertDateStringToDate(b.assignedAt);
+            const timeA = dateA ? dateA.getTime() : 0;
+            const timeB = dateB ? dateB.getTime() : 0;
+            if (sortValue === 'newest') {
+                return timeB - timeA; 
+            } else {
+                return timeA - timeB; 
+            }
+        });
     }
 
-    // 5. ✅ THÊM LOGIC RENDER THỐNG KÊ (MỚI)
+    // 5. Lưu vào State và gọi Phân trang
+    state.stuPending.list = filteredData;
+    state.stuPending.total = filteredData.length;
+    if (resetPage) {
+        state.stuPending.page = 1;
+    }
+    renderPaged('stuPending'); // <-- Gọi hàm renderPaged
+
+    // 6. Render Thống kê
     const totalPending = filteredData.length;
     const pendingTotalEl = qs('#pending-stats-total');
     const pendingDetailsEl = qs('#pending-stats-details');
-
     if (pendingTotalEl && pendingDetailsEl) {
-        // Hàng 1: Tổng số
         pendingTotalEl.innerHTML = `<span class="badge bg-primary fs-6">Tổng số: ${totalPending}</span>`;
-
-        // Hàng 2: Chi tiết (Môn học)
         const subjectCounts = {};
         filteredData.forEach(a => {
             const subj = a.subject || 'khac';
             subjectCounts[subj] = (subjectCounts[subj] || 0) + 1;
         });
-
         let detailsHtml = '<span class="d-inline-block me-3">Môn học: ';
         const sortedSubjects = Object.keys(subjectCounts).sort();
         if (sortedSubjects.length > 0) {
@@ -7001,99 +7197,100 @@ function mapSubjectToDisplayName(subjectValue) {
     }
 }
 
-// Thay thế hàm setupAssignmentFilters (khoảng dòng 5928)
+// THAY THẾ HÀM NÀY (khoảng dòng 5928)
 function setupAssignmentFilters() {
     const filterContainer = qs('#assignment-filters-container');
     if (!filterContainer) return;
 
-    // --- XỬ LÝ TRƯỜNG HỢP KHÔNG CÓ DỮ LIỆU ---
     if (!assignmentState.allResults || assignmentState.allResults.length === 0) {
-        // (Không cần hiển thị gì trong card filter nếu không có dữ liệu)
         filterContainer.innerHTML = ''; 
         return;
     }
-    // --- KẾT THÚC ---
 
-    // --- TẠO BỘ LỌC KHI CÓ DỮ LIỆU ---
-    const uniqueSubjects = [...new Set(assignmentState.allResults.map(a => a.subject))];
-    const subjectOptions = uniqueSubjects
-        .filter(s => s && s.toLowerCase() !== 'n/a')
-        .map(s => {
-            const value = s.toLowerCase();
-            const displayName = mapSubjectToDisplayName(value); // Dùng hàm map tên môn
-            return `<option value="${value}">${displayName}</option>`;
-        })
-        .join('');
-
-    // --- ✅ HTML MỚI (ĐÃ XÓA DÒNG H5) ---
-    const filtersHtml = `
-        
-        <div class="row g-2 align-items-end">
-
-            <div class="col-md-3 col-sm-6">
-                <label for="filter-subject-done" class="form-label small">Môn học</label>
-                <select id="filter-subject-done" class="form-select form-select-sm">
-                    <option value="all">-- Tất cả --</option>
-                    ${subjectOptions}
-                </select>
-            </div>
-
-            <div class="col-md-3 col-sm-6">
-                <label for="filter-status-done" class="form-label small">Trạng thái chấm</label>
-                <select id="filter-status-done" class="form-select form-select-sm">
-                    <option value="all">-- Tất cả --</option>
-                    <option value="Hoàn tất">Hoàn tất</option>
-                    <option value="Đã Chấm">Đã Chấm</option>
-                    <option value="Đang Chấm">Đang Chấm</option>
-                </select>
-            </div>
-
-            <div class="col-md-3 col-sm-6">
-                <label for="sort-done-time" class="form-label small">Sắp xếp theo</label>
-                <select id="sort-done-time" class="form-select form-select-sm">
-                    <option value="submittedAt_desc">Thời gian nộp (Mới nhất)</option>
-                    <option value="submittedAt_asc">Thời gian nộp (Cũ nhất)</option>
-                    <option value="totalScore_desc">Điểm tổng (Cao nhất)</option>
-                    <option value="totalScore_asc">Điểm tổng (Thấp nhất)</option>
-                </select>
-            </div>
-
-            <div class="col-md-3 col-sm-6 text-end">
-                <label class="form-label small invisible d-block">.</label>
-                <button id="reset-filters-done" class="btn btn-sm btn-outline-secondary">Xóa lọc</button>
-            </div>
-        </div>
-    `;
-    // --- KẾT THÚC HTML MỚI ---
-
-    filterContainer.innerHTML = filtersHtml;
-
-    // --- GÁN SỰ KIỆN NGHE MỚI (Giữ nguyên) ---
+    // --- Lấy các phần tử ---
     const subjectSelect = qs('#filter-subject-done');
     const statusSelect = qs('#filter-status-done');
     const sortSelect = qs('#sort-done-time');
     const resetButton = qs('#reset-filters-done');
+    
+    // Lấy 2 bộ lọc ngày (Ngày Giao đã bị xóa)
+    const submittedDateEl = qs('#filter-done-submitted-date');
+    const gradedDateEl = qs('#filter-done-graded-date');
+    
+    // --- Điền option Môn học (Chỉ điền 1 lần) ---
+    if (subjectSelect && subjectSelect.options.length <= 1) { 
+        const uniqueSubjects = [...new Set(assignmentState.allResults.map(a => a.subject))];
+        const subjectOptions = uniqueSubjects
+            .filter(s => s && s.toLowerCase() !== 'n/a')
+            .map(s => {
+                const value = s.toLowerCase();
+                const displayName = mapSubjectToDisplayName(value);
+                return `<option value="${value}">${displayName}</option>`;
+            })
+            .join('');
+        subjectSelect.innerHTML = '<option value="all">-- Tất cả --</option>' + subjectOptions;
+    }
 
-    const handleFilterOrSortChange = () => {
+    // --- HÀM GỌI RENDER CHUNG (TAB 2) ---
+    const triggerDoneRender = () => {
+        // 1. Cập nhật state (Đã xóa assignedDate)
         assignmentState.currentFilters.subject = subjectSelect ? subjectSelect.value : 'all';
         assignmentState.currentFilters.status = statusSelect ? statusSelect.value : 'all';
-        assignmentState.currentFilters.sortBy = sortSelect ? sortSelect.value : 'submittedAt_desc';
-        filterAndRenderAssignments();
+        assignmentState.currentFilters.sortBy = sortSelect ? sortSelect.value : 'none';
+        assignmentState.currentFilters.submittedDate = submittedDateEl ? submittedDateEl.value : '';
+        assignmentState.currentFilters.gradedDate = gradedDateEl ? gradedDateEl.value : '';
+        
+        // 2. Gọi hàm lọc/sort (với resetPage = true)
+        filterAndRenderAssignments(true);
     };
 
-    if (subjectSelect) subjectSelect.addEventListener('change', handleFilterOrSortChange);
-    if (statusSelect) statusSelect.addEventListener('change', handleFilterOrSortChange);
-    if (sortSelect) sortSelect.addEventListener('change', handleFilterOrSortChange); 
+    // --- GÁN SỰ KIỆN LISTENER (LOGIC MỚI) ---
+    
+    // Lọc Môn và Trạng thái: Chỉ cần gọi render
+    if (subjectSelect) subjectSelect.onchange = triggerDoneRender;
+    if (statusSelect) statusSelect.onchange = triggerDoneRender;
+    
+    // ✅ LOGIC KẾT HỢP NGÀY (KHÔNG RESET NHAU, NHƯNG RESET SORT)
+    if (submittedDateEl) {
+        submittedDateEl.onchange = () => {
+            if (sortSelect) sortSelect.value = 'none'; // Reset Sắp xếp
+            triggerDoneRender();
+        };
+    }
+    if (gradedDateEl) {
+        gradedDateEl.onchange = () => {
+            if (sortSelect) sortSelect.value = 'none'; // Reset Sắp xếp
+            triggerDoneRender();
+        };
+    }
 
-    if (resetButton) resetButton.addEventListener('click', () => {
-        assignmentState.currentFilters = { subject: 'all', status: 'all', sortBy: 'submittedAt_desc' };
-        if (subjectSelect) subjectSelect.value = 'all';
-        if (statusSelect) statusSelect.value = 'all';
-        if (sortSelect) sortSelect.value = 'submittedAt_desc'; 
-        filterAndRenderAssignments(); 
-    });
+    // ✅ LOGIC SẮP XẾP (RESET 2 NGÀY)
+    if (sortSelect) {
+        sortSelect.onchange = () => {
+            // Nếu chọn "Mới nhất" hoặc "Cũ nhất"...
+            if (sortSelect.value !== 'none') {
+                // Reset cả 2 ngày
+                if (submittedDateEl) submittedDateEl.value = '';
+                if (gradedDateEl) gradedDateEl.value = '';
+            }
+            triggerDoneRender();
+        };
+    }
+
+    // Xử lý nút Reset (cập nhật để xóa 2 ngày)
+    if (resetButton) {
+        resetButton.onclick = () => {
+            // Reset UI
+            if (subjectSelect) subjectSelect.value = 'all';
+            if (statusSelect) statusSelect.value = 'all';
+            if (sortSelect) sortSelect.value = 'none';
+            if (submittedDateEl) submittedDateEl.value = '';
+            if (gradedDateEl) gradedDateEl.value = '';
+            
+            triggerDoneRender(); 
+        };
+    }
 }
-
 
 
 
@@ -7645,69 +7842,30 @@ function removeQuestionFromPreview(qId) {
 }
 
 // =================================================================
-// KHỐI DOMContentLoaded DUY NHẤT VÀ CHÍNH XÁC
-// (XÓA TẤT CẢ CÁC KHỐI DOMContentLoaded KHÁC VÀ DÙNG KHỐI NÀY)
+// KHỐI DOMContentLoaded DUY NHẤT (ĐÃ THÊM LOGIC RESET 2 CHIỀU)
 // =================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
-    // ----- 1. KHỞI TẠO TẤT CẢ CÁC MODAL INSTANCE -----
+    // ----- 1. KHỞI TẠO CÁC MODAL INSTANCE (Giữ nguyên) -----
     
-    // Khởi tạo Review Quiz Modal
     const reviewModalEl = document.getElementById("modalReviewQuiz");
-    if (reviewModalEl) {
-        reviewQuizModalInstance = new bootstrap.Modal(reviewModalEl, {
-            backdrop: 'static',
-            keyboard: false
-        });
-    }
-
-    // Khởi tạo Info Modal
+    if (reviewModalEl) { /* ... (khởi tạo reviewQuizModalInstance) ... */ }
     const infoModalEl = document.getElementById("infoModal");
-    if (infoModalEl) {
-        infoModalInstance = new bootstrap.Modal(infoModalEl);
-    }
-
-    // Khởi tạo Quiz Modal
+    if (infoModalEl) { /* ... (khởi tạo infoModalInstance) ... */ }
     const modalElement = document.getElementById('modalQuiz');
-    if (modalElement && typeof bootstrap !== 'undefined') {
-        quizModalInstance = new bootstrap.Modal(modalElement, {
-            backdrop: 'static',
-            keyboard: false
-        });
-    }
-    
-    // Khởi tạo Assign Modal
+    if (modalElement) { /* ... (khởi tạo quizModalInstance) ... */ }
     const modalAssignElement = qs('#modalAssign');
-    if (modalAssignElement) {
-        modalAssignInstance = new bootstrap.Modal(modalAssignElement);
-    }
-
-    // ✅ SỬA LỖI: THÊM KHỞI TẠO CHO MODAL XÁC NHẬN XÓA
+    if (modalAssignElement) { /* ... (khởi tạo modalAssignInstance) ... */ }
     const confirmDeleteModalEl = document.getElementById('modalConfirmDelete');
-    if (confirmDeleteModalEl) {
-        // Khởi tạo instance toàn cục (lấy từ khối 1)
-        confirmDeleteModalInstance = new bootstrap.Modal(confirmDeleteModalEl);
+    if (confirmDeleteModalEl) { /* ... (khởi tạo và debug confirmDeleteModalInstance) ... */ }
 
-        // Gán listener DEBUG cho nó (lấy từ khối 2)
-        confirmDeleteModalEl.addEventListener('show.bs.modal', event => {
-            //console.log('Sự kiện show.bs.modal được kích hoạt cho #modalConfirmDelete');
-        });
-        confirmDeleteModalEl.addEventListener('shown.bs.modal', event => {
-           // console.log('Sự kiện shown.bs.modal được kích hoạt - Modal nên được hiển thị!');
-        });
-        confirmDeleteModalEl.addEventListener('hide.bs.modal', event => {
-            //console.log('Sự kiện hide.bs.modal được kích hoạt cho #modalConfirmDelete');
-        });
-        confirmDeleteModalEl.addEventListener('hidden.bs.modal', event => {
-           // console.log('Sự kiện hidden.bs.modal được kích hoạt - Modal đã bị ẩn.');
-        });
-    } else {
-        //console.error("KHÔNG TÌM THẤY #modalConfirmDelete để gắn listener HOẶC KHỞI TẠO!");
-    }
+    // (Lưu ý: Tôi đã rút gọn code khởi tạo modal ở trên cho ngắn gọn,
+    // bạn hãy giữ nguyên code khởi tạo đầy đủ của mình)
+
     
-    // ----- 2. GÁN CÁC EVENT LISTENER KHÁC (Từ khối 2) -----
+    // ----- 2. GÁN CÁC EVENT LISTENER -----
 
-    // Listener cho Tab Results
+    // Listener cho Tab Results (Giữ nguyên)
     const resultsTabElement = qs('#r-tab'); 
     if (resultsTabElement) {
         resultsTabElement.addEventListener('shown.bs.tab', (event) => {
@@ -7715,19 +7873,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Listeners cho Filter của Học sinh
-    const filterSubject = qs('#filter-stu-subject');
-    if (filterSubject) {
-        filterSubject.addEventListener('change', renderPendingAssignments); 
+    // ----- ✅ LOGIC MỚI CHO TAB "ĐỀ ĐƯỢC GIAO" -----
+    
+    const pendingSubject = qs('#filter-stu-subject');
+    const pendingDate = qs('#filter-stu-assigned-date');
+    const pendingSort = qs('#sort-stu-assignment');
+
+    // Hàm gọi render chung cho tab 1
+    const triggerPendingRender = () => {
+        // Gọi hàm render chính (hàm này sẽ tự đọc giá trị từ input)
+        renderPendingAssignments(null, true); // true = reset về trang 1
+    };
+
+    // Khi lọc Môn
+    if (pendingSubject) {
+        pendingSubject.addEventListener('change', triggerPendingRender);
     }
-    const sortAssignment = qs('#sort-stu-assignment');
-    if (sortAssignment) {
-        sortAssignment.addEventListener('change', renderPendingAssignments); 
+
+    // KHI CHỌN NGÀY (Logic bạn yêu cầu)
+    if (pendingDate) {
+        pendingDate.addEventListener('change', () => {
+            if (pendingDate.value) { // Nếu có chọn ngày
+                if (pendingSort) pendingSort.value = 'none'; // ✅ Tự động reset Sắp xếp
+            }
+            triggerPendingRender();
+        });
     }
+
+    // KHI CHỌN SẮP XẾP (Logic bạn yêu cầu)
+    if (pendingSort) {
+        pendingSort.addEventListener('change', () => {
+            // Nếu chọn "Mới" hoặc "Cũ"
+            if (pendingSort.value === 'newest' || pendingSort.value === 'oldest') {
+                if (pendingDate) pendingDate.value = ''; // ✅ Tự động reset Ngày
+            }
+            triggerPendingRender();
+        });
+    }
+    
+    // ----- KẾT THÚC LOGIC MỚI -----
+
+
+    // Listeners cho Filter của Học sinh (TAB "BÀI ĐÃ LÀM" - Giữ nguyên)
+    // (Lưu ý: Bạn đã làm việc này trong hàm setupAssignmentFilters(),
+    // vì vậy chúng ta không cần gán lại listener cho #stu-done ở đây)
 
 });
 // =================================================================
-// KẾT THÚC KHỐI DOMContentLoaded DUY NHẤT
+// KẾT THÚC KHỐI DOMContentLoaded
 // =================================================================
 
 </script>
