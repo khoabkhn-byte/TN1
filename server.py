@@ -62,6 +62,129 @@ def calculate_question_counts(question_ids, db):
 
     return mc_count, essay_count
 
+# ==================================================
+# ✅ HÀM TÍNH ĐIỂM HELPER MỚI (DÁN VÀO DÒNG 58)
+# ==================================================
+def calculate_question_points(question_ids, db):
+    """
+    Nhận vào một danh sách ID câu hỏi (string UUIDs hoặc ObjectIds)
+    Trả về một map: { "question_id": points }
+    Áp dụng 5 quy tắc tính điểm của bạn, tổng là 10.
+    """
+    if not question_ids:
+        return {}
+
+    # 1. Lấy tất cả câu hỏi từ DB (Sử dụng logic truy vấn phức tạp của bạn)
+    object_ids = []
+    uuid_strings = []
+    for qid_str in question_ids:
+        try:
+            object_ids.append(ObjectId(qid_str))
+        except Exception:
+            uuid_strings.append(qid_str)
+
+    or_clauses = []
+    if object_ids:
+        or_clauses.append({"_id": {"$in": object_ids}})
+    if uuid_strings:
+        or_clauses.append({"id": {"$in": uuid_strings}})
+    
+    if not or_clauses:
+        return {}
+        
+    # Chỉ lấy các trường cần thiết (id, _id, difficulty)
+    questions = list(db.questions.find(
+        {"$or": or_clauses},
+        {"id": 1, "_id": 1, "difficulty": 1}
+    ))
+    
+    if not questions:
+        return {}
+
+    # 2. Đếm số lượng E, M, H
+    counts = {'easy': 0, 'medium': 0, 'hard': 0}
+    question_map = {} # Map {id: question_object}
+    
+    for q in questions:
+        # Ưu tiên dùng 'id' (UUID) làm key, fallback về str(_id)
+        q_key = q.get('id') or str(q.get('_id'))
+        difficulty = q.get('difficulty', 'medium')
+        
+        if difficulty not in counts:
+            difficulty = 'medium'
+            
+        counts[difficulty] += 1
+        # Lưu lại difficulty vào map
+        question_map[q_key] = difficulty 
+
+    num_easy = counts['easy']
+    num_medium = counts['medium']
+    num_hard = counts['hard']
+    total_questions = len(questions)
+
+    # 3. Khởi tạo điểm số
+    points_per_difficulty = {'easy': 0, 'medium': 0, 'hard': 0}
+    has_easy = num_easy > 0
+    has_medium = num_medium > 0
+    has_hard = num_hard > 0
+    
+    # ÁP DỤNG 5 QUY TẮC
+    try:
+        # Case 1: Đủ 3 loại (E, M, H)
+        if has_easy and has_medium and has_hard:
+            points_per_difficulty['medium'] = 1.0
+            points_per_difficulty['easy'] = 0.5
+            remaining_score = 10.0 - (num_medium * 1.0) - (num_easy * 0.5)
+            
+            if remaining_score < 0:
+                print(f"Cảnh báo Quy tắc 1 (E={num_easy}, M={num_medium}, H={num_hard}): Tổng điểm E+M >= 10. Điểm câu khó sẽ là 0.")
+                points_per_difficulty['hard'] = 0
+            else:
+                points_per_difficulty['hard'] = remaining_score / num_hard
+
+        # Case 2: Chỉ 1 loại
+        elif has_easy and not has_medium and not has_hard:
+            points_per_difficulty['easy'] = 10.0 / num_easy
+        elif not has_easy and has_medium and not has_hard:
+            points_per_difficulty['medium'] = 10.0 / num_medium
+        elif not has_easy and not has_medium and has_hard:
+            points_per_difficulty['hard'] = 10.0 / num_hard
+            
+        # Case 3: 2 loại (Dễ + Trung bình) - M = 2*E
+        elif has_easy and has_medium and not has_hard:
+            denominator = num_easy + (2.0 * num_medium)
+            points_per_difficulty['easy'] = 10.0 / denominator
+            points_per_difficulty['medium'] = 2.0 * points_per_difficulty['easy']
+            
+        # Case 4: 2 loại (Trung bình + Khó) - H = 2*M
+        elif not has_easy and has_medium and has_hard:
+            denominator = num_medium + (2.0 * num_hard)
+            points_per_difficulty['medium'] = 10.0 / denominator
+            points_per_difficulty['hard'] = 2.0 * points_per_difficulty['medium']
+            
+        # Case 5: 2 loại (Dễ + Khó) - H = 1.5*E
+        elif has_easy and not has_medium and has_hard:
+            denominator = num_easy + (1.5 * num_hard)
+            points_per_difficulty['easy'] = 10.0 / denominator
+            points_per_difficulty['hard'] = 1.5 * points_per_difficulty['easy']
+        
+        # Trường hợp không xác định (ví dụ: 0 câu hỏi)
+        else:
+            print("Cảnh báo: Không có câu hỏi nào được tìm thấy để tính điểm.")
+
+    except ZeroDivisionError:
+        print(f"Lỗi chia cho 0 khi tính điểm (E={num_easy}, M={num_medium}, H={num_hard}). Trả về điểm mặc định.")
+        default_points = 10.0 / total_questions
+        return {q_id: default_points for q_id in question_map.keys()}
+
+    # 4. Tạo map {id: points} cuối cùng
+    result_map = {}
+    for q_id, difficulty in question_map.items():
+        # Làm tròn 2 chữ số thập phân
+        result_map[q_id] = round(points_per_difficulty[difficulty], 2)
+
+    return result_map
+
 
 @app.route("/api/test-deploy", methods=["GET"])
 def test_deploy():
@@ -633,70 +756,68 @@ def get_test(test_id):
                 q["type"] = "essay"  # tự luận
     return jsonify(doc)
 
+# ==================================================
+# ✅ THAY THẾ HÀM TẠO ĐỀ THỦ CÔNG (Dòng 483)
+# ==================================================
 @app.route("/tests", methods=["POST"])
 @app.route("/api/tests", methods=["POST"])
 def create_test():
     data = request.get_json() or {}
+    
+    # 1. Lấy dữ liệu từ JS
+    name = data.get("name", "Bài thi thủ công")
+    time = data.get("time", 45)
+    level = data.get("level")
+    subject = data.get("subject")
+    
+    # JS của bạn gửi một danh sách các string ID
+    # (Hàm create_test cũ của bạn phức tạp hơn, nhưng hàm này mới đúng)
+    question_ids = data.get("questions", []) 
 
-    # Normalize/transform incoming questions to list of IDs
-    incoming_questions = data.get("questions", [])
-    question_ids = []
+    if not subject:
+        return jsonify({"success": False, "message": "Vui lòng chọn Môn học"}), 400
+    if not question_ids:
+        return jsonify({"success": False, "message": "Vui lòng chọn ít nhất 1 câu hỏi"}), 400
 
+    # 2. ✅ GỌI HÀM TÍNH ĐIỂM MỚI
+    # Trả về map: {"q_id_1": 1.5, "q_id_2": 0.5}
+    points_map = calculate_question_points(question_ids, db)
+
+    # 3. Định dạng lại mảng câu hỏi để lưu vào DB
+    formatted_questions = []
+    
+    # Lấy 'type' của các câu hỏi (dùng hàm helper có sẵn)
+    mc_count, essay_count = calculate_question_counts(question_ids, db)
+
+    for q_id in question_ids: # Giữ nguyên thứ tự từ FE
+        points = points_map.get(q_id, 0) # Lấy điểm đã tính
+        formatted_questions.append({
+            "id": q_id,      # ID của câu hỏi
+            "points": points # Điểm đã được tính
+        })
+
+    # 4. Tạo tài liệu Test mới
+    new_test = {
+        "id": str(uuid4()),
+        "name": name,
+        "time": time,
+        "level": level,
+        "subject": subject,
+        "questions": formatted_questions, # Mảng câu hỏi đã chứa điểm
+        "isAutoGenerated": False,
+        "createdAt": now_vn_iso(),
+        "mcCount": mc_count,
+        "essayCount": essay_count,
+        "count": len(question_ids) # Thêm count
+    }
+
+    # 5. Lưu vào DB
     try:
-        for q in incoming_questions:
-            # If string -> assume it's an ID
-            if isinstance(q, str):
-                question_ids.append(q)
-            # If dict with id or _id -> use that id
-            elif isinstance(q, dict):
-                if q.get("id"):
-                    question_ids.append(q.get("id"))
-                elif q.get("_id"):
-                    # Chuyển ObjectId về string nếu cần
-                    question_ids.append(str(q.get("_id"))) 
-                # If dict looks like a full question (has 'q' text), insert into questions collection
-                elif q.get("q") or q.get("question"):
-                    new_q = {
-                        "id": str(uuid4()),
-                        "q": q.get("q") or q.get("question"),
-                        "imageUrl": q.get("imageUrl"),
-                        "type": q.get("type"),
-                        "points": int(q.get("points", 1)),
-                        "subject": q.get("subject"),
-                        "level": q.get("level"),
-                        "difficulty": q.get("difficulty", "medium"),
-                        "options": q.get("options", []),
-                        "answer": q.get("answer", "")
-                    }
-                    db.questions.insert_one(new_q)
-                    question_ids.append(new_q["id"])
-                # else skip unknown object
-            
-        # 🔥 BƯỚC 1: TÍNH TOÁN SỐ CÂU TN/TL (THÊM VÀO ĐÂY)
-        mc_count, essay_count = calculate_question_counts(question_ids, db)
-        
-        # build test doc
-        newt = {
-            "id": str(uuid4()),
-            "name": data.get("name"),
-            "time": data.get("time"),
-            "subject": data.get("subject"),
-            "level": data.get("level"),
-            "questions": question_ids,
-            "mcCount": mc_count,     # <-- LƯU KẾT QUẢ TÍNH TOÁN
-            "essayCount": essay_count, # <-- LƯU KẾT QUẢ TÍNH TOÁN
-            "count": len(question_ids),
-            "teacherId": data.get("teacherId"),
-            "createdAt": now_vn_iso(),
-            "isAutoGenerated": False # Đánh dấu thủ công rõ ràng hơn
-        }
-        db.tests.insert_one(newt)
-        to_return = newt.copy(); to_return.pop("_id", None)
-        return jsonify(to_return), 201
-
+        db.tests.insert_one(new_test)
+        new_test.pop('_id', None) 
+        return jsonify(new_test), 201
     except Exception as e:
-        print("Error in create_test:", e)
-        return jsonify({"message": "Không thể tạo đề thi.", "error": str(e)}), 500
+        return jsonify({"success": False, "message": f"Lỗi server: {e}"}), 500
 
 
 #from uuid import uuid4
@@ -705,175 +826,174 @@ from flask import request, jsonify
 
 # Assuming imports like Flask, jsonify, request, db, uuid4, now_vn_iso, calculate_question_counts are done above
 
+# ==================================================
+# ✅ THAY THẾ HÀM TẠO ĐỀ TỰ ĐỘNG (Dòng 542)
+# ==================================================
 @app.route("/tests/auto", methods=["POST"])
 @app.route("/api/tests/auto", methods=["POST"])
 def create_test_auto():
     data = request.get_json() or {}
-    name = data.get("name", "Bài kiểm tra ngẫu nhiên")
+    
+    # 1. Lấy dữ liệu từ JS
+    name = data.get("name", "Bài thi tự động")
     subject = data.get("subject", "")
     level = data.get("level", "")
-    # Use data.get("total", ...) which aligns with the frontend payload
-    total = int(data.get("total", 10))
     time = int(data.get("time", 30))
     dist = data.get("dist", {"easy": 0, "medium": 0, "hard": 0})
+    
+    num_easy = int(dist.get("easy", 0))
+    num_medium = int(dist.get("medium", 0))
+    num_hard = int(dist.get("hard", 0))
+    total_questions_needed = num_easy + num_medium + num_hard
+    
+    if total_questions_needed == 0:
+        return jsonify({"success": False, "message": "Vui lòng chọn ít nhất 1 câu hỏi"}), 400
 
-    # helper to pick questions by difficulty
+    # 2. Xây dựng query
+    query = {}
+    if subject:
+        query["subject"] = subject
+    if level:
+        query["level"] = level
+
+    # 3. Lấy câu hỏi ngẫu nhiên (dùng $sample)
     def pick(diff, count):
-        q = {"difficulty": diff}
-        if subject:
-            q["subject"] = subject
-        if level:
-            q["level"] = level
-        # Find questions matching criteria
-        all_q = list(db.questions.find(q))
-        import random
-        random.shuffle(all_q)
-        return all_q[:count]
+        if count == 0: return []
+        q = {**query, "difficulty": diff}
+        pipeline = [
+            {"$match": q},
+            {"$sample": {"size": count}},
+            {"$project": {"id": 1, "_id": 1, "type": 1}} # Chỉ lấy ID và type
+        ]
+        return list(db.questions.aggregate(pipeline))
 
-    selected = []
-    try:
-        # Ensure counts are integers
-        easy_count = int(dist.get("easy", 0))
-        medium_count = int(dist.get("medium", 0))
-        hard_count = int(dist.get("hard", 0))
+    easy_questions = pick("easy", num_easy)
+    medium_questions = pick("medium", num_medium)
+    hard_questions = pick("hard", num_hard)
+    
+    all_questions = easy_questions + medium_questions + hard_questions
+    
+    # Lấy ID (ưu tiên 'id', fallback về str(_id))
+    all_question_ids = [q.get('id') or str(q.get('_id')) for q in all_questions]
+    
+    if not all_question_ids:
+         return jsonify({"success": False, "message": "Không tìm thấy câu hỏi nào phù hợp"}), 404
 
-        selected += pick("easy", easy_count)
-        selected += pick("medium", medium_count)
-        selected += pick("hard", hard_count)
-    except Exception as e:
-        # Log the error for debugging
-        print(f"Error parsing difficulty distribution or picking questions: {e}")
-        # fallback: ignore dist parse errors, proceed without distribution
-        pass
+    # 4. ✅ GỌI HÀM TÍNH ĐIỂM MỚI
+    points_map = calculate_question_points(all_question_ids, db)
 
-    # fill remaining if not enough based on distribution or if distribution failed
-    # Calculate how many more questions are needed
-    questions_needed = total - len(selected)
-
-    if questions_needed > 0:
-        # Define query criteria excluding already selected questions and matching subject/level if provided
-        query_candidates = {}
-        if subject:
-            query_candidates["subject"] = subject
-        if level:
-            query_candidates["level"] = level
-
-        # Exclude already selected questions using their _id
-        existing_ids_obj = [q.get("_id") for q in selected if q.get("_id")]
-        if existing_ids_obj:
-            query_candidates["_id"] = {"$nin": existing_ids_obj}
-
-        # Find candidate questions
-        candidates = list(db.questions.find(query_candidates))
-        import random
-        random.shuffle(candidates)
-
-        # Add needed number of candidates, avoiding duplicates just in case (though $nin should handle it)
-        existing_ids_str = {str(q.get("_id")) for q in selected} # Use string IDs for the set check
-        added_count = 0
-        for c in candidates:
-            if str(c.get("_id")) not in existing_ids_str:
-                selected.append(c)
-                existing_ids_str.add(str(c.get("_id")))
-                added_count += 1
-                if added_count >= questions_needed:
-                    break
-
-    # Ensure the final list does not exceed the total requested count
-    selected = selected[:total]
-
-    # Extract question IDs (prefer 'id' if available, fallback to '_id')
-    questions_for_db = []
-    for q in selected:
-        # Prioritize UUID 'id' if it exists, otherwise use string of '_id'
-        q_id_str = q.get("id") or str(q.get("_id"))
-        if q_id_str:
-            questions_for_db.append(q_id_str)
-
-    # Calculate MC/Essay counts based on the final list of question IDs
-    mc_count, essay_count = calculate_question_counts(questions_for_db, db)
-
-    # Prepare the new test document
-    newt = {
-        "id": str(uuid4()), # Generate a new UUID for the test
+    # 5. Định dạng mảng câu hỏi và đếm type
+    formatted_questions = []
+    mc_count = 0
+    essay_count = 0
+    
+    for q in all_questions:
+        q_id = q.get('id') or str(q.get('_id'))
+        points = points_map.get(q_id, 0)
+        formatted_questions.append({
+            "id": q_id,
+            "points": points
+        })
+        if q.get('type') == 'essay':
+            essay_count += 1
+        else:
+            mc_count += 1
+            
+    # 6. Tạo tài liệu Test mới
+    new_test = {
+        "id": str(uuid4()),
         "name": name,
         "time": time,
         "subject": subject,
         "level": level,
-        "questions": questions_for_db, # List of question IDs
+        "questions": formatted_questions,
+        "isAutoGenerated": True,
+        "createdAt": now_vn_iso(),
         "mcCount": mc_count,
         "essayCount": essay_count,
-        "count": len(questions_for_db), # Total number of questions included
-        "teacherId": data.get("teacherId"), # Optional: ID of the teacher creating it
-        "createdAt": now_vn_iso(), # Timestamp
-        "isAutoGenerated": True # Set flag to True
+        "count": len(formatted_questions)
     }
+    
+    # 7. Lưu vào DB
+    try:
+        db.tests.insert_one(new_test)
+        new_test.pop('_id', None)
+        return jsonify(new_test), 201
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Lỗi server: {e}"}), 500
 
-    # Insert the new test into the database
-    db.tests.insert_one(newt)
 
-    # Prepare the response (remove MongoDB's internal _id)
-    to_return = newt.copy()
-    to_return.pop("_id", None)
-
-    # Return the created test data as JSON
-    return jsonify(to_return), 201
-
+# ==================================================
+# ✅ THAY THẾ HÀM CẬP NHẬT ĐỀ THI (Dòng 629)
+# ==================================================
 @app.route("/tests/<test_id>", methods=["PUT"])
 @app.route("/api/tests/<test_id>", methods=["PUT"])
 def update_test(test_id):
     data = request.get_json() or {}
-    # Normalize incoming questions similarly to create_test
-    incoming_questions = data.get("questions", None)
+    
+    # 1. Lấy dữ liệu mới từ JS
+    name = data.get("name")
+    time = data.get("time")
+    level = data.get("level")
+    subject = data.get("subject")
+    
+    # JS gửi một danh sách các object: [{"_id": "uuid1"}, ...]
+    # (Trường 'points' trong payload này không dùng, ta sẽ tính lại)
+    questions_from_js = data.get("questions", [])
+    
+    # Lấy ID (ưu tiên 'id', fallback về '_id')
+    question_ids = [q.get('id') or q.get('_id') for q in questions_from_js if q.get('id') or q.get('_id')]
 
+    if not subject:
+        return jsonify({"success": False, "message": "Vui lòng chọn Môn học"}), 400
+    if not question_ids:
+        return jsonify({"success": False, "message": "Vui lòng chọn ít nhất 1 câu hỏi"}), 400
+
+    # 2. ✅ GỌI LẠI HÀM TÍNH ĐIỂM
+    points_map = calculate_question_points(question_ids, db)
+
+    # 3. Định dạng lại mảng câu hỏi để lưu vào DB
+    formatted_questions = []
+    
+    # Lấy 'type' của các câu hỏi (dùng hàm helper có sẵn)
+    mc_count, essay_count = calculate_question_counts(question_ids, db)
+
+    for q_id in question_ids: # Giữ nguyên thứ tự mới
+        points = points_map.get(q_id, 0)
+        formatted_questions.append({
+            "id": q_id,
+            "points": points
+        })
+            
+    # 4. Tạo đối tượng $set để cập nhật
+    update_data = {
+        "name": name,
+        "time": time,
+        "level": level,
+        "subject": subject,
+        "questions": formatted_questions, # Danh sách câu hỏi MỚI với điểm MỚI
+        "mcCount": mc_count,
+        "essayCount": essay_count,
+        "count": len(question_ids)
+    }
+
+    # 5. Cập nhật vào DB
     try:
-        update_doc = data.copy()
-        update_doc.pop("_id", None)
-
-        if incoming_questions is not None:
-            question_ids = []
-            for q in incoming_questions:
-                if isinstance(q, str):
-                    question_ids.append(q)
-                elif isinstance(q, dict):
-                    if q.get("id"):
-                        question_ids.append(q.get("id"))
-                    elif q.get("_id"):
-                        question_ids.append(q.get("_id"))
-                    elif q.get("q") or q.get("question"):
-                        # insert new question doc
-                        new_q = {
-                            "id": str(uuid4()),
-                            "q": q.get("q") or q.get("question"),
-                            "imageUrl": q.get("imageUrl"),
-                            "type": q.get("type"),
-                            "points": int(q.get("points", 1)),
-                            "subject": q.get("subject"),
-                            "level": q.get("level"),
-                            "difficulty": q.get("difficulty", "medium"),
-                            "options": q.get("options", []),
-                            "answer": q.get("answer", "")
-                        }
-                        db.questions.insert_one(new_q)
-                        question_ids.append(new_q["id"])
-            update_doc["questions"] = question_ids
-
-        # 🔥 BƯỚC MỚI: TÍNH VÀ LƯU SỐ CÂU TN/TL
-        if "questions" in update_doc:
-            # Truyền mảng ID câu hỏi và đối tượng DB
-            mc_count, essay_count = calculate_question_counts(update_doc["questions"], db)
-            update_doc["mcCount"] = mc_count
-            update_doc["essayCount"] = essay_count
+        result = db.tests.update_one(
+            {"id": test_id},
+            {"$set": update_data}
+        )
         
-        res = db.tests.update_one({"id": test_id}, {"$set": update_doc})
-        if res.matched_count > 0:
-            updated = db.tests.find_one({"id": test_id}, {"_id": 0})
-            return jsonify(updated)
-        return jsonify({"message": "Bài kiểm tra không tồn tại."}), 404
+        if result.matched_count == 0:
+            return jsonify({"success": False, "message": "Không tìm thấy bài thi để cập nhật"}), 404
+            
+        updated_test = db.tests.find_one({"id": test_id})
+        updated_test.pop('_id', None)
+        
+        return jsonify(updated_test), 200
 
     except Exception as e:
-        print("Error in update_test:", e)
-        return jsonify({"message": "Không thể cập nhật đề thi.", "error": str(e)}), 500
+        return jsonify({"success": False, "message": f"Lỗi server: {e}"}), 500
 
 
 @app.route("/tests/<test_id>", methods=["DELETE"])
@@ -1262,15 +1382,12 @@ def get_assignments_for_student():
 
 
 # --------------------- RESULTS ---------------------
+# ==================================================
+# ✅ THAY THẾ HÀM NỘP BÀI (Dòng 777)
+# ==================================================
 @app.route("/results", methods=["POST"])
 @app.route("/api/results", methods=["POST"])
 def create_result():
-    """
-    Tạo/Cập nhật Result khi học sinh nộp bài.
-    - Mở rộng: cố gắng match questions theo 'id' hoặc '_id' (ObjectId).
-    - Robust: normalize question IDs, robust student answer map,
-      chuẩn hoá so sánh đáp án, in debug khi mismatch.
-    """
     try:
         data = request.get_json() or {}
         student_id = data.get("studentId") or data.get("student_id")
@@ -1287,167 +1404,91 @@ def create_result():
             return jsonify({"message": "Không tìm thấy đề thi"}), 404
 
         test_questions = test_doc.get("questions", []) or []
+        
+        # 2. ✅ TẠO MAP ĐIỂM SỐ (Lấy từ test_doc)
+        # test_questions bây giờ là: [{'id': 'q1_id', 'points': 1.5}, ...]
+        points_map = {q.get('id'): q.get('points', 1) for q in test_questions}
+        question_ids_in_test = list(points_map.keys())
 
-        # 2. NORMALIZE tất cả question IDs (hỗ trợ dict có id, _id, questionId, hoặc chuỗi)
-        q_ids = []
-        raw_obj_ids = []
-        for q_entry in test_questions:
-            if isinstance(q_entry, dict):
-                candidate = q_entry.get("id") or q_entry.get("_id") or q_entry.get("questionId") or q_entry.get("question_id")
-                if candidate is not None:
-                    s = str(candidate)
-                    q_ids.append(s)
-                    # nếu là 24 hex, giữ để convert ObjectId thử match
-                    if len(s) == 24:
-                        raw_obj_ids.append(s)
-            else:
-                s = str(q_entry)
-                q_ids.append(s)
-                if len(s) == 24:
-                    raw_obj_ids.append(s)
+        # 3. Lấy đáp án đúng và type (vẫn phải lấy từ db.questions)
+        correct_questions = list(db.questions.find({"id": {"$in": question_ids_in_test}}))
 
-        # loại bỏ rỗng và unique
-        q_ids = [str(x) for x in q_ids if x and str(x).strip()]
-        q_ids = list(dict.fromkeys(q_ids))
+        correct_answer_map = {}
+        type_map = {}
+        has_essay = False
+        
+        for q in correct_questions:
+            q_id = q.get("id")
+            q_type = q.get("type", "mc")
+            type_map[q_id] = q_type
+            
+            if q_type == "mc":
+                correct_opt = next((opt.get("text") for opt in q.get("options", []) if opt.get("correct")), None)
+                correct_answer_map[q_id] = correct_opt
+            elif q_type == "essay":
+                correct_answer_map[q_id] = q.get("answer") # Gợi ý
+                has_essay = True
 
-        # chuẩn bị list ObjectId nếu có
-        obj_ids = []
-        for s in list(dict.fromkeys(raw_obj_ids)):
-            try:
-                obj_ids.append(ObjectId(s))
-            except Exception:
-                pass
-
-        if not q_ids and not obj_ids:
-            return jsonify({"message": "Đề thi không có câu hỏi hợp lệ"}), 400
-
-        # 3. Lấy chi tiết câu hỏi từ DB (questions collection)
-        # Query bằng cả id (string) và _id (ObjectId) nếu tồn tại
-        query_clauses = []
-        if q_ids:
-            query_clauses.append({"id": {"$in": q_ids}})
-        if obj_ids:
-            query_clauses.append({"_id": {"$in": obj_ids}})
-
-        if query_clauses:
-            question_docs = list(db.questions.find({"$or": query_clauses}, {"_id": 1, "id": 1, "q": 1, "type": 1, "points": 1, "options": 1, "answer": 1}))
-        else:
-            question_docs = []
-
-        # normalize question_map: key by string id if exists, else by str(_id)
-        question_map = {}
-        for q in question_docs:
-            if q.get("id"):
-                question_map[str(q.get("id"))] = q
-            # also map by _id string for fallback
-            if q.get("_id"):
-                question_map[str(q.get("_id"))] = q
-
-        # Debug logs to help identify mismatch
-        print(f"[DEBUG create_result] q_ids ({len(q_ids)}):", q_ids)
-        print(f"[DEBUG create_result] obj_ids ({len(obj_ids)}):", [str(x) for x in obj_ids])
-        print(f"[DEBUG create_result] questions fetched ({len(question_docs)}), map keys:", list(question_map.keys()))
-
-        # 4. Tạo map câu trả lời của học sinh (hỗ trợ nhiều key)
+        # 4. Tạo map câu trả lời của học sinh (Từ hàm cũ của bạn)
         student_ans_map = {}
         for ans in student_answers:
-            if not isinstance(ans, dict):
-                continue
+            if not isinstance(ans, dict): continue
             qkey = ans.get("questionId") or ans.get("question_id") or ans.get("qid") or ans.get("id")
-            if qkey is None:
-                continue
-            student_ans_map[str(qkey)] = ans
+            if qkey:
+                student_ans_map[str(qkey)] = ans.get("answer") or ans.get("studentAnswer") or ans.get("value") or ans.get("selected") or ""
 
         mc_score = 0.0
-        essay_count = 0
         detailed_results = []
 
         # helper: chuẩn hoá string để so sánh
         def norm_str(x):
-            if x is None:
-                return ""
-            if isinstance(x, (list, dict)):
-                return str(x).strip().lower()
+            if x is None: return ""
             return str(x).strip().lower()
 
-        # 5. LẶP VÀ TÍNH ĐIỂM (Chỉ lặp trên q_ids đã chuẩn hóa; nếu q_id không map được, thử lookup bằng ObjectId string)
-        for q_id in q_ids:
-            # try by direct id key
-            q = question_map.get(str(q_id))
-            # if not found, try treating q_id as ObjectId string
-            if not q:
-                try:
-                    q = question_map.get(str(ObjectId(q_id)))
-                except Exception:
-                    q = None
+        # 5. LẶP VÀ TÍNH ĐIỂM
+        for q_id in question_ids_in_test:
+            q_type = type_map.get(q_id, "mc")
+            
+            # ✅ SỬA LOGIC: Lấy điểm TỪ BÀI THI
+            max_points = float(points_map.get(q_id, 1))
 
-            if not q:
-                print(f"⚠️ Cảnh báo: Không tìm thấy chi tiết câu hỏi với ID: {q_id} (bỏ qua).")
-                continue
-
-            q_type = (q.get("type") or "mc").lower()
-            try:
-                max_points = float(q.get("points", 1.0))
-            except (ValueError, TypeError):
-                max_points = 1.0
-
-            ans = student_ans_map.get(str(q_id), {}) or student_ans_map.get(str(q.get("id")), {}) or student_ans_map.get(str(q.get("_id")), {})
-            student_ans_value = ans.get("answer") or ans.get("studentAnswer") or ans.get("value") or ans.get("selected") or ""
+            student_ans_value = student_ans_map.get(q_id, None)
 
             is_correct = None
             points_gained = 0.0
-
-            # Lấy correct answer (ƯU TIÊN OPTIONS TRƯỚC)
-            correct_ans = None
-            if q.get("options"):
-                for o in q.get("options", []):
-                    if isinstance(o, dict) and (o.get("correct") or o.get("isCorrect")):
-                        correct_ans = o.get("value") or o.get("text")
-                        break
             
-            # Nếu không tìm thấy trong options, mới dùng trường answer (dành cho tự luận hoặc format cũ)
-            if correct_ans is None:
-                correct_ans = q.get("answer")
-
-            n_student = norm_str(student_ans_value)
-            n_correct = norm_str(correct_ans)
+            correct_ans_text = correct_answer_map.get(q_id)
 
             # Xử lý Trắc nghiệm (MC)
-            if q_type in ["mc", "multiple_choice", "single_choice"]:
-                if isinstance(student_ans_value, list):
-                    # multi-select: compare sets (normalized)
-                    student_set = set([norm_str(x) for x in student_ans_value])
-                    correct_set = set([norm_str(x) for x in (correct_ans if isinstance(correct_ans, list) else [correct_ans]) if x is not None])
-                    is_correct = (student_set == correct_set)
-                else:
-                    is_correct = (n_student == n_correct)
+            if q_type == "mc":
+                is_correct = (student_ans_value is not None) and \
+                             (correct_ans_text is not None) and \
+                             (norm_str(student_ans_value) == norm_str(correct_ans_text))
 
                 if is_correct:
                     points_gained = max_points
                     mc_score += max_points
-                else:
-                    points_gained = 0.0
 
-            elif q_type in ["essay", "tu_luan", "tự luận"]:
-                q_type = "essay"
+            # Xử lý Tự luận (Essay)
+            elif q_type == "essay":
                 essay_count += 1
-                points_gained = 0.0
-                is_correct = None
-
+                points_gained = 0.0 # Chờ chấm
+                is_correct = None # Chờ chấm
+            
+            # (Các loại khác nếu có)
             else:
-                if n_correct and n_student:
-                    is_correct = (n_student == n_correct)
-                else:
-                    is_correct = False
+                is_correct = (student_ans_value is not None) and \
+                             (correct_ans_text is not None) and \
+                             (norm_str(student_ans_value) == norm_str(correct_ans_text))
                 if is_correct:
                     points_gained = max_points
                     mc_score += max_points
+
 
             detailed_results.append({
                 "questionId": q_id,
-                "questionText": q.get("q"),
                 "studentAnswer": student_ans_value,
-                "correctAnswer": correct_ans,
+                "correctAnswer": correct_ans_text,
                 "maxPoints": max_points,
                 "pointsGained": round(points_gained, 2),
                 "isCorrect": is_correct,
@@ -1457,15 +1498,21 @@ def create_result():
             })
 
         # 6. Xác định trạng thái chấm
-        grading_status = "Đang Chấm" if essay_count > 0 else "Hoàn tất"
+        grading_status = "Đang Chấm" if has_essay else "Hoàn tất"
         result_id = str(uuid4())
-        total_score = round(mc_score + 0.0, 2)
+        total_score = round(mc_score, 2)
+
+        # 7. Lấy thông tin user
+        user_info = db.users.find_one({"id": student_id}) or {}
 
         new_result = {
             "id": result_id,
             "studentId": student_id,
             "assignmentId": assignment_id,
             "testId": test_id,
+            "studentName": user_info.get("fullName", user_info.get("user")),
+            "className": user_info.get("className"),
+            "testName": test_doc.get("name"),
             "studentAnswers": student_answers,
             "detailedResults": detailed_results,
             "gradingStatus": grading_status,
@@ -1473,8 +1520,10 @@ def create_result():
             "essayScore": 0.0,
             "totalScore": total_score,
             "submittedAt": now_vn_iso(),
+            "gradedAt": None
         }
-
+        
+        # 8. Dùng replace_one (UPSERT)
         db.results.replace_one(
             {"studentId": student_id, "assignmentId": assignment_id},
             new_result,
@@ -1483,11 +1532,10 @@ def create_result():
 
         db.assignments.update_one(
             {"id": assignment_id},
-            {"$set": {"status": "submitted", "submittedAt": new_result["submittedAt"]}}
+            {"$set": {"status": "submitted", "submittedAt": new_result["submittedAt"], "resultId": result_id}}
         )
-
-        print(f"[DEBUG create_result] created detailedResults count: {len(detailed_results)} for result {result_id}")
-
+        
+        new_result.pop("_id", None) # Xóa _id (ObjectId)
         return jsonify(new_result), 201
 
     except Exception as e:
