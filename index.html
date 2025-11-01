@@ -384,25 +384,184 @@
     pointer-events: auto !important; 
 }
 
-/* CSS MỚI DÀNH RIÊNG CHO VIỆC IN */
+/* =====================================
+   🖨️ CSS IN ĐỀ THI / KẾT QUẢ - BẢN CHUẨN 2025
+   ===================================== */
 @media print {
-  /* Ẩn tất cả mọi thứ trên trang */
+
+  /* 🌐 Cài đặt font & bố cục tổng thể */
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-family: "Times New Roman", "Arial", sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    color: #000;
+    background: #fff !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 📄 Cấu hình trang A4 */
+  @page {
+    size: A4 portrait;
+    margin-top: 0.8cm;
+    margin-bottom: 1cm;
+    margin-left: 0.8cm;
+    margin-right: 0.8cm;
+
+    /* Hiển thị số trang ở góc dưới phải */
+    @bottom-right {
+      content: "Trang " counter(page) " / " counter(pages);
+      font-size: 12px;
+      font-family: "Times New Roman", serif;
+    }
+  }
+
+  /* 🚫 Ẩn tất cả UI ngoài vùng in */
   body * {
-    visibility: hidden;
+    visibility: hidden !important;
   }
-
-  /* Chỉ hiển thị khu vực in và nội dung bên trong nó */
   #print-area, #print-area * {
-    visibility: visible;
+    visibility: visible !important;
   }
-
-  /* Đặt khu vực in lên đầu trang */
   #print-area {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
+    padding: 0;
+    margin: 0;
+    background: #fff;
   }
+
+  /* 📄 Mỗi đề = 1 trang riêng */
+  .test-print-block {
+    page-break-after: always;
+    break-after: page;
+    padding: 0 0.2cm;
+  }
+
+  /* 🧾 Bố cục câu hỏi */
+  .question-block {
+    margin-bottom: 14px;
+  }
+
+  .question-block p {
+    margin-bottom: 5px;
+  }
+
+  ul {
+    margin: 5px 0 5px 25px;
+    padding: 0;
+  }
+
+  li {
+    list-style-type: lower-alpha;
+    margin-bottom: 3px;
+  }
+
+  /* 🖋️ Dòng trống cho câu tự luận */
+  .essay-space div {
+    border-bottom: 1px solid #777;
+    height: 20px;
+    margin-top: 6px;
+  }
+
+  /* 🏫 Tiêu đề và logo trường */
+  .school-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #000;
+    border-left: none; /* ⚙️ Xóa vạch dọc thừa bên trái */
+  }
+
+  .school-logo {
+    height: 65px;
+  }
+
+  .school-info {
+    flex: 1;
+    text-align: center;
+  }
+
+  .school-name {
+    font-weight: bold;
+    font-size: 18px;
+    text-transform: uppercase;
+  }
+
+  .school-subtitle {
+    font-style: italic;
+    font-size: 14px;
+    margin-top: 2px;
+    color: #333;
+  }
+
+  /* 🧾 Thông tin đề thi */
+  .exam-info {
+    text-align: center;
+    margin: 14px 0 12px;
+  }
+
+  .exam-info h2 {
+    margin-bottom: 5px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #000;
+  }
+
+  .exam-info p {
+    margin: 2px 0;
+    font-size: 15px;
+  }
+
+  /* 🖼️ Ảnh trong câu hỏi */
+  img {
+    max-width: 100%;
+    margin: 6px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+  
+  /* 🖼️ Đảm bảo ảnh hiển thị đúng khi in */
+#print-area img {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  max-width: 100% !important;
+  height: auto !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  margin: 6px 0;
+}
+
+
+  /* ✅ Ẩn UI, bảng, modal, nút, sidebar */
+  nav, header, footer, .btn, .modal, .table, .navbar, .sidebar,
+  .filter-bar, .pagination, .alert, #header, #login-screen {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
+
+/* ================================
+   💻 Xem trên màn hình bình thường
+   ================================ */
+#print-area {
+  display: none;
+  background: #fff;
+  padding: 20px;
+}
+
+.test-print-block h2 {
+  color: #007bff;
+}
 
 
 
@@ -563,10 +722,10 @@
                 </div>
             </div>
             
-            <div class="card p-3 mb-3">
+<div class="card p-3 mb-3">
                  <div class="row g-2 align-items-end">
 
-                    <div class="col">
+                    <div class="col-lg-2">
                         <label for="filter-test-subject" class="form-label small mb-1">Môn học</label>
                         <select id="filter-test-subject" class="form-select form-select-sm" onchange="loadTests()">
                              <option value="">-- Tất cả Môn học ---</option>
@@ -574,7 +733,7 @@
                         </select>
                     </div>
 
-                     <div class="col">
+                     <div class="col-lg-2">
                         <label for="filter-test-level" class="form-label small mb-1">Khối lớp</label>
                         <select id="filter-test-level" class="form-select form-select-sm" onchange="loadTests()">
                             <option value="">--Tất cả Khối--</option>
@@ -582,7 +741,7 @@
                         </select>
                      </div>
 
-                     <div class="col">
+                     <div class="col-lg-2">
                         <label for="sort-test-date" class="form-label small mb-1">Sắp xếp theo Ngày tạo</label>
                         <select id="sort-test-date" class="form-select form-select-sm" onchange="loadTests()">
                             <option value="desc">Mới nhất trước</option>
@@ -595,17 +754,25 @@
                         <button class="btn btn-sm btn-outline-secondary" onclick="resetTestFilters()">Xóa lọc</button>
                     </div>
 
-                    <div class="col-auto text-end">
+                    <div class="col text-end">
                         <label class="form-label small invisible d-block mb-1">.</label>
                         
+                        <button class="btn btn-sm btn-outline-primary" onclick="preparePrintArea(getSelectedTests(), 'preview')">
+                          🖨️ In xem trước
+                        </button>
+                        <button class="btn btn-sm btn-success me-2" onclick="preparePrintArea(getSelectedTests(), 'server')">
+                          📄 Xuất PDF
+                        </button>
+                        
                         <button class="btn btn-sm btn-outline-primary me-2" onclick="refreshResource('tests')">Tải lại</button>
-                        <button class="btn btn-sm btn-primary me-2" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
-
-                        <button id="bulk-assign-btn-top" class="btn btn-sm btn-primary d-none" onclick="showBulkAssignModal()"> Giao Đề Đã Chọn (<span id="selected-count-display">0</span>)</button>
+                        
+                        <button id="create-test-btn-top" class="btn btn-sm btn-primary me-2" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
+                        
+                        <button id="bulk-assign-btn-top" class="btn btn-sm btn-warning text-dark d-none" onclick="showBulkAssignModal()"> Giao Đề Đã Chọn (<span id="selected-count-display">0</span>)</button>
                     </div>
                 </div>
             </div>
-
+         
             <div class="card p-3">
                  <div class="table-wrap">
                      <table class="table table-sm table-hover table-bordered">
@@ -1666,8 +1833,8 @@
   </div>
 
 
-	
-	<div id="print-area"></div>
+	<div id="print-area" style="display:none;"></div>
+	<!--<div id="print-area"></div>-->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
  <script>
@@ -1858,14 +2025,21 @@ function addQuestionOption(text = '', isCorrect = false) {
     container.appendChild(div);
 }
 
-    // Configuration
-    const serverUrl = 'https://tn-89f4.onrender.com';
-    const PAGE_SIZE = 20;
-    let currentUser = null;
-	
-	// =================== HÀM TIỆN ÍCH CHUNG ===================
-	
+// 🌐 Configuration (tự động nhận diện môi trường)
+let serverUrl = "";
 
+// Nếu chạy từ file:/// hoặc localhost thì dùng Render API
+if (location.origin === "null" || location.origin.startsWith("file://") || location.hostname === "localhost") {
+  serverUrl = "https://tn-89f4.onrender.com"; // 🔗 API thật trên Render
+} else {
+  // Nếu đang deploy trên Render hoặc domain khác → dùng chính origin đó
+  serverUrl = location.origin;
+}
+
+const PAGE_SIZE = 15;
+let currentUser = null;
+
+console.log("🌐 serverUrl =", serverUrl);
 	
 	
 function qs(selector) {
@@ -4147,32 +4321,41 @@ function renderTests(items) {
 
 
 function toggleBulkAssignButton() {
-    // 1. Đếm số lượng checkbox đề thi đã được chọn
-    // Selector phải nhắm vào các checkbox trong tbody của bảng đề thi
+    // 1. Lấy các phần tử nút
+    const bulkBtn = qs('#bulk-assign-btn-top');
+    const createBtn = qs('#create-test-btn-top'); // Nút "Tạo bài thi"
+    const countDisplay = qs('#selected-count-display');
+    
+    // 2. Đếm số lượng
     const checkedBoxes = document.querySelectorAll('#tests-tbody .select-test-checkbox:checked');
     const count = checkedBoxes.length;
     
-    // 2. Cập nhật trạng thái nút và số lượng hiển thị
-    if (bulkAssignBtn) {
+    // 3. Logic hoán đổi
+    if (bulkBtn && createBtn) {
         if (count > 0) {
-            // Hiển thị nút
-            bulkAssignBtn.classList.remove('d-none');
+            // Hiển thị nút Giao (Cam)
+            bulkBtn.classList.remove('d-none');
+            // Ẩn nút Tạo (Xanh)
+            createBtn.classList.add('d-none');
         } else {
-            // Ẩn nút
-            bulkAssignBtn.classList.add('d-none');
+            // Ẩn nút Giao (Cam)
+            bulkBtn.classList.add('d-none');
+            // Hiển thị nút Tạo (Xanh)
+            createBtn.classList.remove('d-none');
         }
     }
     
-    // 3. Cập nhật số lượng đề thi đã chọn trên nút
-    if (selectedCountDisplay) {
-        selectedCountDisplay.textContent = count;
+    // 4. Cập nhật số đếm
+    if (countDisplay) {
+        countDisplay.textContent = count;
     }
 
-    // 4. Cập nhật trạng thái của checkbox "Chọn tất cả"
-    if (checkAllTests) {
+    // 5. Cập nhật checkbox "Chọn tất cả" (Giữ nguyên)
+    const checkAll = qs('#check-all-tests');
+    if (checkAll) {
         const totalCheckboxes = document.querySelectorAll('#tests-tbody .select-test-checkbox').length;
-        checkAllTests.checked = (totalCheckboxes > 0 && count === totalCheckboxes);
-        checkAllTests.indeterminate = (count > 0 && count < totalCheckboxes);
+        checkAll.checked = (totalCheckboxes > 0 && count === totalCheckboxes);
+        checkAll.indeterminate = (count > 0 && count < totalCheckboxes);
     }
 }
 
@@ -8093,6 +8276,65 @@ function executePdfExport() {
     }, 200); // Đợi 200ms
 }
 
+async function runFullPdfExport() {
+    console.log("Bắt đầu xuất PDF từ #print-area...");
+    const element = document.getElementById('print-area');
+    if (!element) {
+        alert("Lỗi: Không tìm thấy vùng #print-area.");
+        return;
+    }
+
+    const filename = 'DanhSach_DeThi.pdf';
+
+    const opt = {
+        margin:       15, // 15mm
+        filename:     filename,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { 
+            scale: 3, 
+            logging: false, 
+            useCORS: true // ✅ SỬA LỖI 1: Cho phép tải ảnh từ domain khác (fix lỗi mất ảnh)
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: 'css', after: '.test-print-block' } 
+    };
+
+    try {
+        // 1. Tạo đối tượng PDF
+        const pdfJob = html2pdf().from(element).set(opt).toPdf();
+        const pdf = await pdfJob.get('pdf');
+        
+        // 2. ✅ SỬA LỖI 2: Thêm số trang
+        const totalPages = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i); // Chuyển đến trang i
+            pdf.setFontSize(10);
+            pdf.setTextColor(150);
+            // Thêm text 'Trang i / total'
+            pdf.text(
+                `Trang ${i} / ${totalPages}`,
+                pdf.internal.pageSize.getWidth() / 2, // Căn giữa chiều ngang
+                pdf.internal.pageSize.getHeight() - 10, // Cách lề dưới 10mm
+                { align: 'center' }
+            );
+        }
+        
+        // 3. Lưu file PDF sau khi đã thêm số trang
+        await pdf.save(); 
+        
+        console.log("Xuất PDF thành công.");
+
+    } catch (err) {
+        console.error("Lỗi khi tạo PDF:", err);
+        alert("Đã xảy ra lỗi khi tạo file PDF.");
+    } finally {
+        // 4. Dọn dẹp
+        element.style.display = 'none';
+        element.innerHTML = '';
+    }
+}
+
+
 /**
  * HÀM MỚI 3: XỬ LÝ VIỆC XUẤT PDF CHO KẾT QUẢ BÀI LÀM
  * Lấy nội dung trực tiếp từ modal 'modalGrading' và gọi html2pdf
@@ -8597,6 +8839,165 @@ function removeQuestionFromPreview(qId) {
     renderManualPreview();
     renderManualQuestionBank();
 }
+
+
+function getSelectedTests() {
+  const checkboxes = document.querySelectorAll('#tests-tbody input.select-test-checkbox:checked');
+  const ids = Array.from(checkboxes).map(cb => cb.dataset.testid).filter(Boolean);
+  if (ids.length === 0) {
+    alert("⚠️ Vui lòng chọn ít nhất 1 bài thi để in hoặc xuất PDF!");
+    throw new Error("No test selected");
+  }
+  console.log("🧾 Danh sách ID:", ids);
+  return ids;
+}
+
+
+
+
+
+// THAY THẾ hàm cũ (khoảng dòng 6870) bằng hàm này
+
+async function preparePrintArea(selectedTests, mode = "preview") {
+  if (!selectedTests || selectedTests.length === 0) {
+    return; 
+  }
+
+  console.log("🧾 Danh sách ID:", selectedTests);
+
+  const printArea = document.getElementById("print-area");
+  printArea.style.display = "block"; 
+  
+  // ✅ SỬA LỖI 3: Thêm CSS để ngăn trang cuối cùng ngắt trang (fix lỗi trang trắng)
+  printArea.innerHTML = `
+    <style>
+        /* CSS này chỉ áp dụng cho vùng #print-area */
+        #print-area .test-print-block {
+            page-break-after: always;
+        }
+        #print-area .test-print-block:last-child {
+            page-break-after: avoid; /* Ngăn khối cuối cùng ngắt trang */
+        }
+    </style>
+  `; // Xóa nội dung cũ VÀ thêm style
+
+  for (const testId of selectedTests) {
+    try {
+      const res = await fetch(`${serverUrl}/api/tests/${testId}`);
+      if (!res.ok) throw new Error(`Lỗi tải đề: ${res.statusText}`);
+      const test = await res.json();
+
+      // ✅ SỬA LỖI 3: Bỏ inline style "page-break-after: always;"
+      let htmlContent = `
+      <div class="test-print-block">
+        <div class="school-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #000;">
+
+          <div class="school-info" style="flex:1;text-align:center;">
+            <div class="school-name" style="font-weight:bold;font-size:18px;text-transform:uppercase;">Trường THCS ABC</div>
+            <div class="school-subtitle" style="font-style:italic;font-size:13px;margin-top:2px;color:#333;">Phòng Giáo dục & Đào tạo Quận XYZ</div>
+          </div>
+        </div>
+
+        <div class="exam-info" style="text-align:center;margin:10px 0;">
+          <h2 style="margin-bottom:5px;font-size:20px;font-weight:bold;">${test.name || "ĐỀ KIỂM TRA"}</h2>
+          <p><b>Môn:</b> ${test.subject || "N/A"} — <b>Khối:</b> ${test.level || "?"}</p>
+          <p><b>Thời gian làm bài:</b> ${test.time || "?"} phút</p>
+        </div>
+
+        <hr>
+      `;
+
+      // THAY THẾ KHỐI NÀY (BẮT ĐẦU TỪ DÒNG 6922)
+      htmlContent += test.questions.map((q, i) => `
+        <div class="question-block mb-3" style="page-break-inside: avoid; margin-bottom: 14px;">
+          <p style="margin-bottom: 6px; position: relative;">
+            
+            <b>Câu ${i + 1} (${q.type === "essay" ? "Tự luận" : "Trắc nghiệm"} - ${(q.points || 0).toFixed(1)} đ):</b>
+            
+            ${q.q || "(Không có nội dung)"}
+
+            ${q.imageId ? `
+              <span style="display:inline-block; float:right; margin-left:12px; margin-top:2px;">
+                <img src="${serverUrl}/questions/image/${q.imageId}"
+                     crossorigin="anonymous" 
+                     alt="Hình ảnh câu hỏi"
+                     onerror="this.onerror=null; this.src='https://placehold.co/200x150/ffffff/999999?text=Không+tải+được+ảnh';"
+                     style="
+                       display:block;
+                       width:200px;
+                       max-height:160px;
+                       object-fit:contain;
+                       background:#fff;
+                       border:1px solid #999;
+                       border-radius:6px;
+                       box-shadow:0 0 2px rgba(0,0,0,0.25);
+                     ">
+              </span>
+            ` : ""}
+          </p>
+
+          ${q.type === "mc" && Array.isArray(q.options) && q.options.length ? `
+            <ul style="margin: 0 0 6px 25px; padding: 0;">
+              ${q.options.map(opt => {
+                const text = typeof opt === "string" ? opt
+                          : (opt.text || opt.content || JSON.stringify(opt));
+                return `<li style="margin-bottom: 3px;">${text}</li>`;
+              }).join("")}
+            </ul>
+          ` : ""}
+
+          ${q.type === "essay" ? `
+            <div class="essay-space" style="margin-top:10px;">
+              ${'<div style="border-bottom:1px solid #999;height:18px;margin-top:5px;"></div>'.repeat(6)}
+            </div>
+          ` : ""}
+        </div>
+      `).join("");
+      // KẾT THÚC KHỐI THAY THẾ
+
+      htmlContent += "</div>"; // close test-print-block
+      
+      // ✅ SỬA LỖI 3: Dùng += để NỐI tiếp vào sau thẻ <style>
+      printArea.innerHTML += htmlContent; 
+
+    } catch (err) {
+      console.error("❌ Lỗi khi tải hoặc in đề:", err);
+    }
+  }
+
+  await waitForImagesToLoad();
+  await new Promise(r => setTimeout(r, 200));
+
+  if (mode === "preview") {
+    console.log("🖨️ Bắt đầu in...");
+    window.print();
+    setTimeout(() => {
+        printArea.style.display = "none";
+        printArea.innerHTML = "";
+    }, 500); 
+  } else {
+    await runFullPdfExport();
+  }
+}
+
+
+// 🖼️ Chờ ảnh tải xong
+async function waitForImagesToLoad() {
+  const imgs = document.querySelectorAll("#print-area img");
+  const promises = Array.from(imgs).map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise(resolve => {
+      img.onload = resolve;
+      img.onerror = resolve;
+    });
+  });
+  await Promise.all(promises);
+  console.log("🖼️ Ảnh đã tải xong.");
+}
+
+
+
+
 
 // =================================================================
 // KHỐI DOMContentLoaded DUY NHẤT (ĐÃ THÊM LOGIC RESET 2 CHIỀU)
