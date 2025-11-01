@@ -1083,6 +1083,12 @@
                     Đang tải...
                 </div>
             </div>
+	 <div class="card p-3 mb-3" id="grade-distribution-container" style="display:none;">
+    <h6>Phân phối Điểm (Chỉ tính từ các kết quả đã lọc)</h6>
+    <div style="max-height: 250px;">
+        <canvas id="gradeDistributionChart"></canvas>
+    </div>
+</div>
 
             <div class="card p-3 mb-3">
                  <div class="d-flex align-items-end flex-wrap g-2" style="gap: 10px;">
@@ -7292,7 +7298,12 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
          // Truyền dữ liệu tổng thể (statsApiData) và danh sách đã lọc (filteredResults)
         renderResultsStats(statsApiData, filteredResults);
     }
-    // --- KẾT THÚC THAY ĐỔI ---
+    
+    // ✅ GỌI HÀM VẼ BIỂU ĐỒ PHÂN PHỐI ĐIỂM (TỪ Ý TƯỞNG TRƯỚC)
+    if (typeof renderGradeDistribution === 'function') {
+        renderGradeDistribution(filteredResults);
+    }
+
 
     // --- Gán vào State để Phân trang ---
     state.results.list = filteredResults;
