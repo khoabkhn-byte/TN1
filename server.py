@@ -1720,5 +1720,57 @@ def index():
     except Exception:
         return jsonify({"message": "Index not found"}), 404
 
+@app.route("/api/results/bulk", methods=["POST"])
+def get_bulk_results_detail():
+    """
+    API mới: Lấy chi tiết nhiều bài kết quả (results) để in hàng loạt.
+    """
+    try:
+        data = request.get_json() or {}
+        result_ids = data.get("result_ids", [])
+        if not result_ids:
+            return jsonify({"message": "Thiếu result_ids"}), 400
+
+        # Sử dụng aggregation pipeline tương tự như get_result_detail
+        # nhưng dùng $match với $in
+        pipeline = [
+            {"$match": {"id": {"$in": result_ids}}}, # Lọc theo danh sách ID
+            {"$lookup": {"from": "tests", "localField": "testId", "foreignField": "id", "as": "test_info"}},
+            {"$unwind": {"path": "$test_info", "preserveNullAndEmptyArrays": True}},
+            {
+                "$lookup": {
+                    "from": "users", "let": { "sid": "$studentId" }, 
+                    "pipeline": [
+                        { "$match": { "$expr": { "$or": [ { "$eq": [ "$id", "$$sid" ] }, { "$eq": [ { "$toString": "$_id" }, "$$sid" ] } ] }}},
+                        { "$project": { "fullName": 1, "className": 1, "_id": 0 } }
+                    ], "as": "student_info"
+                }
+            },
+            {"$unwind": {"path": "$student_info", "preserveNullAndEmptyArrays": True}},
+            {
+                "$project": {
+                    "_id": 0, "id": {"$ifNull": ["$id", {"$toString": "$_id"}]},
+                    "assignmentId": 1, "testId": 1, "studentId": 1, "submittedAt": 1, "gradedAt": 1,
+                    "gradingStatus": 1, "totalScore": 1, "mcScore": 1, "essayScore": 1,
+                    "teacherNote": 1, "regradeCount": 1, "studentAnswers": 1, "detailedResults": 1,
+                    "testName": {"$ifNull": ["$test_info.name", "Bài thi đã xóa"]},
+                    "subject": {"$ifNull": ["$test_info.subject", "khác"]}, 
+                    "studentName": {"$ifNull": ["$student_info.fullName", "N/A"]},
+                    "className": {"$ifNull": ["$student_info.className", "N/A"]}
+                }
+            }
+        ]
+        results = list(db.results.aggregate(pipeline))
+        
+        if not results:
+            return jsonify({"message": "Không tìm thấy kết quả nào"}), 404
+        
+        return jsonify(results) # Trả về mảng các kết quả chi tiết
+        
+    except Exception as e:
+        print(f"Lỗi khi lấy chi tiết bulk result: {e}")
+        return jsonify({"message": f"Server error: {e}"}), 500
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
