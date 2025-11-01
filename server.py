@@ -628,7 +628,7 @@ def create_question():
         "difficulty": data.get("difficulty", "medium"),
         "options": options,
         "answer": answer,
-        "imageId": str(image_id) if image_id else None
+        "imageId": str(image_id) if image_id else None,
         "createdAt": now_vn_iso()
     }
     db.questions.insert_one(newq)
