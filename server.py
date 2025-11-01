@@ -524,6 +524,10 @@ def list_questions():
     q_type = request.args.get("type") 
     difficulty = request.args.get("difficulty")
     search_keyword = request.args.get("search") 
+    
+    # ✅ MỚI: Thêm logic lọc theo Tag
+    tag_filter = request.args.get("tag")
+    
     if subject: query["subject"] = subject
     if level: query["level"] = level
     if q_type: query["type"] = q_type
@@ -531,6 +535,11 @@ def list_questions():
     if search_keyword:
         query["q"] = {"$regex": search_keyword, "$options": "i"} 
     
+    # ✅ MỚI: Thêm query cho tag
+    if tag_filter:
+        # $in tìm bất kỳ câu hỏi nào có tag này trong mảng 'tags'
+        query["tags"] = {"$in": [tag_filter.strip()]}
+
     # === LOGIC MỚI BẮT ĐẦU ===
     # 1. Lấy tất cả ID câu hỏi (UUID) nằm trong các đề đã được giao
     assigned_test_ids = set(db.assignments.distinct("testId"))
@@ -710,6 +719,14 @@ def create_question():
         answer = data.get("answer", "")
     except json.JSONDecodeError:
         return jsonify({"message": "Lỗi định dạng dữ liệu Options hoặc Answer."}), 400
+    
+    # ✅ MỚI: Xử lý Tags
+    tags_raw = data.get("tags", "") # Lấy chuỗi "tag1, tag2, tag3"
+    # Xử lý chuỗi thành mảng các tag sạch
+    tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
+    # Xóa trùng lặp
+    tags_list = list(dict.fromkeys(tags_list)) 
+
     newq = {
         "id": str(uuid4()),
         "q": data.get("q"),
@@ -721,7 +738,8 @@ def create_question():
         "options": options,
         "answer": answer,
         "imageId": str(image_id) if image_id else None,
-        "createdAt": now_vn_iso()
+        "createdAt": now_vn_iso(),
+        "tags": tags_list # ✅ MỚI: Thêm trường tags vào CSDL
     }
     db.questions.insert_one(newq)
     to_return = newq.copy()
@@ -777,6 +795,12 @@ def update_question(q_id):
         answer = data.get("answer", "")
     except json.JSONDecodeError:
         return jsonify({"message": "Lỗi định dạng dữ liệu Options hoặc Answer."}), 400
+    
+    # ✅ MỚI: Xử lý Tags
+    tags_raw = data.get("tags", "") # Lấy chuỗi "tag1, tag2, tag3"
+    tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
+    tags_list = list(dict.fromkeys(tags_list)) 
+
     update_fields = {
         "q": data.get("q"),
         "type": data.get("type"),
@@ -786,7 +810,8 @@ def update_question(q_id):
         "difficulty": data.get("difficulty", "medium"),
         "options": options,
         "answer": answer,
-        "imageId": image_id
+        "imageId": image_id,
+        "tags": tags_list # ✅ MỚI: Thêm trường tags vào CSDL
     }
     res = db.questions.update_one({"id": q_id}, {"$set": update_fields})
     if res.matched_count == 0:
