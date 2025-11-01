@@ -481,6 +481,40 @@ def get_question_image(file_id):
         print("❌ Lỗi lấy ảnh:", e)
         return jsonify({"message": f"File not found: {str(e)}"}), 404
 
+
+@app.route("/api/results/test-stats/<test_id>", methods=["GET"])
+def get_test_stats_for_class(test_id):
+    try:
+        # Lấy className của học sinh (nếu cần lọc theo lớp)
+        # Tạm thời chúng ta sẽ tính trên toàn bộ bài thi
+        # student_class = request.args.get("className")
+        # match_query = {"testId": test_id, "className": student_class}
+
+        match_query = {"testId": test_id}
+
+        pipeline = [
+            {"$match": match_query},
+            {"$group": {
+                "_id": "$testId",
+                "avgScore": {"$avg": "$totalScore"},
+                "maxScore": {"$max": "$totalScore"},
+                "minScore": {"$min": "$totalScore"},
+                "count": {"$sum": 1}
+            }}
+        ]
+
+        stats = list(db.results.aggregate(pipeline))
+
+        if not stats:
+            return jsonify({"message": "Không có dữ liệu thống kê"}), 404
+
+        return jsonify(stats[0]), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"message": f"Lỗi server: {str(e)}"}), 500
+
+
 @app.route("/questions", methods=["GET"])
 @app.route("/api/questions", methods=["GET"])
 def list_questions():
