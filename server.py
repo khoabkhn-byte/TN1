@@ -686,7 +686,17 @@ def get_test(test_id):
             
             final_questions.append(q_full)
         else:
-            app.logger.warning(f"Question id {qid} not found in questions collection.")
+            app.logger.warning(f"Question id {qid} not found in questions collection. Adding placeholder.")
+            final_questions.append({
+                "id": qid,
+                "_id": qid,
+                "q": f"[LỖI: KHÔNG TÌM THẤY CÂU HỎI ID: {qid}] <br> <i>(Câu hỏi này có thể đã bị xóa khỏi ngân hàng đề.)</i>",
+                "type": "essay", # Hiển thị như một câu tự luận
+                "points": points_map.get(qid, 0.0), # Lấy điểm gốc (nếu có)
+                "options": [],
+                "answer": "",
+                "isMissing": True # Thêm cờ để JS có thể nhận biết (nếu cần)
+            })
 
     doc["questions"] = final_questions
     for q in doc.get("questions", []):
