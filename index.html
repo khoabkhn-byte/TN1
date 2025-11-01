@@ -588,6 +588,90 @@
 }
 
 
+/* ================================================
+   TINH CHỈNH BỘ LỌC TAB CÂU HỎI (THEO YÊU CẦU)
+   ================================================ */
+
+/* 1. Ẩn các nhãn (Môn học, Khối lớp...) để tiết kiệm không gian */
+#tab-questions > .card .row .form-label {
+    display: none;
+}
+
+/* 2. Đặt chiều rộng cụ thể cho các cột dropdown (ngắn lại) */
+/* Chúng ta nhắm vào các .col KHÔNG phải là .col-12 (cột nút) */
+#tab-questions > .card .row > .col:not(.col-12) {
+    flex: 0 1 180px; /* Không phát triển, co lại, kích thước cơ bản 180px */
+    min-width: 160px; /* Chiều rộng tối thiểu */
+}
+
+/* 3. Ghi đè cột chứa các nút (cột .col-12) */
+#tab-questions > .card .row > .col-12.d-flex {
+    flex: 1 1 auto; /* Cho phép nó lấp đầy không gian CÒN LẠI */
+    width: auto !important; /* Ghi đè 'width: 100%' từ .col-12 */
+    margin-top: 0 !important; /* Xóa margin-top (tránh rớt hàng) */
+    
+    /* Căn giữa các nút theo chiều dọc với các dropdown */
+    align-items: center !important; /* Ghi đè 'align-items-end' */
+}
+
+
+/* ================================================
+   TINH CHỈNH BỘ LỌC TAB HỌC SINH (ĐỒNG BỘ 1 HÀNG) - V3
+   ================================================ */
+
+/* 1. Target đúng .row và ngăn nó rớt hàng */
+#tab-students > .card .row.g-3.align-items-end {
+    flex-wrap: nowrap; /* Buộc tất cả nằm trên 1 hàng */
+    
+    /* XÓA LỆNH align-items: center !important; */
+    /* Để lớp 'align-items-end' mặc định của Bootstrap
+       tự động căn chỉnh mọi thứ theo lề dưới */
+}
+
+/* 2. Ẩn tất cả các nhãn (kể cả nhãn 'invisible' của nút) */
+#tab-students > .card .row.g-3 .form-label {
+    display: none;
+}
+
+/* 3. Đặt độ rộng cố định cho các cột lọc dropdown (ngắn lại) */
+#tab-students > .card .row.g-3 > .col-md-2 {
+    flex: 0 0 150px; /* Rộng 150px */
+    width: 150px;
+}
+
+/* 4. Cột tìm kiếm tên (rộng hơn một chút) */
+#tab-students > .card .row.g-3 > .col-md-3 {
+     flex: 0 0 200px; /* Rộng 200px */
+     width: 200px;
+}
+
+/* 5. Cột "Xóa Lọc" (col-auto) */
+#tab-students > .card .row.g-3 > .col-auto {
+    flex: 0 0 auto; /* Co lại theo nội dung */
+    width: auto;
+    margin-top: 0 !important; 
+}
+
+/* 6. Cột chứa các nút cuối (col.text-end) */
+#tab-students > .card .row.g-3 > .col.text-end {
+    flex: 1 1 auto; /* Lấp đầy không gian còn lại */
+    width: auto;
+    margin-top: 0 !important;
+    
+    /* Biến cột này thành flex để dàn nút bên trong nó */
+    display: flex;
+    justify-content: flex-end; /* Căn phải các nút */
+    
+    /* CĂN CHỈNH: Căn các nút bên trong cột này xuống dưới */
+    align-items: flex-end; 
+    gap: 0.5rem; 
+}
+
+/* 7. Xóa 'me-2' (Giữ nguyên) */
+#tab-students > .card .row.g-3 > .col.text-end .btn.me-2 {
+    margin-right: 0 !important;
+}
+
   </style>
 </head>
 <body>
@@ -689,13 +773,10 @@
                           <option value="hard">Khó</option>
                       </select>
                   </div>
-                  <div class="col-auto ms-2">
-                       <label class="form-label small invisible d-block mb-1">.</label>
-                       <button class="btn btn-sm btn-outline-secondary" onclick="clearAllQuestionFilters()">Xóa Lọc</button>
-                  </div>
-                  <div class="col text-end">
-                      <label class="form-label small invisible d-block mb-1">.</label>
-                      <button class="btn btn-sm btn-outline-primary me-2" onclick="refreshResource('questions')">Tải lại</button>
+                  <div class="col-12 col-lg d-flex justify-content-end align-items-end gap-2 mt-2 mt-lg-0">
+                      <button class="btn btn-sm btn-outline-secondary" onclick="clearAllQuestionFilters()">Xóa Lọc</button>
+                      <button class="btn btn-sm btn-outline-primary" onclick="refreshResource('questions')">Tải lại</button>
+                      <button class="btn btn-sm btn-success" onclick="openImportModal()">📤 Import</button>
                       <button class="btn btn-sm btn-primary" onclick="openQuestionModal()">➕ Thêm câu hỏi</button>
                   </div>
               </div>
@@ -1868,6 +1949,42 @@
       </div>
     </div>
   </div>
+  
+  <!--Modal import câu hỏi-->
+  <div class="modal fade" id="modalImportQuestions" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="importModalLabel">📤 Import Câu hỏi Hàng loạt</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Tải lên file Excel (.xlsx) hoặc CSV (.csv) để thêm câu hỏi hàng loạt.</p>
+        
+        <div class="alert alert-info small">
+          <strong>Lưu ý:</strong> Tính năng này đang được phát triển. File của bạn phải tuân theo một cấu trúc cột nghiêm ngặt.
+          <br>
+          <a href="#" onclick="alert('Tính năng tải file mẫu chưa sẵn sàng.')">[Tải file mẫu (Template)]</a>
+        </div>
+        
+        <div class="mb-3">
+          <label for="import-file-input" class="form-label">Chọn file:</label>
+          <input class="form-control" type="file" id="import-file-input" accept=".xlsx, .csv">
+        </div>
+        
+        <div id="import-status" class="mt-3" style="display:none;">
+          <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+          <span id="import-status-message" class="ms-2">Đang tải lên...</span>
+        </div>
+        
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+        <button type="button" class="btn btn-success" id="import-upload-btn" onclick="handleUploadQuestions()">Bắt đầu Upload</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 	<div id="print-area" style="display:none;"></div>
@@ -3867,6 +3984,7 @@ function openQuestionModal(q) {
         } else if (q.type === 'essay') {
             inputEssayAnswer.value = q.answer || '';
         } else {
+            // Sửa câu hỏi MC nhưng không có đáp án? Thêm 2 cái
             addQuestionOption();
             addQuestionOption();
         }
@@ -3882,7 +4000,13 @@ function openQuestionModal(q) {
         inputType.value = 'mc';
         inputPoints.value = 1;
         inputDifficulty && (inputDifficulty.value = 'medium');
+        
+        // <-- THAY ĐỔI YÊU CẦU 1: Thêm 3 đáp án mặc định
         addQuestionOption();
+        addQuestionOption();
+        addQuestionOption();
+        // <-- KẾT THÚC THAY ĐỔI -->
+
         isLocked = false; // Mới luôn mở khóa
     }
 
@@ -3898,9 +4022,6 @@ function openQuestionModal(q) {
     // Khóa/Mở khóa các nút trong danh sách đáp án (nút Xóa)
     inputOptionsContainer.querySelectorAll('input, button').forEach(el => el.disabled = isLocked);
     
-    // === XÓA BỎ LOGIC 'btnAddOption' CŨ Ở ĐÂY ===
-    // (Toàn bộ khối "SỬA LỖI 1" đã bị xóa)
-
     // Nút xóa ảnh
     btnRemoveImage.onclick = () => {
         imageFileEl.dataset.removeOldImage = 'true';
@@ -5740,6 +5861,81 @@ document.getElementById('modalTestAuto').addEventListener('show.bs.modal', () =>
     }
   } catch(e) {}
 });
+
+
+function openImportModal() {
+    // Reset modal
+    const input = qs('#import-file-input');
+    const statusDiv = qs('#import-status');
+    const statusMsg = qs('#import-status-message');
+    const uploadBtn = qs('#import-upload-btn');
+
+    if (input) input.value = '';
+    if (statusDiv) statusDiv.style.display = 'none';
+    if (statusMsg) statusMsg.textContent = 'Đang tải lên...';
+    if (uploadBtn) uploadBtn.disabled = false;
+
+    const modal = new bootstrap.Modal(qs('#modalImportQuestions'));
+    modal.show();
+}
+
+/**
+ * YÊU CẦU 3: Xử lý upload file câu hỏi
+ */
+async function handleUploadQuestions() {
+    const input = qs('#import-file-input');
+    const statusDiv = qs('#import-status');
+    const statusMsg = qs('#import-status-message');
+    const uploadBtn = qs('#import-upload-btn');
+    
+    if (!input || !input.files || input.files.length === 0) {
+        alert("Vui lòng chọn một file để tải lên.");
+        return;
+    }
+
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Hiển thị loading
+    if (statusDiv) statusDiv.style.display = 'block';
+    if (statusMsg) statusMsg.textContent = `Đang tải lên file: ${file.name}`;
+    if (uploadBtn) uploadBtn.disabled = true;
+
+    try {
+        const response = await fetch(`${serverUrl}/api/questions/bulk-upload`, {
+            method: 'POST',
+            body: formData,
+            // Không set Content-Type, trình duyệt tự xử lý cho FormData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            // Ném lỗi để catch xử lý
+            throw new Error(result.message || `Lỗi server: ${response.status}`);
+        }
+
+        // Thành công (mặc dù backend có thể báo 501)
+        alert(`Import thành công! (Backend trả về: ${result.message})`);
+        // Đóng modal
+        bootstrap.Modal.getInstance(qs('#modalImportQuestions')).hide();
+        // Tải lại danh sách câu hỏi
+        await loadQuestions(true);
+
+    } catch (error) {
+        console.error("Lỗi Import:", error);
+        // Hiển thị lỗi trong modal
+        if (statusMsg) {
+            statusMsg.innerHTML = `<span class="text-danger"><strong>Lỗi:</strong> ${error.message}</span>`;
+        }
+    } finally {
+        // Mở lại nút
+        if (uploadBtn) uploadBtn.disabled = false;
+    }
+}
+
+
 
 
  async function performDeleteTest(id) {
