@@ -466,6 +466,140 @@ def list_questions():
         
     return jsonify(docs)
 
+
+@app.route("/api/questions/bulk-upload", methods=["POST"])
+def bulk_upload_questions():
+    if 'file' not in request.files:
+        return jsonify({"success": False, "message": "Không tìm thấy file"}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({"success": False, "message": "Không có file nào được chọn"}), 400
+
+    try:
+        if file.filename.endswith('.xlsx'):
+            df = pd.read_excel(file, engine='openpyxl')
+        elif file.filename.endswith('.csv'):
+            df = pd.read_csv(file)
+        else:
+            return jsonify({"success": False, "message": "Định dạng file không hợp lệ. Chỉ chấp nhận .xlsx hoặc .csv"}), 400
+        
+        # Làm sạch tên cột: loại bỏ khoảng trắng, chuyển về chữ thường
+        df.columns = df.columns.str.strip().str.lower()
+        
+        # Kiểm tra các cột bắt buộc
+        required_cols = ['q', 'subject', 'level', 'answer']
+        for col in required_cols:
+            if col not in df.columns:
+                return jsonify({"success": False, "message": f"File bị thiếu cột bắt buộc: '{col}'"}), 400
+
+        questions_to_insert = []
+        errors = []
+        
+        # Chuẩn hóa giá trị NaN (ô trống trong Excel) thành None
+        df = df.where(pd.notnull(df), None)
+
+        for index, row in df.iterrows():
+            try:
+                # 1. Lấy các trường bắt buộc
+                q_text = str(row['q'])
+                subject = str(row['subject']).lower()
+                level = str(row['level'])
+                
+                if not q_text or not subject or not level:
+                    errors.append(f"Dòng {index + 2}: Thiếu 'q', 'subject' hoặc 'level'.")
+                    continue
+
+                # 2. Lấy các trường tùy chọn (có giá trị mặc định)
+                difficulty = str(row.get('difficulty', 'medium')).lower()
+                q_type = str(row.get('type', 'mc')).lower()
+                
+                if difficulty not in ['easy', 'medium', 'hard']:
+                    difficulty = 'medium'
+                if q_type not in ['mc', 'essay']:
+                    q_type = 'mc'
+
+                newq = {
+                    "id": str(uuid4()),
+                    "q": q_text,
+                    "type": q_type,
+                    "points": 1, # Mặc định 1 điểm
+                    "subject": subject,
+                    "level": level,
+                    "difficulty": difficulty,
+                    "createdAt": now_vn_iso(),
+                    "imageId": None,
+                    "options": [],
+                    "answer": ""
+                }
+
+                # 3. Xử lý câu hỏi Trắc nghiệm (mc)
+                if q_type == 'mc':
+                    options = []
+                    # Lấy các cột option_1, option_2, ...
+                    option_cols = sorted([col for col in df.columns if col.startswith('option_')])
+                    
+                    for col_name in option_cols:
+                        option_text = row.get(col_name)
+                        if option_text and str(option_text).strip():
+                            options.append(str(option_text).strip())
+                    
+                    if not options:
+                        errors.append(f"Dòng {index + 2}: Câu trắc nghiệm nhưng không có cột 'option_...'.")
+                        continue
+                        
+                    # Xử lý đáp án đúng
+                    answer_val = row.get('answer')
+                    if answer_val is None:
+                        errors.append(f"Dòng {index + 2}: Câu trắc nghiệm thiếu cột 'answer' (chỉ số đáp án đúng, ví dụ: 1, 2, 3...).")
+                        continue
+                    
+                    try:
+                        # Chuyển đáp án (ví dụ: '1') thành index (0)
+                        answer_index = int(float(answer_val)) - 1
+                    except ValueError:
+                        errors.append(f"Dòng {index + 2}: Cột 'answer' ({answer_val}) không phải là một con số hợp lệ.")
+                        continue
+                    
+                    if not (0 <= answer_index < len(options)):
+                        errors.append(f"Dòng {index + 2}: 'answer' ({answer_val}) nằm ngoài số lượng options ({len(options)}).")
+                        continue
+
+                    # Tạo cấu trúc options object
+                    newq["options"] = [
+                        {"text": text, "correct": (i == answer_index)}
+                        for i, text in enumerate(options)
+                    ]
+                    # 'answer' của MC để trống (vì đã lưu trong 'options')
+                    newq["answer"] = ""
+
+                # 4. Xử lý câu hỏi Tự luận (essay)
+                else:
+                    newq["options"] = []
+                    newq["answer"] = str(row.get('answer', '')) # 'answer' là văn bản mẫu
+
+                questions_to_insert.append(newq)
+
+            except Exception as e:
+                errors.append(f"Dòng {index + 2}: Lỗi xử lý - {str(e)}")
+
+        # 5. Thêm vào DB
+        if questions_to_insert:
+            db.questions.insert_many(questions_to_insert)
+            
+        return jsonify({
+            "success": True,
+            "message": f"Hoàn tất! Đã thêm thành công {len(questions_to_insert)} câu hỏi.",
+            "errors": errors,
+            "error_count": len(errors)
+        }), 201
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi nghiêm trọng khi đọc file: {str(e)}"}), 500
+
+
 @app.route("/questions", methods=["POST"])
 @app.route("/api/questions", methods=["POST"])
 def create_question():
