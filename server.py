@@ -5,7 +5,7 @@
 from bson.objectid import ObjectId
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from pymongo import MongoClient
+from pymongo import MongoClient, , DESCENDING
 from uuid import uuid4
 import os
 from dotenv import load_dotenv
@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 from gridfs import GridFS
 import random # Thêm thư viện random
 import traceback # Thêm thư viện traceback để debug
+import pandas as pd
 from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet
@@ -456,6 +457,7 @@ def list_questions():
     # === LOGIC MỚI KẾT THÚC ===
 
     docs = list(db.questions.find(query))
+    docs = list(db.questions.find(query).sort("createdAt", DESCENDING))
     for doc in docs:
         # Thêm cờ 'isAssigned' vào tài liệu
         q_uuid = doc.get("id")
@@ -493,6 +495,7 @@ def create_question():
         "options": options,
         "answer": answer,
         "imageId": str(image_id) if image_id else None
+        "createdAt": now_vn_iso()
     }
     db.questions.insert_one(newq)
     to_return = newq.copy()
