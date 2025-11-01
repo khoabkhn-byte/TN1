@@ -8519,48 +8519,74 @@ function setupAssignmentFilters() {
 
 // Hàm viewResult cũ cần giữ lại hoặc được định nghĩa lại nếu bạn không muốn dùng test.html
 async function viewResult(resultId) {
-  try {
-    // 1️⃣ Gọi API lấy kết quả
-    const result = await fetchJson(`${serverUrl}/api/results/${resultId}`);
-    if (!result) {
-      showMessageBox("Lỗi", "Không tìm thấy kết quả bài thi.");
-      return;
-    }
+    try {
+        // 1. Gọi API lấy kết quả chi tiết của học sinh
+        const resultPromise = fetchJson(`${serverUrl}/api/results/${resultId}`);
+        
+        // 2. Lấy dữ liệu tạm thời (chỉ cần testId) để gọi API thống kê
+        // (Chúng ta không thể await resultPromise vì cần gọi song song)
+        // Thay vào đó, tìm trong danh sách 'completed' đã tải
+        const assignmentData = (assignmentState.completed || []).find(a => a.resultId === resultId);
+        const testId = assignmentData ? assignmentData.testId : null;
 
-    // 2️⃣ Lấy chi tiết đề thi (để hiển thị câu hỏi, đáp án đúng)
-    const quiz = await fetchJson(`${serverUrl}/api/quizzes/${result.testId}`);
-    if (!quiz || !quiz.questions) {
-      showMessageBox("Lỗi", "Không tải được thông tin đề thi.");
-      return;
-    }
-    
-    // 🔥 FIX MỚI: Tạo Map chứa câu trả lời học sinh từ dữ liệu thô (studentAnswers)
-    const studentAnswersMap = new Map();
-    if (result.studentAnswers) {
-        result.studentAnswers.forEach(ans => {
-            // Đảm bảo lưu đúng key: questionId và value: answer
-            studentAnswersMap.set(ans.questionId, ans.answer);
-        });
+        let statsPromise = null;
+        if (testId) {
+            // 2b. Gọi API thống kê điểm (trung bình, cao nhất) cho bài thi này
+            statsPromise = fetchJson(`${serverUrl}/api/results/test-stats/${testId}`);
+        }
+
+        // 3. Chờ kết quả chi tiết của học sinh
+        const result = await resultPromise;
+        if (!result) {
+            showMessageBox("Lỗi", "Không tìm thấy kết quả bài thi.");
+            return;
+        }
+
+        // 4. Lấy chi tiết đề thi (để hiển thị câu hỏi, đáp án đúng)
+        const quiz = await fetchJson(`${serverUrl}/api/quizzes/${result.testId}`);
+        if (!quiz || !quiz.questions) {
+            showMessageBox("Lỗi", "Không tải được thông tin đề thi.");
+            return;
+        }
+
+        // 5. Tạo Map câu trả lời thô (phòng trường hợp detailedResults bị lỗi)
+        const studentAnswersMap = new Map();
+        if (result.studentAnswers) {
+            result.studentAnswers.forEach(ans => {
+                studentAnswersMap.set(ans.questionId, ans.answer);
+            });
+        }
+
+        // 6. Chờ kết quả thống kê
+        let stats = null;
+        if (statsPromise) {
+            try {
+                stats = await statsPromise;
+            } catch (statsError) {
+                console.warn("Không tải được thống kê lớp:", statsError);
+                stats = null; // Bỏ qua nếu lỗi
+            }
+        }
+
+        // 7. Render câu hỏi và highlight
+        renderReviewQuiz(result, quiz, studentAnswersMap, stats); // Truyền 'stats' vào hàm render
+
+        // 8. Hiển thị modal
+        reviewQuizModalInstance.show();
+
+    } catch (err) {
+        console.error("Lỗi xem lại bài thi:", err);
+        showMessageBox("Lỗi", "Không thể tải dữ liệu xem lại.");
     }
-
-    // 3️⃣ Render câu hỏi và highlight
-    // Truyền thêm Map câu trả lời của học sinh để sử dụng làm fallback
-    renderReviewQuiz(result, quiz, studentAnswersMap);
-
-    // 4️⃣ Hiển thị modal
-    reviewQuizModalInstance.show();
-
-  } catch (err) {
-    console.error("Lỗi xem lại bài thi:", err);
-    showMessageBox("Lỗi", "Không thể tải dữ liệu xem lại.");
-  }
 }
 
 // Thay thế hàm renderReviewQuiz (dòng 6038)
-function renderReviewQuiz(result, quiz, studentAnswersMap) {
+function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
+    // Hàm helper (giữ an toàn)
     const escapeHtml = (str) => { return str ? String(str).replace(/[&<>"']/g, s => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s])) : ''; };
     const safeFormat = (dateStr) => { return dateStr ? dateStr.substring(0, 16).replace('T', ' ') : '—'; };
 
+    // Lấy các phần tử DOM
     const container = document.getElementById("review-questions-container");
     const titleEl = document.getElementById("review-quiz-title");
     const summaryContainer = document.getElementById("review-results-summary");
@@ -8572,22 +8598,27 @@ function renderReviewQuiz(result, quiz, studentAnswersMap) {
     const detailed = result.detailedResults || [];
     const questionsFromQuiz = quiz.questions || [];
 
-    // Map câu hỏi gốc (Giữ nguyên)
+    // Tạo Map câu hỏi gốc để dễ tra cứu
     const originalQuestionMap = new Map();
     questionsFromQuiz.forEach(q => {
         if (q && q.id) originalQuestionMap.set(String(q.id), q);
         if (q && q._id) originalQuestionMap.set(String(q._id), q);
     });
 
-    // Biến Summary (Giữ nguyên)
-    let totalQuestions = questionsFromQuiz.length; let totalMc = 0; let totalEssay = 0;
-    let correctMcCount = 0; let calculatedMcScore = 0; let maxMcScore = 0;
+    // Biến đếm cho summary
+    let totalQuestions = questionsFromQuiz.length; 
+    let totalMc = 0; 
+    let totalEssay = 0;
+    let correctMcCount = 0; 
+    let calculatedMcScore = 0; 
+    let maxMcScore = 0;
 
+    // Lặp qua detailedResults để render từng câu
     detailed.forEach((res, idx) => {
         const resultQid = res.questionId;
-        const q = originalQuestionMap.get(String(resultQid)); // Lookup q
+        const q = originalQuestionMap.get(String(resultQid)); // Lấy câu hỏi gốc
 
-        // Truy cập dữ liệu an toàn (Giữ nguyên)
+        // Lấy dữ liệu (ưu tiên từ detailedResults, fallback về câu hỏi gốc)
         const qTypeCheck = (res.type || q?.type || 'mc').toLowerCase();
         const maxPointsForResult = res?.maxPoints ?? 1;
         const maxPointsFromQ = q?.points ?? 1;
@@ -8597,42 +8628,63 @@ function renderReviewQuiz(result, quiz, studentAnswersMap) {
         const optionsToRender = q?.options || [];
         const correctAnsRaw = res?.correctAnswer ?? q?.answer ?? q?.correctAnswer ?? null;
         const correctAns = correctAnsRaw ? String(correctAnsRaw).toLowerCase() : null;
+        
+        // Lấy câu trả lời (ưu tiên detailedResults, fallback về map thô)
         const studentAnsRaw = res?.studentAnswer ?? (studentAnswersMap ? studentAnswersMap.get(resultQid) : null) ?? null;
         const studentAns = (studentAnsRaw ?? "").toString().trim().toLowerCase();
 
-        // Update counts (Giữ nguyên)
-        if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') { totalEssay++; }
-        else { totalMc++; maxMcScore += max; }
+        // Đếm câu TN/TL
+        if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') { 
+            totalEssay++; 
+        } else { 
+            totalMc++; 
+            maxMcScore += max; 
+        }
 
         const gained = res?.pointsGained ?? 0;
         const isCorrectRaw = res?.isCorrect;
 
-        // Logic isCorrect (Giữ nguyên)
+        // Xác định trạng thái Đúng/Sai/Chờ chấm
         let isCorrect;
-        if (typeof isCorrectRaw === 'boolean') { isCorrect = isCorrectRaw; }
-        else { /* ... */ } // Logic fallback giữ nguyên
-         if (isCorrect === undefined && qTypeCheck !== 'essay' && qTypeCheck !== 'tu_luan') { isCorrect = false; }
+        if (typeof isCorrectRaw === 'boolean') { 
+            isCorrect = isCorrectRaw; 
+        } else if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') {
+            // Tự luận: null = chưa chấm, true/false = đã chấm
+            if (res.teacherScore !== null && res.teacherScore !== undefined) {
+                isCorrect = Number(res.teacherScore) > 0;
+            } else {
+                isCorrect = null; // Chưa chấm
+            }
+        } else {
+            // Trắc nghiệm: Dựa vào điểm
+            isCorrect = gained > 0;
+        }
 
-
-        // Update score counts (Giữ nguyên)
+        // Cập nhật điểm TN
         if (qTypeCheck !== 'essay' && qTypeCheck !== 'tu_luan') {
             calculatedMcScore += gained;
             if (isCorrect === true) { correctMcCount++; }
         }
 
-        // Logic Border & Badge (Giữ nguyên)
-        let borderClass = ''; let badgeClass = ''; let badgeText = '';
-         // ... (logic border/badge giữ nguyên) ...
+        // Xác định màu viền và nội dung badge
+        let borderClass = ''; 
+        let badgeClass = ''; 
+        let badgeText = '';
         if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') {
-            if (isCorrectRaw === true || gained > 0) { borderClass = 'border-success'; badgeClass = 'bg-success'; badgeText = 'Đã Chấm (Đ)'; }
-            else if (isCorrectRaw === false && (res?.teacherScore !== null && res?.teacherScore !== undefined)) { borderClass = 'border-danger'; badgeClass = 'bg-danger'; badgeText = 'Đã Chấm (S)'; }
-            else { borderClass = 'border-warning'; badgeClass = 'bg-warning text-dark'; badgeText = 'Chờ Chấm'; }
+            if (isCorrect === true) { 
+                borderClass = 'border-success'; badgeClass = 'bg-success'; badgeText = 'Đã Chấm (Đ)'; 
+            } else if (isCorrect === false) { 
+                borderClass = 'border-danger'; badgeClass = 'bg-danger'; badgeText = 'Đã Chấm (S)'; 
+            } else { 
+                borderClass = 'border-warning'; badgeClass = 'bg-warning text-dark'; badgeText = 'Chờ Chấm'; 
+            }
         } else {
            borderClass = isCorrect ? 'border-success' : 'border-danger';
            badgeClass = isCorrect ? 'bg-success' : 'bg-danger';
            badgeText = isCorrect ? 'Đ' : 'S';
         }
 
+        // Render phần đáp án (HTML cho MC hoặc Essay)
         let answerHtml = '';
         let unansweredNote = '';
 
@@ -8640,22 +8692,57 @@ function renderReviewQuiz(result, quiz, studentAnswersMap) {
             if (studentAnsRaw === null || studentAnsRaw === undefined || studentAnsRaw === "") {
                 unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa chọn câu trả lời</p>';
             }
-            // Render options (Giữ nguyên logic map và class)
+            // Render các options
             answerHtml = optionsToRender.map(opt => {
-                // ... (logic render option giữ nguyên) ...
-                 if (!opt) return ''; let cls = ''; const optionText = (typeof opt === 'string' ? opt : (opt.value || opt.text || '')).toString(); const optValue = escapeHtml(optionText); const correctOptionValue = correctAns; const studentOptionValue = studentAns; const optValueLower = optValue ? optValue.toLowerCase() : ''; if (correctOptionValue !== null && optValueLower === correctOptionValue) { cls = 'bg-success-subtle border-success fw-bold'; } if (optValueLower === studentOptionValue && !isCorrect) { cls += ' bg-warning-subtle border-danger'; } else if (optValueLower === studentOptionValue && isCorrect) {} const radioChecked = (optValueLower === studentOptionValue) ? 'checked' : '';
-                return `<div class="p-2 border rounded mb-1 ${cls}" style="pointer-events: none;"> <input type="radio" disabled ${radioChecked} class="me-2" style="opacity: 0.7;"> ${optValue || '(Lựa chọn trống)'} </div>`;
-            }).join('');
-            // Fallback (Giữ nguyên)
-            if (optionsToRender.length === 0 && qTypeCheck === 'mc') { /* ... */ }
-             if (optionsToRender.length === 0 && qTypeCheck === 'mc') { answerHtml = `<p class="text-danger small">Lỗi: Không tải được các lựa chọn đáp án.</p>`; if(studentAnsRaw !== null && studentAnsRaw !== undefined) { answerHtml += `<p class="small">Bạn đã chọn: <strong>${escapeHtml(String(studentAnsRaw))}</strong></p>`; } }
+                if (!opt) return '';
+                let cls = '';
+                const optionText = (typeof opt === 'string' ? opt : (opt.value || opt.text || '')).toString();
+                const optValue = escapeHtml(optionText);
+                const optValueLower = optValue ? optValue.toLowerCase() : '';
+                
+                const correctOptionValue = correctAns;
+                const studentOptionValue = studentAns;
 
-        } else { // Tự luận (Giữ nguyên)
-             answerHtml = `...`; // Giữ nguyên logic render Tự luận
-             answerHtml = `<div class="form-group"><label class="form-label fw-bold">Câu trả lời của bạn:</label><textarea class="form-control ${borderClass}" disabled rows="4">${escapeHtml(studentAnsRaw || '')}</textarea></div>`; if (correctAnsRaw && String(correctAnsRaw).trim() !== '') { answerHtml += `<div class="form-group mt-2"><label class="form-label small text-success">Đáp án gợi ý:</label><textarea class="form-control bg-light" disabled rows="2">${escapeHtml(String(correctAnsRaw))}</textarea></div>`; }
+                // Highlight đáp án đúng
+                if (correctOptionValue !== null && optValueLower === correctOptionValue) { 
+                    cls = 'bg-success-subtle border-success fw-bold'; 
+                }
+                // Highlight đáp án sai (nếu chọn sai)
+                if (optValueLower === studentOptionValue && !isCorrect) { 
+                    cls += ' bg-warning-subtle border-danger'; 
+                }
+
+                const radioChecked = (optValueLower === studentOptionValue) ? 'checked' : '';
+                
+                return `<div class="p-2 border rounded mb-1 ${cls}" style="pointer-events: none;">
+                          <input type="radio" disabled ${radioChecked} class="me-2" style="opacity: 0.7;">
+                          ${optValue || '(Lựa chọn trống)'}
+                        </div>`;
+            }).join('');
+            
+            // Fallback nếu không có options
+            if (optionsToRender.length === 0 && qTypeCheck === 'mc') { 
+                answerHtml = `<p class="text-danger small">Lỗi: Không tải được các lựa chọn đáp án.</p>`;
+                if(studentAnsRaw !== null && studentAnsRaw !== undefined) { 
+                    answerHtml += `<p class="small">Bạn đã chọn: <strong>${escapeHtml(String(studentAnsRaw))}</strong></p>`; 
+                }
+            }
+
+        } else { // Tự luận
+             answerHtml = `<div class="form-group">
+                             <label class="form-label fw-bold">Câu trả lời của bạn:</label>
+                             <textarea class="form-control ${borderClass}" disabled rows="4">${escapeHtml(studentAnsRaw || '')}</textarea>
+                           </div>`;
+             // Hiển thị đáp án mẫu (nếu có)
+             if (correctAnsRaw && String(correctAnsRaw).trim() !== '') { 
+                 answerHtml += `<div class="form-group mt-2">
+                                  <label class="form-label small text-success">Đáp án gợi ý:</label>
+                                  <textarea class="form-control bg-light" disabled rows="2">${escapeHtml(String(correctAnsRaw))}</textarea>
+                                </div>`; 
+             }
         }
 
-        // --- ✅ XÓA COMMENT TRONG CARD HTML ---
+        // Tạo thẻ card cho câu hỏi
         const card = document.createElement('div');
         card.className = `card mb-3 shadow-sm ${borderClass}`;
         card.innerHTML = `
@@ -8675,25 +8762,37 @@ function renderReviewQuiz(result, quiz, studentAnswersMap) {
             </div>
           </div>
         `;
-        // --- KẾT THÚC XÓA COMMENT ---
         container.appendChild(card);
     });
-    // --- END LOOP ---
+    // --- Kết thúc vòng lặp ---
 
-// --- CẬP NHẬT SUMMARY ---
-    totalQuestions = detailed.length;
+    // --- Cập nhật bảng SUMMARY ---
+    totalQuestions = detailed.length; // Tổng số câu hỏi thực tế
     const finalTotalScore = result.totalScore !== undefined ? parseFloat(result.totalScore).toFixed(2) : 'Chưa có';
     const finalEssayScore = result.essayScore !== undefined ? parseFloat(result.essayScore).toFixed(1) : 'Chờ chấm';
     const finalMcScore = calculatedMcScore.toFixed(1);
 
-    // --- ✅ TẠO BIẾN RIÊNG CHO HTML NGÀY CHẤM ---
-    let gradedAtHtml = ''; // Khởi tạo chuỗi rỗng
+    // Chuẩn bị HTML cho ngày chấm
+    let gradedAtHtml = '';
     if (result.gradedAt) {
         gradedAtHtml = `<p class="small text-muted mt-2">Ngày chấm: ${safeFormat(result.gradedAt)}</p>`;
     }
-    // --- KẾT THÚC TẠO BIẾN ---
+    
+    // Chuẩn bị HTML cho thống kê (nếu có)
+    let statsHtml = '';
+    if (stats && stats.count > 1) {
+        statsHtml = `
+        <div class="mt-3 p-2 border rounded bg-light-gray small">
+            <strong>Thống kê (toàn bộ bài thi):</strong>
+            <div>Điểm trung bình: <strong>${stats.avgScore.toFixed(2)}</strong></div>
+            <div>Điểm cao nhất: <strong>${stats.maxScore.toFixed(2)}</strong></div>
+            <div>Điểm thấp nhất: <strong>${stats.minScore.toFixed(2)}</strong></div>
+            <div>Số lượt nộp: <strong>${stats.count}</strong></div>
+        </div>
+        `;
+    }
 
-    // --- SỬ DỤNG BIẾN TRONG CHUỖI CHÍNH ---
+    // Gán HTML cuối cùng cho summary
     summaryContainer.innerHTML = `<div class="alert alert-info mt-3">
         <h4 class="text-primary mb-3">Tổng kết bài làm</h4>
         <p>Tổng số câu: <strong>${totalQuestions}</strong></p>
@@ -8703,12 +8802,12 @@ function renderReviewQuiz(result, quiz, studentAnswersMap) {
         <p>Điểm trắc nghiệm: <strong class="text-success">${finalMcScore} / ${maxMcScore.toFixed(1)}</strong></p>
         <p>Điểm tự luận: <strong class="${result.gradingStatus === 'Hoàn tất' || result.gradingStatus === 'Đã Chấm' ? 'text-info' : 'text-warning'}">${finalEssayScore}</strong></p>
         <p class="fs-5">Tổng điểm: <strong class="text-primary">${finalTotalScore}</strong></p>
+        
+        ${statsHtml}
+        
         ${gradedAtHtml}
-    </div>`; // <-- Đảm bảo dấu ` cuối cùng đúng vị trí
-    // --- KẾT THÚC SỬ DỤNG BIẾN ---
-
-    // --- Kết thúc cập nhật summary ---
-} // Đóng hàm renderReviewQuiz
+    </div>`;
+}
 
 // Thêm hàm thống kê này vào khối
 function renderQuestionStats(questions) {
