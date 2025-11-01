@@ -563,7 +563,29 @@
   color: #007bff;
 }
 
+/* =================== STYLE CHO NÚT BỊ VÔ HIỆU HÓA (DISABLED) =================== */
 
+/* Màu xám nền cho nút Xem trước (btn-outline-primary) và các nút khác */
+.btn:disabled, 
+.btn.btn-outline-primary:disabled {
+    /* Màu nền xám (giống nền của nút bị disabled thường thấy) */
+    background-color: #6c757d !important; 
+    /* Màu chữ trắng, hơi mờ */
+    color: rgba(255, 255, 255, 0.7) !important; 
+    border-color: #6c757d !important;     /* Viền cùng màu nền */
+    opacity: 0.9;                         /* Giảm nhẹ độ mờ */
+    pointer-events: none;
+    cursor: default !important; 
+}
+
+/* Áp dụng riêng cho nút Xuất PDF (btn-success) khi bị disabled */
+.btn.btn-success:disabled {
+    /* Sử dụng màu xám đậm để đồng nhất nền */
+    background-color: #6c757d !important; 
+    color: rgba(255, 255, 255, 0.7) !important;           
+    border-color: #6c757d !important;
+    opacity: 0.9;
+}
 
 
   </style>
@@ -729,7 +751,6 @@
                         <label for="filter-test-subject" class="form-label small mb-1">Môn học</label>
                         <select id="filter-test-subject" class="form-select form-select-sm" onchange="loadTests()">
                              <option value="">-- Tất cả Môn học ---</option>
-                             
                         </select>
                     </div>
 
@@ -737,7 +758,6 @@
                         <label for="filter-test-level" class="form-label small mb-1">Khối lớp</label>
                         <select id="filter-test-level" class="form-select form-select-sm" onchange="loadTests()">
                             <option value="">--Tất cả Khối--</option>
-                            
                         </select>
                      </div>
 
@@ -753,21 +773,25 @@
                         <label class="form-label small invisible d-block mb-1">.</label>
                         <button class="btn btn-sm btn-outline-secondary" onclick="resetTestFilters()">Xóa lọc</button>
                     </div>
+                    
+                    <div class="col-auto">
+                        <label class="form-label small invisible d-block mb-1">.</label>
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshResource('tests')">Tải lại</button>
+                    </div>
 
                     <div class="col text-end">
                         <label class="form-label small invisible d-block mb-1">.</label>
                         
-                        <button class="btn btn-sm btn-outline-primary" onclick="preparePrintArea(getSelectedTests(), 'preview')">
-                          🖨️ In xem trước
-                        </button>
-                        <button class="btn btn-sm btn-success me-2" onclick="preparePrintArea(getSelectedTests(), 'server')">
-                          📄 Xuất PDF
+                        <button id="bulk-preview-tests-btn" class="btn btn-sm btn-outline-primary" onclick="preparePrintArea(getSelectedTests(), 'preview')">
+                          🖨️ Xem trước (<span id="selected-tests-preview-count">0</span>)
                         </button>
                         
-                        <button class="btn btn-sm btn-outline-primary me-2" onclick="refreshResource('tests')">Tải lại</button>
+                        <button id="bulk-pdf-tests-btn" class="btn btn-sm btn-success" onclick="preparePrintArea(getSelectedTests(), 'server')">
+                          📄 Xuất PDF (<span id="selected-tests-pdf-count">0</span>)
+                        </button>
                         
                         <button id="create-test-btn-top" class="btn btn-sm btn-primary me-2" onclick="openTestCreateChoice()">➕ Tạo bài thi</button>
-                        
+
                         <button id="bulk-assign-btn-top" class="btn btn-sm btn-warning text-dark d-none" onclick="showBulkAssignModal()"> Giao Đề Đã Chọn (<span id="selected-count-display">0</span>)</button>
                     </div>
                 </div>
@@ -980,28 +1004,28 @@
             </div>
 
             <div class="card p-3 mb-3">
-                 <div class="row g-2 align-items-end">
+                 <div class="d-flex align-items-end flex-wrap g-2" style="gap: 10px;">
                     
-                    <div class="col"> 
+                    <div style="flex-basis: 150px; flex-shrink: 1;"> 
                         <label for="filter-result-status" class="form-label small mb-1">Trạng thái chấm</label>
                         <select id="filter-result-status" class="form-select form-select-sm" onchange="loadResults(false)">
                             <option value="">-- Tất cả Trạng thái --</option>
                         </select>
                     </div>
 
-                    <div class="col">
+                    <div style="flex-basis: 120px; flex-shrink: 1;">
                         <label for="filter-result-class" class="form-label small mb-1">Lớp học</label>
                         <select id="filter-result-class" class="form-select form-select-sm" onchange="loadResults(false)">
                             <option value="">-- Tất cả Lớp --</option>
                         </select>
                     </div>
                     
-                    <div class="col">
+                    <div style="flex-basis: 160px; flex-shrink: 1;">
                         <label for="search-result-student" class="form-label small mb-1">Tìm kiếm Học sinh</label>
                         <input type="text" id="search-result-student" class="form-control form-control-sm" placeholder="Nhập Họ tên..." onkeyup="debounceLoadResults()">
                     </div>
 
-                    <div class="col">
+                    <div style="flex-basis: 160px; flex-shrink: 1;">
                         <label for="sort-result-time" class="form-label small mb-1">Sắp xếp theo</label>
                         <select id="sort-result-time" class="form-select form-select-sm" onchange="loadResults(false)">
                             <option value="submittedAt_desc">Thời gian nộp (Mới nhất)</option>
@@ -1011,23 +1035,36 @@
                         </select>
                     </div>
                     
-                    <div class="col-auto ms-3 text-end">
-                        <label class="form-label small invisible d-block mb-1">.</label>
-                        <button class="btn btn-sm btn-outline-primary me-2" onclick="loadResults(true)">Tải lại</button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="clearResultFilters()">Xóa Lọc</button>
+                    <div class="d-flex align-items-center" style="margin-top: 19px; gap: 5px;">
+                        
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearResultFilters()">Xóa Lọc</button>
+						<button id="refresh-results-btn" class="btn btn-sm btn-outline-primary" onclick="loadResults(true)" title="Tải lại danh sách kết quả">Tải lại</button>
+                        <button id="bulk-print-results-btn" class="btn btn-sm btn-outline-primary" onclick="prepareResultPrintArea(true)" title="Xem trước khi in hàng loạt">
+                          🖨️ Xem trước (<span id="selected-results-count-display">0</span>)
+                        </button>
+                        
+                        <button id="bulk-pdf-results-btn" class="btn btn-sm btn-success" onclick="prepareResultPrintArea(false)" title="Xuất PDF hàng loạt">
+                          📄 Xuất PDF (<span id="selected-results-count-display-pdf">0</span>)
+                        </button>
+                        
+                       
                     </div>
                 </div>
             </div>
+			
             <div class="card p-3">
                  <div class="table-wrap">
                      <table class="table table-sm table-hover table-bordered">
                          <thead>
                             <tr>
-                                <th scope="col" style="width: 5%;">STT</th>
+                                <th scope="col" style="width: 5%;" class="text-center">
+                                    <input type="checkbox" id="check-all-results">
+                                </th>
+                                <th scope="col" style="width: 5%;" class="text-center">STT</th>
                                 <th scope="col" style="width: 15%;">Tên bài thi</th>
                                 <th scope="col" style="width: 15%;">Học sinh</th>
                                 <th scope="col" style="width: 10%;">Lớp</th>
-                                <th scope="col" style="width: 10%;">Thời gian nộp</th>
+                                <th scope="col" style="width: 15%;">Thời gian nộp</th>
                                 <th scope="col" style="width: 10%;">Trạng thái</th>
                                 <th scope="col" style="width: 10%;" class="text-center">Điểm số</th>
                                 <th scope="col" style="width: 15%;" class="text-center">Hành động</th>
@@ -2126,18 +2163,12 @@ async function fetchJson(url, options = {}) {
 
 function formatSubmittedAt(ts) {
   if (!ts) return '-';
-  // Nếu frontend có khi nào gửi số giây (number), hỗ trợ luôn:
-  if (typeof ts === 'number') {
-    const d = new Date(ts * 1000);
-    if (isNaN(d)) return '-';
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-  }
-  // Nếu là ISO string
+  // ... (các code khác giữ nguyên)
   try {
     const d = new Date(ts);
     if (isNaN(d)) return '-';
-    // dd/mm/yyyy HH:MM (giờ:phút)
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    // ✅ SỬA LỖI: Thêm dấu ' | ' vào giữa
+    return d.toLocaleDateString('vi-VN') + ' | ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   } catch (e) {
     return '-';
   }
@@ -2410,7 +2441,7 @@ function updateQuestionLevelFilter(questions) {
     }
 }
 		
- // THAY THẾ HÀM NÀY (khoảng dòng 2187)
+ // Thay thế hàm (khoảng dòng 2911)
 function renderPaged(resource){
     const s = state[resource];
     if (!s) {
@@ -2418,7 +2449,6 @@ function renderPaged(resource){
         return;
     }
     const listToPage = s.list || []; 
-    // Dùng PAGE_SIZE = 20 (đã khai báo ở đầu file)
     const start = (s.page - 1) * PAGE_SIZE; 
     const pageItems = listToPage.slice(start, start + PAGE_SIZE);
 
@@ -2431,13 +2461,16 @@ function renderPaged(resource){
         }
     }
     if (resource === 'students') renderStudents(pageItems);
-    if (resource === 'results') renderResultsTable(pageItems); 
     
-    // ✅ BỔ SUNG LOGIC GỌI CHO HỌC SINH
+    // ✅ SỬA LỖI: Gọi hàm listener SAU KHI render bảng
+    if (resource === 'results') {
+        renderResultsTable(pageItems);
+        setupResultCheckboxListeners(); // Gọi tại đây
+    }
+    
     if (resource === 'stuPending') renderPendingTable(pageItems);
     if (resource === 'stuDone') renderDoneTable(pageItems);
 
-    // Cập nhật UI phân trang
     updatePaginationUI(resource);
 }
 	
@@ -3588,7 +3621,7 @@ async function renderResultDetailModal(data) {
 
             // Ghép HTML cho card
             html += `
-                <div class="border rounded p-3 mb-3 shadow-sm bg-white">
+                <div class="border rounded p-3 mb-3 shadow-sm bg-white"style="page-break-inside: avoid !important;">
                     <div><strong>Câu ${i + 1}</strong> <span class="badge bg-secondary ms-2">${maxPoints} điểm</span> ${stickHtml}</div>
                     <div class="mt-2 text-wrap">${questionContent}</div>
                     ${imageHtml}
@@ -4320,37 +4353,77 @@ function renderTests(items) {
 }
 
 
+// THAY THẾ TOÀN BỘ HÀM NÀY (khoảng dòng 3242)
 function toggleBulkAssignButton() {
     // 1. Lấy các phần tử nút
-    const bulkBtn = qs('#bulk-assign-btn-top');
-    const createBtn = qs('#create-test-btn-top'); // Nút "Tạo bài thi"
-    const countDisplay = qs('#selected-count-display');
+    const bulkAssignBtn = qs('#bulk-assign-btn-top');
+    const createTestBtn = qs('#create-test-btn-top'); 
+    const previewBtn = qs('#bulk-preview-tests-btn');
+    const pdfBtn = qs('#bulk-pdf-tests-btn');
     
-    // 2. Đếm số lượng
+    // 2. Lấy các phần tử đếm
+    const assignCountDisplay = qs('#selected-count-display');
+    const previewCountDisplay = qs('#selected-tests-preview-count');
+    const pdfCountDisplay = qs('#selected-tests-pdf-count');
+    
+    // 3. Đếm số lượng
     const checkedBoxes = document.querySelectorAll('#tests-tbody .select-test-checkbox:checked');
     const count = checkedBoxes.length;
     
-    // 3. Logic hoán đổi
-    if (bulkBtn && createBtn) {
-        if (count > 0) {
-            // Hiển thị nút Giao (Cam)
-            bulkBtn.classList.remove('d-none');
-            // Ẩn nút Tạo (Xanh)
-            createBtn.classList.add('d-none');
-        } else {
-            // Ẩn nút Giao (Cam)
-            bulkBtn.classList.add('d-none');
-            // Hiển thị nút Tạo (Xanh)
-            createBtn.classList.remove('d-none');
-        }
-    }
+    // 4. Logic hoán đổi/vô hiệu hóa
     
-    // 4. Cập nhật số đếm
-    if (countDisplay) {
-        countDisplay.textContent = count;
+    if (count > 0) {
+        // --- KHI CÓ ĐỀ ĐƯỢC CHỌN (count > 0) ---
+        
+        // A. Nút Tạo đề: ẨN HẲN
+        if (createTestBtn) createTestBtn.classList.add('d-none');
+        
+        // B. Nút Giao đề: HIỆN VÀ KÍCH HOẠT (thay thế nút Tạo)
+        if (bulkAssignBtn) {
+            bulkAssignBtn.classList.remove('d-none');
+            bulkAssignBtn.disabled = false;
+            // Đảm bảo đúng màu
+            bulkAssignBtn.classList.add('btn-warning', 'text-dark', 'me-2');
+            bulkAssignBtn.classList.remove('btn-secondary'); 
+        }
+
+        // C. Nút Xem trước/PDF: KÍCH HOẠT
+        [previewBtn, pdfBtn].forEach(btn => {
+            if (!btn) return;
+            btn.disabled = false;
+            btn.classList.remove('btn-secondary'); // Bỏ màu mờ
+            if (btn === previewBtn) btn.classList.add('btn-outline-primary');
+            if (btn === pdfBtn) btn.classList.add('btn-success');
+        });
+        
+    } else {
+        // --- KHI KHÔNG CÓ ĐỀ NÀO ĐƯỢC CHỌN (count = 0) ---
+        
+        // A. Nút Tạo đề: HIỆN
+        if (createTestBtn) createTestBtn.classList.remove('d-none');
+        
+        // B. Nút Giao đề: ẨN HẲN
+        if (bulkAssignBtn) bulkAssignBtn.classList.add('d-none'); 
+
+        // C. Nút Xem trước/PDF: VÔ HIỆU HÓA (MỜ)
+        [previewBtn, pdfBtn].forEach(btn => {
+            if (!btn) return;
+            btn.disabled = true;
+            btn.classList.add('btn-secondary'); // Đặt màu mờ
+            
+            // Bỏ màu thật
+            if (btn === previewBtn) btn.classList.remove('btn-outline-primary');
+            if (btn === pdfBtn) btn.classList.remove('btn-success');
+        });
     }
 
-    // 5. Cập nhật checkbox "Chọn tất cả" (Giữ nguyên)
+    // 5. Cập nhật số đếm
+    if (assignCountDisplay) assignCountDisplay.textContent = count;
+    if (previewCountDisplay) previewCountDisplay.textContent = count;
+    if (pdfCountDisplay) pdfCountDisplay.textContent = count;
+
+
+    // 6. Cập nhật checkbox "Chọn tất cả"
     const checkAll = qs('#check-all-tests');
     if (checkAll) {
         const totalCheckboxes = document.querySelectorAll('#tests-tbody .select-test-checkbox').length;
@@ -6881,6 +6954,7 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
     if (resetPage) {
         state.results.page = 1;
     }
+	//setupResultCheckboxListeners();
 
     renderPaged('results');
 }
@@ -6961,7 +7035,324 @@ function renderResultsStats(statsApiData, resultsData) {
 }
 
 
-function renderResultsTable(pageItems) { // Đổi tên tham số thành 'pageItems'
+// DÁN TOÀN BỘ KHỐI CODE NÀY VÀO TRƯỚC
+
+// ===============================================
+// === LOGIC IN HÀNG LOẠT CHO TAB KẾT QUẢ
+// ===============================================
+
+function setupResultCheckboxListeners() {
+    // 1. Gán sự kiện cho từng checkbox
+    const checkboxes = document.querySelectorAll('#results-tbody .select-result-checkbox');
+    checkboxes.forEach(cb => {
+        cb.removeEventListener('change', toggleBulkResultPrintButtons); 
+        cb.addEventListener('change', toggleBulkResultPrintButtons);
+    });
+
+    // 2. Gán sự kiện cho checkbox "Chọn tất cả"
+    const checkAll = qs('#check-all-results');
+    if (checkAll) {
+        checkAll.removeEventListener('change', handleSelectAllResults);
+        checkAll.addEventListener('change', handleSelectAllResults);
+    }
+    
+    // 3. Khởi tạo trạng thái ban đầu của nút
+    toggleBulkResultPrintButtons(); 
+}
+
+function handleSelectAllResults(e) {
+    const isChecked = e.target.checked;
+    document.querySelectorAll('#results-tbody .select-result-checkbox').forEach(cb => {
+        cb.checked = isChecked;
+    });
+    toggleBulkResultPrintButtons();
+}
+
+function getSelectedResultIds() {
+    const checkedBoxes = document.querySelectorAll('#results-tbody .select-result-checkbox:checked');
+    const ids = Array.from(checkedBoxes).map(cb => cb.getAttribute('data-resultid'));
+    return ids;
+}
+
+function toggleBulkResultPrintButtons() {
+    const count = getSelectedResultIds().length;
+    
+    const btnPrint = qs('#bulk-print-results-btn');
+    const btnPdf = qs('#bulk-pdf-results-btn');
+    const btnRefresh = qs('#refresh-results-btn'); // Nút tải lại
+    const spanCount1 = qs('#selected-results-count-display');
+    const spanCount2 = qs('#selected-results-count-display-pdf');
+
+    // ✅ SỬA LOGIC: Dùng 'disabled' (mờ đi) thay vì 'd-none' (ẩn)
+    if (count > 0) {
+        // Có chọn
+        if (btnPrint) btnPrint.disabled = false;
+        if (btnPdf) btnPdf.disabled = false;
+        if (spanCount1) spanCount1.textContent = count;
+        if (spanCount2) spanCount2.textContent = count;
+    } else {
+        // Không chọn
+        if (btnPrint) btnPrint.disabled = true;
+        if (btnPdf) btnPdf.disabled = true;
+        if (spanCount1) spanCount1.textContent = 0;
+        if (spanCount2) spanCount2.textContent = 0;
+    }
+    
+    // ✅ SỬA LOGIC: Nút "Tải lại" không bao giờ bị ảnh hưởng
+    if (btnRefresh) {
+         btnRefresh.classList.remove('d-none'); // Luôn hiển thị
+         btnRefresh.disabled = false; // Luôn bật
+    }
+
+    // Cập nhật trạng thái "check all" (Giữ nguyên)
+    const checkAll = qs('#check-all-results');
+    if (checkAll) {
+        const totalCheckboxes = document.querySelectorAll('#results-tbody .select-result-checkbox').length;
+        checkAll.checked = (totalCheckboxes > 0 && count === totalCheckboxes);
+        checkAll.indeterminate = (count > 0 && count < totalCheckboxes);
+    }
+}
+
+/**
+ * HÀM MỚI: Chuẩn bị HTML cho MỘT bài kết quả
+ * (Đây là phiên bản rút gọn của `renderResultDetailModal` để in)
+ */
+function generateResultPrintHTML_Single(resultHeader, hydratedAnswers) {
+    let qHtml = '';
+    
+    // Đảm bảo font chữ đủ nhỏ cho toàn khối
+    const baseFontSizeStyle = 'font-size: 0.9rem;'; 
+
+    hydratedAnswers.forEach((ans, i) => { 
+        const q = ans.question || {};
+        const questionContent = q.q || '(Không có nội dung)';
+        const q_type = (ans.type || q.type || '').toLowerCase();
+        const isEssay = q_type === 'essay';
+        
+        const studentAnswerText = String(ans.studentAnswer || '');
+        const correctAns = String(ans.correctAnswer || '').trim().toLowerCase();
+        const maxPoints = ans.maxPoints ?? q.points ?? 1;
+        const gainedPoints = ans.gainedScore ?? 0;
+        const isCorrect = ans.isCorrect;
+        const teacherNote = ans.teacherNote || '';
+
+        const optionStyle = `border: 1px solid #ccc; border-radius: 4px; padding: 3px 5px; margin-bottom: 3px; ${baseFontSizeStyle}`;
+        
+        let answerDisplay = '';
+        if (!isEssay) {
+            // Trắc nghiệm
+            const studentAnswerTrimmedLower = studentAnswerText.trim().toLowerCase();
+            answerDisplay = (q.options || []).map(opt => {
+                const optionText = String(opt.text || opt.value || '').trim();
+                const optionTextLower = optionText.toLowerCase();
+                let style = optionStyle;
+                
+                const isThisCorrect = (correctAns && optionTextLower === correctAns);
+                const isThisChosen = (studentAnswerText && optionTextLower === studentAnswerTrimmedLower);
+
+                if (isThisCorrect) { 
+                    style = `background-color: #d1e7dd; border: 1px solid #28a745; font-weight: bold; border-radius: 4px; padding: 3px 5px; margin-bottom: 3px; ${baseFontSizeStyle}`;
+                } else if (isThisChosen) { 
+                    style = `background-color: #fff3cd; border: 1px solid #dc3545; border-radius: 4px; padding: 3px 5px; margin-bottom: 3px; ${baseFontSizeStyle}`;
+                }
+                
+                return `<div style="${style}">${escapeHtml(optionText)}</div>`;
+            }).join('');
+        } else {
+            // Tự luận
+            answerDisplay = `<p style="font-weight: bold; margin: 3px 0 2px 0;">Câu trả lời của Học sinh:</p>
+                             <div style="border: 1px solid #ccc; border-radius: 4px; padding: 5px; min-height: 30px; background: #f8f9fa; ${baseFontSizeStyle}">
+                                 ${escapeHtml(studentAnswerText)}
+                             </div>`;
+            
+            // ✅ ĐÃ SỬA: KHÔI PHỤC VÀ NÉN PHẦN NHẬN XÉT GV
+            if (teacherNote) {
+                answerDisplay += `<p style="font-weight: bold; margin: 3px 0 2px 0;">Nhận xét của GV:</p>
+                                 <div style="border: 1px solid #0dcaf0; border-radius: 4px; padding: 5px; min-height: 20px; background: #cff4fc; ${baseFontSizeStyle}">
+                                     ${escapeHtml(teacherNote)}
+                                 </div>`;
+            }
+        }
+        
+        const scoreBox = isEssay 
+            ? `Điểm GV: ${ans.teacherScore ?? 0} / ${maxPoints}`
+            : `Điểm: ${gainedPoints.toFixed(1)} / ${maxPoints}`;
+        
+        const statusText = isCorrect ? 'Đúng' : (isEssay ? (ans.teacherScore !== null ? 'Sai' : 'Chờ chấm') : 'Sai');
+
+        // ✅ ĐÃ SỬA: KHÔI PHỤC VÀ NÉN PHẦN NỘI DUNG CÂU HỎI
+        qHtml += `
+            <div class="question-block" style="margin-bottom: 8px; page-break-inside: avoid !important; border: 1px solid #ddd; padding: 8px; border-radius: 5px;">
+                <p style="font-weight: bold; margin-bottom: 3px;">
+                    Câu ${i + 1} (${maxPoints} điểm)
+                    <span style="float: right; font-weight: normal; color: ${isCorrect ? 'green' : 'red'}; ${baseFontSizeStyle}">${statusText}</span>
+                </p>
+                <div style="margin-bottom: 3px; ${baseFontSizeStyle}">${questionContent}</div>
+                
+                <div style="margin-top: 3px; border-top: 1px solid #eee; padding-top: 3px;">
+                    ${answerDisplay}
+                </div>
+                <p style="text-align: right; font-weight: bold; margin: 3px 0 0 0; ${baseFontSizeStyle}">${scoreBox}</p>
+            </div>
+        `;
+    });
+
+    // Tạo HTML đầy đủ cho MỘT kết quả (Phần Header giữ nguyên)
+    return `
+        <div class="result-print-block">
+            <h1 style="text-align: center; font-size: 1.2rem; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px;">
+                PHIẾU KẾT QUẢ BÀI LÀM
+            </h1>
+            <div style="margin: 8px 0; font-size: 0.95rem; line-height: 1.3; border: 1px solid #ccc; padding: 8px; background: #f9f9f9; page-break-inside: avoid;">
+                <p style="margin: 2px 0;"><strong>Học sinh:</strong> ${escapeHtml(resultHeader.studentName)}</p>
+                <p style="margin: 2px 0;"><strong>Lớp:</strong> ${escapeHtml(resultHeader.className)}</p>
+                <p style="margin: 2px 0;"><strong>Đề thi:</strong> ${escapeHtml(resultHeader.testName)}</p>
+                <p style="margin: 2px 0;"><strong>Thời gian nộp:</strong> ${resultHeader.submittedAt ? new Date(resultHeader.submittedAt).toLocaleString('vi-VN') : '-'}</p>
+                <hr style="border: 0; border-top: 1px solid #ccc; margin: 4px 0;">
+                <p style="font-weight: bold; margin: 2px 0;">
+                    Điểm TN: ${resultHeader.mcScore ?? 0} | 
+                    Điểm TL: ${resultHeader.essayScore ?? 0} | 
+                    Tổng điểm: ${resultHeader.totalScore ?? 0}
+                </p>
+            </div>
+            ${qHtml}
+        </div>
+    `;
+}
+/**
+ * HÀM MỚI: Gọi API bulk, tạo HTML và gọi In/PDF
+ */
+async function prepareResultPrintArea(isPreview = true) {
+    const selectedIds = getSelectedResultIds();
+    if (selectedIds.length === 0) {
+        alert("Vui lòng chọn ít nhất một kết quả để in.");
+        return;
+    }
+
+    const printArea = document.getElementById("print-area");
+    printArea.style.display = "block"; 
+    printArea.innerHTML = `
+        <style>
+            #print-area .result-print-block { page-break-after: always; }
+            #print-area .result-print-block:last-child { page-break-after: avoid; }
+        </style>
+        <div class="spinner-row">
+            <div class="spinner-border text-success"></div>
+            <div id="print-loading-message">Đang tải ${selectedIds.length} kết quả...</div>
+        </div>
+    `;
+    const loadingMessage = document.getElementById("print-loading-message");
+
+    try {
+        // 1. Gọi API bulk
+        const results = await fetchJson(`${serverUrl}/api/results/bulk`, {
+            method: 'POST',
+            body: { result_ids: selectedIds }
+        });
+
+        if (!Array.isArray(results) || results.length === 0) {
+            throw new Error("Không tìm thấy dữ liệu kết quả đã chọn.");
+        }
+
+        // 2. Tạo HTML (với hydration)
+        let fullHtml = `
+            <style>
+                #print-area .result-print-block { page-break-after: always; }
+                #print-area .result-print-block:last-child { page-break-after: avoid; }
+            </style>`;
+        
+        // Loop qua results và HYDRATE từng cái một
+        for (let i = 0; i < results.length; i++) {
+            const result = results[i];
+            if (loadingMessage) {
+                loadingMessage.textContent = `Đang xử lý kết quả ${i + 1} / ${results.length} (HS: ${result.studentName})...`;
+            }
+            
+            // ✅ GỌI HYDRATION (Đây là N+1 query, sẽ chậm, nhưng là cách duy nhất)
+            // Hàm này sẽ tự fetch /api/quizzes/:testId để lấy câu hỏi
+            const hydratedAnswers = await buildAnswersFromResult(result);
+            
+            // Tạo HTML bằng hàm đã sửa ở Bước 1
+            fullHtml += generateResultPrintHTML_Single(result, hydratedAnswers);
+        }
+        
+        printArea.innerHTML = fullHtml;
+
+        // 3. Chờ ảnh (nếu có) và gọi In/PDF
+        await waitForImagesToLoad(); 
+        await new Promise(r => setTimeout(r, 200));
+
+        if (isPreview) {
+            window.print();
+            setTimeout(() => {
+                printArea.style.display = "none";
+                printArea.innerHTML = "";
+            }, 500);
+        } else {
+            await runFullPdfExport_Results(); 
+        }
+
+    } catch (err) {
+        console.error("Lỗi khi chuẩn bị in kết quả:", err);
+        printArea.innerHTML = `<div class="alert alert-danger">Lỗi: ${err.message}</div>`;
+    }
+}
+
+/**
+ * HÀM MỚI: Chạy html2pdf cho KẾT QUẢ
+ */
+async function runFullPdfExport_Results() {
+    console.log("Bắt đầu xuất PDF Kết Quả từ #print-area...");
+    const element = document.getElementById('print-area');
+    if (!element) {
+        alert("Lỗi: Không tìm thấy vùng #print-area.");
+        return;
+    }
+
+    const filename = 'DanhSach_KetQua.pdf';
+
+    const opt = {
+        margin:       15, // 15mm
+        filename:     filename,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 3, logging: false, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: 'css', after: '.result-print-block' } 
+    };
+
+    try {
+        const pdfJob = html2pdf().from(element).set(opt).toPdf();
+        const pdf = await pdfJob.get('pdf');
+        
+        const totalPages = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(10);
+            pdf.setTextColor(150);
+            pdf.text(
+                `Trang ${i} / ${totalPages}`,
+                pdf.internal.pageSize.getWidth() / 2, 
+                pdf.internal.pageSize.getHeight() - 10,
+                { align: 'center' }
+            );
+        }
+        
+        await pdf.save(); 
+        console.log("Xuất PDF Kết Quả thành công.");
+
+    } catch (err) {
+        console.error("Lỗi khi tạo PDF Kết Quả:", err);
+        alert("Đã xảy ra lỗi khi tạo file PDF.");
+    } finally {
+        element.style.display = 'none';
+        element.innerHTML = '';
+    }
+}
+
+
+
+// THAY THẾ HÀM NÀY (khoảng dòng 4983)
+function renderResultsTable(pageItems) { 
     const tbody = qs('#results-tbody');
 
     const currentPage = state.results.page || 1;
@@ -6969,18 +7360,20 @@ function renderResultsTable(pageItems) { // Đổi tên tham số thành 'pageIt
 
     let html = '';
 
-    if (pageItems.length === 0) { // Sử dụng pageItems.length
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không tìm thấy kết quả phù hợp.</td></tr>';
+    if (pageItems.length === 0) { 
+        // Cập nhật colspan = 9
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Không tìm thấy kết quả phù hợp.</td></tr>';
         return;
     }
 
-    pageItems.forEach((r, index) => { // Sử dụng pageItems.forEach
-        const globalIndex = startStt + index; // Tính STT chính xác
+    pageItems.forEach((r, index) => { 
+        const globalIndex = startStt + index; 
+        const resultId = r.id || ''; 
 
         const testName = r.testName || 'Bài thi [Đã xóa]';
         const studentName = r.studentName || 'Học sinh [Đã xóa]';
         const className = r.className || 'N/A';
-        const submittedAt = formatSubmittedAt(r.submittedAt);
+        const submittedAt = formatSubmittedAt(r.submittedAt); 
         const gradingStatus = r.gradingStatus || 'Đang Chấm';
         const score = (r.totalScore !== undefined && r.totalScore !== null) ? Number(r.totalScore).toFixed(1) : 'N/A'; 
 
@@ -7005,20 +7398,19 @@ function renderResultsTable(pageItems) { // Đổi tên tham số thành 'pageIt
             buttonText = 'Xem và Chấm';
         }
 
-        const resultId = r.id || ''; // Lấy id từ bản ghi kết quả
-
-        // === LOGIC MỚI: THÊM NÚT IN ===
-        // Gọi hàm exportResultToPDF với resultId
-        const printButtonHtml = `<button class="btn btn-sm btn-outline-info" title="In kết quả PDF" onclick="exportResultToPDF('${escapeHtml(resultId)}')">In</button>`;
-        // === KẾT THÚC LOGIC MỚI ===
-
+        // ✅ XÓA DÒNG NÀY (Bỏ nút In lỗi)
+        // const printButtonHtml = `<button class="btn btn-sm btn-outline-info" title="In kết quả PDF" onclick="exportResultToPDF('${escapeHtml(resultId)}')">In</button>`;
+        
         html += `
             <tr>
-                <td class="text-center">${globalIndex}</td>
+                <td class="text-center" style="width: 5%;">
+                    <input type="checkbox" class="select-result-checkbox" data-resultid="${escapeHtml(resultId)}">
+                </td>
+                <td class="text-center" style="width: 5%;">${globalIndex}</td>
                 <td>${escapeHtml(testName)}</td>
                 <td>${escapeHtml(studentName)}</td>
                 <td class="text-center">${escapeHtml(className)}</td>
-                <td class="text-center">${submittedAt}</td>
+                <td class="text-center" style="white-space: nowrap;">${submittedAt}</td>
                 <td class="text-center">${statusBadge}</td>
                 <td class="text-center fw-bold">${score}</td>
                 <td class="text-center">
@@ -7028,8 +7420,7 @@ function renderResultsTable(pageItems) { // Đổi tên tham số thành 'pageIt
                                     onclick="openResultDetail('${escapeHtml(resultId)}')">
                             ${buttonText}
                         </button>
-                        ${printButtonHtml}
-                    </div>
+                        </div>
                 </td>
             </tr>
         `;
@@ -8339,50 +8730,67 @@ async function runFullPdfExport() {
  * HÀM MỚI 3: XỬ LÝ VIỆC XUẤT PDF CHO KẾT QUẢ BÀI LÀM
  * Lấy nội dung trực tiếp từ modal 'modalGrading' và gọi html2pdf
  */
-function exportResultToPDF() {
+async function exportResultToPDF() {
     // 1. Kiểm tra thư viện
     if (typeof html2pdf === 'undefined') {
-        alert("Lỗi: Không thể tải thư viện in PDF. Vui lòng kiểm tra kết nối mạng và thử lại.");
-        return;
+        alert("Lỗi: Không thể tải thư viện in PDF."); return;
     }
 
-    // 2. Lấy phần tử nội dung modal để in
-    const element = document.querySelector("#modalGrading .modal-body");
-    if (!element) {
-        alert("Lỗi: Không tìm thấy nội dung bài làm để in.");
-        return;
+    // 2. Lấy dữ liệu từ state (do đang ở trong modal)
+    const resultData = window.currentResultData;
+    if (!resultData) {
+        alert("Lỗi: Không tìm thấy dữ liệu bài làm hiện tại để in."); return;
     }
-
-    // 3. Lấy thông tin để đặt tên file
-    const studentName = (qs('#sum-studentName')?.textContent || 'HocSinh').trim();
-    const testName = (qs('#sum-testName')?.textContent || 'BaiLam').trim();
     
-    // Tạo tên file
-    const safeStudent = studentName.replace(/[^a-z0-9_-\s]/gi, '').trim() || 'HocSinh';
-    const safeTest = testName.replace(/[^a-z0-9_-\s]/gi, '').trim() || 'BaiLam';
-    const filename = `BaiLam_${safeStudent}_${safeTest}.pdf`;
+    // 3. Lấy Tên file
+    const studentName = (resultData.studentName || 'HocSinh').trim();
+    const testName = (resultData.testName || 'BaiLam').trim();
+    const filename = `BaiLam_${studentName.replace(/[^a-z0-9_-\s]/gi, '')}_${testName.replace(/[^a-z0-9_-\s]/gi, '')}.pdf`;
 
-    // 4. Cấu hình và gọi html2pdf
+    // 4. Cấu hình
     const opt = {
-        margin:       [10, 10, 10, 10], // mm
+        margin:       [15, 15, 15, 15], // Lề 15mm
         filename:     filename,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true },
+        html2canvas:  { scale: 3, useCORS: true },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Ẩn nút "Lưu chấm" và "Đóng" tạm thời để không bị in vào PDF
-    const footer = document.querySelector("#modalGrading .modal-footer");
-    if (footer) footer.style.display = 'none';
+    const modalBody = document.querySelector("#modalGrading .modal-body");
+    const modalFooter = document.querySelector("#modalGrading .modal-footer");
+    if (modalFooter) modalFooter.style.display = 'none';
+    if (modalBody) modalBody.innerHTML = `<div class="spinner-row"><div class="spinner-border text-success"></div><div>Đang chuẩn bị dữ liệu in...</div></div>`;
 
-    html2pdf().from(element).set(opt).save().then(() => {
-        // Hiện lại footer sau khi in
-        if (footer) footer.style.display = 'block';
-    }).catch(err => {
-        console.error("Lỗi khi tạo PDF kết quả:", err);
-        // Hiện lại footer nếu có lỗi
-        if (footer) footer.style.display = 'block';
-    });
+    try {
+        // 5. ✅ GỌI HYDRATION (Lấy đầy đủ nội dung câu hỏi)
+        const hydratedAnswers = await buildAnswersFromResult(resultData);
+        
+        // 6. ✅ GỌI HÀM TẠO HTML (Hàm đã sửa ở Bước 1)
+        const htmlString = generateResultPrintHTML_Single(resultData, hydratedAnswers);
+
+        // 7. Tạo div ẩn để in
+        const printElement = document.createElement('div');
+        printElement.style.width = '210mm'; 
+        printElement.style.padding = '15mm'; // Thêm padding (thay cho margin)
+        printElement.style.boxSizing = 'border-box';
+        printElement.style.fontFamily = 'Arial, sans-serif'; // Đảm bảo font
+        printElement.style.fontSize = '12pt';
+        printElement.innerHTML = htmlString;
+        
+        // 8. Gọi in
+        await html2pdf().from(printElement).set(opt).save();
+
+    } catch (err) {
+         console.error("Lỗi khi tạo PDF kết quả:", err);
+         alert("Lỗi khi tạo PDF: " + err.message);
+    } finally {
+        // 9. Khôi phục modal
+        if (modalFooter) modalFooter.style.display = 'block';
+        if (modalBody) {
+            // Tải lại nội dung modal như ban đầu
+            await renderResultDetailModal(resultData);
+        }
+    }
 }
 
 /**
@@ -8893,7 +9301,7 @@ async function preparePrintArea(selectedTests, mode = "preview") {
         <div class="school-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #000;">
 
           <div class="school-info" style="flex:1;text-align:center;">
-            <div class="school-name" style="font-weight:bold;font-size:18px;text-transform:uppercase;">Trường THCS ........................</div>
+            <div class="school-name" style="font-weight:bold;font-size:18px;text-transform:uppercase;">Trường THCS ......................</div>
             <div class="school-subtitle" style="font-style:italic;font-size:13px;margin-top:2px;color:#333;">Phòng Giáo dục & Đào tạo .....................</div>
           </div>
         </div>
