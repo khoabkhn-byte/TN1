@@ -5,7 +5,7 @@
 from bson.objectid import ObjectId
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from pymongo import MongoClient, , DESCENDING
+from pymongo import MongoClient, DESCENDING
 from uuid import uuid4
 import os
 from dotenv import load_dotenv
