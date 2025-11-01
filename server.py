@@ -21,6 +21,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Page
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
+from flask import send_file
 
 # Load .env in local; Render provides env vars automatically
 load_dotenv()
@@ -416,8 +417,9 @@ def export_tests_pdf():
 def get_question_image(file_id):
     try:
         file_obj = fs.get(ObjectId(file_id))
-        return send_file(file_obj, mimetype=file_obj.content_type, as_attachment=False, download_name=file_obj.filename)
+        return send_file(file_obj, mimetype=file_obj.content_type, as_attachment=False)
     except Exception as e:
+        print("❌ Lỗi lấy ảnh:", e)
         return jsonify({"message": f"File not found: {str(e)}"}), 404
 
 @app.route("/questions", methods=["GET"])
