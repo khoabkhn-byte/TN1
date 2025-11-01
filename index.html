@@ -1391,14 +1391,20 @@
         <div class="col"><label>Điểm</label><input id="m-q-points" type="number" class="form-control" value="1"></div>
       </div>
       <div class="mb-2">
-  <label class="form-label">Độ khó:</label>
-  <select id="add-question-difficulty" class="form-select">
-    <option value="easy">Dễ</option>
-    <option value="medium" selected>Trung bình</option>
-    <option value="hard">Khó</option>
-  </select>
-</div>
-
+        <label class="form-label">Độ khó:</label>
+        <select id="add-question-difficulty" class="form-select">
+          <option value="easy">Dễ</option>
+          <option value="medium" selected>Trung bình</option>
+          <option value="hard">Khó</option>
+        </select>
+      </div>
+	  
+	  <div class="mb-2">
+        <label for="m-q-tags" class="form-label">Tags (Phân loại)</label>
+        <input type="text" class="form-control" id="m-q-tags" placeholder="Ví dụ: phép_nhân, văn_tả_cảnh, hình_học">
+        <small class="form-text text-muted">Sử dụng dấu phẩy (,) để ngăn cách các tag.</small>
+      </div>
+      
       <div id="options-master-container">
     <div id="mc-options-section">
       <div class="mb-2">
@@ -1987,8 +1993,27 @@
 </div>
 
 
+<!--Modal phân tích-->
+<div class="modal fade" id="modalQuestionAnalysis" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-dark">
+        <h5 class="modal-title">Phân tích Câu hỏi</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <h6 id="analysis-q-text"></h6>
+        <div style="max-height: 400px;">
+          <canvas id="questionAnalysisChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 	<div id="print-area" style="display:none;"></div>
 	<!--<div id="print-area"></div>-->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
  <script>
@@ -2044,6 +2069,8 @@ let allAvailableTestSubjects = new Set();   // Set để lưu các môn học du
 let allStudentData = []; // Lưu trữ danh sách học sinh đầy đủ
 let reviewQuizModalInstance;
 let allResultsData = []; // Lưu trữ dữ liệu gốc đã tải từ API
+let analysisChartInstance = null; // Biến lưu biểu đồ cũ
+let gradeChartInstance = null; // Biến lưu biểu đồ cũ
 document.addEventListener("DOMContentLoaded", () => {
   const reviewModalEl = document.getElementById("modalReviewQuiz");
   if (reviewModalEl) {
@@ -2658,7 +2685,9 @@ function renderQuestions(items){
     if(!items.length){ tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không có câu hỏi</td></tr>'; return; } 
     const frag = document.createDocumentFragment(); 
     
-    let stt = 1; 
+    // ✅ MỚI: Tính STT dựa trên trang hiện tại
+    const currentPage = state.questions.page || 1;
+    let stt = (currentPage - 1) * PAGE_SIZE + 1; 
 
     items.forEach(q=>{ 
       const tr = document.createElement('tr'); 
@@ -2670,22 +2699,30 @@ function renderQuestions(items){
 
       const subjectName = SUBJECT_NAMES[q.subject] || q.subject || 'N/A';
       
-      // === CẬP NHẬT LOGIC NÚT ===
+      // ✅ MỚI: Tạo HTML cho tags
+      let tagsHtml = '';
+      if (Array.isArray(q.tags) && q.tags.length > 0) {
+          tagsHtml = q.tags.map(tag => 
+              `<span class="badge bg-light text-dark border me-1">${escapeHtml(tag)}</span>`
+          ).join('');
+          tagsHtml = `<div class_ = "mt-1">${tagsHtml}</div>`; // Bọc trong 1 div
+      }
       
-      // Sửa: Nút "Sửa" giờ có màu đỏ (outline-danger) nếu bị khóa, nhưng VẪN GỌI HÀM MỞ MODAL
       const editButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-danger" title="Xem chi tiết câu hỏi (đã khóa)" onclick='openQuestionModalById("${qId}")'>Xem</button>`
             : `<button class="btn btn-sm btn-outline-primary" onclick='openQuestionModalById("${qId}")'>Sửa</button>`;
       
-      // Xóa: Nút "Xóa" có màu đỏ, bị khóa (btn-locked) và gọi alert
       const deleteButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-danger btn-locked" title="Câu hỏi nằm trong đề đã được giao, không thể xóa." onclick='alert("Câu hỏi nằm trong đề đã được giao, không thể xóa.")'>Xóa</button>`
             : `<button class="btn btn-sm btn-outline-danger" onclick='deleteQuestion("${qId}")'>Xóa</button>`;
-      // === KẾT THÚC CẬP NHẬT ===
-
+      
+      // ✅ MỚI: Thêm {tagsHtml} vào nội dung câu hỏi
       tr.innerHTML = `
         <td class="text-center">${stt++}</td> 
-        <td class="text-start">${qText}</td>
+        <td class="text-start">
+            ${qText}
+            ${tagsHtml}
+        </td>
         <td class="text-center">${escapeHtml(subjectName)}</td>
         <td class="text-center">${escapeHtml(q.level)}</td>
         <td class="text-center">${typeDisplay}</td>
@@ -3942,10 +3979,13 @@ function openQuestionModal(q) {
     const btnRemoveImage = qs('btn-remove-image');
     const btnSave = document.querySelector('#modalQuestion .btn-primary');
     
-    // === SỬA LỖI: BỎ 'btnAddOption' ra khỏi danh sách này ===
+    // ✅ MỚI: Lấy phần tử Tags
+    const inputTags = qs('m-q-tags');
+
     const coreInputs = [
         inputQ, inputSubject, inputLevel, inputType, inputPoints, inputDifficulty,
-        inputEssayAnswer, imageFileEl, btnRemoveImage, btnSave
+        inputEssayAnswer, imageFileEl, btnRemoveImage, btnSave,
+        inputTags // ✅ MỚI: Thêm inputTags vào danh sách
     ];
 
     // === Reset modal ===
@@ -3959,6 +3999,9 @@ function openQuestionModal(q) {
     imageFileEl.dataset.removeOldImage = 'false';
     warningDiv.style.display = 'none'; // Ẩn cảnh báo
     modalEl.dataset.isLocked = 'false'; // Đặt trạng thái mặc định
+    
+    // ✅ MỚI: Reset trường Tags
+    inputTags.value = '';
 
     let isLocked = false; 
 
@@ -3972,6 +4015,11 @@ function openQuestionModal(q) {
         inputType.value = q.type || 'mc';
         inputPoints.value = q.points || 1;
         inputDifficulty && (inputDifficulty.value = q.difficulty || 'medium');
+        
+        // ✅ MỚI: Điền dữ liệu Tags (chuyển mảng thành chuỗi, cách nhau bằng ", ")
+        if (Array.isArray(q.tags)) {
+            inputTags.value = q.tags.join(', ');
+        }
 
         if (q.imageId) {
             imagePreviewEl.innerHTML = `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid" style="object-fit: contain;">`;
@@ -3984,7 +4032,6 @@ function openQuestionModal(q) {
         } else if (q.type === 'essay') {
             inputEssayAnswer.value = q.answer || '';
         } else {
-            // Sửa câu hỏi MC nhưng không có đáp án? Thêm 2 cái
             addQuestionOption();
             addQuestionOption();
         }
@@ -4001,28 +4048,25 @@ function openQuestionModal(q) {
         inputPoints.value = 1;
         inputDifficulty && (inputDifficulty.value = 'medium');
         
-        // <-- THAY ĐỔI YÊU CẦU 1: Thêm 3 đáp án mặc định
         addQuestionOption();
         addQuestionOption();
         addQuestionOption();
-        // <-- KẾT THÚC THAY ĐỔI -->
 
         isLocked = false; // Mới luôn mở khóa
     }
 
     // === ÁP DỤNG TRẠNG THÁI KHÓA ===
-    modalEl.dataset.isLocked = isLocked; // <-- Gán trạng thái vào modal
+    modalEl.dataset.isLocked = isLocked; 
     if (isLocked) {
         warningDiv.style.display = 'block'; // Hiện cảnh báo
     }
 
-    // Khóa/Mở khóa các trường chính
+    // Khóa/Mở khóa các trường chính (đã bao gồm inputTags)
     coreInputs.forEach(el => { if (el) el.disabled = isLocked; });
     
     // Khóa/Mở khóa các nút trong danh sách đáp án (nút Xóa)
     inputOptionsContainer.querySelectorAll('input, button').forEach(el => el.disabled = isLocked);
     
-    // Nút xóa ảnh
     btnRemoveImage.onclick = () => {
         imageFileEl.dataset.removeOldImage = 'true';
         imagePreviewEl.innerHTML = 'Ảnh cũ sẽ bị xóa khi lưu.';
@@ -4031,7 +4075,6 @@ function openQuestionModal(q) {
         imageFileEl.value = '';
     };
 
-    // Preview ảnh khi chọn file mới
     imageFileEl.onchange = (e) => {
         const file = e.target.files[0];
         imageFileEl.dataset.removeOldImage = 'false';
@@ -4055,7 +4098,7 @@ function openQuestionModal(q) {
     };
 
     inputType.onchange = toggleOptionFields;
-    toggleOptionFields(); // <-- Gọi hàm này (đã được cập nhật)
+    toggleOptionFields(); 
     modal.show();
 }
 
@@ -4098,6 +4141,10 @@ async function saveQuestion(){
     formData.append('type', type); 
     formData.append('points', Number(qs('m-q-points').value) || 1); 
     formData.append('difficulty', difficulty);
+    
+    // ✅ MỚI: Thêm tags vào FormData
+    formData.append('tags', qs('m-q-tags').value);
+
     formData.append('options', JSON.stringify(collectedOptions)); 
     formData.append('answer', essayAnswer); 
     formData.append('removeOldImage', removeOld);
@@ -5069,6 +5116,57 @@ function renderEditQuestionBank(isLocked = false) { // <-- THÊM THAM SỐ isLoc
     if (countEl) {
         countEl.textContent = questions.length;
     }
+}
+
+
+
+function renderGradeDistribution(results) {
+    const container = qs('#grade-distribution-container');
+    if (!container) return;
+
+    if (!results || results.length === 0) {
+        container.style.display = 'none'; // Ẩn nếu không có kết quả
+        return;
+    }
+
+    // 1. Phân loại điểm (bins)
+    const bins = { "0-2": 0, "3-4": 0, "5-6": 0, "7-8": 0, "9-10": 0 };
+    results.forEach(r => {
+        const score = parseFloat(r.totalScore);
+        if (score <= 2) bins["0-2"]++;
+        else if (score <= 4) bins["3-4"]++;
+        else if (score <= 6) bins["5-6"]++;
+        else if (score <= 8) bins["7-8"]++;
+        else if (score <= 10) bins["9-10"]++;
+    });
+
+    const labels = Object.keys(bins);
+    const data = Object.values(bins);
+
+    // 2. Vẽ biểu đồ
+    const ctx = qs('#gradeDistributionChart').getContext('2d');
+    if (gradeChartInstance) {
+        gradeChartInstance.destroy();
+    }
+
+    gradeChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Số lượng học sinh',
+                data: data,
+                backgroundColor: 'rgba(0, 123, 255, 0.6)'
+            }]
+        },
+        options: {
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+            plugins: { legend: { display: false } },
+            maintainAspectRatio: false
+        }
+    });
+
+    container.style.display = 'block'; // Hiển thị biểu đồ
 }
 
 /*function dragQuestion(event, qId) {
@@ -7038,6 +7136,59 @@ function clearResultFilters() {
     loadResults(); // Tải lại sau khi xóa bộ lọc
 }
 
+
+
+async function openAnalysisModal(questionId) {
+    const modalEl = qs('#modalQuestionAnalysis');
+    const modal = new bootstrap.Modal(modalEl);
+    const qTextEl = qs('#analysis-q-text');
+
+    try {
+        // Bước 1: Gọi API mới (sẽ tạo ở BE)
+        const stats = await fetchJson(`${serverUrl}/api/questions/${questionId}/stats`);
+
+        qTextEl.textContent = stats.questionText || 'Đang tải...';
+
+        // Bước 2: Chuẩn bị dữ liệu cho biểu đồ
+        const ctx = qs('#questionAnalysisChart').getContext('2d');
+        const labels = stats.labels; // Ví dụ: ["A", "B", "C", "D"]
+        const data = stats.data;   // Ví dụ: [10, 25, 5, 2]
+
+        // Tạo mảng màu, tô màu xanh cho đáp án đúng
+        const correctLabel = stats.correctAnswer;
+        const backgroundColors = labels.map(label => {
+            return label === correctLabel ? 'rgba(40, 167, 69, 0.7)' : 'rgba(108, 117, 125, 0.5)';
+        });
+
+        // Bước 3: Hủy biểu đồ cũ (nếu có)
+        if (analysisChartInstance) {
+            analysisChartInstance.destroy();
+        }
+
+        // Bước 4: Vẽ biểu đồ mới
+        analysisChartInstance = new Chart(ctx, {
+            type: 'bar', // Biểu đồ cột
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Số học sinh chọn',
+                    data: data,
+                    backgroundColor: backgroundColors,
+                    borderColor: backgroundColors.map(c => c.replace('0.7', '1').replace('0.5', '1')),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        modal.show();
+    } catch (err) {
+        alert("Lỗi tải phân tích: " + err.message);
+    }
+}
 
 
 async function loadResults(isReload = false, resetPage = true) { // Thêm resetPage
