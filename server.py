@@ -680,6 +680,16 @@ def get_test(test_id):
             q_full = id_map[qid].copy()
             q_full["_id"] = str(q_full.get("_id"))
             q_full["id"] = q_full.get("id") or q_full["_id"]
+
+            # ✅ BẮT ĐẦU LOGIC XÁO TRỘN ĐÁP ÁN
+            # Tự động xáo trộn các câu trắc nghiệm khi tải
+            q_type = q_full.get("type", "mc").lower()
+            if q_type == "mc":
+                options_list = q_full.get("options", [])
+                if options_list and len(options_list) > 0:
+                    # Xáo trộn 'options' ngay trên bản sao
+                    random.shuffle(q_full["options"]) 
+            # ✅ KẾT THÚC LOGIC XÁO TRỘN
             
             # ✅ GÁN ĐIỂM ĐÃ TÍNH (TỪ 5 QUY TẮC) VÀO
             q_full["points"] = points_map.get(qid, 1.0)
