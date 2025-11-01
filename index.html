@@ -2450,7 +2450,7 @@ function toggleOptionFields() {
     const essaySection = qs('essay-options-section');
     
     // === LOGIC MỚI BẮT ĐẦU ===
-    const btnAddOption = document.querySelector('#mc-options-section button');
+    const btnAddOption = document.querySelector('#mc-options-section button[onclick="addQuestionOption()"]');
     
     // 1. Lấy trạng thái khóa từ modal (sẽ được gán bởi openQuestionModal)
     const modalEl = qs('modalQuestion');
