@@ -412,6 +412,64 @@ def export_tests_pdf():
     return send_file(buffer, as_attachment=True,
                      download_name="de_thi.pdf", mimetype="application/pdf")
 
+@app.route("/api/questions/<question_id>/stats", methods=["GET"])
+def get_question_stats(question_id):
+    try:
+        # 1. Lấy thông tin câu hỏi (để lấy các options)
+        question = db.questions.find_one({"id": question_id})
+        if not question:
+            try:
+                # Thử tìm bằng ObjectId nếu không tìm thấy bằng 'id'
+                question = db.questions.find_one({"_id": ObjectId(question_id)})
+            except Exception:
+                return jsonify({"message": "Không tìm thấy câu hỏi"}), 404
+
+        if not question:
+             return jsonify({"message": "Không tìm thấy câu hỏi"}), 404
+
+        # 2. Lấy các lựa chọn (labels) và đáp án đúng
+        labels = []
+        correct_answer = ""
+        if question.get("type", "mc") == "mc":
+            for opt in question.get("options", []):
+                labels.append(opt.get("text"))
+                if opt.get("correct"):
+                    correct_answer = opt.get("text")
+
+        # 3. Dùng Aggregation Pipeline để đếm kết quả
+        pipeline = [
+            # Giai đoạn 1: Chỉ lấy các 'results' có câu hỏi này
+            {"$match": {"detailedResults.questionId": question_id}},
+            # Giai đoạn 2: Tách mảng 'detailedResults' ra thành từng tài liệu
+            {"$unwind": "$detailedResults"},
+            # Giai đoạn 3: Lọc lại chỉ giữ các tài liệu khớp với question_id
+            {"$match": {"detailedResults.questionId": question_id}},
+            # Giai đoạn 4: Nhóm theo 'studentAnswer' và đếm
+            {"$group": {
+                "_id": "$detailedResults.studentAnswer",
+                "count": {"$sum": 1}
+            }}
+        ]
+
+        results = list(db.results.aggregate(pipeline))
+
+        # 4. Định dạng dữ liệu cho Chart.js
+        data_map = {res["_id"]: res["count"] for res in results if res["_id"]}
+
+        # Đảm bảo mọi label đều có (kể cả khi 0 học sinh chọn)
+        final_data = [data_map.get(label, 0) for label in labels]
+
+        return jsonify({
+            "questionText": question.get("q"),
+            "labels": labels,
+            "data": final_data,
+            "correctAnswer": correct_answer
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"message": f"Lỗi server: {str(e)}"}), 500
+
 
 # ... (Các hàm /questions... (GET, POST, PUT, DELETE, image) giữ nguyên) ...
 @app.route("/questions/image/<file_id>", methods=["GET"])
