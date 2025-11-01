@@ -16,6 +16,11 @@ from werkzeug.utils import secure_filename
 from gridfs import GridFS
 import random # Thêm thư viện random
 import traceback # Thêm thư viện traceback để debug
+from io import BytesIO
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 
 # Load .env in local; Render provides env vars automatically
 load_dotenv()
@@ -359,6 +364,52 @@ def delete_user(user_id):
     if res.deleted_count > 0:
         return "", 204
     return jsonify({"message": "Người dùng không tìm thấy."}), 404
+#--In PDF ĐỀ THI
+@app.route("/api/export-tests", methods=["GET"])
+def export_tests_pdf():
+    ids_param = request.args.get("ids", "")
+    test_ids = [i.strip() for i in ids_param.split(",") if i.strip()]
+    if not test_ids:
+        return jsonify({"error": "Thiếu danh sách ID"}), 400
+
+    tests = list(db.tests.find({"id": {"$in": test_ids}}, {"_id": 0}))
+    if not tests:
+        return jsonify({"error": "Không tìm thấy đề"}), 404
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+
+    for t in tests:
+        story.append(Paragraph(f"<b>{t.get('name', 'Đề thi')}</b>", styles["Title"]))
+        story.append(Paragraph(f"<b>Môn:</b> {t.get('subject', '')} — <b>Khối:</b> {t.get('level', '')}", styles["Normal"]))
+        story.append(Spacer(1, 12))
+
+        for idx, q in enumerate(t.get("questions", []), start=1):
+            story.append(Paragraph(f"<b>Câu {idx}:</b> {q.get('q','')}", styles["Normal"]))
+            story.append(Spacer(1, 6))
+
+            if q.get("imageId"):
+                try:
+                    file_obj = fs.get(ObjectId(q["imageId"]))
+                    img = ImageReader(file_obj)
+                    story.append(Image(img, width=400, height=200))
+                    story.append(Spacer(1, 6))
+                except Exception:
+                    pass
+
+            if q.get("options"):
+                for opt in q["options"]:
+                    story.append(Paragraph(f"- {opt}", styles["Normal"]))
+                story.append(Spacer(1, 8))
+        story.append(PageBreak())
+
+    doc.build(story)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True,
+                     download_name="de_thi.pdf", mimetype="application/pdf")
+
 
 # ... (Các hàm /questions... (GET, POST, PUT, DELETE, image) giữ nguyên) ...
 @app.route("/questions/image/<file_id>", methods=["GET"])
