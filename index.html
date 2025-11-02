@@ -2688,10 +2688,14 @@ function renderTestStats(allTests) {
 function renderQuestions(items){ 
     const tbody = qs('questions-tbody'); 
     tbody.innerHTML=''; 
-    if(!items.length){ tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không có câu hỏi</td></tr>'; return; } 
+    if(!items.length){ 
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không có câu hỏi</td></tr>'; 
+        return; 
+    } 
+    
     const frag = document.createDocumentFragment(); 
     
-    // ✅ MỚI: Tính STT dựa trên trang hiện tại
+    // Tính STT dựa trên trang hiện tại
     const currentPage = state.questions.page || 1;
     let stt = (currentPage - 1) * PAGE_SIZE + 1; 
 
@@ -2702,18 +2706,25 @@ function renderQuestions(items){
       const qId = q.id || q._id || ''; 
       
       const isAssigned = q.isAssigned === true;
-
       const subjectName = SUBJECT_NAMES[q.subject] || q.subject || 'N/A';
       
-      // ✅ MỚI: Tạo HTML cho tags
+      // --- Logic hiển thị Tags (Đã có) ---
       let tagsHtml = '';
       if (Array.isArray(q.tags) && q.tags.length > 0) {
           tagsHtml = q.tags.map(tag => 
               `<span class="badge bg-light text-dark border me-1">${escapeHtml(tag)}</span>`
           ).join('');
-          tagsHtml = `<div class_ = "mt-1">${tagsHtml}</div>`; // Bọc trong 1 div
+          tagsHtml = `<div class="mt-1">${tagsHtml}</div>`; // Bọc trong 1 div
       }
       
+      // --- ✅ MỚI: Logic thêm nút "Phân tích" ---
+      let analyzeButtonHtml = '';
+      // Chỉ hiển thị nút này nếu là câu trắc nghiệm (mc)
+      if (q.type === 'mc') {
+          analyzeButtonHtml = `<button class="btn btn-sm btn-outline-info" onclick='openAnalysisModal("${qId}")'>Phân tích</button>`;
+      }
+      
+      // --- Logic nút Sửa/Xóa (Đã có) ---
       const editButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-danger" title="Xem chi tiết câu hỏi (đã khóa)" onclick='openQuestionModalById("${qId}")'>Xem</button>`
             : `<button class="btn btn-sm btn-outline-primary" onclick='openQuestionModalById("${qId}")'>Sửa</button>`;
@@ -2722,7 +2733,7 @@ function renderQuestions(items){
             ? `<button class="btn btn-sm btn-outline-danger btn-locked" title="Câu hỏi nằm trong đề đã được giao, không thể xóa." onclick='alert("Câu hỏi nằm trong đề đã được giao, không thể xóa.")'>Xóa</button>`
             : `<button class="btn btn-sm btn-outline-danger" onclick='deleteQuestion("${qId}")'>Xóa</button>`;
       
-      // ✅ MỚI: Thêm {tagsHtml} vào nội dung câu hỏi
+      // --- Cập nhật tr.innerHTML ---
       tr.innerHTML = `
         <td class="text-center">${stt++}</td> 
         <td class="text-start">
@@ -2745,7 +2756,7 @@ function renderQuestions(items){
         <td class="text-center">
           <div class="d-flex justify-content-center gap-1">
               ${editButtonHtml}
-              ${deleteButtonHtml}
+              ${analyzeButtonHtml} ${deleteButtonHtml}
           </div>
         </td>
       `; 
@@ -2753,8 +2764,6 @@ function renderQuestions(items){
     }); 
     tbody.appendChild(frag); 
 }
-
-
 
 	
     function openQuestionModalFromRow(qStr){ 
