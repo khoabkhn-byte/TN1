@@ -672,6 +672,54 @@
     margin-right: 0 !important;
 }
 
+
+/* ================================================
+   TINH CHỈNH BỘ LỌC TAB KẾT QUẢ (ĐỒNG BỘ 1 HÀNG) - V4
+   ================================================ */
+
+/* 1. Target container chính và ngăn rớt hàng */
+#tab-results > .card .d-flex.align-items-end[style*="gap: 10px"] {
+    flex-wrap: nowrap !important; /* Quan trọng: Buộc tất cả nằm trên 1 hàng */
+    align-items: center !important; /* Căn giữa tất cả theo chiều dọc */
+    gap: 0.5rem !important; /* Ghi đè inline gap 10px */
+}
+
+/* 2. Ẩn tất cả các nhãn */
+#tab-results > .card .d-flex.align-items-end[style*="gap: 10px"] .form-label {
+    display: none;
+}
+
+/* 3. Ghi đè các inline style 'flex-basis' */
+#tab-results > .card .d-flex.align-items-end[style*="gap: 10px"] > div[style*="flex-basis"] {
+    flex-shrink: 0 !important; /* Không cho co lại */
+    flex-grow: 0 !important;
+}
+
+/* 4. Điều chỉnh độ rộng từng cột lọc (ĐÃ THU HẸP) */
+#tab-results > .card .d-flex.align-items-end[style*="gap: 10px"] > div:has(#filter-result-test) {
+    flex-basis: 160px !important; /* Bài thi (Giảm từ 180px) */
+}
+#tab-results > .card .d-flex.align-items-end[style*="gap: 10px"] > div:has(#filter-result-status) {
+    flex-basis: 130px !important; /* Trạng thái (Giảm từ 140px) */
+}
+#tab-results > .card .d-flex.align-items-end[style*="gap: 10px"] > div:has(#filter-result-class) {
+    flex-basis: 110px !important; /* Lớp (Giảm từ 120px) */
+}
+#tab-results > .card .d-flex.align-items-end[style*="gap: 10px"] > div:has(#search-result-student) {
+    flex-basis: 150px !important; /* Tìm kiếm HS (Giảm từ 160px) */
+}
+#tab-results > .card .d-flex.align-items-end[style*="gap: 10px"] > div:has(#sort-result-time) {
+    flex-basis: 150px !important; /* Sắp xếp (Giảm từ 170px) */
+}
+
+/* 5. Cột chứa các nút (cuối cùng) */
+#tab-results > .card .d-flex.align-items-end[style*="gap: 10px"] > div.d-flex {
+    flex: 1 1 auto !important; /* Lấp đầy không gian còn lại */
+    justify-content: flex-end; /* Căn các nút về bên phải */
+    margin-top: 0 !important; /* Xóa margin-top hack */
+    gap: 0.5rem !important; /* Ghi đè inline gap 5px */
+}
+
   </style>
 </head>
 <body>
@@ -787,7 +835,7 @@
                 <thead>
                     <tr> <th style="width:4%;" class="text-center">STT</th>
                         <th style="width:40%;" class="text-center">Câu hỏi</th>
-                        <th style="width:11%;" class="text-center">Môn học</th>
+                        <th style="width:10%;" class="text-center">Môn học</th>
                         <th style="width:7%;" class="text-center">Khối lớp</th>
                         <th style="width:7%;" class="text-center">Loại</th>
                         <th style="width:7%;" class="text-center">Điểm</th>
@@ -1083,16 +1131,21 @@
                     Đang tải...
                 </div>
             </div>
-	 <div class="card p-3 mb-3" id="grade-distribution-container" style="display:none;">
+			
+<div class="card p-3 mb-3" id="grade-distribution-container" style="display:none;">
     <h6>Phân phối Điểm (Chỉ tính từ các kết quả đã lọc)</h6>
     <div style="max-height: 250px;">
         <canvas id="gradeDistributionChart"></canvas>
     </div>
 </div>
-
             <div class="card p-3 mb-3">
                  <div class="d-flex align-items-end flex-wrap g-2" style="gap: 10px;">
-                    
+                    <div style="flex-basis: 200px; flex-shrink: 1;"> 
+                        <label for="filter-result-test" class="form-label small mb-1">Bài thi</label>
+                        <select id="filter-result-test" class="form-select form-select-sm" onchange="loadResults(false)">
+                            <option value="">-- Tất cả Bài thi --</option>
+                        </select>
+                    </div>
                     <div style="flex-basis: 150px; flex-shrink: 1;"> 
                         <label for="filter-result-status" class="form-label small mb-1">Trạng thái chấm</label>
                         <select id="filter-result-status" class="form-select form-select-sm" onchange="loadResults(false)">
@@ -2765,6 +2818,8 @@ function renderQuestions(items){
     tbody.appendChild(frag); 
 }
 
+
+
 	
     function openQuestionModalFromRow(qStr){ 
     try { 
@@ -3956,17 +4011,13 @@ function updateResultButtonStatus(resultId, status) {
 
 // Xóa lọc
 function clearResultFilters() {
+    qs('#filter-result-test').value = ''; // ✅ MỚI: Reset bộ lọc bài thi
     qs('#filter-result-status').value = '';
-    // ✅ RESET SELECT LỚP
     qs('#filter-result-class').value = '';
     qs('#search-result-student').value = '';
     qs('#sort-result-time').value = 'submittedAt_desc';
-
-    // Gọi loadResults KHÔNG forceReload để chỉ lọc lại
-    loadResults(false, true); // forceReload=false, resetPage=true (nếu có phân trang)
+    loadResults(false, true); // Tải lại (không reload, reset trang)
 }
-
-
 
 
 
@@ -7206,69 +7257,106 @@ async function openAnalysisModal(questionId) {
 }
 
 
-async function loadResults(isReload = false, resetPage = true) { // Thêm resetPage
+
+
+/**
+ * Điền dữ liệu vào dropdown lọc theo Bài thi (ở tab Kết quả)
+ */
+function updateResultTestFilter(results) {
+    const testSelect = qs('#filter-result-test');
+    if (!testSelect) return;
+
+    const currentTestValue = testSelect.value;
+    testSelect.innerHTML = '<option value="">-- Tất cả Bài thi --</option>'; // Reset
+
+    // Tạo một Map để lấy tên bài thi duy nhất (testId -> testName)
+    const uniqueTests = new Map();
+    results.forEach(r => {
+        if (r.testId && r.testName && r.testName !== 'Đã Xóa') {
+            uniqueTests.set(r.testId, r.testName);
+        }
+    });
+
+    // Chuyển Map thành mảng và sắp xếp theo tên
+    const sortedTests = [...uniqueTests.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+
+    sortedTests.forEach(([testId, testName]) => {
+        const option = document.createElement('option');
+        option.value = testId;
+        option.textContent = testName;
+        testSelect.appendChild(option);
+    });
+
+    // Khôi phục
+    if (testSelect.querySelector(`option[value="${currentTestValue}"]`)) {
+        testSelect.value = currentTestValue;
+    }
+}
+
+
+async function loadResults(isReload = false, resetPage = true) {
     const tbody = qs('#results-tbody');
     if (!tbody) {
         console.error("loadResults Error: Cannot find #results-tbody element.");
         return;
     }
     
-    let statsApiData = null; // Biến tạm lưu dữ liệu stats từ API
+    let statsApiData = null; 
 
     // --- TẢI DỮ LIỆU GỐC VÀ STATS ---
-    // Chỉ tải lại dữ liệu gốc từ API nếu chưa có hoặc yêu cầu isReload
     if (isReload || allResultsData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center spinner-row"><div class="spinner-border spinner-border-sm"></div> Đang tải kết quả...</td></tr>';
         try {
             // Gọi song song API kết quả và API stats
             const [data, stats] = await Promise.all([
                 fetchJson(`${serverUrl}/api/results_summary`),
-                fetchJson(`${serverUrl}/api/assignment_stats`) // API stats
+                fetchJson(`${serverUrl}/api/assignment_stats`) 
             ]);
             
-            statsApiData = stats; // Lưu dữ liệu stats API vào biến tạm
-
-            // Lưu kết quả gốc vào biến toàn cục
+            statsApiData = stats; 
             allResultsData = Array.isArray(data) ? data : [];
 
-            // Tạo/Cập nhật bộ lọc động dựa trên dữ liệu gốc VỪA TẢI
+            // Cập nhật các bộ lọc động
             if (typeof updateResultStatusFilter === 'function') {
                 updateResultStatusFilter(allResultsData);
             }
             if (typeof updateResultClassFilter === 'function') {
                 updateResultClassFilter(allResultsData);
             }
+            if (typeof updateResultTestFilter === 'function') {
+                updateResultTestFilter(allResultsData);
+            }
 
         } catch(e) {
              tbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Lỗi tải dữ liệu kết quả.</td></tr>';
              console.error("Lỗi tải kết quả:", e);
-             allResultsData = []; // Reset nếu lỗi
-             // Vẫn cố gắng cập nhật filter để hiển thị trạng thái rỗng
+             allResultsData = []; 
              if (typeof updateResultStatusFilter === 'function') updateResultStatusFilter([]);
              if (typeof updateResultClassFilter === 'function') updateResultClassFilter([]);
-             if (typeof renderResultsStats === 'function') renderResultsStats({}, []); // Gọi với dữ liệu rỗng khi lỗi
-             return; // Dừng nếu không tải được
+             if (typeof updateResultTestFilter === 'function') updateResultTestFilter([]);
+             if (typeof renderResultsStats === 'function') renderResultsStats({}, []);
+             return; 
         }
     } else {
-        // Nếu không tải lại, lấy dữ liệu thống kê từ lần gọi gần nhất (nếu có)
-        // Đây là điểm yếu, nhưng là giải pháp nhanh vì không thể gọi lại API stats
-        // Chúng ta giả định statsApiData cần thiết cho các chỉ số tổng thể (như Bài thi đã tạo)
         statsApiData = window.lastResultsStatsApiData || {};
     }
-    // Cập nhật biến toàn cục để dùng khi không cần reload
     window.lastResultsStatsApiData = statsApiData;
     // --- KẾT THÚC TẢI GỐC ---
 
 
     // --- LỌC VÀ SẮP XẾP ---
-    let filteredResults = allResultsData; // Bắt đầu với dữ liệu gốc đầy đủ
+    let filteredResults = allResultsData; 
 
     // Lấy giá trị các bộ lọc
+    const testFilter = qs('#filter-result-test')?.value || '';
     const statusFilter = qs('#filter-result-status')?.value || '';
-    const classFilter = qs('#filter-result-class')?.value || ''; // Đọc từ select lớp
+    const classFilter = qs('#filter-result-class')?.value || ''; 
     const studentSearch = qs('#search-result-student')?.value.toLowerCase().trim() || '';
 
     // Áp dụng bộ lọc
+    if (testFilter) {
+        filteredResults = filteredResults.filter(r => r.testId === testFilter);
+    }
     if (statusFilter) {
         filteredResults = filteredResults.filter(r => (r.gradingStatus || 'Đang Chấm') === statusFilter);
     }
@@ -7301,15 +7389,16 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
     // --- KẾT THÚC LỌC VÀ SẮP XẾP ---
 
 
-    // --- THAY ĐỔI QUAN TRỌNG: GỌI RENDER STATS VỚI DỮ LIỆU ĐÃ LỌC ---
-    // Bây giờ, thống kê sẽ phản ánh chính xác các bộ lọc đã chọn (Class, Status, Search)
+    // --- GỌI RENDER STATS VỚI DỮ LIỆU ĐÃ LỌC ---
     if (typeof renderResultsStats === 'function') {
-         // Truyền dữ liệu tổng thể (statsApiData) và danh sách đã lọc (filteredResults)
         renderResultsStats(statsApiData, filteredResults);
     }
     
-    // ✅ GỌI HÀM VẼ BIỂU ĐỒ PHÂN PHỐI ĐIỂM (TỪ Ý TƯỞNG TRƯỚC)
+    // --- GỌI HÀM VẼ BIỂU ĐỒ PHÂN PHỐI ĐIỂM ---
     if (typeof renderGradeDistribution === 'function') {
+        
+        // ✅ SỬA LỖI: Luôn gọi hàm render biểu đồ.
+        // Hàm renderGradeDistribution sẽ tự ẩn đi nếu 'filteredResults' rỗng.
         renderGradeDistribution(filteredResults);
     }
 
@@ -7321,10 +7410,10 @@ async function loadResults(isReload = false, resetPage = true) { // Thêm resetP
     if (resetPage) {
         state.results.page = 1;
     }
-	//setupResultCheckboxListeners();
 
     renderPaged('results');
 }
+
 
 // Thay thế hàm renderResultsStats (khoảng dòng 1199)
 function renderResultsStats(statsApiData, resultsData) {
