@@ -1542,7 +1542,7 @@ def create_result():
         student_id = data.get("studentId")
         assignment_id = data.get("assignmentId")
         test_id = data.get("testId")
-        student_answers_payload = data.get("studentAnswers", []) # Đổi tên biến
+        student_answers_payload = data.get("studentAnswers", []) 
 
         if not student_id or not assignment_id or not test_id:
             return jsonify({"message": "Thiếu ID (studentId, assignmentId, testId)"}), 400
@@ -1554,11 +1554,11 @@ def create_result():
 
         test_questions = test_doc.get("questions", []) or []
         
-        # 2. TẠO MAP ĐIỂM SỐ (Lấy từ test_doc)
+        # 2. TẠO MAP ĐIỂM SỐ
         points_map = {q.get('id'): q.get('points', 1) for q in test_questions}
         question_ids_in_test = list(points_map.keys())
 
-        # 3. ✅ TÁI CẤU TRÚC: Lấy TOÀN BỘ đối tượng câu hỏi
+        # 3. Lấy TOÀN BỘ đối tượng câu hỏi
         object_ids = []
         uuid_strings = []
         for qid_str in question_ids_in_test:
@@ -1574,7 +1574,6 @@ def create_result():
         if or_clauses:
              correct_questions_cursor = list(db.questions.find({"$or": or_clauses}))
 
-        # ✅ TẠO MAP MỚI: full_question_map
         full_question_map = {}
         has_essay = False
         
@@ -1582,25 +1581,17 @@ def create_result():
             q_id_uuid = q.get("id")
             q_id_obj_str = str(q.get("_id"))
             q_type = q.get("type", "mc")
-
             if q_type == "essay":
                 has_essay = True
-
-            # Lưu toàn bộ đối tượng 'q'
-            if q_id_uuid:
-                full_question_map[q_id_uuid] = q
-            if q_id_obj_str:
-                full_question_map[q_id_obj_str] = q
-        # --- KẾT THÚC TÁI CẤU TRÚC ---
-
+            if q_id_uuid: full_question_map[q_id_uuid] = q
+            if q_id_obj_str: full_question_map[q_id_obj_str] = q
 
         # 4. Tạo map câu trả lời của học sinh
         student_ans_map = {}
-        for ans in student_answers_payload: # Dùng biến mới
+        for ans in student_answers_payload: 
             if not isinstance(ans, dict): continue
             qkey = ans.get("questionId") 
             if qkey:
-                # ✅ MỚI: Giá trị trả lời có thể là string (MC) hoặc array (True/False)
                 student_ans_map[str(qkey)] = ans.get("answer")
 
         mc_score = 0.0
@@ -1612,25 +1603,22 @@ def create_result():
             return str(x).strip().lower()
 
         # 5. LẶP VÀ TÍNH ĐIỂM
-        for q_id in question_ids_in_test: # Lặp qua ID từ db.tests
-            
-            # ✅ LẤY DỮ LIỆU TỪ MAP MỚI
+        for q_id in question_ids_in_test: 
             question_obj = full_question_map.get(q_id)
             if not question_obj:
-                # (Xử lý nếu câu hỏi bị thiếu/xóa - giữ nguyên logic cũ của bạn nếu có)
                 continue 
 
             q_type = question_obj.get("type", "mc")
             max_points = float(points_map.get(q_id, 1))
-            student_ans_value = student_ans_map.get(q_id, None) # Có thể là String hoặc Array
+            student_ans_value = student_ans_map.get(q_id, None) 
 
             is_correct = None
             points_gained = 0.0
-            correct_answer_for_storage = None # Biến để lưu đáp án đúng
+            correct_answer_for_storage = None 
 
             if q_type == "mc":
                 correct_ans_text = next((opt.get("text") for opt in question_obj.get("options", []) if opt.get("correct")), None)
-                correct_answer_for_storage = correct_ans_text # Lưu đáp án đúng (string)
+                correct_answer_for_storage = correct_ans_text 
 
                 is_correct = (student_ans_value is not None) and \
                              (correct_ans_text is not None) and \
@@ -1638,37 +1626,42 @@ def create_result():
                 
                 if is_correct:
                     points_gained = max_points
-                    mc_score += max_points
+                mc_score += points_gained # Thêm điểm (kể cả 0)
 
-            # ✅ MỚI: LOGIC CHẤM ĐIỂM TRUE/FALSE
             elif q_type == "true_false":
-                # Lấy mảng đáp án đúng [true, false, true]
                 correct_answers = [opt.get("correct") for opt in question_obj.get("options", [])]
-                correct_answer_for_storage = correct_answers # Lưu đáp án đúng (array)
-                
-                # Lấy mảng học sinh trả lời [true, false, null]
+                correct_answer_for_storage = correct_answers 
                 student_answers = student_ans_value 
 
                 if isinstance(student_answers, list) and len(correct_answers) == len(student_answers):
                     all_correct = True
                     for i in range(len(correct_answers)):
-                        # Nếu 1 ý sai, hoặc 1 ý không trả lời (null) -> tính là sai
                         if correct_answers[i] != student_answers[i]:
                             all_correct = False
                             break
-                    
                     if all_correct:
                         points_gained = max_points
                         is_correct = True
                     else:
                         is_correct = False
                 else:
-                    # Dữ liệu trả lời không khớp (ví dụ: không phải mảng)
                     is_correct = False
-                
-                # Tính điểm (All-or-nothing)
                 mc_score += points_gained
-
+            
+            # ✅ MỚI: LOGIC CHẤM ĐIỂM FILL_BLANK
+            elif q_type == "fill_blank":
+                correct_ans_text = question_obj.get("answer") # Lấy đáp án từ
+                correct_answer_for_storage = correct_ans_text
+                
+                is_correct = (student_ans_value is not None) and \
+                             (correct_ans_text is not None) and \
+                             (norm_str(student_ans_value) == norm_str(correct_ans_text))
+                
+                if is_correct:
+                    points_gained = max_points
+                
+                mc_score += points_gained # Coi là điểm tự động
+            
             elif q_type == "essay":
                 essay_count += 1
                 is_correct = None # Chờ chấm
@@ -1676,8 +1669,8 @@ def create_result():
 
             detailed_results.append({
                 "questionId": q_id,
-                "studentAnswer": student_ans_value, # Lưu string (MC) hoặc array (T/F)
-                "correctAnswer": correct_answer_for_storage, # Lưu string (MC) hoặc array (T/F)
+                "studentAnswer": student_ans_value, 
+                "correctAnswer": correct_answer_for_storage, 
                 "maxPoints": max_points,
                 "pointsGained": round(points_gained, 2),
                 "isCorrect": is_correct,
@@ -1689,7 +1682,7 @@ def create_result():
         # 6. Xác định trạng thái chấm
         grading_status = "Đang Chấm" if has_essay else "Hoàn tất"
         result_id = str(uuid4())
-        total_score = round(mc_score, 2)
+        total_score = round(mc_score, 2) # Tổng điểm ban đầu = điểm tự động
 
         # 7. Lấy thông tin user
         user_info = db.users.find_one({"id": student_id}) or {}
@@ -1702,10 +1695,10 @@ def create_result():
             "studentName": user_info.get("fullName", user_info.get("user")),
             "className": user_info.get("className"),
             "testName": test_doc.get("name"),
-            "studentAnswers": student_answers_payload, # Lưu payload gốc
+            "studentAnswers": student_answers_payload, 
             "detailedResults": detailed_results,
             "gradingStatus": grading_status,
-            "mcScore": round(mc_score, 2),
+            "mcScore": round(mc_score, 2), # Tổng điểm tự động (MC + T/F + Fill)
             "essayScore": 0.0,
             "totalScore": total_score,
             "submittedAt": now_vn_iso(),
@@ -1718,7 +1711,6 @@ def create_result():
             new_result,
             upsert=True
         )
-
         db.assignments.update_one(
             {"id": assignment_id},
             {"$set": {"status": "submitted", "submittedAt": new_result["submittedAt"], "resultId": result_id}}
