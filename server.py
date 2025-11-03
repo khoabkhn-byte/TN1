@@ -1592,7 +1592,7 @@ def create_result():
             if not isinstance(ans, dict): continue
             qkey = ans.get("questionId") 
             if qkey:
-                student_ans_map[str(qkey)] = ans.get("answer")
+                student_ans_map[str(qkey)] = ans.get("answer") # String (MC) hoặc Array (T/F, Fill_Blank)
 
         mc_score = 0.0
         detailed_results = []
@@ -1619,20 +1619,17 @@ def create_result():
             if q_type == "mc":
                 correct_ans_text = next((opt.get("text") for opt in question_obj.get("options", []) if opt.get("correct")), None)
                 correct_answer_for_storage = correct_ans_text 
-
                 is_correct = (student_ans_value is not None) and \
                              (correct_ans_text is not None) and \
                              (norm_str(student_ans_value) == norm_str(correct_ans_text))
-                
                 if is_correct:
                     points_gained = max_points
-                mc_score += points_gained # Thêm điểm (kể cả 0)
+                mc_score += points_gained 
 
             elif q_type == "true_false":
                 correct_answers = [opt.get("correct") for opt in question_obj.get("options", [])]
                 correct_answer_for_storage = correct_answers 
                 student_answers = student_ans_value 
-
                 if isinstance(student_answers, list) and len(correct_answers) == len(student_answers):
                     all_correct = True
                     for i in range(len(correct_answers)):
@@ -1648,19 +1645,44 @@ def create_result():
                     is_correct = False
                 mc_score += points_gained
             
-            # ✅ MỚI: LOGIC CHẤM ĐIỂM FILL_BLANK
+            # ✅ MỚI: LOGIC CHẤM ĐIỂM FILL_BLANK (Chấm từng phần)
             elif q_type == "fill_blank":
-                correct_ans_text = question_obj.get("answer") # Lấy đáp án từ
-                correct_answer_for_storage = correct_ans_text
+                # Lấy đáp án đúng từ 'options' (ví dụ: [{text: "respect"}, {text: "traditions"}])
+                correct_options = question_obj.get("options", [])
+                correct_answers_list = [norm_str(opt.get("text")) for opt in correct_options]
+                correct_answer_for_storage = [opt.get("text") for opt in correct_options] # Lưu cả hoa/thường
+
+                # Lấy câu trả lời (là một mảng)
+                student_answers_list = student_ans_value if isinstance(student_ans_value, list) else []
+
+                num_blanks = len(correct_answers_list)
+                if num_blanks == 0:
+                    is_correct = False
+                    points_gained = 0
+                else:
+                    points_per_blank = max_points / num_blanks # Chia điểm
+                    correct_blanks_count = 0
+                    
+                    for i in range(num_blanks):
+                        student_ans_norm = ""
+                        if i < len(student_answers_list) and student_answers_list[i]:
+                            student_ans_norm = norm_str(student_answers_list[i])
+                        
+                        # So sánh
+                        if student_ans_norm == correct_answers_list[i]:
+                            correct_blanks_count += 1
+                    
+                    points_gained = correct_blanks_count * points_per_blank
                 
-                is_correct = (student_ans_value is not None) and \
-                             (correct_ans_text is not None) and \
-                             (norm_str(student_ans_value) == norm_str(correct_ans_text))
+                # Xác định trạng thái Đúng/Sai cho cả câu
+                if points_gained == max_points:
+                    is_correct = True
+                elif points_gained > 0:
+                    is_correct = None # Chỉ đúng 1 phần
+                else:
+                    is_correct = False
                 
-                if is_correct:
-                    points_gained = max_points
-                
-                mc_score += points_gained # Coi là điểm tự động
+                mc_score += points_gained # Cộng điểm (kể cả điểm 1 phần)
             
             elif q_type == "essay":
                 essay_count += 1
@@ -1682,7 +1704,7 @@ def create_result():
         # 6. Xác định trạng thái chấm
         grading_status = "Đang Chấm" if has_essay else "Hoàn tất"
         result_id = str(uuid4())
-        total_score = round(mc_score, 2) # Tổng điểm ban đầu = điểm tự động
+        total_score = round(mc_score, 2) 
 
         # 7. Lấy thông tin user
         user_info = db.users.find_one({"id": student_id}) or {}
@@ -1698,7 +1720,7 @@ def create_result():
             "studentAnswers": student_answers_payload, 
             "detailedResults": detailed_results,
             "gradingStatus": grading_status,
-            "mcScore": round(mc_score, 2), # Tổng điểm tự động (MC + T/F + Fill)
+            "mcScore": round(mc_score, 2), 
             "essayScore": 0.0,
             "totalScore": total_score,
             "submittedAt": now_vn_iso(),
