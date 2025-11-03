@@ -726,6 +726,7 @@ def create_question():
     tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
     # Xóa trùng lặp
     tags_list = list(dict.fromkeys(tags_list)) 
+    hint = data.get("hint", "") # <-- THÊM DÒNG NÀY
 
     newq = {
         "id": str(uuid4()),
@@ -739,7 +740,8 @@ def create_question():
         "answer": answer,
         "imageId": str(image_id) if image_id else None,
         "createdAt": now_vn_iso(),
-        "tags": tags_list # ✅ MỚI: Thêm trường tags vào CSDL
+        "tags": tags_list, # ✅ MỚI: Thêm trường tags vào CSDL
+        "hint": hint # <-- THÊM DÒNG NÀY
     }
     db.questions.insert_one(newq)
     to_return = newq.copy()
@@ -800,6 +802,7 @@ def update_question(q_id):
     tags_raw = data.get("tags", "") # Lấy chuỗi "tag1, tag2, tag3"
     tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
     tags_list = list(dict.fromkeys(tags_list)) 
+    hint = data.get("hint", "") # <-- THÊM DÒNG NÀY
 
     update_fields = {
         "q": data.get("q"),
@@ -811,7 +814,9 @@ def update_question(q_id):
         "options": options,
         "answer": answer,
         "imageId": image_id,
-        "tags": tags_list # ✅ MỚI: Thêm trường tags vào CSDL
+        "tags": tags_list, # ✅ MỚI: Thêm trường tags vào CSDL
+        "hint": hint # <-- THÊM DÒNG NÀY
+       
     }
     res = db.questions.update_one({"id": q_id}, {"$set": update_fields})
     if res.matched_count == 0:
