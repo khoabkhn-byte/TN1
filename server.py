@@ -1684,6 +1684,11 @@ def create_result():
             is_correct = None
             points_gained = 0.0
             correct_answer_for_storage = None 
+            
+            # ===== SỬA LỖI (Thêm biến lưu trữ) =====
+            correct_items_count_for_storage = None
+            total_items_for_storage = None
+            # ====================================
 
             if q_type == "mc":
                 correct_ans_text = next((opt.get("text") for opt in question_obj.get("options", []) if opt.get("correct")), None)
@@ -1691,40 +1696,43 @@ def create_result():
                 is_correct = (student_ans_value is not None) and \
                              (correct_ans_text is not None) and \
                              (norm_str(student_ans_value) == norm_str(correct_ans_text))
+                
+                total_items_for_storage = 1 # <-- MỚI
                 if is_correct:
                     points_gained = max_points
+                    correct_items_count_for_storage = 1 # <-- MỚI
+                else:
+                    correct_items_count_for_storage = 0 # <-- MỚI
+                    
                 mc_score += points_gained 
 
-            # =================================================
-            # ===== BẮT ĐẦU SỬA LỖI (CHẤM ĐIỂM ĐÚNG/SAI) =====
-            # =================================================
             elif q_type == "true_false":
                 correct_answers_list = [opt.get("correct") for opt in question_obj.get("options", [])]
                 correct_answer_for_storage = correct_answers_list
                 student_answers_list = student_ans_value if isinstance(student_ans_value, list) else []
                 
                 num_items = len(correct_answers_list)
+                total_items_for_storage = num_items # <-- MỚI (lưu lại)
+                correct_items_count = 0
                 
                 if num_items == 0:
                     is_correct = False
                     points_gained = 0
                 else:
                     points_per_item = max_points / num_items
-                    correct_items_count = 0
                     
-                    # Loop để đếm số ý đúng
                     for i in range(num_items):
                         student_ans = None
                         if i < len(student_answers_list):
-                            student_ans = student_answers_list[i] # Đây là boolean (hoặc null)
+                            student_ans = student_answers_list[i]
                         
-                        # So sánh boolean của học sinh và đáp án
                         if student_ans is not None and student_ans == correct_answers_list[i]:
                             correct_items_count += 1
                             
                     points_gained = correct_items_count * points_per_item
                 
-                # Set cờ isCorrect dựa trên điểm
+                correct_items_count_for_storage = correct_items_count # <-- MỚI (lưu lại)
+
                 if points_gained == max_points:
                     is_correct = True
                 elif points_gained > 0:
@@ -1733,22 +1741,22 @@ def create_result():
                     is_correct = False
                     
                 mc_score += points_gained
-            # =================================================
-            # ===== KẾT THÚC SỬA LỖI (CHẤM ĐIỂM ĐÚNG/SAI) =====
-            # =================================================
             
             elif q_type == "fill_blank":
                 correct_options = question_obj.get("options", [])
                 correct_answers_list = [norm_str(opt.get("text")) for opt in correct_options]
                 correct_answer_for_storage = [opt.get("text") for opt in correct_options] 
                 student_answers_list = student_ans_value if isinstance(student_ans_value, list) else []
+                
                 num_blanks = len(correct_answers_list)
+                total_items_for_storage = num_blanks # <-- MỚI (lưu lại)
+                correct_blanks_count = 0
+                
                 if num_blanks == 0:
                     is_correct = False
                     points_gained = 0
                 else:
                     points_per_blank = max_points / num_blanks 
-                    correct_blanks_count = 0
                     for i in range(num_blanks):
                         student_ans_norm = ""
                         if i < len(student_answers_list) and student_answers_list[i]:
@@ -1756,6 +1764,9 @@ def create_result():
                         if student_ans_norm == correct_answers_list[i]:
                             correct_blanks_count += 1
                     points_gained = correct_blanks_count * points_per_blank
+                
+                correct_items_count_for_storage = correct_blanks_count # <-- MỚI (lưu lại)
+                
                 if points_gained == max_points:
                     is_correct = True
                 elif points_gained > 0:
@@ -1778,7 +1789,11 @@ def create_result():
                 "isCorrect": is_correct,
                 "type": q_type,
                 "teacherScore": None,
-                "teacherNote": ""
+                "teacherNote": "",
+                # ===== SỬA LỖI (Thêm 2 trường mới) =====
+                "correctItems": correct_items_count_for_storage,
+                "totalItems": total_items_for_storage
+                # ====================================
             })
 
         # 6. Xác định trạng thái chấm
@@ -1825,7 +1840,7 @@ def create_result():
         print("create_result error:", e)
         traceback.print_exc()
         return jsonify({"message": f"Server error: {str(e)}"}), 500
-    
+        
 # ==================================================
 # ✅ THAY THẾ HÀM CHẤM ĐIỂM (Dòng 924)
 # ==================================================
