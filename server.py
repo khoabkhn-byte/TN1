@@ -1632,6 +1632,7 @@ def create_result():
                 continue 
 
             q_type = question_obj.get("type", "mc")
+            # ✅ SỬA LỖI NHỎ: Đảm bảo max_points lấy từ map (vì map đã tính điểm cũ/mới)
             max_points = float(points_map.get(q_id, 1)) 
             student_ans_value = student_ans_map.get(q_id, None) 
 
