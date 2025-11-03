@@ -1554,9 +1554,31 @@ def create_result():
 
         test_questions = test_doc.get("questions", []) or []
         
-        # 2. TẠO MAP ĐIỂM SỐ
-        points_map = {q.get('id'): q.get('points', 1) for q in test_questions}
-        question_ids_in_test = list(points_map.keys())
+        # 2. ✅ SỬA LỖI 500: Xử lý cả 2 định dạng Đề thi (cũ và mới)
+        points_map = {}
+        question_ids_in_test = []
+        
+        if test_questions and isinstance(test_questions[0], dict):
+            # ĐỊNH DẠNG MỚI: [{'id': ..., 'points': ...}]
+            try:
+                points_map = {q.get('id'): q.get('points', 1) for q in test_questions}
+                question_ids_in_test = list(points_map.keys())
+            except AttributeError as e:
+                 # Bắt lỗi nếu 'q' không phải là dict (ví dụ: list rỗng)
+                print(f"Lỗi khi xử lý points_map định dạng mới: {e}")
+                return jsonify({"message": "Lỗi định dạng đề thi (questions không hợp lệ)."}), 500
+        
+        elif test_questions and isinstance(test_questions[0], str):
+            # ĐỊNH DẠNG CŨ: ["id1", "id2", ...]
+            # GỌI LẠI LOGIC TÍNH ĐIỂM (5 QUY TẮC)
+            print(f"Cảnh báo: Đề thi {test_id} dùng logic điểm cũ. Đang tính toán lại...")
+            question_ids_in_test = [str(q) for q in test_questions]
+            points_map = calculate_question_points(question_ids_in_test, db) # Hàm này bạn đã có
+        
+        elif not test_questions:
+            # Không có câu hỏi
+             return jsonify({"message": "Đề thi không có câu hỏi."}), 400
+        # --- KẾT THÚC SỬA LỖI 500 ---
 
         # 3. Lấy TOÀN BỘ đối tượng câu hỏi
         object_ids = []
@@ -1602,14 +1624,15 @@ def create_result():
             if x is None: return ""
             return str(x).strip().lower()
 
-        # 5. LẶP VÀ TÍNH ĐIỂM
+        # 5. LẶP VÀ TÍNH ĐIỂM (Logic này đã đúng)
         for q_id in question_ids_in_test: 
             question_obj = full_question_map.get(q_id)
             if not question_obj:
+                print(f"Cảnh báo: Không tìm thấy question_obj cho q_id {q_id}")
                 continue 
 
             q_type = question_obj.get("type", "mc")
-            max_points = float(points_map.get(q_id, 1))
+            max_points = float(points_map.get(q_id, 1)) 
             student_ans_value = student_ans_map.get(q_id, None) 
 
             is_correct = None
@@ -1645,49 +1668,37 @@ def create_result():
                     is_correct = False
                 mc_score += points_gained
             
-            # ✅ MỚI: LOGIC CHẤM ĐIỂM FILL_BLANK (Chấm từng phần)
             elif q_type == "fill_blank":
-                # Lấy đáp án đúng từ 'options' (ví dụ: [{text: "respect"}, {text: "traditions"}])
                 correct_options = question_obj.get("options", [])
                 correct_answers_list = [norm_str(opt.get("text")) for opt in correct_options]
-                correct_answer_for_storage = [opt.get("text") for opt in correct_options] # Lưu cả hoa/thường
-
-                # Lấy câu trả lời (là một mảng)
+                correct_answer_for_storage = [opt.get("text") for opt in correct_options] 
                 student_answers_list = student_ans_value if isinstance(student_ans_value, list) else []
-
                 num_blanks = len(correct_answers_list)
                 if num_blanks == 0:
                     is_correct = False
                     points_gained = 0
                 else:
-                    points_per_blank = max_points / num_blanks # Chia điểm
+                    points_per_blank = max_points / num_blanks 
                     correct_blanks_count = 0
-                    
                     for i in range(num_blanks):
                         student_ans_norm = ""
                         if i < len(student_answers_list) and student_answers_list[i]:
                             student_ans_norm = norm_str(student_answers_list[i])
-                        
-                        # So sánh
                         if student_ans_norm == correct_answers_list[i]:
                             correct_blanks_count += 1
-                    
                     points_gained = correct_blanks_count * points_per_blank
-                
-                # Xác định trạng thái Đúng/Sai cho cả câu
                 if points_gained == max_points:
                     is_correct = True
                 elif points_gained > 0:
-                    is_correct = None # Chỉ đúng 1 phần
+                    is_correct = None 
                 else:
                     is_correct = False
-                
-                mc_score += points_gained # Cộng điểm (kể cả điểm 1 phần)
+                mc_score += points_gained 
             
             elif q_type == "essay":
                 essay_count += 1
-                is_correct = None # Chờ chấm
-                correct_answer_for_storage = question_obj.get("answer") # Gợi ý
+                is_correct = None 
+                correct_answer_for_storage = question_obj.get("answer") 
 
             detailed_results.append({
                 "questionId": q_id,
@@ -1744,6 +1755,7 @@ def create_result():
     except Exception as e:
         print("create_result error:", e)
         traceback.print_exc()
+        # Trả về lỗi chi tiết để FE có thể bắt
         return jsonify({"message": f"Server error: {str(e)}"}), 500
     
 # ==================================================
