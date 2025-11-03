@@ -1310,6 +1310,28 @@ def update_test(test_id):
     except Exception as e:
         return jsonify({"success": False, "message": f"Lỗi server: {e}"}), 500
 
+@app.route("/api/tests/<test_id>/status", methods=["PUT"])
+def update_test_status(test_id):
+    """
+    API mới: Cập nhật trạng thái của một bài thi (ví dụ: 'assigned' hoặc 'not_assigned')
+    """
+    data = request.get_json() or {}
+    new_status = data.get("status")
+    
+    if not new_status:
+        return jsonify({"success": False, "message": "Missing status"}), 400
+
+    result = db.tests.update_one(
+        {"id": test_id},
+        {"$set": {"assignmentStatus": new_status}}
+    )
+    
+    if result.matched_count == 0:
+        return jsonify({"success": False, "message": "Test not found"}), 404
+        
+    return jsonify({"success": True, "message": "Status updated"}), 200
+
+
 # ... (Hàm /tests/<test_id> (DELETE) giữ nguyên) ...
 @app.route("/tests/<test_id>", methods=["DELETE"])
 @app.route("/api/tests/<test_id>", methods=["DELETE"])
