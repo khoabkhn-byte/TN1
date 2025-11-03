@@ -806,11 +806,12 @@
                   </div>
                    <div class="col">
                       <label for="q-filter-type" class="form-label small mb-1">Loại câu hỏi</label>
-                      <select id="q-filter-type" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
+                     <select id="q-filter-type" class="form-select form-select-sm" onchange="loadQuestions(false, true)">
     <option value="">-- Tất cả Loại --</option>
     <option value="mc">Trắc nghiệm</option>
     <option value="essay">Tự luận</option>
-    <option value="true_false">Đúng/Sai (Nhiều ý)</option> </select>
+    <option value="true_false">Đúng/Sai (Nhiều ý)</option>
+    <option value="fill_blank">Điền từ (Inline)</option> </select>
                   </div>
                   <div class="col">
                       <label for="filter-difficulty" class="form-label small mb-1">Độ khó</label>
@@ -930,22 +931,24 @@
                  <div class="table-wrap">
                      <table class="table table-sm table-hover table-bordered">
                          <thead>
-                            <tr>
-                                <th scope="col" class="text-center" style="width: 40px;">
-                                    <input type="checkbox" id="check-all-tests">
-                                </th>
-                                <th scope="col" class="text-center">STT</th>
-                                <th scope="col">Môn học</th>
-                                <th scope="col">Tên bài thi</th>
-                                <th scope="col" class="text-center" style="width: 70px;">TL</th>
-                                <th scope="col" class="text-center" style="width: 70px;">TN</th>
-                                <th scope="col" class="text-center">Thời gian</th>
-                                <th scope="col" class="text-center">Ngày tạo</th>
-                                <th scope="col" class="text-center">Loại đề</th>
-                                <th scope="col" class="text-center" style="width: 100px;">Trạng thái</th>
-                                <th scope="col" class="text-center">Hành động</th>
-                            </tr>
-                        </thead>
+                        <tr>
+                            <th scope="col" class="text-center" style="width: 40px;">
+                                <input type="checkbox" id="check-all-tests">
+                            </th>
+                            <th scope="col" class="text-center" style="width: 40px;">STT</th>
+                            <th scope="col">Môn học</th>
+                            <th scope="col">Tên bài thi</th>
+                            <th scope="col" class="text-center" style="width: 50px;" title="Tự luận">TL</th>
+                            <th scope="col" class="text-center" style="width: 50px;" title="Trắc nghiệm">MC</th>
+                            <th scope="col" class="text-center" style="width: 50px;" title="Đúng/Sai">Đ/S</th>
+                            <th scope="col" class="text-center" style="width: 50px;" title="Điền từ">FILL</th>
+                            <th scope="col" class="text-center" style="width: 60px;">Thời gian</th>
+                            <th scope="col" class="text-center">Ngày tạo</th>
+                            <th scope="col" class="text-center">Loại đề</th>
+                            <th scope="col" class="text-center" style="width: 100px;">Trạng thái</th>
+                            <th scope="col" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
                         <tbody id="tests-tbody">
                         </tbody>
                     </table>
@@ -1126,7 +1129,11 @@
                 <div id="results-stats-header-line" class="d-flex align-items-center mb-2">
                     <strong class="me-3">Thống kê Kết quả:</strong>
                     <span id="results-stats-total-display">Đang tải...</span>
-                </div>
+                    
+                    <button id="toggle-chart-btn" class="btn btn-sm btn-outline-secondary ms-auto" onclick="toggleGradeChart()">
+                        Ẩn biểu đồ
+                    </button>
+                    </div>
                 <div id="results-stats-detailed-info" class="d-flex flex-wrap align-items-center gap-2">
                     Đang tải...
                 </div>
@@ -1418,18 +1425,17 @@
       </div>
       <input type="hidden" id="m-q-id">
       <div class="mb-2"><label class="form-label">Câu hỏi</label><textarea id="m-q-q" class="form-control" rows="3"></textarea></div>
-      <input type="hidden" id="m-q-id">
-     
       <div class="mb-3">
-    <label for="q-image-file" class="form-label">Tải lên Hình ảnh (tùy chọn)</label>
-    <input type="file" class="form-control" id="q-image-file" accept="image/*">
-    <small class="form-text text-muted">Chọn file hình ảnh (JPG, PNG) để tải lên.</small>
-    
-    <div id="q-image-preview" class="mt-2" style="max-height: 200px; overflow: hidden; display: none;"></div>
-<button type="button" class="btn btn-sm btn-outline-danger mt-1" id="btn-remove-image" style="display: none;">
-    <i class="bi bi-trash"></i> Xóa ảnh cũ
-</button>
-</div>
+        <label for="q-image-file" class="form-label">Tải lên Hình ảnh (tùy chọn)</label>
+        <input type="file" class="form-control" id="q-image-file" accept="image/*">
+        <small class="form-text text-muted">Chọn file hình ảnh (JPG, PNG) để tải lên.</small>
+        
+        <div id="q-image-preview" class="mt-2" style="max-height: 200px; overflow: hidden; display: none;"></div>
+        <button type="button" class="btn btn-sm btn-outline-danger mt-1" id="btn-remove-image" style="display: none;">
+            <i class="bi bi-trash"></i> Xóa ảnh cũ
+        </button>
+      </div>
+      
       <div class="row mb-2">
         <div class="col"><label>Môn</label>
           <select id="m-q-subject" class="form-select">
@@ -1447,12 +1453,15 @@
         </div>
         <div class="col"><label>Khối lớp</label><select id="m-q-level" class="form-select"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
         <div class="col"><label>Loại</label>
-    <select id="m-q-type" class="form-select" onchange="toggleOptionFields()"> <option value="mc">Trắc nghiệm</option>
-        <option value="essay">Tự luận</option>
-        <option value="true_false">Đúng/Sai (Nhiều ý)</option> </select>
-</div>
+            <select id="m-q-type" class="form-select" onchange="toggleOptionFields()">
+            <option value="mc">Trắc nghiệm</option>
+            <option value="essay">Tự luận</option>
+            <option value="true_false">Đúng/Sai (Nhiều ý)</option>
+            <option value="fill_blank">Điền từ (Inline)</option> </select>
+        </div>
         <div class="col"><label>Điểm</label><input id="m-q-points" type="number" class="form-control" value="1"></div>
       </div>
+      
       <div class="mb-2">
         <label class="form-label">Độ khó:</label>
         <select id="add-question-difficulty" class="form-select">
@@ -1461,13 +1470,18 @@
           <option value="hard">Khó</option>
         </select>
       </div>
-	  
-	  <div class="mb-2">
+      
+      <div class="mb-2">
         <label for="m-q-tags" class="form-label">Tags (Phân loại)</label>
         <input type="text" class="form-control" id="m-q-tags" placeholder="Ví dụ: phép_nhân, văn_tả_cảnh, hình_học">
         <small class="form-text text-muted">Sử dụng dấu phẩy (,) để ngăn cách các tag.</small>
       </div>
-      
+
+      <div class="mb-2">
+        <label class="form-label">Gợi ý (Tùy chọn)</label>
+        <input type="text" id="m-q-hint-field" class="form-control" placeholder="Ví dụ: Chọn trong các từ sau: ... hoặc Xem SGK trang...">
+        <small class="form-text text-muted">Gợi ý này sẽ hiển thị cho học sinh khi làm bài và khi in đề.</small>
+      </div>
       <div id="options-master-container">
     
         <div id="mc-options-section">
@@ -1490,12 +1504,20 @@
           <div id="m-q-true-false-container" class="mb-2">
             </div>
           <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addTrueFalseOption()">+ Thêm ý</button>
-      
+          </div>
+          
+      <div id="fill-blank-options-section" style="display:none;">
 
-			
-    </div> </div> </div> <div class="modal-footer">
-	<button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="saveQuestion()">Lưu</button></div>
-  </div></div></div>
+        <div id="m-q-fill-blank-container" class="mt-2">
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="addFillBlankOption()">+ Thêm đáp án</button>
+        </div> 
+    </div> 
+</div> 
+<div class="modal-footer">
+    <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="saveQuestion()">Lưu</button>
+</div>
+</div></div></div>
 
   <!-- Test create choice -->
   <div class="modal fade" id="modalTestChoice" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
@@ -2257,6 +2279,21 @@ function formatDifficulty(diff) {
     return diff;
 }
 
+function formatQuestionType(type) {
+    if (type === 'mc') return 'TN';
+    if (type === 'essay') return 'TL';
+    if (type === 'true_false') return 'Đ/S';
+    if (type === 'fill_blank') return 'FLL'; // (FLL là viết tắt của Fill)
+    return 'Khác';
+}
+
+function formatQuestionTypeForPDF(type) {
+    if (type === 'mc') return 'Trắc nghiệm';
+    if (type === 'essay') return 'Tự luận';
+    if (type === 'true_false') return 'Đ/S';
+    if (type === 'fill_blank') return 'Điền từ'; 
+    return 'Khác';
+}
 
 let draggedQuestionId = null;
 
@@ -2548,32 +2585,31 @@ function formatSubmittedAt(ts) {
 function toggleOptionFields() {
     const type = qs('m-q-type').value;
 
-    // Lấy ô "Câu hỏi" (textarea) chính và div bọc nó
     const mainQuestionInput = qs('m-q-q');
     const mainQuestionDiv = mainQuestionInput.closest('.mb-2');
 
-    // Lấy 3 khu vực nhập đáp án
+    // Lấy 4 khu vực nhập đáp án
     const mcSection = qs('mc-options-section');
     const essaySection = qs('essay-options-section');
     const trueFalseSection = qs('true-false-options-section');
-    
+    const fillBlankSection = qs('fill-blank-options-section'); // ✅ MỚI
+
     // Lấy các nút "+ Thêm"
     const btnAddOption = document.querySelector('#mc-options-section button[onclick="addQuestionOption()"]');
     const btnAddTrueFalse = document.querySelector('#true-false-options-section button[onclick="addTrueFalseOption()"]');
+    const btnAddFillBlank = document.querySelector('#fill-blank-options-section button[onclick="addFillBlankOption()"]'); // ✅ MỚI
 
     const modalEl = qs('modalQuestion');
     const isLocked = (modalEl.dataset.isLocked === 'true');
 
     // --- Reset Trạng thái ---
-    // 1. ✅ LUÔN HIỂN THỊ ô câu hỏi chính
     if (mainQuestionDiv) mainQuestionDiv.style.display = 'block';
-    // 2. ✅ MỞ KHÓA ô câu hỏi (trừ khi toàn modal bị khóa)
     if (mainQuestionInput) mainQuestionInput.readOnly = false; 
     
-    // 3. Ẩn tất cả các khu vực đáp án
     if (mcSection) mcSection.style.display = 'none';
     if (essaySection) essaySection.style.display = 'none';
     if (trueFalseSection) trueFalseSection.style.display = 'none'; 
+    if (fillBlankSection) fillBlankSection.style.display = 'none'; // ✅ MỚI
 
     // --- Áp dụng Logic theo Loại ---
     if (type === 'mc') {
@@ -2587,14 +2623,23 @@ function toggleOptionFields() {
         if (trueFalseSection) trueFalseSection.style.display = 'block';
         if (btnAddTrueFalse) btnAddTrueFalse.disabled = isLocked;
         
-        // ✅ SỬA LỖI: Chỉ thêm 2 ý khi TẠO MỚI (chưa có ID)
         const container = qs('m-q-true-false-container');
-        const questionId = qs('m-q-id').value; // Lấy ID của câu hỏi
+        const questionId = qs('m-q-id').value; 
         
-        // Chỉ thêm khi: Container rỗng VÀ không bị khóa VÀ LÀ CÂU MỚI (không có ID)
         if (container && container.children.length === 0 && !isLocked && !questionId) {
-            addTrueFalseOption(); // Thêm ý 1
-            addTrueFalseOption(); // Thêm ý 2
+            addTrueFalseOption(); 
+            addTrueFalseOption(); 
+        }
+    
+    } else if (type === 'fill_blank') { // ✅ MỚI
+        if (fillBlankSection) fillBlankSection.style.display = 'block';
+        if (btnAddFillBlank) btnAddFillBlank.disabled = isLocked;
+
+        // Tự động thêm 1 ô đáp án nếu là câu mới
+        const container = qs('m-q-fill-blank-container');
+        const questionId = qs('m-q-id').value; 
+        if (container && container.children.length === 0 && !isLocked && !questionId) {
+            addFillBlankOption();
         }
     }
 }
@@ -2782,36 +2827,38 @@ function renderQuestions(items){
     
     const frag = document.createDocumentFragment(); 
     
-    // Tính STT dựa trên trang hiện tại
     const currentPage = state.questions.page || 1;
+    // PAGE_SIZE đã được định nghĩa là 10 ở global (khoảng dòng 7236)
     let stt = (currentPage - 1) * PAGE_SIZE + 1; 
 
     items.forEach(q=>{ 
       const tr = document.createElement('tr'); 
       const qText = (q.q || q.question || '').replace(/</g,'&lt;'); 
-      const typeDisplay = q.type === 'essay' ? 'TL' : 'TN'; 
+      
+      const typeDisplay = formatQuestionType(q.type); 
+      
       const qId = q.id || q._id || ''; 
       
       const isAssigned = q.isAssigned === true;
       const subjectName = SUBJECT_NAMES[q.subject] || q.subject || 'N/A';
       
-      // --- Logic hiển thị Tags (Đã có) ---
       let tagsHtml = '';
       if (Array.isArray(q.tags) && q.tags.length > 0) {
           tagsHtml = q.tags.map(tag => 
               `<span class="badge bg-light text-dark border me-1">${escapeHtml(tag)}</span>`
           ).join('');
-          tagsHtml = `<div class="mt-1">${tagsHtml}</div>`; // Bọc trong 1 div
+          tagsHtml = `<div class="mt-1">${tagsHtml}</div>`; 
       }
       
-      // --- ✅ MỚI: Logic thêm nút "Phân tích" ---
+      // ===== BẮT ĐẦU SỬA LỖI (Thêm nút Phân tích) =====
       let analyzeButtonHtml = '';
-      // Chỉ hiển thị nút này nếu là câu trắc nghiệm (mc)
-      if (q.type === 'mc') {
-          analyzeButtonHtml = `<button class="btn btn-sm btn-outline-info" onclick='openAnalysisModal("${qId}")'>Phân tích</button>`;
+      // Sửa "if (q.type === 'mc')" thành:
+      if (q.type === 'mc' || q.type === 'true_false' || q.type === 'fill_blank') {
+          // Thêm tham số 'q.type' vào hàm gọi
+          analyzeButtonHtml = `<button class="btn btn-sm btn-outline-info" onclick='openAnalysisModal("${qId}", "${q.type}")'>Phân tích</button>`;
       }
+      // ===== KẾT THÚC SỬA LỖI =====
       
-      // --- Logic nút Sửa/Xóa (Đã có) ---
       const editButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-danger" title="Xem chi tiết câu hỏi (đã khóa)" onclick='openQuestionModalById("${qId}")'>Xem</button>`
             : `<button class="btn btn-sm btn-outline-primary" onclick='openQuestionModalById("${qId}")'>Sửa</button>`;
@@ -2820,7 +2867,6 @@ function renderQuestions(items){
             ? `<button class="btn btn-sm btn-outline-danger btn-locked" title="Câu hỏi nằm trong đề đã được giao, không thể xóa." onclick='alert("Câu hỏi nằm trong đề đã được giao, không thể xóa.")'>Xóa</button>`
             : `<button class="btn btn-sm btn-outline-danger" onclick='deleteQuestion("${qId}")'>Xóa</button>`;
       
-      // --- Cập nhật tr.innerHTML ---
       tr.innerHTML = `
         <td class="text-center">${stt++}</td> 
         <td class="text-start">
@@ -2829,8 +2875,7 @@ function renderQuestions(items){
         </td>
         <td class="text-center">${escapeHtml(subjectName)}</td>
         <td class="text-center">${escapeHtml(q.level)}</td>
-        <td class="text-center">${typeDisplay}</td>
-        <td class="text-center">${escapeHtml(q.points ?? '')}</td>
+        <td class="text-center">${typeDisplay}</td> <td class="text-center">${escapeHtml(q.points ?? '')}</td>
         <td class="text-center">
           <span class="badge ${
             q.difficulty === 'easy' ? 'bg-success' :
@@ -2843,7 +2888,8 @@ function renderQuestions(items){
         <td class="text-center">
           <div class="d-flex justify-content-center gap-1">
               ${editButtonHtml}
-              ${analyzeButtonHtml} ${deleteButtonHtml}
+              ${analyzeButtonHtml} 
+              ${deleteButtonHtml}
           </div>
         </td>
       `; 
@@ -2851,7 +2897,6 @@ function renderQuestions(items){
     }); 
     tbody.appendChild(frag); 
 }
-
 
 
 	
@@ -2950,9 +2995,8 @@ async function startQuiz(testId, assignmentId, durationMinutes) {
     }
 }
 
-// ==================== HÀM HIỂN THỊ GIAO DIỆN LÀM BÀI (SỬA LỖI ẢNH) ====================
+// ==================== HÀM HIỂN THỊ GIAO DIỆN LÀM BÀI (ĐÃ SỬA LỖI XUỐNG DÒNG) ====================
 
-// Thay thế hàm renderQuizInterface (khoảng dòng 1900)
 function renderQuizInterface(questions) {
     window.currentLoadedQuestions = questions;
     const container = document.getElementById('quiz-questions-container');
@@ -2966,7 +3010,7 @@ function renderQuizInterface(questions) {
     let questionsHtml = '';
     questions.forEach((q, index) => {
         const qNumber = index + 1;
-        const questionText = q.q || q.question || 'Nội dung câu hỏi không xác định.';
+        let questionText = q.q || q.question || 'Nội dung câu hỏi không xác định.';
         const options = q.options || [];
 
         const original_id = q._id ? String(q._id) : 'N/A';
@@ -2978,6 +3022,12 @@ function renderQuizInterface(questions) {
         }
         
         const qType = q.type || (options.length > 0 ? 'mc' : 'essay');
+
+        // Thêm code hiển thị hint
+        let hintHtml = ''; 
+        if (q.hint) {
+            hintHtml = `<div class="mt-2"><small class="text-muted fst-italic"><strong>Gợi ý:</strong> ${escapeHtml(q.hint)}</small></div>`;
+        }
 
         let imageHtml = '';
         if (q.imageId) { 
@@ -3021,6 +3071,29 @@ function renderQuizInterface(questions) {
                 `;
             });
             inputAreaHtml = `<div class="options-container mt-2">${optionsHtml}</div>`;
+        
+        } else if (qType === 'fill_blank') {
+            
+            // ===== BẮT ĐẦU SỬA LỖI XUỐNG DÒNG =====
+    
+            // 1. Escape HTML
+            let safeText = escapeHtml(questionText);
+
+            // 2. Chuyển \n (ký tự xuống dòng) thành thẻ <br> (xuống dòng HTML)
+            let formattedText = safeText.replace(/\n/g, '<br>');
+
+            // 3. Thay thế [BLANK] bằng <input>
+            let blankIndex = 0;
+            const questionWithInputs = formattedText.replace(/\[BLANK\]/g, () => {
+                const index = blankIndex++;
+                // Thêm 'vertical-align: baseline' để input thẳng hàng với chữ
+                return `<input type="text" id="fill_${qIdForDataAttr}_${index}" class="form-control form-control-sm d-inline-block fill-blank-inline" data-index="${index}" style="width: 150px; margin: 0 5px; vertical-align: baseline;">`;
+            });
+            // ===== KẾT THÚC SỬA LỖI =====
+            
+            // Gán lại biến questionText
+            questionText = questionWithInputs; 
+            inputAreaHtml = ''; // Không cần khu vực input riêng
         }
 
         questionsHtml += `
@@ -3029,9 +3102,9 @@ function renderQuizInterface(questions) {
                  <div class="question-text flex-grow-1">
                     <h6 class="text-primary mb-3">Câu ${qNumber}:</h6>
                     
-                    <div class="question-content mb-3">${questionText}</div>
+                    <div class="question-content mb-3" style="line-height: 2.5;">${questionText}</div> 
                     
-                    ${inputAreaHtml}
+                    ${hintHtml} ${inputAreaHtml}
                  </div>
                  ${imageHtml}
             </div>`;
@@ -3153,28 +3226,24 @@ async function submitQuiz(isTimeout = false) {
     let collectionError = false;
     const answers = currentQuiz.map((q, index) => {
         if (!q || typeof q !== 'object') {
-            console.error(`submitQuiz: Invalid question object at index ${index + 1}.`, q);
             collectionError = true;
             return { questionId: `error-invalid-q-${index}`, type: 'error', answer: 'invalid_data' };
         }
-
+        
+        // Xác định ID
         const idFrom_id = q._id ? String(q._id) : null;
         const idFromId = q.id ? String(q.id) : null;
-        const qidForKey = idFrom_id || idFromId; 
-        const qIdForPayload = idFromId || idFrom_id; 
-        
-        // ✅ Đã cập nhật qtype (bao gồm true_false)
+        const qidForKey = idFrom_id || idFromId; // ID dùng để tìm DOM
+        const qIdForPayload = idFromId || idFrom_id; // ID gửi đi
         const qtype = q.type || q.questionType || "mc";
 
         if (!qidForKey) {
-            console.error(`submitQuiz: ERROR! Question index ${index + 1} MISSING BOTH _id AND id.`, q);
             collectionError = true;
             return { questionId: `error-missing-ids-${index}`, type: 'error', answer: 'missing_id' };
         }
         
         const container = document.querySelector(`.card[data-question-id="${qidForKey}"]`);
         if (!container) {
-            console.warn("submitQuiz: Cannot find question element for key:", qidForKey, "(Payload ID:", qIdForPayload, ")");
             return { questionId: qIdForPayload, type: qtype, answer: null }; 
         }
 
@@ -3189,35 +3258,36 @@ async function submitQuiz(isTimeout = false) {
                 const textarea = container.querySelector("textarea.essay-answer");
                 if (textarea) studentAnswer = textarea.value.trim() || null;
             
-            // ✅ MỚI: LOGIC THU THẬP TRUE/FALSE
             } else if (qtype === "true_false") {
                 const options = q.options || [];
-                const collectedAnswers = []; // Đây sẽ là mảng [true, false, null]
-                
+                const collectedAnswers = []; 
                 options.forEach((opt, optIndex) => {
-                    // Tìm radio group cho mệnh đề này
                     const inputName = `tf_${qidForKey}_${optIndex}`;
                     const selectedRadio = container.querySelector(`input[name="${inputName}"]:checked`);
-                    
                     if (selectedRadio) {
-                        // Chuyển string "true" -> true (boolean), "false" -> false (boolean)
-                        collectedAnswers.push(selectedRadio.value === 'true');
+                        collectedAnswers.push(selectedRadio.value === 'true'); // Chuyển sang boolean
                     } else {
-                        // Nếu học sinh không chọn (bỏ trống), gửi null
-                        collectedAnswers.push(null); 
+                        collectedAnswers.push(null); // Gửi null nếu bỏ trống
                     }
                 });
-                
+                studentAnswer = collectedAnswers; // Câu trả lời là một mảng
+            
+            } else if (qtype === "fill_blank") { 
+                // Tìm tất cả các ô input inline
+                const inputs = container.querySelectorAll("input.fill-blank-inline");
+                const collectedAnswers = [];
+                // NodeList trả về theo đúng thứ tự DOM
+                inputs.forEach(input => {
+                    collectedAnswers.push(input.value.trim() || null); // Gửi null nếu bỏ trống
+                });
                 studentAnswer = collectedAnswers; // Câu trả lời là một mảng
             }
-            // --- KẾT THÚC LOGIC MỚI ---
             
         } catch (domError) {
             console.error(`submitQuiz: DOM Error getting answer for qid ${qidForKey}:`, domError);
             collectionError = true;
             return { questionId: qIdForPayload, type: qtype, answer: `error-dom-${index}` };
         }
-
         return { questionId: qIdForPayload, type: qtype, answer: studentAnswer };
     });
 
@@ -3226,26 +3296,28 @@ async function submitQuiz(isTimeout = false) {
         console.error("submitQuiz: Aborting submission due to critical errors collecting answers.");
         showMessageBox("Lỗi nghiêm trọng", "Không thể thu thập đủ câu trả lời do lỗi dữ liệu hoặc giao diện. Vui lòng thử tải lại trang.");
         const submitBtnReEnable = document.getElementById("btn-submit-quiz");
-        if(submitBtnReEnable) submitBtnReEnable.disabled = false; // Kích hoạt lại nút nộp
+        if(submitBtnReEnable) submitBtnReEnable.disabled = false;
         return;
     }
 
-    // 6. Tiến hành Nộp bài (Không thay đổi)
+    // 6. Tiến hành Nộp bài
     const submitButton = document.getElementById("btn-submit-quiz");
     try {
         if (submitButton) submitButton.disabled = true;
 
-        const testId = currentQuiz[0]?.testId || currentTest?.id || currentAssignmentId;
+        // ✅ SỬA LỖI: Đảm bảo 'currentTest' tồn tại (đã được sửa trong startQuiz)
+        const testId = currentTest?.id || currentQuiz[0]?.testId || currentAssignmentId;
         const studentId = currentUser?.id;
+        
         if (!testId || !studentId) {
             throw new Error("Không thể xác định ID bài thi hoặc học sinh để nộp bài.");
         }
 
         const resultPayload = {
-            studentId,
-            assignmentId: currentAssignmentId,
+            studentId, 
+            assignmentId: currentAssignmentId, 
             testId,
-            studentAnswers: answers, // Mảng 'answers' giờ đã chứa cả mảng true/false
+            studentAnswers: answers, // Mảng 'answers' giờ đã chứa cả mảng T/F và Fill_Blank
             submittedAt: new Date().toISOString()
         };
 
@@ -3254,41 +3326,33 @@ async function submitQuiz(isTimeout = false) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(resultPayload)
         });
-
+        
+        // 7. Hiển thị kết quả và chuyển tab
         if (typeof displayQuizResults === 'function') {
             displayQuizResults(result); 
-        } else {
-            console.error("displayQuizResults function is not defined!");
         }
-
         showToast('Nộp bài thành công! Đang tự động chấm điểm.', 'success');
-
+        
         if (typeof loadAssignments === 'function') {
             await loadAssignments(true);
         }
         
         const tabDoneButton = document.querySelector('button[data-bs-target="#stu-done"]');
         if (tabDoneButton) {
-            console.log("Attempting to switch to 'Bài đã làm' tab via click.");
             try { 
                 tabDoneButton.click();
             } catch (clickError) {
-                console.error("Error clicking 'Bài đã làm' tab button:", clickError);
                 if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
-                    try { new bootstrap.Tab(tabDoneButton).show(); } catch (tabApiError) { console.error("Bootstrap Tab API also failed:", tabApiError); }
+                    try { new bootstrap.Tab(tabDoneButton).show(); } catch (tabApiError) {}
                 }
             }
-        } else {
-            console.error("Cannot find button for 'Bài đã làm' tab to switch.");
-        }
-
+        } 
     } catch (err) { 
         console.error("❌ Lỗi Nộp Bài (trong try...catch):", err);
-        showMessageBox("Lỗi", "Không thể nộp bài: " + (err.message || "Lỗi không xác định"));
+        showMessageBox("Lỗi", "Không thể nộp bài: " (err.message || "Lỗi không xác định"));
         if (submitButton) submitButton.disabled = false;
     } 
 }
-
 
 function showMessageBox(title, message) {
     // Tùy chọn 1: Dùng alert đơn giản (hoạt động tốt)
@@ -3307,7 +3371,7 @@ function showMessageBox(title, message) {
     */
 }
 
-// Thay thế hàm displayQuizResults (khoảng dòng 2185) - FINAL ID SYNC
+// Thay thế hàm này (khoảng dòng 2185)
 async function displayQuizResults(result) {
     console.log(" displayQuizResults RUNNING - Result ID:", result?.id);
 
@@ -3343,11 +3407,22 @@ async function displayQuizResults(result) {
         const inputs = card ? card.querySelectorAll('input, textarea') : document.querySelectorAll(`#quiz-questions-container input[name="q_${idToFindCard}"], #quiz-questions-container textarea#essay_${idToFindCard}`);
         inputs.forEach(i => i.disabled = true);
 
-        // Tính Summary (dựa vào detail - giữ nguyên)
+        // ✅ SỬA LỖI ĐẾM: Phân loại chính xác
         const qtypeCalc = (detail.type || 'mc').toLowerCase();
         const currentMaxPointsCalc = detail.maxPoints ?? originalQ?.points ?? 1;
-        if (qtypeCalc === 'essay' || qtypeCalc === 'tu_luan') { totalEssay++; }
-        else { totalMc++; maxScoreCalculated += (typeof currentMaxPointsCalc === 'number' && !isNaN(currentMaxPointsCalc) ? currentMaxPointsCalc : 1); if ((detail.pointsGained ?? 0) > 0) { correctCountBasedOnPoints++; } }
+        
+        if (qtypeCalc === 'essay' || qtypeCalc === 'tu_luan') { 
+            totalEssay++; 
+        } else { 
+            // Coi MC, T/F, Fill_Blank là 1 nhóm
+            totalMc++; 
+            maxScoreCalculated += (typeof currentMaxPointsCalc === 'number' && !isNaN(currentMaxPointsCalc) ? currentMaxPointsCalc : 1); 
+            // ✅ SỬA LỖI ĐẾM CÂU ĐÚNG: Chỉ đếm khi đạt điểm TỐI ĐA (isCorrect === true)
+            if (detail.isCorrect === true) { 
+                correctCountBasedOnPoints++; 
+            } 
+        }
+        // --- KẾT THÚC SỬA LỖI ĐẾM ---
 
         if (!card) return; // Bỏ qua highlight nếu không tìm thấy card
 
@@ -3355,9 +3430,10 @@ async function displayQuizResults(result) {
         const qtype = (detail.type || card.dataset.questionType || 'mc').toLowerCase();
         const gainedPoints = detail.pointsGained ?? 0; 
         const studentAnsRaw = detail.studentAnswer; 
-        const isUnanswered = studentAnsRaw === null || studentAnsRaw === undefined || String(studentAnsRaw).trim() === ""; 
+        const isUnanswered = studentAnsRaw === null || studentAnsRaw === undefined || (Array.isArray(studentAnsRaw) && studentAnsRaw.every(item => item === null)) || String(studentAnsRaw).trim() === ""; 
         const correctAnsRaw = detail?.correctAnswer ?? originalQ?.answer ?? null; 
-        const isCorrectBasedOnPoints = gainedPoints > 0; 
+        const isCorrectBasedOnPoints = detail.isCorrect === true; // Chỉ tính khi đúng 100%
+        const isPartialCredit = detail.isCorrect === null; // Backend trả về null nếu điểm 1 phần
 
         if (qtype === 'mc' || qtype === 'multiple_choice') {
             // (Logic highlight MC... giữ nguyên)
@@ -3365,36 +3441,59 @@ async function displayQuizResults(result) {
             const correctAns = correctAnsRaw ? String(correctAnsRaw).trim().toLowerCase() : null;
             if (isUnanswered) { const firstOptionLabel = card.querySelector('.form-check label'); if (firstOptionLabel) { firstOptionLabel.insertAdjacentHTML('beforebegin', '<p class="text-danger small mb-1 feedback-text">⚠️ Chưa chọn câu trả lời</p>'); } } card.querySelectorAll('.form-check').forEach(opt => { const input = opt.querySelector('input[type="radio"]'); const label = opt.querySelector('label'); if (!input || !label) return; const optionValueRaw = input.value || ''; const val = optionValueRaw.trim().toLowerCase(); opt.classList.remove('bg-success-subtle', 'bg-warning-subtle', 'border-success', 'border-danger', 'fw-bold'); label.querySelectorAll('.feedback-text').forEach(span => span.remove()); const isTheCorrectOption = (correctAns !== null && val === correctAns); const isStudentChoice = (!isUnanswered && val === studentAns); let feedbackHtml = ''; if (isTheCorrectOption) { opt.classList.add('bg-success-subtle', 'border', 'border-success'); feedbackHtml = ' <span class="text-success fw-bold feedback-text">(Đáp án đúng)</span>'; } if (isStudentChoice) { if (isCorrectBasedOnPoints) { opt.classList.add('fw-bold'); feedbackHtml = ' <span class="text-success fw-bold feedback-text">(Bạn chọn đúng)</span>'; } else { if (!isTheCorrectOption) { opt.classList.add('bg-warning-subtle', 'border', 'border-danger'); feedbackHtml = ' <span class="text-danger fw-bold feedback-text">(Bạn chọn sai)</span>'; } } } if (feedbackHtml) { label.insertAdjacentHTML('beforeend', feedbackHtml); } });
         
-        // ✅ MỚI: Thêm khối logic cho 'true_false'
         } else if (qtype === 'true_false') {
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
-            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnswers : [];
+            // ✅ SỬA LỖI: Di chuyển khai báo lên ĐẦU khối
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
             
             // Tìm tất cả các hàng mệnh đề
             const items = card.querySelectorAll('.border-bottom.p-2.mb-2');
             
             items.forEach((item, i) => {
-                const correctAnswer = correctAnswers[i]; // true or false
-                const studentChoice = studentAnswers[i]; // true, false, or null
-                
+                const correctAnswer = correctAnswers[i]; 
+                const studentChoice = studentAnswers[i]; 
                 let isItemCorrect = (studentChoice === correctAnswer);
                 let highlightClass = '';
-
                 if (studentChoice === null) {
                     isItemCorrect = false;
-                    highlightClass = 'bg-light border-warning'; // Bỏ trống
+                    highlightClass = 'bg-light border-warning'; 
                 } else if (isItemCorrect) {
-                    highlightClass = 'bg-success-subtle border-success'; // Chọn đúng
+                    highlightClass = 'bg-success-subtle border-success'; 
                 } else {
-                    highlightClass = 'bg-warning-subtle border-danger'; // Chọn sai
+                    highlightClass = 'bg-warning-subtle border-danger'; 
                 }
-
-                // Áp dụng highlight
                 item.classList.add(...highlightClass.split(' '));
-
-                // Hiển thị đáp án đúng nếu chọn sai
                 if (!isItemCorrect) {
                     item.insertAdjacentHTML('beforeend', `<div class="small text-success fw-bold mt-1">Đáp án đúng là: ${correctAnswer ? 'Đúng' : 'Sai'}</div>`);
+                }
+            });
+            
+        } else if (qtype === 'fill_blank') {
+            // ✅ SỬA LỖI: Thêm logic highlight Fill_Blank
+            const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
+            // ✅ SỬA LỖI: Di chuyển khai báo lên ĐẦU khối
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
+            
+            // Tìm tất cả các ô input inline
+            const inputs = card.querySelectorAll("input.fill-blank-inline");
+            inputs.forEach((input, i) => {
+                const studentAnsNorm = norm_str(studentAnswers[i]);
+                const correctAnsNorm = norm_str(correctAnswers[i]);
+
+                if (studentAnswers[i] === null) {
+                    input.classList.add('is-invalid'); // Bỏ trống
+                } else if (studentAnsNorm === correctAnsNorm) {
+                    input.classList.add('is-valid'); // Đúng
+                } else {
+                    input.classList.add('is-invalid'); // Sai
+                    // Hiển thị đáp án đúng
+                    const feedback = document.createElement('div');
+                    feedback.className = 'valid-feedback d-block'; // Dùng valid-feedback (màu xanh lá) để hiển thị đáp án
+                    feedback.textContent = `Đáp án: ${correctAnswers[i] || ''}`;
+                    // Chèn feedback sau input
+                    if(input.parentNode) {
+                        input.parentNode.insertBefore(feedback, input.nextSibling);
+                    }
                 }
             });
             
@@ -3406,19 +3505,46 @@ async function displayQuizResults(result) {
     });
     // --- Kết thúc vòng lặp ---
 
-    // --- Cập nhật summary ---
+    // --- Cập nhật summary (Đã sửa) ---
     const summaryBox = document.getElementById("quiz-results-summary");
     if (summaryBox) { 
-        // (Code render summary... giữ nguyên)
-         summaryBox.classList.remove("d-none"); summaryBox.innerHTML = `<div class="alert alert-info mt-3"><h5 class="text-primary mb-2">KẾT QUẢ BÀI LÀM TẠM THỜI</h5><p>Tổng số câu: <strong>${totalQuestions}</strong><br>Số câu trắc nghiệm: <strong>${totalMc}</strong> | Số câu tự luận: <strong>${totalEssay}</strong><br>Số câu đúng (TN): <strong>${correctCountBasedOnPoints}</strong><br>Điểm trắc nghiệm (tạm tính): <strong>${autoScoreFromResult.toFixed(1)} / ${maxScoreCalculated.toFixed(1)}</strong></p><small class="text-muted fst-italic">* Điểm tự luận sẽ được cộng thêm sau khi giáo viên chấm.</small></div>`; 
+         summaryBox.classList.remove("d-none"); 
+         summaryBox.innerHTML = `<div class="alert alert-info mt-3">
+            <h5 class="text-primary mb-2">KẾT QUẢ BÀI LÀM TẠM THỜI</h5>
+            <p>Tổng số câu: <strong>${totalQuestions}</strong><br>
+               Số câu Tự động chấm (TN, Đ/S, Điền từ): <strong>${totalMc}</strong> | Số câu Tự luận (Chờ chấm): <strong>${totalEssay}</strong><br>
+               Số câu đúng (Tự động chấm): <strong>${correctCountBasedOnPoints}</strong><br>
+               Điểm (tạm tính): <strong>${autoScoreFromResult.toFixed(1)} / ${maxScoreCalculated.toFixed(1)}</strong>
+            </p>
+            <small class="text-muted fst-italic">* Điểm tự luận sẽ được cộng thêm sau khi giáo viên chấm.</small>
+         </div>`; 
     }
     // --- Kết thúc ---
 
-    // --- Khóa UI cuối cùng ---
-    // (Code khóa nút... giữ nguyên)
-     const submitBtn = document.getElementById("btn-submit-quiz"); const exitBtn = document.getElementById("btn-exit-quiz"); const closeBtn = document.getElementById("btn-close-quiz"); if (submitBtn) { submitBtn.classList.add("d-none"); submitBtn.disabled = true;} if (exitBtn) { exitBtn.textContent = "Đóng"; exitBtn.classList.remove("btn-danger"); exitBtn.classList.add("btn-secondary"); exitBtn.onclick = () => { if (quizModalInstance) quizModalInstance.hide(); }; } if (closeBtn) { closeBtn.onclick = () => { if (quizModalInstance) quizModalInstance.hide(); }; }
+    // --- Khóa UI cuối cùng (Đã sửa) ---
+     const submitBtn = document.getElementById("btn-submit-quiz"); 
+     const exitBtn = document.getElementById("btn-exit-quiz"); 
+     const closeBtn = document.getElementById("btn-close-quiz"); 
+     
+     // Ẩn nút Nộp
+     if (submitBtn) { 
+         submitBtn.classList.add("d-none"); 
+         submitBtn.disabled = true;
+     } 
+     // ✅ SỬA LỖI: Chuyển nút "Thoát/Hủy" thành nút "Đóng"
+     if (exitBtn) { 
+         exitBtn.textContent = "Đóng"; // Đổi text
+         exitBtn.classList.remove("btn-danger"); // Bỏ màu đỏ
+         exitBtn.classList.add("btn-secondary"); // Thêm màu xám
+         exitBtn.onclick = () => { if (quizModalInstance) quizModalInstance.hide(); }; // Gán hành động đóng modal
+     } 
+     // Gán hành động đóng cho nút X
+     if (closeBtn) { 
+         closeBtn.onclick = () => { if (quizModalInstance) quizModalInstance.hide(); }; 
+     }
     // --- Kết thúc ---
 }
+
 
 async function getTestName(testId) {
     if (!testId || testId === 'N/A') return 'Không rõ tên';
@@ -3606,7 +3732,9 @@ async function buildAnswersFromResult(data, prevAnswers = null) {
     return answers;
 }
 
-   // Hàm normalize một câu trả lời từ detailedResult và question gốc
+// =================================================================
+// HÀM NORMANLIZEANSWER (ĐÃ SỬA LỖI BỎ SÓT correctItems/totalItems)
+// =================================================================
 function normalizeAnswer(detailData, questionData = null, old = {}) {
     const qid = detailData.questionId || old.questionId || null;
     const qTypeFromDetail = (detailData.type || '').toLowerCase();
@@ -3676,7 +3804,12 @@ function normalizeAnswer(detailData, questionData = null, old = {}) {
         teacherNote: detailData.teacherNote ?? old.teacherNote ?? '', // Nhận xét GV
         maxPoints: detailData.maxPoints ?? qPoints, // Điểm tối đa
         correctAnswer: correctAnswer, // Đáp án đúng
-        type: type // Loại câu hỏi
+        type: type, // Loại câu hỏi
+        
+        // ===== BẮT ĐẦU SỬA LỖI (Thêm 2 dòng bị thiếu) =====
+        correctItems: detailData.correctItems, // Lấy từ data gốc
+        totalItems: detailData.totalItems      // Lấy từ data gốc
+        // ===== KẾT THÚC SỬA LỖI =====
     };
 }
 
@@ -3810,6 +3943,9 @@ window.openResultDetail = openResultDetail;
 
 
 
+// =================================================================
+// HÀM RENDERRESULTDETAILMODAL (ĐÃ CẬP NHẬT STICK "2/3" THAY VÌ "1/2")
+// =================================================================
 async function renderResultDetailModal(data) {
     if (!data || !data.id) {
         console.error("renderResultDetailModal: Invalid input data.");
@@ -3819,7 +3955,7 @@ async function renderResultDetailModal(data) {
     // Lưu dữ liệu vào biến toàn cục để hàm saveGrading có thể truy cập
     window.currentResultData = data;
 
-    // Khóa nút Lưu nếu đã chấm 2 lần (Logic giữ nguyên)
+    // Khóa nút Lưu nếu đã chấm 2 lần
     const saveBtn = document.getElementById("btn-save-grading");
     if (saveBtn) {
         if ((data.regradeCount || 0) >= 2) {
@@ -3846,7 +3982,7 @@ async function renderResultDetailModal(data) {
     const sumTotal = document.getElementById('sum-totalScore');
     const modalTitle = document.querySelector('#modalGrading .modal-title');
 
-    // Cập nhật Header: Đảm bảo hiển thị tên HS, lớp, đề thi (sẽ không bị N/A nhờ BE đã sửa)
+    // Cập nhật Header
     if(modalTitle) modalTitle.innerText = `Chi tiết bài làm: ${data.testName || 'Bài làm'}`;
     if(sumTest) sumTest.innerText = data.testName || 'N/A';
     if(sumStudent) sumStudent.innerText = data.studentName || 'N/A';
@@ -3861,8 +3997,7 @@ async function renderResultDetailModal(data) {
          return;
     }
 
-    // Chuẩn hóa answers (Hàm này vẫn là giả định nhưng logic gọi giữ nguyên)
-  
+    // Chuẩn hóa answers
     const answers = await buildAnswersFromResult(data);
     console.log('  renderResultDetailModal: Normalized answers received:', answers);
 
@@ -3876,60 +4011,154 @@ async function renderResultDetailModal(data) {
     answers.forEach((ans, i) => {
         try {
             const q = ans.question || {};
-            const questionContent = q.q || '(Không có nội dung)';
+            let questionContent = q.q || '(Không có nội dung)'; 
             const q_type = (q.type || ans.type || '').toLowerCase();
             const isEssay = ans.isEssay || q_type === 'essay' || q_type === 'tu_luan';
-            const studentAnswerText = String(ans.studentAnswer || '');
+            
+            const studentAnsRaw = ans.studentAnswer; 
+            const correctAnsRaw = ans.correctAnswer ?? null;
             const teacherScore = ans.teacherScore;
             const maxPoints = ans.maxPoints ?? q.points ?? 1;
-            const isActuallyCorrect = ans.isCorrect;
             const qId = q.id || ans.questionId;
+            const gainedPoints = ans.gainedScore ?? 0;
 
-            // Stick HTML
-            let stickText = ''; let stickClass = '';
-            if (isEssay) { 
-                if (teacherScore === null || teacherScore === undefined || teacherScore === '') { stickText = '…'; stickClass = 'stick-orange'; } 
-                else if (Number(teacherScore) > 0) { stickText = 'Đ'; stickClass = 'stick-green'; } 
-                else { stickText = 'S'; stickClass = 'stick-red'; } 
-            }
-            else { 
-                if (isActuallyCorrect === true) { stickText = 'Đ'; stickClass = 'stick-green'; } 
-                else { stickText = 'S'; stickClass = 'stick-red'; } 
-            }
-            const stickHtml = `<span class="score-stick ${stickClass}" data-question-id="${qId}" title="${isEssay ? 'Tự luận' : 'Trắc nghiệm'}">${stickText}</span>`;
+            
+            // ===== BẮT ĐẦU SỬA LỖI (Logic Stick "2/3") =====
+            
+            let pointsForBadge = 0;
+            const isUngradedEssay = isEssay && (teacherScore === null || teacherScore === undefined || teacherScore === '');
+            
+            // LẤY DỮ LIỆU MỚI TỪ DATABASE
+            const correctItems = ans.correctItems; // e.g., 2 (hoặc null/undefined nếu là essay)
+            const totalItems = ans.totalItems;     // e.g., 3 (hoặc null/undefined nếu là essay)
 
-            // Khai báo biến cho HTML phụ (Đã FIX lỗi trùng lặp khai báo)
-            let optionsHtml = '';
+            if (isEssay) {
+                pointsForBadge = (teacherScore !== null && teacherScore !== undefined) ? Number(teacherScore) : 0;
+            } else {
+                pointsForBadge = gainedPoints;
+            }
+
+            let stickText = '';
+            let stickClass = '';
+            let scoreBadgeClass = '';
+            
+            const pfb_rounded = parseFloat(pointsForBadge.toFixed(2));
+            const max_rounded = parseFloat(maxPoints.toFixed(2));
+
+            if (isUngradedEssay) {
+                stickText = '…';
+                stickClass = 'stick-orange'; 
+                scoreBadgeClass = 'badge bg-light text-dark border ms-2'; 
+            } else if (pfb_rounded >= max_rounded && pfb_rounded > 0) { 
+                stickText = 'Đ';
+                stickClass = 'stick-green'; 
+                scoreBadgeClass = 'badge bg-success text-white ms-2'; 
+            } else if (pfb_rounded > 0) {
+                
+                // === LOGIC MỚI: HIỂN THỊ "2/3" THAY VÌ "1/2" ===
+                if (correctItems !== null && correctItems !== undefined && totalItems !== null && totalItems > 0) {
+                     stickText = `${correctItems}/${totalItems}`; // Hiển thị 2/3, 1/3...
+                } else {
+                     stickText = '½'; // Fallback nếu dữ liệu cũ
+                }
+                // =============================================
+
+                stickClass = 'stick-orange'; 
+                scoreBadgeClass = 'badge bg-warning text-dark ms-2'; 
+            } else { // pfb_rounded <= 0
+                stickText = 'S';
+                stickClass = 'stick-red'; 
+                scoreBadgeClass = 'badge bg-danger text-white ms-2';
+            }
+            
+            const stickHtml = `<span class="score-stick ${stickClass}" data-question-id="${qId}" title="${q_type}">${stickText}</span>`;
+            
+            const scoreBadgeHtml = `<span class="${scoreBadgeClass}" style="font-size: 0.8em; padding: 0.2em 0.4em; border-radius: 4px; vertical-align: middle;">${pointsForBadge.toFixed(2)} đ</span>`;
+            
+            // ===== KẾT THÚC SỬA LỖI =====
+
+
+            // Khai báo biến
             let essayFields = '';
             let answerDisplay = '';
             let correctAnswerHtml = ''; 
             let imageHtml = '';
             let studentAnswerLabelHtml = '';
 
-            // Tạo Options HTML cho MC
-            if (!isEssay && (q_type === 'mc' || q_type === 'multiple_choice')) {
-                const correctAns = String(ans.correctAnswer || '').trim().toLowerCase();
-                const studentAnswerTrimmedLower = studentAnswerText.trim().toLowerCase();
-                optionsHtml = (q.options || []).map(opt => {
+            // --- Logic Render ---
+
+            if (q_type === 'mc' || q_type === 'multiple_choice') {
+                const correctAns = String(correctAnsRaw || '').trim().toLowerCase();
+                const studentAnswerTrimmedLower = String(studentAnsRaw || '').trim().toLowerCase();
+                answerDisplay = (q.options || []).map(opt => {
                     const optionText = String(opt.text || opt.value || '').trim();
                     const optionTextLower = optionText.toLowerCase();
                     let cls = '';
                     if (correctAns && optionTextLower === correctAns) { cls = 'bg-success-subtle border-success fw-bold'; }
-                    else if (optionTextLower === studentAnswerTrimmedLower) { cls = 'bg-danger-subtle border-danger'; }
+                    else if (optionTextLower === studentAnswerTrimmedLower) { cls = 'bg-danger-subtle border-danger'; } 
                     return `<div class="border rounded p-2 my-1 ${cls}">${escapeHtml(opt.text || opt.value || '')}</div>`;
                 }).join('');
-                if (!q.options || q.options.length === 0) { 
-                    optionsHtml = `<p class="text-danger small">Lỗi: Không tìm thấy lựa chọn.</p>`; 
-                    if(studentAnswerText) { optionsHtml += `<p class="small">HS chọn: <strong>${escapeHtml(studentAnswerText)}</strong></p>`; } 
+
+            } else if (q_type === 'true_false') {
+                const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
+                const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
+                
+                answerDisplay = (q.options || []).map((opt, i) => {
+                    const optText = escapeHtml(opt.text || `Mệnh đề ${i+1}`);
+                    const correctAnswer = correctAnswers[i];
+                    const studentChoice = studentAnswers[i];
+                    let isItemCorrect = (studentChoice === correctAnswer);
+                    let highlightClass = '';
+                    if (studentChoice === null) { isItemCorrect = false; highlightClass = 'bg-light border-warning'; }
+                    else if (isItemCorrect) { highlightClass = 'bg-success-subtle border-success'; }
+                    else { highlightClass = 'bg-warning-subtle border-danger'; }
+                    
+                    return `
+                        <div class="border p-2 mb-2 rounded ${highlightClass}">
+                            <p class="mb-1">${optText}</p>
+                            <span class="small me-3">HS chọn: <strong>${studentChoice === null ? '[Bỏ trống]' : (studentChoice ? 'Đúng' : 'Sai')}</strong></span>
+                            <span class="small text-success">Đáp án: <strong>${correctAnswer ? 'Đúng' : 'Sai'}</strong></span>
+                        </div>`;
+                }).join('');
+
+            } else if (q_type === 'fill_blank') {
+                const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
+                const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
+                
+                let blankIndex = 0;
+                const spanStyle = "border-radius: 4px; border: 1px solid; margin: 0 4px; min-width: 60px; text-align:center; font-size: 0.9em; line-height: 1.5; padding: 0 0.25rem; vertical-align: baseline;";
+
+                answerDisplay = questionContent.replace(/\n/g, '<br>').replace(/\[BLANK\]/g, () => {
+                    const i = blankIndex++;
+                    const studentAnsText = studentAnswers[i] || null;
+                    const studentAnsDisplay = studentAnsText ? escapeHtml(studentAnsText) : '[Bỏ trống]';
+                    const isCorrect = norm_str(studentAnsText) === norm_str(correctAnswers[i]);
+                    
+                    let spanClass = isCorrect ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger';
+                    if(studentAnsText === null) {
+                        spanClass = 'bg-warning-subtle border-warning';
+                    }
+
+                    return `<span class="d-inline-block ${spanClass}" 
+                                  style="${spanStyle}">
+                                ${studentAnsDisplay}
+                           </span>`;
+                });
+                
+                questionContent = ''; 
+                correctAnswerHtml = `<p class="small text-muted mt-2 mb-0">Đáp án đúng (theo thứ tự): <strong>${correctAnswers.map(escapeHtml).join(', ')}</strong></p>`;
+
+            } else { // Tự luận (essay)
+                let essayText = escapeHtml(String(studentAnsRaw || ''));
+                let placeholderText = '';
+                if (studentAnsRaw === null || studentAnsRaw === undefined || String(studentAnsRaw).trim() === '') {
+                    placeholderText = 'placeholder="Chưa trả lời..."';
+                    essayText = '';
                 }
-            }
-
-            // Tạo Answer Display HTML
-            answerDisplay = isEssay ? `<textarea class="form-control" rows="3" readonly>${escapeHtml(studentAnswerText)}</textarea>` : optionsHtml;
-
-            // Tạo Essay Fields HTML (Chỉ gán giá trị)
-            if (isEssay) {
-                 essayFields = `
+                
+                answerDisplay = `<textarea class="form-control" rows="3" readonly ${placeholderText}>${essayText}</textarea>`;
+                studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh:</p>';
+                essayFields = `
                     <div class="mt-2 border-top pt-2">
                         <label class="form-label small mb-0">Nhận xét GV</label>
                         <textarea class="form-control" id="note-${qId}" rows="2">${escapeHtml(ans.teacherNote||'')}</textarea>
@@ -3938,28 +4167,18 @@ async function renderResultDetailModal(data) {
                     </div>`;
             }
 
-            // Tạo Correct Answer HTML (MC) (Chỉ gán giá trị)
-            if (!isEssay && ans.correctAnswer) {
-                 correctAnswerHtml = `<p class="small text-muted mt-2 mb-0">Đáp án đúng: <strong>${escapeHtml(ans.correctAnswer)}</strong></p>`;
-            }
-
-            // Tạo Image HTML (Chỉ gán giá trị)
+            // Tạo Image HTML
             if (q.imageId) {
                  imageHtml = `<img src="${serverUrl}/images/${q.imageId}" class="mt-2 img-fluid rounded" style="max-height:300px;">`;
-            }
-
-            // Tạo Student Answer Label HTML (Essay) (Chỉ gán giá trị)
-            if (isEssay) {
-                 studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh:</p>';
             }
 
             // Ghép HTML cho card
             html += `
                 <div class="border rounded p-3 mb-3 shadow-sm bg-white"style="page-break-inside: avoid !important;">
-                    <div><strong>Câu ${i + 1}</strong> <span class="badge bg-secondary ms-2">${maxPoints} điểm</span> ${stickHtml}</div>
-                    <div class="mt-2 text-wrap">${questionContent}</div>
+                    <div><strong>Câu ${i + 1}</strong> <span class="badge bg-secondary ms-2">${maxPoints} điểm</span> ${stickHtml} ${scoreBadgeHtml}</div>
+                    <div class="mt-2 text-wrap" style="${q_type === 'fill_blank' ? 'line-height: 2.5;' : ''}">${questionContent}</div>
                     ${imageHtml}
-                    <div class="mt-3 border-top pt-2"> ${studentAnswerLabelHtml} <div class="mb-2">${answerDisplay}</div> ${correctAnswerHtml} </div>
+                    <div class="mt-3 border-top pt-2" style="${q_type === 'fill_blank' ? 'line-height: 2.5;' : ''}"> ${studentAnswerLabelHtml} <div class="mb-2">${answerDisplay}</div> ${correctAnswerHtml} </div>
                     ${essayFields}
                 </div>`;
         } catch (renderError) {
@@ -3971,6 +4190,8 @@ async function renderResultDetailModal(data) {
     // Gán HTML vào container
     container.innerHTML = html;
 }
+
+
 
 // Đảm bảo bạn có dòng này ở đầu file HTML/JS của bạn:
 // const serverUrl = 'https://quiz-to21.onrender.com';
@@ -4098,6 +4319,31 @@ window.renderResultDetailModal = renderResultDetailModal;
 
 
 
+// ==================================================
+// HÀM MỚI: ẨN/HIỆN BIỂU ĐỒ PHÂN PHỐI ĐIỂM
+// ==================================================
+function toggleGradeChart() {
+    const chartContainer = qs('#grade-distribution-container');
+    const btn = qs('#toggle-chart-btn');
+    
+    if (!chartContainer || !btn) return;
+
+    if (chartContainer.style.display === 'none') {
+        // Đang ẩn -> Hiện
+        chartContainer.style.display = 'block';
+        btn.textContent = 'Ẩn biểu đồ';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-outline-secondary');
+    } else {
+        // Đang hiện -> Ẩn
+        chartContainer.style.display = 'none';
+        btn.textContent = 'Hiện biểu đồ';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-outline-primary');
+    }
+}
+
+
 function updateResultButtonStatus(resultId, status) {
   const btn = document.querySelector(`button[onclick*="${resultId}"]`);
   if (!btn) return;
@@ -4142,7 +4388,7 @@ function openQuestionModal(q) {
     // --- Lấy các phần tử ---
     const warningDiv = qs('q-warning-locked');
     const inputId = qs('m-q-id');
-    const inputQ = qs('m-q-q'); // Ô câu hỏi chính
+    const inputQ = qs('m-q-q'); 
     const inputSubject = qs('m-q-subject');
     const inputLevel = qs('m-q-level');
     const inputType = qs('m-q-type');
@@ -4156,11 +4402,14 @@ function openQuestionModal(q) {
     const btnSave = document.querySelector('#modalQuestion .btn-primary');
     const inputTags = qs('m-q-tags');
     const trueFalseContainer = qs('m-q-true-false-container');
+    const fillBlankContainer = qs('m-q-fill-blank-container'); 
+    const inputHint = qs('m-q-hint-field'); // <-- ĐÃ THÊM
 
     // --- Reset modal ---
     inputOptionsContainer.innerHTML = '';
     inputEssayAnswer.value = '';
-    trueFalseContainer.innerHTML = ''; // ✅ Reset container
+    trueFalseContainer.innerHTML = ''; 
+    fillBlankContainer.innerHTML = ''; 
     inputDifficulty && (inputDifficulty.value = 'medium');
     imageFileEl.value = '';
     imagePreviewEl.innerHTML = '';
@@ -4170,23 +4419,26 @@ function openQuestionModal(q) {
     warningDiv.style.display = 'none'; 
     modalEl.dataset.isLocked = 'false'; 
     inputTags.value = '';
-    inputQ.value = ''; // ✅ Reset ô câu hỏi chính
+    inputQ.value = ''; 
+    inputHint.value = ''; // <-- ĐÃ THÊM
 
     let isLocked = false; 
 
     if (q) {
         // === CHẾ ĐỘ SỬA/XEM ===
         inputId.value = q.id || q._id || '';
-        inputQ.value = q.q || ''; // ✅ Điền nội dung câu hỏi chính
+        inputQ.value = q.q || ''; 
         inputSubject.value = q.subject || '';
         inputLevel.value = q.level || '1';
-        inputType.value = q.type || 'mc'; // ✅ Đặt loại câu hỏi
+        inputType.value = q.type || 'mc'; 
         inputPoints.value = q.points || 1;
         inputDifficulty && (inputDifficulty.value = q.difficulty || 'medium');
         
         if (Array.isArray(q.tags)) {
             inputTags.value = q.tags.join(', ');
         }
+        inputHint.value = q.hint || ''; // <-- ĐÃ THÊM
+
         if (q.imageId) {
             imagePreviewEl.innerHTML = `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid" style="object-fit: contain;">`;
             imagePreviewEl.style.display = 'block';
@@ -4199,24 +4451,23 @@ function openQuestionModal(q) {
         } else if (q.type === 'essay') {
             inputEssayAnswer.value = q.answer || '';
         } else if (q.type === 'true_false' && Array.isArray(q.options)) {
-            // ✅ Điền các ý đã lưu.
-            // Vì container này đã có children, logic "thêm 2 ý" trong toggleOptionFields sẽ KHÔNG chạy
             q.options.forEach(opt => addTrueFalseOption(opt.text, opt.correct));
-        } 
+        } else if (q.type === 'fill_blank' && Array.isArray(q.options)) { 
+            q.options.forEach(opt => addFillBlankOption(opt.text));
+        }
         
         isLocked = q.isAssigned === true;
         
     } else {
         // === CHẾ ĐỘ TẠO MỚI ===
         inputId.value = '';
-        inputQ.value = ''; // Trống
+        inputQ.value = ''; 
         inputSubject.value = '';
         inputLevel.value = '1';
-        inputType.value = 'mc'; // Mặc định là mc
+        inputType.value = 'mc'; 
         inputPoints.value = 1;
         inputDifficulty && (inputDifficulty.value = 'medium');
         
-        // Thêm 3 đáp án MC mặc định
         addQuestionOption();
         addQuestionOption();
         addQuestionOption();
@@ -4225,70 +4476,56 @@ function openQuestionModal(q) {
     }
 
     // === ÁP DỤNG TRẠNG THÁI KHÓA & HIỂN THỊ ===
-    
-    // 1. Gọi toggleOptionFields() MỘT LẦN
-    // Nó sẽ đọc `inputType.value` (là 'mc' khi tạo mới, hoặc 'q.type' khi sửa)
-    // và hiển thị đúng các phần.
     toggleOptionFields(); 
-    
     modalEl.dataset.isLocked = isLocked; 
     if (isLocked) {
         warningDiv.style.display = 'block'; 
     }
     
-    // 2. Lấy danh sách core inputs ĐỂ KHÓA (Bao gồm cả 'm-q-q')
     const coreInputs = [
         inputQ, inputSubject, inputLevel, inputType, inputPoints, inputDifficulty,
         inputEssayAnswer, imageFileEl, btnRemoveImage, btnSave,
-        inputTags 
+        inputTags,
+        inputHint // <-- ĐÃ THÊM
     ];
 
-    // 3. Khóa toàn bộ nếu isLocked
     coreInputs.forEach(el => { 
         if (el) el.disabled = isLocked; 
     });
     
     inputOptionsContainer.querySelectorAll('input, button').forEach(el => el.disabled = isLocked);
     trueFalseContainer.querySelectorAll('input, select, button').forEach(el => el.disabled = isLocked);
+    fillBlankContainer.querySelectorAll('input, button').forEach(el => el.disabled = isLocked); 
     
-    // 4. (Xử lý ảnh... giữ nguyên)
+    // Nút Xóa ảnh cũ
     btnRemoveImage.onclick = () => {
         imageFileEl.dataset.removeOldImage = 'true';
-        imagePreviewEl.innerHTML = 'Ảnh cũ sẽ bị xóa khi lưu.';
-        imagePreviewEl.style.display = 'block';
+        imagePreviewEl.style.display = 'none';
+        imagePreviewEl.innerHTML = '';
         btnRemoveImage.style.display = 'none';
-        imageFileEl.value = '';
-    };
-    imageFileEl.onchange = (e) => {
-        const file = e.target.files[0];
-        imageFileEl.dataset.removeOldImage = 'false';
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                imagePreviewEl.innerHTML = `<img src="${event.target.result}" class="img-fluid" style="object-fit: contain;">`;
-                imagePreviewEl.style.display = 'block';
-                btnRemoveImage.style.display = 'none';
-            };
-            reader.readAsDataURL(file);
-        } else if (q && q.imageId && imageFileEl.dataset.removeOldImage !== 'true') {
-            imagePreviewEl.innerHTML = `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid" style="object-fit: contain;">`;
-            imagePreviewEl.style.display = 'block';
-            btnRemoveImage.style.display = 'inline-block';
-        } else {
-            imagePreviewEl.innerHTML = '';
-            imagePreviewEl.style.display = 'none';
-            btnRemoveImage.style.display = 'none';
-        }
     };
 
-    // 5. Gán onchange
+    // Preview ảnh mới
+    imageFileEl.onchange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                imagePreviewEl.innerHTML = `<img src="${ev.target.result}" class="img-fluid" style="object-fit: contain;">`;
+                imagePreviewEl.style.display = 'block';
+                imageFileEl.dataset.removeOldImage = 'false'; 
+                btnRemoveImage.style.display = 'none'; 
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
+    
     inputType.onchange = toggleOptionFields;
     
     modal.show();
 }
 
 
-// ====================== SAVE QUESTION ======================
+// ====================== SAVE QUESTION (ĐÃ CẬP NHẬT) ======================
 async function saveQuestion(){ 
     const id = qs('m-q-id').value; 
     const type = qs('m-q-type').value; 
@@ -4300,7 +4537,7 @@ async function saveQuestion(){
     const url = isNew ? `${serverUrl}/api/questions` : `${serverUrl}/api/questions/${id}`;
 
     let collectedOptions = [];
-    let essayAnswer = '';
+    let essayAnswer = ''; 
 
     if (type === 'mc') {
         const optionsContainer = qs('m-q-options-container');
@@ -4328,38 +4565,42 @@ async function saveQuestion(){
             if (textInput && selectInput && textInput.value.trim()) {
                 collectedOptions.push({
                     text: textInput.value.trim(),
-                    // Chuyển "true"/"false" (string) thành true/false (boolean)
                     correct: (selectInput.value === 'true') 
                 });
             }
         });
+    
+    } else if (type === 'fill_blank') { 
+        const container = qs('m-q-fill-blank-container');
+        const inputs = container.querySelectorAll('input[type="text"]');
+        inputs.forEach(input => {
+            if (input.value.trim()) {
+                collectedOptions.push({ text: input.value.trim() });
+            }
+        });
+        essayAnswer = ''; // Đảm bảo answer của Tự luận bị rỗng
     }
 
     const formData = new FormData();
-    
-    // ✅ Lấy nội dung từ ô câu hỏi (dù nó bị readonly)
     formData.append('q', qs('m-q-q').value); 
-
     formData.append('subject', qs('m-q-subject').value); 
     formData.append('level', qs('m-q-level').value); 
     formData.append('type', type); 
     formData.append('points', Number(qs('m-q-points').value) || 1); 
     formData.append('difficulty', difficulty);
     formData.append('tags', qs('m-q-tags').value);
+    formData.append('hint', qs('m-q-hint-field').value.trim()); // <-- ĐÃ THÊM
     
-    // `collectedOptions` giờ đã đúng định dạng
     formData.append('options', JSON.stringify(collectedOptions)); 
-    formData.append('answer', essayAnswer); 
+    formData.append('answer', essayAnswer); // (Chỉ dùng cho loại Essay)
     formData.append('removeOldImage', removeOld);
 
     if (imageFileEl && imageFileEl.files && imageFileEl.files.length > 0) {
         formData.append('image', imageFileEl.files[0]); 
     }
-
     if (!isNew) {
         formData.append('id', id);
     }
-
     try{ 
         const response = await fetch(url, { method: method, body: formData });
         if (!response.ok) {
@@ -4367,7 +4608,6 @@ async function saveQuestion(){
             try { errorBody = (await response.json()).message || errorBody; } catch(e){}
             throw new Error(`Lưu thất bại: ${response.status} - ${errorBody}`);
         }
-
         bootstrap.Modal.getInstance(qs('modalQuestion')).hide(); 
         await loadQuestions(true); 
         showToast('Lưu câu hỏi thành công!');
@@ -4376,6 +4616,7 @@ async function saveQuestion(){
         showToast('Lỗi lưu câu hỏi: ' + e.message, 'danger');
     } 
 }
+
 
 // ✅ THÊM HÀM MỚI NÀY
 function addTrueFalseOption(text = '', isCorrect = true) {
@@ -4695,19 +4936,44 @@ function updateTestLevelFilter(tests) {
 	// Bạn cần sửa hàm renderTests trong file JS của bạn
 function renderTests(items) {
     const tbody = qs('#tests-tbody');
-     if (!tbody) return; const TOTAL_COLUMNS = 11; tbody.innerHTML = ''; if (!items || items.length === 0) { tbody.innerHTML = `<tr><td colspan="${TOTAL_COLUMNS}" class="text-center text-muted">Không có bài kiểm tra nào phù hợp.</td></tr>`; return; }
+     if (!tbody) return; 
+     
+     // SỬA LỖI: Cập nhật Colspan
+     const TOTAL_COLUMNS = 13; // 11 + 2 cột mới
+     
+     tbody.innerHTML = ''; 
+     if (!items || items.length === 0) { 
+         tbody.innerHTML = `<tr><td colspan="${TOTAL_COLUMNS}" class="text-center text-muted">Không có bài kiểm tra nào phù hợp.</td></tr>`; 
+         return; 
+     }
 
     const frag = document.createDocumentFragment();
-     const currentPage = parseInt(state?.tests?.page) || 1; const PAGE_SIZE = 10; let stt = (currentPage - 1) * PAGE_SIZE + 1;
+     const currentPage = parseInt(state?.tests?.page) || 1; 
+     // SỬA LỖI: PAGE_SIZE đang là 10, không phải 20
+     // const PAGE_SIZE = 10; // (Đã được định nghĩa ở global)
+     let stt = (currentPage - 1) * PAGE_SIZE + 1;
 
 
     items.forEach(t => {
         const tr = document.createElement('tr');
-         const testId = t.id || t._id || ''; const subjectName = SUBJECT_NAMES[t.subject] || t.subject || '—'; const essayCount = t.essayCount ?? 0; const mcCount = t.mcCount ?? 0; const status = (t.assignmentStatus || '').toLowerCase(); 
+         const testId = t.id || t._id || ''; 
+         const subjectName = SUBJECT_NAMES[t.subject] || t.subject || '—'; 
+         
+         // ======== SỬA ĐỔI TẠI ĐÂY ========
+         const essayCount = t.essayCount ?? 0; 
+         const mcCount = t.mcCount ?? 0;
+         const tfCount = t.tfCount ?? 0; // <-- MỚI
+         const fillCount = t.fillCount ?? 0; // <-- MỚI
+         // ===============================
+
+         const status = (t.assignmentStatus || '').toLowerCase(); 
          
          const isAssigned = status === 'assigned';
          
-         const statusText = isAssigned ? 'Đã giao' : 'Chưa giao'; const statusClass = isAssigned ? 'text-success' : 'text-secondary'; const timeDisplay = t.time || '—'; const creationDate = t.createdAt ? formatDateTimeForTable(t.createdAt) : '—';
+         const statusText = isAssigned ? 'Đã giao' : 'Chưa giao'; 
+         const statusClass = isAssigned ? 'text-success' : 'text-secondary'; 
+         const timeDisplay = t.time || '—'; 
+         const creationDate = t.createdAt ? formatDateTimeForTable(t.createdAt) : '—';
 
 
         const testType = t.isAutoGenerated === true
@@ -4715,21 +4981,18 @@ function renderTests(items) {
                        : '<span class="badge bg-light text-dark border">Thủ công</span>';
 
         // === CẬP NHẬT LOGIC NÚT ===
-        
-        // Sửa: Nút "Sửa" giờ có màu đỏ (outline-danger) nếu bị khóa, nhưng VẪN GỌI HÀM MỞ MODAL
         const editButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-danger" title="Xem chi tiết đề thi (đã khóa)" onclick='openTestEditModal("${testId}")'>Xem</button>`
             : `<button class="btn btn-sm btn-outline-primary" onclick='openTestEditModal("${testId}")'>Sửa</button>`;
         
-        // In: Giữ nguyên
         const printButtonHtml = `<button class="btn btn-sm btn-outline-info" title="In đề thi ra PDF" onclick='handlePrintClick("${testId}")'>In</button>`;
         
-        // Xóa: Nút "Xóa" có màu đỏ, bị khóa (btn-locked) và gọi alert
         const deleteButtonHtml = isAssigned
             ? `<button class="btn btn-sm btn-outline-danger btn-locked" title="Đề thi đã được giao, không thể xóa." onclick='alert("Đề thi đã được giao, không thể xóa.")'>Xóa</button>`
             : `<button class="btn btn-sm btn-outline-danger" onclick='deleteTest("${testId}", "${escapeHtml(t.name).replace(/"/g, '&quot;')}")'>Xóa</button>`;
         // === KẾT THÚC CẬP NHẬT ===
 
+        // ======== SỬA ĐỔI TẠI ĐÂY ========
         tr.innerHTML = `
             <td class="text-center"><input type="checkbox" class="select-test-checkbox" data-testid="${testId}"></td>
             <td class="text-center">${stt++}</td>
@@ -4737,6 +5000,8 @@ function renderTests(items) {
             <td class="text-start">${escapeHtml(t.name || 'N/A')}</td>
             <td class="text-center">${essayCount}</td>
             <td class="text-center">${mcCount}</td>
+            <td class="text-center">${tfCount}</td>
+            <td class="text-center">${fillCount}</td>
             <td class="text-center">${timeDisplay}</td>
             <td class="text-center date-time-cell">${creationDate}</td>
             <td class="text-center">${testType}</td>
@@ -4751,6 +5016,7 @@ function renderTests(items) {
                 </div>
             </td>
         `;
+        // ===============================
         frag.appendChild(tr);
     });
     tbody.appendChild(frag);
@@ -6382,6 +6648,46 @@ function debounceLoadStudents() {
     }, 300); // Đợi 300ms sau khi người dùng ngừng gõ
 }
 
+
+/**
+ * Thêm một hàng đáp án mới cho loại "Điền từ".
+ */
+function addFillBlankOption(text = '') {
+    const container = qs('m-q-fill-blank-container');
+    const div = document.createElement('div');
+    div.className = 'input-group mb-1';
+    
+    // Thêm số thứ tự cho dễ nhìn
+    div.innerHTML = `
+        <span class="input-group-text">${container.children.length + 1}.</span>
+        <input type="text" class="form-control" placeholder="Nhập đáp án đúng" value="${escapeHtml(text)}">
+        <button class="btn btn-outline-danger" type="button" onclick="this.closest('.input-group').remove(); renumberFillBlankOptions();">Xóa</button>
+    `;
+    
+    // Khóa nếu modal bị khóa
+    const modalEl = qs('modalQuestion');
+    const isLocked = (modalEl.dataset.isLocked === 'true');
+    if (isLocked) {
+        div.querySelectorAll('input, button').forEach(el => el.disabled = true);
+    }
+
+    container.appendChild(div);
+}
+
+/**
+ * Đánh số lại các hàng đáp án "Điền từ" sau khi xóa.
+ */
+function renumberFillBlankOptions() {
+    const container = qs('m-q-fill-blank-container');
+    container.querySelectorAll('.input-group-text').forEach((span, index) => {
+        span.textContent = `${index + 1}.`;
+    });
+}
+
+
+
+
+
 // Hàm tải học sinh với bộ lọc
 // Thay thế hàm loadStudents() hiện tại bằng hàm này
 async function loadStudents(forceReload = false, resetPage = true) {
@@ -7225,11 +7531,15 @@ function showInfoModal(title, message, isError = false) {
 }
 
 
+// THAY THẾ TOÀN BỘ HÀM NÀY (khoảng dòng 7578)
 async function confirmAssign() {
+    // ✅ SỬA LỖI: Di chuyển khai báo 'confirmBtn' lên đầu hàm
+    const confirmBtn = qs('#confirm-assign-btn'); 
+    
     const deadlineValue = qs('#assign-deadline').value;
     const deadlineISO = deadlineValue ? `${deadlineValue}:00.000Z` : null;
 
-    // 1. Lấy danh sách ID đề thi (như đã sửa)
+    // 1. Lấy danh sách ID đề thi
     let testIds = [];
     const testIdsRaw = qs('#assign-test-ids').value;
     try {
@@ -7256,31 +7566,28 @@ async function confirmAssign() {
     const studentsToReassign = Array.from(qs('#current-assigned-list').querySelectorAll('div'))
                                  .map(div => div.id.replace('current-assign-', ''));
 
-    // 🔥 FIX LỖI 1: Nếu không có học sinh nào được chọn, dừng lại ngay
-    if (studentsToReassign.length === 0) {
-        alert("Lỗi: Vui lòng chọn ít nhất một học sinh để giao bài.");
-        if (confirmBtn) confirmBtn.disabled = false;
-        return;
+    // 3. Lấy className (nếu có)
+    let className = null;
+    if (studentsToReassign.length > 0) {
+        const firstStudentId = studentsToReassign[0];
+        const firstStudent = allStudents.find(s => s.id === firstStudentId);
+        className = firstStudent ? (firstStudent.className || 'N/A') : null;
     }
-    
-    // 3. 🔥 FIX LỖI 2: TRUY VẤN LẤY TÊN LỚP (className)
-    // Lấy thông tin lớp học của học sinh đầu tiên trong danh sách đã chọn.
-    const firstStudentId = studentsToReassign[0];
-    const firstStudent = allStudents.find(s => s.id === firstStudentId);
-    const className = firstStudent ? (firstStudent.className || 'N/A') : null;
     
     // 4. Lấy thông tin Giáo viên
     const teacher = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
     const teacherId = teacher?.id;
     if (!teacherId) { alert("Lỗi: Không tìm thấy thông tin giáo viên."); return; }
 
-    const confirmBtn = qs('#confirm-assign-btn');
     if(confirmBtn) confirmBtn.disabled = true;
 
-    // 5. Tính toán thay đổi cho trường hợp **Giao Đơn Lẻ** (Phần này giữ nguyên logic hủy)
+    // 5. Tính toán thay đổi cho trường hợp **Giao Đơn Lẻ**
     let assignmentsToCancel = [];
+    let testIdToUpdate = null; // <-- SỬA LỖI: Lưu ID đề thi để cập nhật status
+
     if (testIds.length === 1) {
-        const assignedInModal = studentsToReassign; // Đã đổi tên biến để dễ đọc
+        testIdToUpdate = testIds[0]; // <-- SỬA LỖI: Đây là testId ta cần update
+        const assignedInModal = studentsToReassign; 
         assignmentsToCancel = currentAssignments.filter(a => 
             !assignedInModal.includes(a.studentId) && a.status !== 'done'
         );
@@ -7288,29 +7595,28 @@ async function confirmAssign() {
     
     let assignedOrUpdatedCount = 0;
     let cancelledCount = 0;
-    
-    // 6. TẠO PAYLOAD MỚI (Đã thêm className và giữ lại studentIds)
+    let statusUpdated = false; // <-- SỬA LỖI: Thêm cờ báo đã cập nhật status
+
     const bulkPayload = {
         testIds: testIds,
-        // Dữ liệu mới: Cần gửi studentIds lên để Backend biết danh sách học sinh
         studentIds: studentsToReassign, 
-        // Dữ liệu cũ: Cần gửi className lên để Backend tìm lại danh sách học sinh
         className: className, 
         teacherId: teacherId,
         deadline: deadlineISO
     };
 
     try {
-        // A. GIAO MỚI HOẶC CẬP NHẬT DEADLINE (Dùng 1 request Bulk duy nhất)
-        const response = await fetchJson(`${serverUrl}/api/assigns/bulk`, { 
-            method: 'POST', 
-            body: bulkPayload 
-        });
-        
-        assignedOrUpdatedCount = response.count || 0;
+        // A. GIAO MỚI HOẶC CẬP NHẬT DEADLINE
+        if (studentsToReassign.length > 0) {
+            const response = await fetchJson(`${serverUrl}/api/assigns/bulk`, { 
+                method: 'POST', 
+                body: bulkPayload 
+            });
+            assignedOrUpdatedCount = response.count || 0;
+        }
 
         // B. HỦY GIAO (CHỈ XỬ LÝ KHI LÀ SINGLE ASSIGN)
-        if (testIds.length === 1 && assignmentsToCancel.length > 0) {
+        if (assignmentsToCancel.length > 0) {
             const assignmentIds = assignmentsToCancel.map(a => a.id);
             const deletePayload = { assignmentIds: assignmentIds };
             
@@ -7321,17 +7627,38 @@ async function confirmAssign() {
             cancelledCount = response.deletedCount || 0;
         }
         
+        // C. <-- SỬA LỖI: CẬP NHẬT TRẠNG THÁI TEST
+        // (Kiểm tra xem danh sách "Đã được giao" (studentsToReassign) có rỗng không)
+        if (testIdToUpdate && studentsToReassign.length === 0) {
+            
+            console.log(`Đang cập nhật trạng thái cho Test ID: ${testIdToUpdate} về "not_assigned"`);
+            
+            // Gọi API mới để set status
+            await fetchJson(`${serverUrl}/api/tests/${testIdToUpdate}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: "not_assigned" }) // <-- Gửi status mới
+            });
+            statusUpdated = true; // <-- Set cờ
+        }
+        
         const doneAssignmentsToKeep = currentAssignments.filter(a => a.status === 'done' && studentsToReassign.includes(a.studentId));
 
-        // Báo cáo (Giữ nguyên)
+        // Báo cáo
         let message = `Hoàn tất thao tác cho ${testIds.length} đề thi:`;
         if (assignedOrUpdatedCount > 0) {
              message += `\n✅ Đã giao mới và/hoặc cập nhật deadline cho ${studentsToReassign.length} học sinh.`;
         }
         if (cancelledCount > 0) message += `\n❌ Đã hủy ${cancelledCount} bài giao.`;
+        
+        // <-- SỬA LỖI: Thêm thông báo cập nhật status
+        if (statusUpdated) {
+            message += `\nℹ️ Trạng thái đề thi đã được cập nhật thành "Chưa giao".`;
+        }
+
         if (doneAssignmentsToKeep.length > 0) message += `\n⚠️ Giữ lại ${doneAssignmentsToKeep.length} bài đã làm (Không thể hủy).`;
         
-        if (assignedOrUpdatedCount === 0 && cancelledCount === 0) {
+        if (assignedOrUpdatedCount === 0 && cancelledCount === 0 && !statusUpdated) {
             message = "Không có thay đổi nào được ghi nhận.";
         }
         
@@ -7343,7 +7670,7 @@ async function confirmAssign() {
     } finally {
         if(confirmBtn) confirmBtn.disabled = false;
         modalAssignInstance.hide();
-        loadTests(true);
+        loadTests(true); // Tải lại bảng tests (giờ sẽ có status đúng)
     }
 }
 
@@ -7374,58 +7701,186 @@ function clearResultFilters() {
 
 
 
-async function openAnalysisModal(questionId) {
+async function openAnalysisModal(questionId, qType) { // <-- Thêm qType
     const modalEl = qs('#modalQuestionAnalysis');
     const modal = new bootstrap.Modal(modalEl);
     const qTextEl = qs('#analysis-q-text');
+    const chartCanvas = qs('#questionAnalysisChart');
+    const chartContainer = chartCanvas.getContext('2d');
+
+    // --- 1. Reset Modal ---
+    qTextEl.textContent = 'Đang tải dữ liệu...';
+    
+    // Hủy biểu đồ cũ (nếu có)
+    if (analysisChartInstance) {
+        analysisChartInstance.destroy();
+        analysisChartInstance = null;
+    }
+    
+    // Tạo 1 div để chứa bảng (cho câu Fill) nếu chưa có
+    let tableContainer = qs('#analysis-table-container');
+    if (!tableContainer) {
+        tableContainer = document.createElement('div');
+        tableContainer.id = 'analysis-table-container';
+        // Chèn div table vào TRƯỚC canvas
+        chartCanvas.parentNode.insertBefore(tableContainer, chartCanvas);
+    }
+    
+    // Ẩn cả 2
+    tableContainer.innerHTML = '';
+    chartCanvas.style.display = 'none';
+    tableContainer.style.display = 'none';
+
+    modal.show(); // Hiển thị modal trước khi gọi API
 
     try {
-        // Bước 1: Gọi API mới (sẽ tạo ở BE)
+        // --- 2. Gọi API (API route cũ nhưng logic backend đã mới) ---
         const stats = await fetchJson(`${serverUrl}/api/questions/${questionId}/stats`);
 
-        qTextEl.textContent = stats.questionText || 'Đang tải...';
+        qTextEl.textContent = stats.questionText || 'Không tìm thấy nội dung câu hỏi.';
 
-        // Bước 2: Chuẩn bị dữ liệu cho biểu đồ
-        const ctx = qs('#questionAnalysisChart').getContext('2d');
-        const labels = stats.labels; // Ví dụ: ["A", "B", "C", "D"]
-        const data = stats.data;   // Ví dụ: [10, 25, 5, 2]
-
-        // Tạo mảng màu, tô màu xanh cho đáp án đúng
-        const correctLabel = stats.correctAnswer;
-        const backgroundColors = labels.map(label => {
-            return label === correctLabel ? 'rgba(40, 167, 69, 0.7)' : 'rgba(108, 117, 125, 0.5)';
-        });
-
-        // Bước 3: Hủy biểu đồ cũ (nếu có)
-        if (analysisChartInstance) {
-            analysisChartInstance.destroy();
+        // --- 3. Phân luồng dựa trên loại câu hỏi trả về ---
+        if (stats.type === 'mc') {
+            chartCanvas.style.display = 'block'; // Hiện Chart
+            renderAnalysisChart_MC(chartContainer, stats); // Gọi hàm vẽ MC
+            
+        } else if (stats.type === 'true_false') {
+            chartCanvas.style.display = 'block'; // Hiện Chart
+            renderAnalysisChart_TF(chartContainer, stats); // Gọi hàm vẽ Đ/S
+            
+        } else if (stats.type === 'fill_blank') {
+            tableContainer.style.display = 'block'; // Hiện Bảng
+            renderAnalysisTable_FILL(tableContainer, stats); // Gọi hàm vẽ Bảng
+            
+        } else {
+            tableContainer.style.display = 'block';
+            tableContainer.innerHTML = '<div class="alert alert-warning">Loại câu hỏi này không hỗ trợ phân tích.</div>';
         }
 
-        // Bước 4: Vẽ biểu đồ mới
-        analysisChartInstance = new Chart(ctx, {
-            type: 'bar', // Biểu đồ cột
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Số học sinh chọn',
-                    data: data,
-                    backgroundColor: backgroundColors,
-                    borderColor: backgroundColors.map(c => c.replace('0.7', '1').replace('0.5', '1')),
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-                plugins: { legend: { display: false } }
-            }
-        });
-
-        modal.show();
     } catch (err) {
-        alert("Lỗi tải phân tích: " + err.message);
+        qTextEl.textContent = 'Lỗi tải phân tích.';
+        tableContainer.style.display = 'block';
+        tableContainer.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
     }
 }
 
+
+// ==================================================
+// HÀM TRỢ GIÚP 1: VẼ BIỂU ĐỒ MC (LOGIC CŨ CỦA BẠN)
+// ==================================================
+function renderAnalysisChart_MC(ctx, stats) {
+    const labels = stats.data.labels;
+    const data = stats.data.data;
+    const correctLabel = stats.data.correctAnswer;
+    
+    const backgroundColors = labels.map(label => {
+        // Nếu đáp án là [Bỏ trống], luôn dùng màu xám
+        if (label === '[Bỏ trống]') {
+            return 'rgba(108, 117, 125, 0.5)';
+        }
+        return label === correctLabel ? 'rgba(40, 167, 69, 0.7)' : 'rgba(220, 53, 69, 0.5)';
+    });
+
+    analysisChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Số học sinh chọn',
+                data: data,
+                backgroundColor: backgroundColors,
+            }]
+        },
+        options: {
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+// ==================================================
+// HÀM TRỢ GIÚP 2: VẼ BIỂU ĐỒ Đ/S (BIỂU ĐỒ CỘT CHỒNG)
+// ==================================================
+function renderAnalysisChart_TF(ctx, stats) {
+    const labels = stats.data.labels;
+    const data = stats.data;
+
+    analysisChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels, // ['a) gdssd', 'b) gfgggg', 'c) hhhhhh']
+            datasets: [
+                {
+                    label: 'Chọn Đúng',
+                    data: data.choseTrue, // [10, 2, 5]
+                    // Màu Xanh nếu "Đúng" là đáp án đúng, ngược lại màu Đỏ
+                    backgroundColor: data.correct.map(isCorrect => isCorrect === true ? 'rgba(40, 167, 69, 0.7)' : 'rgba(220, 53, 69, 0.5)'),
+                },
+                {
+                    label: 'Chọn Sai',
+                    data: data.choseFalse, // [2, 10, 7]
+                    // Màu Xanh nếu "Sai" là đáp án đúng, ngược lại màu Đỏ
+                    backgroundColor: data.correct.map(isCorrect => isCorrect === false ? 'rgba(40, 167, 69, 0.7)' : 'rgba(220, 53, 69, 0.5)'),
+                },
+                {
+                    label: 'Bỏ trống',
+                    data: data.choseNull, // [0, 0, 0]
+                    backgroundColor: 'rgba(108, 117, 125, 0.5)', 
+                }
+            ]
+        },
+        options: {
+            scales: { 
+                y: { beginAtZero: true, ticks: { stepSize: 1 }, stacked: true }, // Chồng cột theo trục Y
+                x: { stacked: true } // Chồng cột theo trục X
+            },
+            plugins: { 
+                legend: { display: true }, // Hiển thị chú thích (Đúng, Sai, Bỏ trống)
+                tooltip: {
+                    callbacks: {
+                        footer: (tooltipItems) => {
+                            // Hiển thị đáp án đúng ở footer
+                            const index = tooltipItems[0].dataIndex;
+                            const correctAnswer = data.correct[index] ? 'Đúng' : 'Sai';
+                            return `Đáp án đúng: ${correctAnswer}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ==================================================
+// HÀM TRỢ GIÚP 3: VẼ BẢNG THỐNG KÊ FILL
+// ==================================================
+function renderAnalysisTable_FILL(container, stats) {
+    // stats.data là 1 mảng: [ { blankIndex: 0, label: 'Ô trống 1', answers: {'mái': 10, ...}, correct: 'mái' }, ... ]
+    let html = '<div class="list-group">';
+    
+    stats.data.forEach(item => {
+        html += `<div class="list-group-item mb-2">
+                   <h6 class="mb-2">${item.label}: (Đáp án đúng: <span class="text-success fw-bold">${escapeHtml(item.correct)}</span>)</h6>
+                   <ul class="list-unstyled mt-2" style="font-size: 0.9em; max-height: 150px; overflow-y: auto;">`;
+        
+        // Sắp xếp các đáp án theo số lượng giảm dần
+        const sortedAnswers = Object.entries(item.answers).sort(([,a],[,b]) => b - a);
+        
+        sortedAnswers.forEach(([answer, count]) => {
+            const isCorrect = norm_str(answer) === norm_str(item.correct);
+            const answerDisplay = (answer === '' || answer === null) ? '<em>[Bỏ trống]</em>' : escapeHtml(answer);
+            
+            html += `<li class="d-flex justify-content-between border-bottom py-1 ${isCorrect ? 'text-success fw-bold' : ''}">
+                        <span>${answerDisplay}</span>
+                        <span><strong>${count}</strong> học sinh</span>
+                     </li>`;
+        });
+        
+        html += `</ul></div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
 
 
 
@@ -8859,7 +9314,9 @@ async function viewResult(resultId) {
     }
 }
 
-// Thay thế hàm renderReviewQuiz (dòng 6038)
+// =================================================================
+// HÀM RENDERREVIEWQUIZ (ĐÃ XÓA BẢNG THỐNG KÊ ĐIỂM)
+// =================================================================
 function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     const escapeHtml = (str) => { return str ? String(str).replace(/[&<>"']/g, s => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s])) : ''; };
     const safeFormat = (dateStr) => { return dateStr ? dateStr.substring(0, 16).replace('T', ' ') : '—'; };
@@ -8867,14 +9324,12 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     const container = document.getElementById("review-questions-container");
     const titleEl = document.getElementById("review-quiz-title");
     const summaryContainer = document.getElementById("review-results-summary");
-
     if (!container || !titleEl || !summaryContainer) { return; }
+    
     container.innerHTML = '';
     titleEl.textContent = quiz.name || quiz.testName || "Bài thi";
-
     const detailed = result.detailedResults || [];
     const questionsFromQuiz = quiz.questions || [];
-
     const originalQuestionMap = new Map();
     questionsFromQuiz.forEach(q => {
         if (q && q.id) originalQuestionMap.set(String(q.id), q);
@@ -8887,34 +9342,26 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     detailed.forEach((res, idx) => {
         const resultQid = res.questionId;
         const q = originalQuestionMap.get(String(resultQid)); 
-
         const qTypeCheck = (res.type || q?.type || 'mc').toLowerCase();
-        const maxPointsForResult = res?.maxPoints ?? 1;
-        const maxPointsFromQ = q?.points ?? 1;
-        const max = maxPointsForResult > 0 ? maxPointsForResult : maxPointsFromQ;
-        
-        // ✅ SỬA LỖI 1: Không hiển thị tiêu đề nếu là 'true_false'
+        const max = res?.maxPoints ?? 1;
         const questionText = escapeHtml(res?.questionText || q?.q || '(Nội dung câu hỏi bị thiếu)');
-        const mainQuestionTextHtml = (qTypeCheck !== 'true_false') ? `<p class="card-text">${questionText}</p>` : '';
-        
+        let mainQuestionTextHtml = `<p class="card-text">${questionText}</p>`;
         const imageId = q?.imageId;
         const optionsToRender = q?.options || [];
-        
-        // Đáp án đúng (có thể là string 'Hà Nội' hoặc array [true, false])
-        const correctAnsRaw = res?.correctAnswer ?? q?.answer ?? q?.correctAnswer ?? null;
-        // Câu trả lời của HS (có thể là string 'Hà Nội' hoặc array [true, null])
-        const studentAnsRaw = res?.studentAnswer ?? (studentAnswersMap ? studentAnswersMap.get(resultQid) : null) ?? null;
+        const correctAnsRaw = res?.correctAnswer ?? null;
+        const studentAnsRaw = res?.studentAnswer ?? null;
 
         if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') { totalEssay++; }
         else { totalMc++; maxMcScore += max; }
-
+        
         const gained = res?.pointsGained ?? 0;
-        const isCorrectRaw = res?.isCorrect; // Đây là trạng thái Đ/S của CẢ CÂU HỎI
+        const isCorrectRaw = res?.isCorrect; 
+        const isPartialCredit = (isCorrectRaw === null); 
 
         let isCorrect;
         if (typeof isCorrectRaw === 'boolean') { isCorrect = isCorrectRaw; }
-        else if (qTypeCheck === 'true_false') {
-             isCorrect = (gained > 0); // Backend đã tính all-or-nothing
+        else if (isPartialCredit) {
+            isCorrect = null; 
         }
         else if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') {
             if (res.teacherScore !== null && res.teacherScore !== undefined) {
@@ -8923,7 +9370,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
                 isCorrect = null; // Chưa chấm
             }
         } else {
-            isCorrect = gained > 0;
+            isCorrect = gained > 0; // MC
         }
 
         if (qTypeCheck !== 'essay' && qTypeCheck !== 'tu_luan') {
@@ -8931,89 +9378,109 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
             if (isCorrect === true) { correctMcCount++; }
         }
 
+        // Cập nhật logic badge
         let borderClass = ''; let badgeClass = ''; let badgeText = '';
         if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') {
             if (isCorrect === true) { borderClass = 'border-success'; badgeClass = 'bg-success'; badgeText = 'Đã Chấm (Đ)'; }
             else if (isCorrect === false) { borderClass = 'border-danger'; badgeClass = 'bg-danger'; badgeText = 'Đã Chấm (S)'; }
             else { borderClass = 'border-warning'; badgeClass = 'bg-warning text-dark'; badgeText = 'Chờ Chấm'; }
-        
-        // ✅ SỬA LỖI 2&3: Badge cho MC và T/F là như nhau
-        } else { // MC và True/False
-           borderClass = isCorrect ? 'border-success' : 'border-danger';
-           badgeClass = isCorrect ? 'bg-success' : 'bg-danger';
-           badgeText = isCorrect ? 'Đ' : 'S';
+        } else if (isCorrect === true) {
+           borderClass = 'border-success'; badgeClass = 'bg-success'; badgeText = 'Đ';
+        } else if (isCorrect === false) {
+           borderClass = 'border-danger'; badgeClass = 'bg-danger'; badgeText = 'S';
+        } else { // isCorrect is null (điểm 1 phần hoặc chờ chấm)
+           borderClass = 'border-warning'; badgeClass = 'bg-warning text-dark'; badgeText = 'Một phần';
         }
 
         let answerHtml = '';
-        let unansweredNote = '';
+        let unansweredNote = ''; 
 
         if (qTypeCheck === 'multiple_choice' || qTypeCheck === 'mc') {
             const correctAns = correctAnsRaw ? String(correctAnsRaw).toLowerCase() : null;
             const studentAns = (studentAnsRaw ?? "").toString().trim().toLowerCase();
             
-            if (studentAnsRaw === null || studentAnsRaw === undefined || studentAnsRaw === "") {
-                unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa chọn câu trả lời</p>';
-            }
+            if (studentAnsRaw === null) { unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa chọn đáp án</p>'; }
+            
             answerHtml = optionsToRender.map(opt => {
-                 if (!opt) return ''; 
-                 let cls = ''; 
-                 const optionText = (typeof opt === 'string' ? opt : (opt.value || opt.text || '')).toString(); 
-                 const optValue = escapeHtml(optionText); 
-                 const optValueLower = optValue ? optValue.toLowerCase() : ''; 
-                 const correctOptionValue = correctAns; 
-                 const studentOptionValue = studentAns; 
-                 if (correctOptionValue !== null && optValueLower === correctOptionValue) { 
-                     cls = 'bg-success-subtle border-success fw-bold'; 
-                 } 
-                 if (optValueLower === studentOptionValue && !isCorrect) { 
-                     cls += ' bg-warning-subtle border-danger'; 
-                 } 
-                 const radioChecked = (optValueLower === studentOptionValue) ? 'checked' : '';
+                 if (!opt) return ''; let cls = ''; const optionText = (typeof opt === 'string' ? opt : (opt.value || opt.text || '')).toString(); const optValue = escapeHtml(optionText); const optValueLower = optValue ? optValue.toLowerCase() : ''; const correctOptionValue = correctAns; const studentOptionValue = studentAns; if (correctOptionValue !== null && optValueLower === correctOptionValue) { cls = 'bg-success-subtle border-success fw-bold'; } if (optValueLower === studentOptionValue && isCorrect === false) { cls += ' bg-warning-subtle border-danger'; } const radioChecked = (optValueLower === studentOptionValue) ? 'checked' : '';
                 return `<div class="p-2 border rounded mb-1 ${cls}" style="pointer-events: none;"> <input type="radio" disabled ${radioChecked} class="me-2" style="opacity: 0.7;"> ${optValue || '(Lựa chọn trống)'} </div>`;
             }).join('');
-            
-        // ✅ SỬA LỖI 2&3: Thêm logic render cho 'true_false'
+        
         } else if (qTypeCheck === 'true_false') {
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
-            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : []; 
+            
+            if (studentAnsRaw === null || (Array.isArray(studentAnswers) && studentAnswers.every(ans => ans === null))) {
+                unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa chọn đáp án</p>';
+            }
             
             answerHtml = '';
             optionsToRender.forEach((opt, i) => {
-                const optLetter = String.fromCharCode(97 + i); // 'a', 'b', 'c'...
+                const optLetter = String.fromCharCode(97 + i); 
                 const optText = escapeHtml(opt.text || `Mệnh đề ${i+1}`);
-                const correctAnswer = correctAnswers[i]; // true or false
-                const studentChoice = studentAnswers[i]; // true, false, or null
-                
+                const correctAnswer = correctAnswers[i]; 
+                const studentChoice = studentAnswers[i]; 
                 let isItemCorrect = (studentChoice === correctAnswer);
-                let highlightClass = '';
-
-                if (studentChoice === null) {
-                    isItemCorrect = false;
-                    highlightClass = 'bg-light border-warning'; // Bỏ trống
-                } else if (isItemCorrect) {
-                    highlightClass = 'bg-success-subtle border-success'; // Chọn đúng
-                } else {
-                    highlightClass = 'bg-warning-subtle border-danger'; // Chọn sai
-                }
-
+                let highlightClass = ''; 
+                if (studentChoice === null) { isItemCorrect = false; highlightClass = 'bg-light border-warning'; } 
+                else if (isItemCorrect) { highlightClass = 'bg-success-subtle border-success'; } 
+                else { highlightClass = 'bg-warning-subtle border-danger'; }
                 answerHtml += `
                     <div class="border p-2 mb-2 rounded ${highlightClass}">
                         <p class="mb-1"><strong>${optLetter})</strong> ${optText}</p>
-                        <div class="form-check form-check-inline" style="opacity: 0.8; pointer-events: none;">
-                            <input class="form-check-input" type="radio" value="true" disabled ${studentChoice === true ? 'checked' : ''}>
-                            <label class="form-check-label">Đúng</label>
-                        </div>
-                        <div class="form-check form-check-inline" style="opacity: 0.8; pointer-events: none;">
-                            <input class="form-check-input" type="radio" value="false" disabled ${studentChoice === false ? 'checked' : ''}>
-                            <label class="form-check-label">Sai</label>
-                        </div>
+                        <div class="form-check form-check-inline" style="opacity: 0.8; pointer-events: none;"><input class="form-check-input" type="radio" value="true" disabled ${studentChoice === true ? 'checked' : ''}><label class="form-check-label">Đúng</label></div>
+                        <div class="form-check form-check-inline" style="opacity: 0.8; pointer-events: none;"><input class="form-check-input" type="radio" value="false" disabled ${studentChoice === false ? 'checked' : ''}><label class="form-check-label">Sai</label></div>
                         ${!isItemCorrect ? `<div class="small text-success fw-bold mt-1">Đáp án đúng là: ${correctAnswer ? 'Đúng' : 'Sai'}</div>` : ''}
-                    </div>
-                `;
+                    </div>`;
             });
+        
+        } else if (qTypeCheck === 'fill_blank') { 
+            const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
             
+            if (studentAnsRaw === null || (Array.isArray(studentAnswers) && studentAnswers.every(ans => ans === null || String(ans).trim() === ''))) {
+                unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa điền đáp án</p>';
+            }
+
+            let blankIndex = 0;
+            const spanStyle = "border-radius: 4px; border: 1px solid; margin: 0 4px; min-width: 60px; text-align:center; font-size: 0.9em; line-height: 1.5; padding: 0 0.25rem; vertical-align: baseline;";
+
+            answerHtml = questionText.replace(/\n/g, '<br>').replace(/\[BLANK\]|\.{5,}/g, () => {
+                const i = blankIndex++;
+                const studentAnsText = studentAnswers[i] || null;
+                const studentAnsDisplay = studentAnsText ? escapeHtml(studentAnsText) : '[Bỏ trống]'; 
+                const correctAns = escapeHtml(correctAnswers[i] || '');
+                const studentAnsNorm = norm_str(studentAnsText);
+                const correctAnsNorm = norm_str(correctAnswers[i]);
+                const isCorrect = (studentAnsNorm === correctAnsNorm);
+                let feedbackHtml = '';
+                let spanClass = isCorrect ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger';
+                if (studentAnsText === null) {
+                    spanClass = 'bg-warning-subtle border-warning'; 
+                }
+                if (!isCorrect && studentAnsText !== null) {
+                     feedbackHtml = `<div class="valid-feedback d-block" style="text-align: center; font-size: 0.8em; line-height: 1; margin-top: -5px;">Đáp án: ${correctAns}</div>`;
+                }
+
+                return `<span class="d-inline-block" style="position: relative; vertical-align: baseline; margin-bottom: 20px;">
+                            <span class="d-inline-block ${spanClass}" style="${spanStyle}">
+                                ${studentAnsDisplay}
+                            </span>
+                            ${feedbackHtml}
+                        </span>`;
+            });
+            mainQuestionTextHtml = '';
+
         } else { // Tự luận
-             answerHtml = `<div class="form-group"><label class="form-label fw-bold">Câu trả lời của bạn:</label><textarea class="form-control ${borderClass}" disabled rows="4">${escapeHtml(studentAnsRaw || '')}</textarea></div>`;
+             let essayText = escapeHtml(String(studentAnsRaw || ''));
+             let placeholderText = '';
+             if (studentAnsRaw === null || studentAnsRaw === undefined || String(studentAnsRaw).trim() === '') {
+                 placeholderText = 'placeholder="Chưa trả lời..."'; 
+                 essayText = ''; 
+             }
+        
+             answerHtml = `<div class="form-group"><label class="form-label fw-bold">Câu trả lời của bạn:</label><textarea class="form-control ${borderClass}" disabled rows="4" ${placeholderText}>${essayText}</textarea></div>`;
+             
              if (correctAnsRaw && String(correctAnsRaw).trim() !== '') { 
                  answerHtml += `<div class="form-group mt-2"><label class="form-label small text-success">Đáp án gợi ý:</label><textarea class="form-control bg-light" disabled rows="2">${escapeHtml(String(correctAnsRaw))}</textarea></div>`; 
              }
@@ -9027,9 +9494,9 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
               <span>Câu ${idx + 1}</span>
               <span class="badge ${badgeClass} fs-6">${badgeText}</span>
             </h5>
-            
-            ${mainQuestionTextHtml} ${imageId ? `<img src="${serverUrl}/images/${imageId}" class="img-fluid mb-2 rounded border" style="max-height: 200px; object-fit: contain;">` : ''}
-            <div class="mt-3">
+            ${mainQuestionTextHtml}
+            ${imageId ? `<img src="${serverUrl}/images/${imageId}" class="img-fluid mb-2 rounded border" style="max-height: 200px; object-fit: contain;">` : ''}
+            <div class="mt-3" style="line-height: 2.5;"> 
               ${unansweredNote}
               ${answerHtml}
             </div>
@@ -9047,40 +9514,31 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     const finalTotalScore = result.totalScore !== undefined ? parseFloat(result.totalScore).toFixed(2) : 'Chưa có';
     const finalEssayScore = result.essayScore !== undefined ? parseFloat(result.essayScore).toFixed(1) : 'Chờ chấm';
     const finalMcScore = calculatedMcScore.toFixed(1);
-
     let gradedAtHtml = '';
-    if (result.gradedAt) {
-        gradedAtHtml = `<p class="small text-muted mt-2">Ngày chấm: ${safeFormat(result.gradedAt)}</p>`;
-    }
+    if (result.gradedAt) { gradedAtHtml = `<p class="small text-muted mt-2">Ngày chấm: ${safeFormat(result.gradedAt)}</p>`; }
     
-    let statsHtml = '';
-    if (stats && stats.count > 1) {
-        statsHtml = `
-        <div class="mt-3 p-2 border rounded bg-light-gray small">
-            <strong>Thống kê (toàn bộ bài thi):</strong>
-            <div>Điểm trung bình: <strong>${stats.avgScore.toFixed(2)}</strong></div>
-            <div>Điểm cao nhất: <strong>${stats.maxScore.toFixed(2)}</strong></div>
-            <div>Điểm thấp nhất: <strong>${stats.minScore.toFixed(2)}</strong></div>
-            <div>Số lượt nộp: <strong>${stats.count}</strong></div>
-        </div>
-        `;
-    }
+    // ===== BẮT ĐẦU SỬA LỖI (XÓA BẢNG THỐNG KÊ) =====
+    // let statsHtml = ''; // Xóa khai báo này
+    // if (stats && stats.count > 1) { ... } // Xóa toàn bộ khối 'if (stats...)'
+    // ===== KẾT THÚC SỬA LỖI =====
 
     summaryContainer.innerHTML = `<div class="alert alert-info mt-3">
         <h4 class="text-primary mb-3">Tổng kết bài làm</h4>
         <p>Tổng số câu: <strong>${totalQuestions}</strong></p>
-        <p>Trắc nghiệm: <strong>${totalMc} câu</strong> | Tự luận: <strong>${totalEssay} câu</strong></p>
-        <p>Số câu đúng (TN): <strong>${correctMcCount} / ${totalMc}</strong></p>
+        <p>Tự động chấm: <strong>${totalMc} câu</strong> | Tự luận (Chờ chấm): <strong>${totalEssay} câu</strong></p>
+        
+        <p>Số câu đúng (Tự động chấm): <strong>${correctMcCount} / ${totalMc}</strong></p>
+        
         <hr>
-        <p>Điểm trắc nghiệm: <strong class="text-success">${finalMcScore} / ${maxMcScore.toFixed(1)}</strong></p>
+        <p>Điểm (tự động): <strong class="text-success">${finalMcScore} / ${maxMcScore.toFixed(1)}</strong></p>
         <p>Điểm tự luận: <strong class="${result.gradingStatus === 'Hoàn tất' || result.gradingStatus === 'Đã Chấm' ? 'text-info' : 'text-warning'}">${finalEssayScore}</strong></p>
         <p class="fs-5">Tổng điểm: <strong class="text-primary">${finalTotalScore}</strong></p>
-        
-        ${statsHtml}
         
         ${gradedAtHtml}
     </div>`;
 }
+
+
 
 // Thêm hàm thống kê này vào khối
 function renderQuestionStats(questions) {
@@ -9113,50 +9571,83 @@ function renderQuestionStats(questions) {
 
 
 /**
- * HÀM 1 (CẬP NHẬT): TẠO HTML SẠCH CHO VIỆC IN ĐỀ THI
- * Sửa lỗi: Thay thế CSS 'background-image' (bị lỗi khi in)
- * bằng các thẻ <p> có 'border-bottom' (HTML) để tạo dòng kẻ.
+ * TẠO HTML SẠCH CHO VIỆC IN ĐỀ THI (ĐÃ SỬA LỖI XUỐNG DÒNG [BLANK])
  */
 function generateTestPrintHTML(testName, questions, time, subject, level, createdAt) {
     let questionHtml = '';
     
     questions.forEach((q, index) => {
-        const questionText = q.q || q.question || '(Lỗi nội dung câu hỏi)';
+        let questionText = q.q || q.question || '(Lỗi nội dung câu hỏi)';
         const qType = (q.type || 'mc').toLowerCase();
         
+        const typeLabel = formatQuestionTypeForPDF(qType);
+
         let answerSection = '';
+        
+        // Logic Trắc nghiệm (Đã sửa lề)
         if (qType === 'mc' && q.options && q.options.length > 0) {
-            answerSection = '<ol type="A" style="margin: 0; padding-left: 30px; list-style-position: outside;">';
+            answerSection = '<ol type="a" style="margin: 10px 0 0 0; padding-left: 40px; list-style-position: outside;">';
             q.options.forEach(opt => {
                 answerSection += `<li style="margin-bottom: 8px;">${escapeHtml(opt.text || opt.value || '')}</li>`;
             });
             answerSection += '</ol>';
-        } else {
+
+        // Logic Đúng/Sai (Đã sửa lề)
+        } else if (qType === 'true_false' && q.options && q.options.length > 0) {
+            answerSection = '<ol type="a" style="margin: 10px 0 0 0; padding-left: 40px; list-style-position: outside;">'; 
+            q.options.forEach((opt, i) => {
+                const box = '<span style="display: inline-block; width: 18px; height: 18px; border: 1px solid #000; margin-right: 5px; vertical-align: middle;"></span>';
+                
+                answerSection += `
+                    <li style="margin-bottom: 12px; line-height: 1.5;">
+                        ${escapeHtml(opt.text || '')}
+                        <span style="margin-left: 20px; margin-right: 15px;">${box} Đ</span>
+                        <span style="margin-right: 15px;">${box} S</span>
+                    </li>
+                `;
+            });
+            answerSection += '</ol>';
+            
+        // Logic Điền từ (Đã sửa)
+        } else if (qType === 'fill_blank') {
+            
+            // ===== BẮT ĐẦU SỬA LỖI XUỐNG DÒNG (IN) =====
+            // 1. Chuyển \n thành <br>
+            let formattedText = escapeHtml(questionText).replace(/\n/g, '<br>');
+            // 2. Thay thế [BLANK]
+            questionText = formattedText.replace(/\[BLANK\]|\.{5,}/g, ' .................................... ');
+            // ===== KẾT THÚC SỬA LỖI =====
+            
+            answerSection = ''; 
+
+        // Logic Tự luận (Đã sửa)
+        } else { // (qType === 'essay')
             answerSection = `
                 <div style="padding-top: 5px; padding-left: 15px;padding-right: 15px;">
-                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.5em;"></p>
-                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
-                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
-                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
-                    <p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
-					<p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>
+                    ${'<p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>'.repeat(6)}
                 </div>
             `;
         }
 
-        // === THÊM class="question-block" ===
+        // Logic Thêm Hint
+        let hintHtml = ''; 
+        if (q.hint) {
+            hintHtml = `<div style="font-style: italic; color: #555; margin-top: 5px; padding-left: 15px;"><strong>Gợi ý:</strong> ${escapeHtml(q.hint)}</div>`;
+        }
+        
         questionHtml += `
             <div class="question-block" style="margin-bottom: 20px; page-break-inside: avoid; page-break-after: avoid;">
                 <p style="font-weight: bold; margin-bottom: 8px;">
-                    Câu ${index + 1}: (${(q.points || 1).toFixed(1)} điểm)
+                    Câu ${index + 1}: (${typeLabel} - ${(q.points || 1).toFixed(1)} đ)
                 </p>
-                <div style="margin-bottom: 10px; padding-left: 15px;">${questionText}</div>
+                <div style="margin-bottom: 10px; padding-left: 15px; line-height: 1.8;">${questionText}</div>
                 ${answerSection}
+                ${hintHtml}
             </div>
         `;
     });
 
-    // === THAY ĐỔI: Dùng font Arial, 12pt ===
+    // --- Phần còn lại của hàm (Tiêu đề, thông tin đề thi...) ---
     return `
         <div style="font-family: Arial, sans-serif; padding: 0; color: #000; font-size: 12pt;">
             
@@ -9673,7 +10164,13 @@ function translateDifficulty(difficulty) {
     // Init: try restore session
     (function init(){ const s = sessionStorage.getItem('quiz_user'); if(s){ currentUser = JSON.parse(s); showApp(); } })();
   
- 
+ function norm_str(x) {
+        if (x === null || x === undefined) return "";
+        return String(x).trim().toLowerCase();
+    }
+
+    // Init: try restore session
+    (function init(){ const s = sessionStorage.getItem('quiz_user'); if(s){ currentUser = JSON.parse(s); showApp(); } })();
 
 let previewedQuestions = [];
 
@@ -9817,6 +10314,8 @@ function renderManualQuestionBank() {
     tbody.appendChild(tr);
   });
 }
+
+
 
 // =================== THÊM / BỎ CÂU HỎI ===================
 function toggleSelectManualQuestion(qId) {
@@ -9987,15 +10486,15 @@ function getSelectedTests() {
 
 async function preparePrintArea(selectedTests, mode = "preview") {
   if (!selectedTests || selectedTests.length === 0) {
-    return; 
+    return;
   }
 
   console.log("🧾 Danh sách ID:", selectedTests);
 
   const printArea = document.getElementById("print-area");
-  printArea.style.display = "block"; 
-  
-  // ✅ SỬA LỖI 3: Thêm CSS để ngăn trang cuối cùng ngắt trang (fix lỗi trang trắng)
+  printArea.style.display = "block";
+
+  // Thêm CSS để ngăn trang cuối cùng ngắt trang (fix lỗi trang trắng)
   printArea.innerHTML = `
     <style>
         /* CSS này chỉ áp dụng cho vùng #print-area */
@@ -10014,78 +10513,120 @@ async function preparePrintArea(selectedTests, mode = "preview") {
       if (!res.ok) throw new Error(`Lỗi tải đề: ${res.statusText}`);
       const test = await res.json();
 
-      // ✅ SỬA LỖI 3: Bỏ inline style "page-break-after: always;"
       let htmlContent = `
       <div class="test-print-block">
         <div class="school-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #000;">
-
           <div class="school-info" style="flex:1;text-align:center;">
             <div class="school-name" style="font-weight:bold;font-size:18px;text-transform:uppercase;">Trường THCS ......................</div>
             <div class="school-subtitle" style="font-style:italic;font-size:13px;margin-top:2px;color:#333;">Phòng Giáo dục & Đào tạo .....................</div>
           </div>
         </div>
-
         <div class="exam-info" style="text-align:center;margin:10px 0;">
           <h2 style="margin-bottom:5px;font-size:20px;font-weight:bold;">${test.name || "ĐỀ KIỂM TRA"}</h2>
-          <p><b>Môn:</b> ${test.subject || "N/A"} — <b>Khối:</b> ${test.level || "?"}</p>
+          <p><b>Môn:</b> ${SUBJECT_NAMES[test.subject] || test.subject || "N/A"} — <b>Khối:</b> ${test.level || "?"}</p>
           <p><b>Thời gian làm bài:</b> ${test.time || "?"} phút</p>
         </div>
-
         <hr>
       `;
 
-      // THAY THẾ KHỐI NÀY (BẮT ĐẦU TỪ DÒNG 6922)
-      htmlContent += test.questions.map((q, i) => `
-        <div class="question-block mb-3" style="page-break-inside: avoid; margin-bottom: 14px;">
-          <p style="margin-bottom: 6px; position: relative;">
-            
-            <b>Câu ${i + 1} (${q.type === "essay" ? "Tự luận" : "Trắc nghiệm"} - ${(q.points || 0).toFixed(1)} đ):</b>
-            
-            ${q.q || "(Không có nội dung)"}
+      // =================== KHỐI LOGIC ĐÃ SỬA ===================
+      htmlContent += test.questions.map((q, i) => {
+          
+          const qType = (q.type || 'mc').toLowerCase();
+          const typeLabel = formatQuestionTypeForPDF(qType); 
+          let questionText = (q.q || "(Không có nội dung)"); 
+          let answerSection = ''; 
 
-            ${q.imageId ? `
-              <span style="display:inline-block; float:right; margin-left:12px; margin-top:2px;">
-                <img src="${serverUrl}/questions/image/${q.imageId}"
-                     crossorigin="anonymous" 
-                     alt="Hình ảnh câu hỏi"
-                     onerror="this.onerror=null; this.src='https://placehold.co/200x150/ffffff/999999?text=Không+tải+được+ảnh';"
-                     style="
-                       display:block;
-                       width:200px;
-                       max-height:160px;
-                       object-fit:contain;
-                       background:#fff;
-                       border:1px solid #999;
-                       border-radius:6px;
-                       box-shadow:0 0 2px rgba(0,0,0,0.25);
-                     ">
-              </span>
-            ` : ""}
-          </p>
+          // Logic Trắc nghiệm (Đã sửa lề)
+          if (qType === "mc" && Array.isArray(q.options) && q.options.length) {
+              answerSection = `<ol type="a" style="margin: 10px 0 0 0; padding-left: 40px; list-style-position: outside;">`; 
+              answerSection += q.options.map(opt => {
+                  const text = typeof opt === "string" ? opt : (opt.text || opt.content || JSON.stringify(opt));
+                  return `<li style="margin-bottom: 3px;">${escapeHtml(text)}</li>`;
+                }).join("");
+              answerSection += '</ol>';
 
-          ${q.type === "mc" && Array.isArray(q.options) && q.options.length ? `
-            <ul style="margin: 0 0 6px 25px; padding: 0;">
-              ${q.options.map(opt => {
-                const text = typeof opt === "string" ? opt
-                          : (opt.text || opt.content || JSON.stringify(opt));
-                return `<li style="margin-bottom: 3px;">${text}</li>`;
-              }).join("")}
-            </ul>
-          ` : ""}
+          // Logic Đúng/Sai (Đã sửa lề)
+          } else if (qType === "true_false" && Array.isArray(q.options) && q.options.length) {
+              answerSection = '<ol type="a" style="margin: 10px 0 0 0; padding-left: 40px; list-style-position: outside;">'; 
+              answerSection += q.options.map((opt, i_opt) => {
+                  const box = '<span style="display: inline-block; width: 18px; height: 18px; border: 1px solid #000; margin-right: 5px; vertical-align: middle;"></span>';
+                  const text = typeof opt === "string" ? opt : (opt.text || opt.content || JSON.stringify(opt));
+                  return `
+                      <li style="margin-bottom: 12px; line-height: 1.5;">
+                          ${escapeHtml(text)}
+                          <span style="margin-left: 20px; margin-right: 15px;">${box} Đ</span>
+                          <span style="margin-right: 15px;">${box} S</span>
+                      </li>
+                  `;
+                }).join("");
+              answerSection += '</ol>';
 
-          ${q.type === "essay" ? `
-            <div class="essay-space" style="margin-top:10px;">
-              ${'<div style="border-bottom:1px solid #999;height:18px;margin-top:5px;"></div>'.repeat(6)}
-            </div>
-          ` : ""}
-        </div>
-      `).join("");
-      // KẾT THÚC KHỐI THAY THẾ
+          // Logic Điền từ (Đã sửa)
+          } else if (qType === "fill_blank") {
+              
+              // ===== BẮT ĐẦU SỬA LỖI XUỐNG DÒNG (IN) =====
+              // 1. Chuyển \n thành <br>
+              let formattedText = escapeHtml(questionText).replace(/\n/g, '<br>');
+              // 2. Thay thế [BLANK]
+              questionText = formattedText.replace(/\[BLANK\]|\.{5,}/g, ' .................................... ');
+              // ===== KẾT THÚC SỬA LỖI =====
+              
+              answerSection = ''; 
+
+          // Logic Tự luận
+          } else if (qType === "essay") {
+              answerSection = `
+                  <div class="essay-space" style="margin-top:10px;">
+                    ${'<div style="border-bottom:1px solid #999;height:18px;margin-top:5px;"></div>'.repeat(6)}
+                  </div>
+              `;
+          }
+
+          // Logic Thêm Hint
+          let hintHtml = ''; 
+          if (q.hint) {
+              hintHtml = `<div style="font-style: italic; color: #555; margin-top: 5px; padding-left: 15px;"><strong>Gợi ý:</strong> ${escapeHtml(q.hint)}</div>`;
+          }
+          
+          // Trả về HTML
+          return `
+              <div class="question-block mb-3" style="page-break-inside: avoid; margin-bottom: 14px;" data-q-id="${q.id || q._id}">
+                <p style="margin-bottom: 6px; position: relative;">
+                  
+                  <b>Câu ${i + 1} (${typeLabel} - ${(q.points || 0).toFixed(1)} đ):</b>
+                  
+                  <span class="original-q-text" style="display: block; padding-left: 15px; margin-bottom: 10px; line-height: 1.8;">${questionText}</span> 
+                  
+                  ${q.imageId ? `
+                    <span style="display:inline-block; float:right; margin-left:12px; margin-top:2px;">
+                      <img src="${serverUrl}/questions/image/${q.imageId}"
+                           crossorigin="anonymous" 
+                           alt="Hình ảnh câu hỏi"
+                           onerror="this.onerror=null; this.src='https://placehold.co/200x150/ffffff/999999?text=Không+tải+được+ảnh';"
+                           style="
+                             display:block;
+                             width:200px;
+                             max-height:160px;
+                             object-fit:contain;
+                             background:#fff;
+                             border:1px solid #999;
+                             border-radius:6px;
+                             box-shadow:0 0 2px rgba(0,0,0,0.25);
+                           ">
+                      </span>
+                  ` : ""}
+                </p>
+                
+                ${answerSection}
+                ${hintHtml}
+              </div>
+          `;
+      }).join("");
+      // =================== KẾT THÚC KHỐI SỬA ===================
 
       htmlContent += "</div>"; // close test-print-block
-      
-      // ✅ SỬA LỖI 3: Dùng += để NỐI tiếp vào sau thẻ <style>
-      printArea.innerHTML += htmlContent; 
+      printArea.innerHTML += htmlContent;
 
     } catch (err) {
       console.error("❌ Lỗi khi tải hoặc in đề:", err);
@@ -10101,10 +10642,27 @@ async function preparePrintArea(selectedTests, mode = "preview") {
     setTimeout(() => {
         printArea.style.display = "none";
         printArea.innerHTML = "";
-    }, 500); 
+    }, 500);
   } else {
     await runFullPdfExport();
   }
+}
+
+
+
+
+// 🖼️ Chờ ảnh tải xong
+async function waitForImagesToLoad() {
+  const imgs = document.querySelectorAll("#print-area img");
+  const promises = Array.from(imgs).map(img => {
+    if (img.complete) return Promise.resolve();
+    return new Promise(resolve => {
+      img.onload = resolve;
+      img.onerror = resolve;
+    });
+  });
+  await Promise.all(promises);
+  console.log("🖼️ Ảnh đã tải xong.");
 }
 
 
