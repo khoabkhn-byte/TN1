@@ -418,58 +418,138 @@ def export_tests_pdf():
     return send_file(buffer, as_attachment=True,
                      download_name="de_thi.pdf", mimetype="application/pdf")
 
+# THAY THẾ HÀM CŨ 'get_question_stats' (khoảng dòng 452) BẰNG HÀM NÀY
 @app.route("/api/questions/<question_id>/stats", methods=["GET"])
 def get_question_stats(question_id):
+    """
+    API Phân tích Nâng cao: Xử lý MC, Đúng/Sai (TF), và Điền từ (Fill).
+    """
     try:
-        # 1. Lấy thông tin câu hỏi (để lấy các options)
+        # 1. Lấy thông tin câu hỏi
         question = db.questions.find_one({"id": question_id})
         if not question:
             try:
-                # Thử tìm bằng ObjectId nếu không tìm thấy bằng 'id'
                 question = db.questions.find_one({"_id": ObjectId(question_id)})
             except Exception:
                 return jsonify({"message": "Không tìm thấy câu hỏi"}), 404
-
         if not question:
-             return jsonify({"message": "Không tìm thấy câu hỏi"}), 404
+            return jsonify({"message": "Không tìm thấy câu hỏi"}), 404
 
-        # 2. Lấy các lựa chọn (labels) và đáp án đúng
-        labels = []
-        correct_answer = ""
-        if question.get("type", "mc") == "mc":
-            for opt in question.get("options", []):
-                labels.append(opt.get("text"))
-                if opt.get("correct"):
-                    correct_answer = opt.get("text")
+        q_type = question.get("type", "mc").lower()
+        q_text = question.get("q")
+        # Lấy ID chính (ưu tiên UUID, fallback về str(ObjectID))
+        q_id_str = question.get("id") or str(question.get("_id")) 
 
-        # 3. Dùng Aggregation Pipeline để đếm kết quả
+        # 2. Lấy tất cả 'detailedResults' liên quan
         pipeline = [
-            # Giai đoạn 1: Chỉ lấy các 'results' có câu hỏi này
-            {"$match": {"detailedResults.questionId": question_id}},
-            # Giai đoạn 2: Tách mảng 'detailedResults' ra thành từng tài liệu
+            {"$match": {"detailedResults.questionId": q_id_str}},
             {"$unwind": "$detailedResults"},
-            # Giai đoạn 3: Lọc lại chỉ giữ các tài liệu khớp với question_id
-            {"$match": {"detailedResults.questionId": question_id}},
-            # Giai đoạn 4: Nhóm theo 'studentAnswer' và đếm
-            {"$group": {
-                "_id": "$detailedResults.studentAnswer",
-                "count": {"$sum": 1}
-            }}
+            {"$match": {"detailedResults.questionId": q_id_str}},
+            {"$project": {"answer": "$detailedResults.studentAnswer"}}
         ]
-
         results = list(db.results.aggregate(pipeline))
+        all_answers = [r.get("answer") for r in results]
 
-        # 4. Định dạng dữ liệu cho Chart.js
-        data_map = {res["_id"]: res["count"] for res in results if res["_id"]}
+        analysis_data = {}
 
-        # Đảm bảo mọi label đều có (kể cả khi 0 học sinh chọn)
-        final_data = [data_map.get(label, 0) for label in labels]
+        # 3. Phân tích dựa trên loại câu hỏi
+        if q_type == "mc":
+            labels = []
+            correct_answer_text = ""
+            for opt in question.get("options", []):
+                text = opt.get("text")
+                labels.append(text)
+                if opt.get("correct"):
+                    correct_answer_text = text
+            
+            data_map = {}
+            for ans in all_answers:
+                # Xử lý cả trường hợp 'None' (bỏ trống)
+                ans_str = str(ans) if ans is not None else "[Bỏ trống]"
+                data_map[ans_str] = data_map.get(ans_str, 0) + 1
+            
+            final_data = [data_map.get(label, 0) for label in labels]
+            # Thêm "Bỏ trống" nếu có
+            if "[Bỏ trống]" in data_map and "[Bỏ trống]" not in labels:
+                labels.append("[Bỏ trống]")
+                final_data.append(data_map["[Bỏ trống]"])
+                
+            analysis_data = {
+                "labels": labels,
+                "data": final_data,
+                "correctAnswer": correct_answer_text
+            }
+
+        elif q_type == "true_false":
+            # Labels là các mệnh đề
+            labels = [opt.get("text", f"Mệnh đề {i+1}") for i, opt in enumerate(question.get("options", []))]
+            # Đáp án đúng là [true, false, true, ...]
+            correct_answers = [opt.get("correct") for opt in question.get("options", [])]
+            num_items = len(labels)
+            
+            chose_true = [0] * num_items
+            chose_false = [0] * num_items
+            chose_null = [0] * num_items
+            
+            for ans_array in all_answers:
+                if isinstance(ans_array, list):
+                    for i in range(num_items):
+                        if i < len(ans_array):
+                            student_choice = ans_array[i]
+                            if student_choice is True:
+                                chose_true[i] += 1
+                            elif student_choice is False:
+                                chose_false[i] += 1
+                            else:
+                                chose_null[i] += 1 # Bỏ trống (null)
+                        else:
+                            chose_null[i] += 1 # Bỏ trống (mảng ngắn hơn)
+                else:
+                    # Học sinh bỏ trống toàn bộ câu (studentAnswer = null)
+                    for i in range(num_items):
+                        chose_null[i] += 1
+
+            analysis_data = {
+                "labels": labels,
+                "choseTrue": chose_true,
+                "choseFalse": chose_false,
+                "choseNull": chose_null,
+                "correct": correct_answers
+            }
+
+        elif q_type == "fill_blank":
+            # Đáp án đúng là 1 mảng các string
+            correct_answers = [opt.get("text") for opt in question.get("options", [])]
+            num_blanks = len(correct_answers)
+            analysis_data = [] # Đây sẽ là 1 mảng các object
+
+            for i in range(num_blanks):
+                blank_analysis = {
+                    "blankIndex": i,
+                    "label": f"Ô trống {i+1}",
+                    "correct": correct_answers[i],
+                    "answers": {} # {"mái": 10, "trống": 2}
+                }
+                
+                # Đếm tần suất
+                for ans_array in all_answers:
+                    ans_text = "" # Dùng '' để đại diện cho [Bỏ trống]
+                    if isinstance(ans_array, list) and i < len(ans_array) and ans_array[i] is not None:
+                        ans_text = str(ans_array[i]).strip()
+                    
+                    blank_analysis["answers"][ans_text] = blank_analysis["answers"].get(ans_text, 0) + 1
+                
+                analysis_data.append(blank_analysis)
+        
+        else:
+            return jsonify({"message": "Loại câu hỏi này không hỗ trợ phân tích"}), 400
 
         return jsonify({
-            "questionText": question.get("q"),
-            "labels": labels,
-            "data": final_data,
-            "correctAnswer": correct_answer
+            "success": True,
+            "questionId": q_id_str,
+            "questionText": q_text,
+            "type": q_type,
+            "data": analysis_data
         }), 200
 
     except Exception as e:
