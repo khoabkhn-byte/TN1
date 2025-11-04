@@ -185,7 +185,7 @@ def calculate_question_points(question_ids, db):
     return result_map
 
 # ==================================================
-# ✅ HÀM HELPER CŨ (ĐỂ TÍNH COUNT) - ĐÃ NÂNG CẤP
+# ✅ THAY THẾ TOÀN BỘ HÀM NÀY (Khoảng dòng 228)
 # ==================================================
 def calculate_question_counts(question_ids, db):
     """Tính toán số câu MC, Essay, TF, Fill từ danh sách ID câu hỏi."""
@@ -216,19 +216,19 @@ def calculate_question_counts(question_ids, db):
 
     mc_count = 0
     essay_count = 0
-    tf_count = 0  # <-- MỚI
-    fill_count = 0 # <-- MỚI
+    tf_count = 0  
+    fill_count = 0 
 
     for q in question_types:
         q_type = q.get("type", "").lower()
         
         if q_type == "essay":
             essay_count += 1
-        elif q_type == "draw": # <-- THÊM DÒNG NÀY
-            essay_count += 1 # <-- Đếm "Vẽ" như là "Tự luận"    
-        elif q_type == "true_false": # <-- MỚI
+        elif q_type == "draw": # <-- ĐÃ THÊM "draw"
+            essay_count += 1 # <-- Đếm "Vẽ" như là "Tự luận"
+        elif q_type == "true_false": 
             tf_count += 1
-        elif q_type == "fill_blank": # <-- MỚI
+        elif q_type == "fill_blank": 
             fill_count += 1
         elif q_type == "mc":
             mc_count += 1
@@ -238,7 +238,7 @@ def calculate_question_counts(question_ids, db):
              else:
                 essay_count += 1
 
-    return mc_count, essay_count, tf_count, fill_count, draw_count # <-- Trả về 5 giá trị
+    return mc_count, essay_count, tf_count, fill_count # <-- Trả về 4 giá trị
 
 
 @app.route("/api/test-deploy", methods=["GET"])
