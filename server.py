@@ -1938,17 +1938,17 @@ def create_result():
         return jsonify({"message": f"Server error: {str(e)}"}), 500
         
 # ==================================================
-# ✅ THAY THẾ HÀM CHẤM ĐIỂM (Dòng 924)
+# ✅ THAY THẾ HÀM CHẤM ĐIỂM (Dòng 1557)
 # ==================================================
 @app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
     """
     Giáo viên chấm điểm (Logic đã sửa theo yêu cầu của bạn):
-    1. Nhận điểm tự luận (Essay) từ payload.
+    1. Nhận điểm tự luận (Essay) VÀ VẼ (Draw) từ payload.
     2. Lấy điểm trắc nghiệm (MC) đã được chấm tự động (lúc nộp bài) từ 'db.results'.
     3. Lấy điểm tối đa (maxPoints) của câu tự luận từ 'db.tests' (đã tính theo 5 quy tắc).
     4. Khống chế điểm giáo viên chấm không vượt quá maxPoints.
-    5. Tính tổng = (Điểm MC cũ) + (Điểm Essay mới).
+    5. Tính tổng = (Điểm MC cũ) + (Điểm Essay/Draw mới).
     """
     try:
         data = request.get_json() or {}
@@ -1969,25 +1969,27 @@ def grade_result(result_id):
         if not test_doc:
             return jsonify({"error": f"Không tìm thấy bài thi gốc (ID: {test_id})."}), 404
         
-        # Tạo "Master Point Map" (Nguồn điểm chuẩn)
         points_map = {q.get('id') or str(q.get('_id')): q.get('points', 1) for q in test_doc.get('questions', [])}
 
         # === 3. LẤY ĐIỂM TRẮC NGHIỆM ĐÃ CHẤM TỰ ĐỘNG (FIXED) ===
-        # Tin tưởng điểm MC đã được tính đúng lúc nộp bài (create_result)
         new_mc_score = result.get("mcScore", 0.0) 
         new_essay_score = 0.0
         
         # === 4. XỬ LÝ ĐIỂM TỰ LUẬN MỚI TỪ GIÁO VIÊN ===
-        has_ungraded_essay = False # Flag để kiểm tra xem GV có bỏ sót câu nào không
+        has_ungraded_essay = False 
 
         for q_id_str, det in detailed_map.items():
             
-            # Chỉ xử lý câu Tự luận
-            if det.get("type") == "essay":
+            q_type = det.get("type")
+            
+            # ===== BẮT ĐẦU SỬA LỖI (Thêm "draw") =====
+            # Chỉ xử lý câu Tự luận HOẶC câu Vẽ
+            if q_type == "essay" or q_type == "draw":
+            # ===== KẾT THÚC SỬA LỖI =====
+            
                 # Tìm xem GV có chấm câu này trong payload không
                 essay_data = next((e for e in essays_payload if str(e.get("questionId")) == q_id_str), None)
                 
-                # Lấy điểm tối đa (max_points) của câu này từ đề thi gốc
                 max_points = float(points_map.get(q_id_str, 1.0)) 
                 
                 if essay_data and essay_data.get("teacherScore") is not None:
@@ -1998,7 +2000,6 @@ def grade_result(result_id):
                     except: 
                         ts_float = 0.0
                     
-                    # ✅ LOGIC KHỐNG CHẾ ĐIỂM
                     if ts_float > max_points:
                         ts_float = max_points 
                     if ts_float < 0:
@@ -2009,14 +2010,13 @@ def grade_result(result_id):
                     det["pointsGained"] = ts_float
                     det["isCorrect"] = ts_float > 0
                     
-                    new_essay_score += ts_float # Cộng vào điểm tự luận tổng
+                    new_essay_score += ts_float 
                 
                 else:
                     # Giáo viên KHÔNG chấm câu này
                     if det.get("teacherScore") is None:
                         has_ungraded_essay = True
                     else:
-                        # Giữ điểm đã chấm từ lần trước (nếu có)
                         new_essay_score += float(det.get("pointsGained", 0.0))
 
             # (Chúng ta không làm gì với câu 'mc')
@@ -2036,8 +2036,8 @@ def grade_result(result_id):
         update_payload = {
             "detailedResults": list(detailed_map.values()),
             "totalScore": round(new_total_score, 2),
-            "mcScore": round(new_mc_score, 2), # Điểm MC (Giữ nguyên)
-            "essayScore": round(new_essay_score, 2), # Điểm Tự luận MỚI
+            "mcScore": round(new_mc_score, 2), 
+            "essayScore": round(new_essay_score, 2), 
             "gradingStatus": new_status,
             "gradedAt": graded_at,
         }
