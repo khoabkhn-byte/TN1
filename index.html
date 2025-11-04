@@ -1457,8 +1457,8 @@
             <option value="mc">Trắc nghiệm</option>
             <option value="essay">Tự luận</option>
             <option value="true_false">Đúng/Sai (Nhiều ý)</option>
-            <option value="fill_blank">Điền từ (Inline)</option> </select>
-        </div>
+            <option value="fill_blank">Điền từ (Inline)</option>
+            <option value="draw">Vẽ (Hình học/Hóa học)</option> </select> </div>
         <div class="col"><label>Điểm</label><input id="m-q-points" type="number" class="form-control" value="1"></div>
       </div>
       
@@ -2111,6 +2111,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
  <script>
  
   
@@ -2268,6 +2270,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+function lockAllDrawingPads() {
+    if (!window.drawingPads) return;
+    Object.keys(window.drawingPads).forEach(canvasId => {
+        try {
+            const canvas = window.drawingPads[canvasId];
+            if (!canvas) return;
+
+            // Tắt chế độ vẽ
+            if (typeof canvas.isDrawingMode !== "undefined") canvas.isDrawingMode = false;
+            // Vô hiệu hóa selection
+            if (typeof canvas.selection !== "undefined") canvas.selection = false;
+
+            // Với mỗi object: set selectable/evented false
+            const objs = canvas.getObjects ? canvas.getObjects() : [];
+            objs.forEach(o => {
+                try {
+                    o.selectable = false;
+                    o.evented = false;
+                    // nếu bạn thêm flag để phân biệt grid/guide, hãy giữ nguyên grid nếu cần
+                    // o.hasControls = false;
+                } catch (eo) { /* ignore */ }
+            });
+
+            // Gắn cờ đã khoá để có thể kiểm tra sau này
+            canvas.__locked = true;
+
+            // Render lại
+            if (typeof canvas.renderAll === "function") canvas.renderAll();
+
+            // (Option) vô hiệu hóa pointer events trên phần DOM để chặn drag/touch
+            if (canvas.upperCanvasEl) {
+                canvas.upperCanvasEl.style.pointerEvents = "none";
+            }
+            if (canvas.lowerCanvasEl) {
+                canvas.lowerCanvasEl.style.pointerEvents = "none";
+            }
+        } catch (e) {
+            console.warn("lockAllDrawingPads: lỗi với", canvasId, e);
+        }
+    });
+}
 
 
 
@@ -2581,23 +2624,26 @@ function formatSubmittedAt(ts) {
 
     // QUESTIONS
 	
-	// Thêm hàm này vào khối <script>
+// =================================================================
+// THAY THẾ TOÀN BỘ HÀM NÀY (ĐÃ BAO GỒM 5 LOẠI CÂU HỎI)
+// =================================================================
 function toggleOptionFields() {
     const type = qs('m-q-type').value;
 
     const mainQuestionInput = qs('m-q-q');
     const mainQuestionDiv = mainQuestionInput.closest('.mb-2');
 
-    // Lấy 4 khu vực nhập đáp án
+    // Lấy 5 khu vực nhập đáp án
     const mcSection = qs('mc-options-section');
     const essaySection = qs('essay-options-section');
     const trueFalseSection = qs('true-false-options-section');
-    const fillBlankSection = qs('fill-blank-options-section'); // ✅ MỚI
+    const fillBlankSection = qs('fill-blank-options-section');
+    // (Không có section riêng cho 'draw' vì nó dùng chung section 'essay')
 
     // Lấy các nút "+ Thêm"
     const btnAddOption = document.querySelector('#mc-options-section button[onclick="addQuestionOption()"]');
     const btnAddTrueFalse = document.querySelector('#true-false-options-section button[onclick="addTrueFalseOption()"]');
-    const btnAddFillBlank = document.querySelector('#fill-blank-options-section button[onclick="addFillBlankOption()"]'); // ✅ MỚI
+    const btnAddFillBlank = document.querySelector('#fill-blank-options-section button[onclick="addFillBlankOption()"]'); 
 
     const modalEl = qs('modalQuestion');
     const isLocked = (modalEl.dataset.isLocked === 'true');
@@ -2609,14 +2655,19 @@ function toggleOptionFields() {
     if (mcSection) mcSection.style.display = 'none';
     if (essaySection) essaySection.style.display = 'none';
     if (trueFalseSection) trueFalseSection.style.display = 'none'; 
-    if (fillBlankSection) fillBlankSection.style.display = 'none'; // ✅ MỚI
+    if (fillBlankSection) fillBlankSection.style.display = 'none';
 
     // --- Áp dụng Logic theo Loại ---
+    
+    // ===== BẮT ĐẦU SỬA LỖI (KHỐI NÀY BỊ THIẾU TRONG CODE CỦA BẠN) =====
     if (type === 'mc') {
         if (mcSection) mcSection.style.display = 'block';
         if (btnAddOption) btnAddOption.disabled = isLocked;
         
-    } else if (type === 'essay') {
+    } 
+    // ===== KẾT THÚC SỬA LỖI =====
+    
+    else if (type === 'essay' || type === 'draw') { // <-- Logic gộp 'essay' và 'draw'
         if (essaySection) essaySection.style.display = 'block';
         
     } else if (type === 'true_false') { 
@@ -2631,11 +2682,10 @@ function toggleOptionFields() {
             addTrueFalseOption(); 
         }
     
-    } else if (type === 'fill_blank') { // ✅ MỚI
+    } else if (type === 'fill_blank') { 
         if (fillBlankSection) fillBlankSection.style.display = 'block';
         if (btnAddFillBlank) btnAddFillBlank.disabled = isLocked;
 
-        // Tự động thêm 1 ô đáp án nếu là câu mới
         const container = qs('m-q-fill-blank-container');
         const questionId = qs('m-q-id').value; 
         if (container && container.children.length === 0 && !isLocked && !questionId) {
@@ -2643,6 +2693,7 @@ function toggleOptionFields() {
         }
     }
 }
+
 
 async function loadQuestions(forceReload = false, resetPage = true) { // Thêm forceReload
     // Chỉ tải lại dữ liệu gốc từ API nếu chưa có hoặc yêu cầu forceReload
@@ -2995,124 +3046,9 @@ async function startQuiz(testId, assignmentId, durationMinutes) {
     }
 }
 
-// ==================== HÀM HIỂN THỊ GIAO DIỆN LÀM BÀI (ĐÃ SỬA LỖI XUỐNG DÒNG) ====================
-
-function renderQuizInterface(questions) {
-    window.currentLoadedQuestions = questions;
-    const container = document.getElementById('quiz-questions-container');
-    if (!container) return;
-    container.innerHTML = '';
-    if (!questions || questions.length === 0) {
-        container.innerHTML = '<p class="text-danger">Không có câu hỏi nào được tìm thấy.</p>';
-        return;
-     }
-
-    let questionsHtml = '';
-    questions.forEach((q, index) => {
-        const qNumber = index + 1;
-        let questionText = q.q || q.question || 'Nội dung câu hỏi không xác định.';
-        const options = q.options || [];
-
-        const original_id = q._id ? String(q._id) : 'N/A';
-        const original_uuid = q.id ? String(q.id) : 'N/A';
-        const qIdForDataAttr = original_id !== 'N/A' ? original_id : original_uuid;
-        
-        if (!qIdForDataAttr || qIdForDataAttr === 'N/A') {
-             console.error(`  ERROR: Question ${qNumber} is missing both IDs!`);
-        }
-        
-        const qType = q.type || (options.length > 0 ? 'mc' : 'essay');
-
-        // Thêm code hiển thị hint
-        let hintHtml = ''; 
-        if (q.hint) {
-            hintHtml = `<div class="mt-2"><small class="text-muted fst-italic"><strong>Gợi ý:</strong> ${escapeHtml(q.hint)}</small></div>`;
-        }
-
-        let imageHtml = '';
-        if (q.imageId) { 
-            imageHtml = `<div class="question-image ms-3" style="flex:0 0 180px; text-align:center;"><img src="${serverUrl}/images/${q.imageId}" alt="Ảnh câu hỏi" class="img-fluid rounded shadow-sm border" onerror="this.onerror=null; this.src='https://placehold.co/180x120/cccccc/333333?text=Không+thể+tải+ảnh';" style="object-fit:contain; max-height:150px;"></div>`; 
-        }
-
-        let inputAreaHtml = '';
-        if (qType === 'essay') {
-            inputAreaHtml = `<div class="form-group mt-3"><label for="essay_${qIdForDataAttr}" class="form-label text-muted">Nhập câu trả lời của bạn:</label><textarea id="essay_${qIdForDataAttr}" class="form-control essay-answer" rows="5" placeholder="Viết câu trả lời..."></textarea></div>`;
-        
-        } else if (qType === 'mc') {
-            let optionsHtml = '';
-            options.forEach((opt, optIndex) => {
-                const optLetter = String.fromCharCode(65 + optIndex);
-                const optValue = (typeof opt === 'string') ? opt : (opt.value || opt.text || '');
-                const inputName = `q_${qIdForDataAttr}`;
-                const inputId = `${inputName}_${optIndex}`;
-                optionsHtml += `<div class="form-check mb-2"><input class="form-check-input" type="radio" name="${inputName}" id="${inputId}" value="${escapeHtml(String(optValue))}"><label class="form-check-label" for="${inputId}"><strong>${optLetter}.</strong> ${escapeHtml(String(optValue))}</label></div>`;
-            });
-            inputAreaHtml = `<div class="options-container mt-2">${optionsHtml}</div>`;
-        
-        } else if (qType === 'true_false') {
-            let optionsHtml = '';
-            options.forEach((opt, optIndex) => {
-                const optLetter = String.fromCharCode(97 + optIndex); // Bắt đầu từ 'a'
-                const optText = opt.text || `Mệnh đề ${optIndex + 1}`;
-                const inputName = `tf_${qIdForDataAttr}_${optIndex}`; 
-                
-                optionsHtml += `
-                    <div class="border-bottom p-2 mb-2">
-                        <p class="mb-1"><strong>${optLetter})</strong> ${escapeHtml(optText)}</p>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="${inputName}" id="${inputName}_true" value="true">
-                            <label class="form-check-label" for="${inputName}_true">Đúng</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="${inputName}" id="${inputName}_false" value="false">
-                            <label class="form-check-label" for="${inputName}_false">Sai</label>
-                        </div>
-                    </div>
-                `;
-            });
-            inputAreaHtml = `<div class="options-container mt-2">${optionsHtml}</div>`;
-        
-        } else if (qType === 'fill_blank') {
-            
-            // ===== BẮT ĐẦU SỬA LỖI XUỐNG DÒNG =====
-    
-            // 1. Escape HTML
-            let safeText = escapeHtml(questionText);
-
-            // 2. Chuyển \n (ký tự xuống dòng) thành thẻ <br> (xuống dòng HTML)
-            let formattedText = safeText.replace(/\n/g, '<br>');
-
-            // 3. Thay thế [BLANK] bằng <input>
-            let blankIndex = 0;
-            const questionWithInputs = formattedText.replace(/\[BLANK\]/g, () => {
-                const index = blankIndex++;
-                // Thêm 'vertical-align: baseline' để input thẳng hàng với chữ
-                return `<input type="text" id="fill_${qIdForDataAttr}_${index}" class="form-control form-control-sm d-inline-block fill-blank-inline" data-index="${index}" style="width: 150px; margin: 0 5px; vertical-align: baseline;">`;
-            });
-            // ===== KẾT THÚC SỬA LỖI =====
-            
-            // Gán lại biến questionText
-            questionText = questionWithInputs; 
-            inputAreaHtml = ''; // Không cần khu vực input riêng
-        }
-
-        questionsHtml += `
-            <div class="card p-3 mb-4 shadow-sm d-flex flex-row align-items-start"
-                 data-question-id="${qIdForDataAttr}" data-question-type="${qType}">
-                 <div class="question-text flex-grow-1">
-                    <h6 class="text-primary mb-3">Câu ${qNumber}:</h6>
-                    
-                    <div class="question-content mb-3" style="line-height: 2.5;">${questionText}</div> 
-                    
-                    ${hintHtml} ${inputAreaHtml}
-                 </div>
-                 ${imageHtml}
-            </div>`;
-    });
-    container.innerHTML = questionsHtml;
-}
-
-
+// ==================================================
+// HÀM BỊ THIẾU: BỘ ĐẾM NGƯỢC THỜI GIAN
+// ==================================================
 function startQuizTimer(durationMinutes) {
     const timerDisplayElement = qs('quiz-timer');
     
@@ -3131,7 +3067,7 @@ function startQuizTimer(durationMinutes) {
 
         if (timeRemainingSeconds <= 0) {
             clearInterval(timerInterval);
-            timerDisplayElement.textContent = formatDuration(0);
+            if(timerDisplayElement) timerDisplayElement.textContent = formatDuration(0);
             
             // Xử lý nộp bài tự động khi hết giờ
             showMessageBox("Hết Giờ", "Bài thi đã được tự động nộp do hết thời gian làm bài.");
@@ -3139,15 +3075,17 @@ function startQuizTimer(durationMinutes) {
             return;
         }
 
-        timerDisplayElement.textContent = formatDuration(timeRemainingSeconds);
+        if(timerDisplayElement) timerDisplayElement.textContent = formatDuration(timeRemainingSeconds);
         
-        // Cảnh báo thời gian còn lại (Ví dụ: dưới 5 phút)
-        if (timeRemainingSeconds <= 300) {
-            timerDisplayElement.classList.add('text-danger');
-            timerDisplayElement.classList.remove('text-warning');
-        } else {
-            timerDisplayElement.classList.remove('text-danger');
-            timerDisplayElement.classList.add('text-warning');
+        // Cảnh báo thời gian còn lại
+        if (timerDisplayElement) {
+            if (timeRemainingSeconds <= 300) {
+                timerDisplayElement.classList.add('text-danger');
+                timerDisplayElement.classList.remove('text-warning');
+            } else {
+                timerDisplayElement.classList.remove('text-danger');
+                timerDisplayElement.classList.add('text-warning');
+            }
         }
     }
     
@@ -3157,6 +3095,1157 @@ function startQuizTimer(durationMinutes) {
     // Lặp lại mỗi giây
     timerInterval = setInterval(updateTimer, 1000);
 }
+
+
+
+
+// ==================== HÀM HIỂN THỊ GIAO DIỆN LÀM BÀI (ĐÃ SỬA PHÍM TẮT S) ====================
+function renderQuizInterface(questions) {
+    window.currentLoadedQuestions = questions;
+    const container = document.getElementById('quiz-questions-container');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!questions || questions.length === 0) {
+        container.innerHTML = '<p class="text-danger">Không có câu hỏi nào được tìm thấy.</p>';
+        return;
+     }
+
+    let questionsHtml = '';
+    questions.forEach((q, index) => {
+        const qNumber = index + 1;
+        let questionText = q.q || q.question || 'Nội dung câu hỏi không xác định.';
+        const options = q.options || [];
+        const qIdForDataAttr = q.id || q._id || `q_${index}`; 
+        const qType = q.type || (options.length > 0 ? 'mc' : 'essay');
+        let hintHtml = ''; 
+        if (q.hint) {
+            hintHtml = `<div class="mt-2"><small class="text-muted fst-italic"><strong>Gợi ý:</strong> ${escapeHtml(q.hint)}</small></div>`;
+        }
+        let imageHtml = '';
+        if (q.imageId) { 
+            imageHtml = `<div class="question-image ms-3" style="flex:0 0 180px; text-align:center;"><img src="${serverUrl}/images/${q.imageId}" alt="Ảnh câu hỏi" class="img-fluid rounded shadow-sm border" onerror="this.onerror=null; this.src='https://placehold.co/180x120/cccccc/333333?text=Không+thể+tải+ảnh';" style="object-fit:contain; max-height:150px;"></div>`; 
+        }
+
+        let inputAreaHtml = '';
+        if (qType === 'essay') {
+            inputAreaHtml = `<div class="form-group mt-3"><label for="essay_${qIdForDataAttr}" class="form-label text-muted">Nhập câu trả lời của bạn:</label><textarea id="essay_${qIdForDataAttr}" class="form-control essay-answer" rows="5" placeholder="Viết câu trả lời..."></textarea></div>`;
+        } else if (qType === 'mc') {
+            let optionsHtml = '';
+            options.forEach((opt, optIndex) => {
+                const optLetter = String.fromCharCode(65 + optIndex);
+                const optValue = (typeof opt === 'string') ? opt : (opt.value || opt.text || '');
+                const inputName = `q_${qIdForDataAttr}`;
+                const inputId = `${inputName}_${optIndex}`;
+                optionsHtml += `<div class="form-check mb-2"><input class="form-check-input" type="radio" name="${inputName}" id="${inputId}" value="${escapeHtml(String(optValue))}"><label class="form-check-label" for="${inputId}"><strong>${optLetter}.</strong> ${escapeHtml(String(optValue))}</label></div>`;
+            });
+            inputAreaHtml = `<div class="options-container mt-2">${optionsHtml}</div>`;
+        } else if (qType === 'true_false') {
+            let optionsHtml = '';
+            options.forEach((opt, optIndex) => {
+                const optLetter = String.fromCharCode(97 + optIndex);
+                const optText = opt.text || `Mệnh đề ${optIndex + 1}`;
+                const inputName = `tf_${qIdForDataAttr}_${optIndex}`; 
+                optionsHtml += `
+                    <div class="border-bottom p-2 mb-2">
+                        <p class="mb-1"><strong>${optLetter})</strong> ${escapeHtml(optText)}</p>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="${inputName}" id="${inputName}_true" value="true">
+                            <label class="form-check-label" for="${inputName}_true">Đúng</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="${inputName}" id="${inputName}_false" value="false">
+                            <label class="form-check-label" for="${inputName}_false">Sai</label>
+                        </div>
+                    </div>`;
+            });
+            inputAreaHtml = `<div class="options-container mt-2">${optionsHtml}</div>`;
+        } else if (qType === 'fill_blank') {
+            let safeText = escapeHtml(questionText);
+            let formattedText = safeText.replace(/\n/g, '<br>');
+            let blankIndex = 0;
+            const questionWithInputs = formattedText.replace(/\[BLANK\]/g, () => {
+                const index = blankIndex++;
+                return `<input type="text" id="fill_${qIdForDataAttr}_${index}" class="form-control form-control-sm d-inline-block fill-blank-inline" data-index="${index}" style="width: 150px; margin: 0 5px; vertical-align: baseline;">`;
+            });
+            questionText = questionWithInputs; 
+            inputAreaHtml = ''; 
+        } else if (qType === 'draw') {
+            const canvasId = `draw_${qIdForDataAttr}`;
+            const shortcutStyle = "font-size: 0.7em; opacity: 0.7; display: block; line-height: 1;";
+            inputAreaHtml = `
+                <div class="form-group mt-3 drawing-pad-container">
+                    <label class="form-label text-muted">Vẽ câu trả lời của bạn vào khung dưới:</label>
+                    <div class="btn-toolbar mb-2" role="toolbar" style="flex-wrap: wrap; gap: 5px;">
+                        
+                        <div class="btn-group btn-group-sm me-2" role="group">
+                            <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'select')">Chọn (Di chuyển)<span style="${shortcutStyle}">(V)</span></button>
+                            <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'draw')">Vẽ (Tự do)<span style="${shortcutStyle}">(F)</span></button>
+                        </div>
+                        
+                        <div class="btn-group btn-group-sm me-2" role="group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'line')">Đường thẳng<span style="${shortcutStyle}">(L)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'rect')">Hình chữ nhật<span style="${shortcutStyle}">(R)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'circle')">Hình tròn<span style="${shortcutStyle}">(C)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'triangle')">Hình tam giác<span style="${shortcutStyle}">(T)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'vector')">Vector<span style="${shortcutStyle}">(U)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'polygon')">Vẽ Đa giác<span style="${shortcutStyle}">(P)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'curve')">Vẽ đường cong<span style="${shortcutStyle}">(B)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'sinewave')">Vẽ Sin<span style="${shortcutStyle}">(S)</span></button> <button type="button" class="btn btn-outline-secondary" onclick="addText('${canvasId}')">Thêm chữ<span style="${shortcutStyle}">(Ctrl+X)</span></button>
+                        </div>
+                        <div class="btn-group btn-group-sm me-2" role="group">
+                            <label for="color-picker-${canvasId}" class="btn btn-sm btn-outline-secondary">Tô màu</label>
+                            <input type="color" class="form-control-color" id="color-picker-${canvasId}" value="#FF0000" oninput="setFillColor('${canvasId}', this.value)">
+                            <label for="stroke-picker-${canvasId}" class="btn btn-sm btn-outline-secondary ms-2">Màu nét</label>
+                            <input type="color" class="form-control-color" id="stroke-picker-${canvasId}" value="#000000" oninput="setStrokeColor('${canvasId}', this.value)">
+                            <button type="button" class="btn btn-outline-secondary ms-2" onclick="setStrokeDash('${canvasId}', true)">Nét đứt</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="setStrokeDash('${canvasId}', false)">Nét liền</button>
+                        </div>
+
+                        <div class="btn-group btn-group-sm me-2" role="group">
+                             <button type="button" class="btn btn-outline-secondary" onclick="setObjectDimensions('${canvasId}')">Đặt Kích thước<span style="${shortcutStyle}">(Ctrl+E)</span></button>
+                        </div>
+
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-danger" onclick="deleteSelectedObject('${canvasId}')">Xóa (Đang chọn)</button>
+                        </div>
+                    </div>
+
+                    <canvas id="${canvasId}" class="drawing-canvas" style="width: 100%; height: 300px; border: 1px solid #000;"></canvas>
+                </div>
+            `;
+        }
+
+        questionsHtml += `
+            <div class="card p-3 mb-4 shadow-sm d-flex flex-row align-items-start"
+                 data-question-id="${qIdForDataAttr}" data-question-type="${qType}">
+                 <div class="question-text flex-grow-1">
+                    <h6 class="text-primary mb-3">Câu ${qNumber}:</h6>
+                    <div class="question-content mb-3" style="line-height: 2.5;">${questionText}</div> 
+                    ${hintHtml} 
+                    ${inputAreaHtml}
+                 </div>
+                 ${imageHtml}
+            </div>`;
+    });
+    container.innerHTML = questionsHtml;
+
+    initDrawingCanvas();
+}
+
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): THÊM HÌNH KHỐI (ĐÃ THÊM LOGIC GỌI SINEWAVE)
+// ==================================================
+function addShape(canvasId, shapeType) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+
+    // Hủy các chế độ đặc biệt (nếu có)
+    finishPolygon(canvas, false); 
+    finishCurve(canvas, false);
+    finishSineWave(canvas); // <-- MỚI
+
+    // ===== BẮT ĐẦU SỬA LỖI (Thêm SineWave) =====
+    if (shapeType === 'polygon') {
+        startPolygonMode(canvasId); 
+        return; 
+    }
+    if (shapeType === 'curve') {
+        startCurveMode(canvasId); 
+        return; 
+    }
+    if (shapeType === 'sinewave') {
+        startSineWaveMode(canvasId); // <-- MỚI
+        return;
+    }
+    // ===== KẾT THÚC SỬA LỖI =====
+    
+    canvas.isDrawingMode = false; 
+
+    const colorPicker = document.getElementById(`color-picker-${canvasId}`);
+    const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+    
+    let fillColor = hexToRgba(colorPicker ? colorPicker.value : '#FF0000', 0.3); 
+    let strokeColor = strokePicker ? strokePicker.value : '#000000'; 
+
+    let shape;
+    
+    const options = {
+        left: 50,
+        top: 50,
+        fill: fillColor, 
+        stroke: strokeColor, 
+        strokeWidth: 2,
+    };
+
+    if (shapeType === 'line') {
+        shape = new fabric.Line([50, 50, 150, 50], options);
+    } else if (shapeType === 'rect') {
+        shape = new fabric.Rect({ ...options, width: 80, height: 60 });
+    } else if (shapeType === 'circle') {
+        shape = new fabric.Circle({ ...options, radius: 40 });
+    } else if (shapeType === 'triangle') {
+        shape = new fabric.Triangle({ ...options, width: 80, height: 70 });
+    } else if (shapeType === 'vector') {
+        const line = new fabric.Line([50, 50, 150, 50], { stroke: strokeColor, strokeWidth: 2 }); 
+        const arrow = new fabric.Triangle({
+            left: 150, top: 50,
+            width: 10, height: 15,
+            fill: strokeColor, 
+            angle: 90,
+            originX: 'center', originY: 'center'
+        });
+        shape = new fabric.Group([line, arrow], { left: 50, top: 50 });
+        shape.set('fill', 'rgba(0,0,0,0)');
+    }
+
+    if (shape) {
+        canvas.add(shape);
+        canvas.setActiveObject(shape); 
+        canvas.renderAll();
+    }
+}
+
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): TỶ LỆ QUY ĐỔI (QUAN TRỌNG)
+// ==================================================
+// Quy ước: 1 ô lưới = 20px = 1cm
+const GRID_SIZE_PX = 20; 
+const CM_PER_GRID = 1;
+
+function cmToPx(cm) {
+    return (cm / CM_PER_GRID) * GRID_SIZE_PX;
+}
+function pxToCm(px) {
+    return (px / GRID_SIZE_PX) * CM_PER_GRID;
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): ĐẶT KÍCH THƯỚC (CTRL+E)
+// ==================================================
+function setObjectDimensions(canvasId) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+
+    const obj = canvas.getActiveObject();
+    if (!obj) {
+        alert("Vui lòng chọn một đối tượng (Hình chữ nhật, Tròn, Line...) trước khi đặt kích thước.");
+        return;
+    }
+    
+    // Tắt các chế độ vẽ khác
+    canvas.isDrawingMode = false;
+    finishPolygon(canvas, false);
+    finishCurve(canvas, false);
+
+    try {
+        if (obj.type === 'rect') {
+            // Lấy W/H thực tế (bao gồm cả scale)
+            const currentW_px = obj.get('width') * obj.get('scaleX');
+            const currentH_px = obj.get('height') * obj.get('scaleY');
+            
+            const newW_cm = prompt(`Đặt chiều rộng (cm). 1 ô = ${CM_PER_GRID}cm.`, pxToCm(currentW_px).toFixed(1));
+            if (newW_cm === null) return; // Hủy
+            const newH_cm = prompt(`Đặt chiều cao (cm). 1 ô = ${CM_PER_GRID}cm.`, pxToCm(currentH_px).toFixed(1));
+            if (newH_cm === null) return;
+
+            obj.set({
+                width: cmToPx(parseFloat(newW_cm)),
+                height: cmToPx(parseFloat(newH_cm)),
+                scaleX: 1, // Reset scale
+                scaleY: 1
+            });
+            
+        } else if (obj.type === 'circle') {
+            const currentR_px = obj.get('radius') * obj.get('scaleX'); // Giả sử scale đồng nhất
+            
+            const newR_cm = prompt(`Đặt BÁN KÍNH (cm). 1 ô = ${CM_PER_GRID}cm.`, pxToCm(currentR_px).toFixed(1));
+            if (newR_cm === null) return;
+
+            obj.set({
+                radius: cmToPx(parseFloat(newR_cm)),
+                scaleX: 1, // Reset scale
+                scaleY: 1
+            });
+
+        } else if (obj.type === 'line' || (obj.type === 'group' && obj._objects?.length === 2 && obj._objects[0].type === 'line')) {
+            // Xử lý Line hoặc Vector (Group of line+triangle)
+            
+            // Lấy chiều dài hiện tại
+            const currentL_px = obj.get('width') * obj.get('scaleX'); // Line/Group lưu chiều dài trong width
+            
+            const newL_cm = prompt(`Đặt Chiều Dài (cm). 1 ô = ${CM_PER_GRID}cm.`, pxToCm(currentL_px).toFixed(1));
+            if (newL_cm === null) return;
+
+            // Đặt chiều dài mới
+            obj.set({
+                width: cmToPx(parseFloat(newL_cm)),
+                scaleX: 1, // Reset scale
+            });
+            
+            // (Lưu ý: Thao tác này chỉ thay đổi độ dài, KHÔNG thay đổi góc xoay)
+            
+        } else {
+            alert("Tính năng này hiện chỉ hỗ trợ Hình chữ nhật, Hình tròn, và Đường thẳng/Vector.");
+            return;
+        }
+
+        obj.setCoords();
+        canvas.renderAll();
+        
+    } catch (e) {
+        alert("Giá trị nhập không hợp lệ.");
+        console.error("Lỗi đặt kích thước:", e);
+    }
+}
+
+
+
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): KHỞI TẠO BẢNG VẼ (FABRIC.JS) - ĐÃ SỬA LỖI
+// ==================================================
+// Biến toàn cục để lưu trữ các đối tượng Fabric.js
+window.drawingPads = {};
+window.activeFabricCanvas = null;
+
+// ==================================================
+// HÀM KHỞI TẠO BẢNG VẼ (ĐÃ SỬA LỖI BẮT ĐIỂM VÀ XOAY LINE)
+// ==================================================
+function initDrawingCanvas() {
+    window.drawingPads = {};
+    window.activeFabricCanvas = null; // Reset
+    
+    const canvases = document.querySelectorAll('.drawing-canvas');
+    if (canvases.length === 0) return;
+
+    const gridSize = 20; // Kích thước lưới
+
+    // ===== BẮT ĐẦU SỬA LỖI 1 (Xoay Line) =====
+    // GỠ BỎ 2 DÒNG GÂY LỖI NÀY NẾU BẠN CÓ CHÚNG TRONG CODE
+    // fabric.Object.prototype.originX = 'center'; // (XÓA DÒNG NÀY)
+    // fabric.Object.prototype.originY = 'center'; // (XÓA DÒNG NÀY)
+    // ===== KẾT THÚC SỬA LỖI 1 =====
+
+
+    canvases.forEach(canvasEl => {
+        try {
+            const canvas = new fabric.Canvas(canvasEl.id, {
+                isDrawingMode: false, 
+                backgroundColor: '#ffffff',
+            });
+            
+            const container = canvasEl.closest('.drawing-pad-container');
+            if (container) {
+                canvas.setWidth(container.clientWidth - 2); 
+                canvas.setHeight(300);
+            }
+
+            // Khi click vào canvas, đặt nó là canvas "active"
+            canvas.on('mouse:down', () => {
+                window.activeFabricCanvas = canvas;
+            });
+
+            // ===== BẮT ĐẦU SỬA LỖI 2 (Bắt điểm) =====
+            
+            // 1. TẮT tính năng snap-to-grid "mạnh" (gây bất tiện)
+            // (Không còn dòng canvas.snapToGrid = true)
+
+            // 2. BẬT LẠI logic bắt điểm tùy chỉnh (CHỈ KHI DI CHUYỂN)
+            canvas.on('object:moving', (options) => {
+                const target = options.target;
+                if (!target) return;
+                
+                // "Hút" đối tượng vào các đường lưới gần nhất
+                target.set({
+                    left: Math.round(target.left / gridSize) * gridSize,
+                    top: Math.round(target.top / gridSize) * gridSize
+                });
+                target.setCoords();
+            });
+            // ===== KẾT THÚC SỬA LỖI 2 =====
+            
+
+            // Gọi hàm vẽ lưới (đã sửa ở bước trước)
+            drawCanvasGrid(canvas, 20); 
+
+            window.drawingPads[canvasEl.id] = canvas;
+
+        } catch (e) {
+            console.error("Lỗi khởi tạo Fabric.js:", e);
+            canvasEl.parentElement.innerHTML = '<div class="alert alert-danger">Lỗi tải bảng vẽ.</div>';
+        }
+    });
+}
+
+
+// Biến toàn cục để lưu trữ clipboard
+let _clipboard = null;
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): SAO CHÉP (CTRL+C)
+// ==================================================
+function copyObjects(canvas) {
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj) return;
+
+    // Clone đối tượng (hoặc nhóm) đang chọn và lưu vào clipboard
+    activeObj.clone(cloned => {
+        _clipboard = cloned;
+        console.log("Đã sao chép vào clipboard.");
+    });
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): DÁN (CTRL+V)
+// ==================================================
+function pasteObjects(canvas) {
+    if (!_clipboard) return;
+
+    // Clone từ clipboard
+    _clipboard.clone(clonedObj => {
+        canvas.discardActiveObject(); // Bỏ chọn đối tượng cũ
+        
+        // Dịch chuyển đối tượng dán đi 10px
+        clonedObj.set({
+            left: clonedObj.left + 10,
+            top: clonedObj.top + 10,
+            evented: true, // Đảm bảo có thể chọn
+        });
+
+        // Xử lý nếu đối tượng là một nhóm (multi-select)
+        if (clonedObj.type === 'activeSelection') {
+            clonedObj.canvas = canvas;
+            clonedObj.forEachObject(obj => canvas.add(obj));
+            clonedObj.setCoords();
+        } else {
+            // Nếu là 1 đối tượng đơn lẻ
+            canvas.add(clonedObj);
+        }
+        
+        // Cập nhật vị trí dán cho lần tiếp theo
+        _clipboard.top += 10;
+        _clipboard.left += 10;
+        
+        canvas.setActiveObject(clonedObj); // Chọn đối tượng vừa dán
+        canvas.requestRenderAll();
+        console.log("Đã dán từ clipboard.");
+    });
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): NHÂN BẢN (CTRL+D)
+// ==================================================
+function duplicateObjects(canvas) {
+    const activeObj = canvas.getActiveObject();
+    if (!activeObj) return;
+    
+    // Sao chép và Dán ngay lập tức
+    activeObj.clone(cloned => {
+        _clipboard = cloned; // Cập nhật clipboard
+        pasteObjects(canvas); // Gọi hàm dán
+    });
+}
+
+// ==================================================
+// HÀM VẼ THƯỚC (RULERS) VÀ LƯỚI (ĐÃ GỠ BỎ TEXT ĐỂ FIX LỖI)
+// ==================================================
+function drawRulersAndGrid(canvas, gridSize, unitName = 'mm', unitsPerGrid = 10) {
+    const width = canvas.getWidth();
+    const height = canvas.getHeight();
+    const rulerSize = 25; 
+    const rulerColor = '#f8f9fa'; 
+    const lineColor = '#eee'; 
+    const textColor = '#555'; 
+
+    const allObjects = [];
+
+    // --- 1. Vẽ Lưới (Trục X) ---
+    for (let i = 1; (i * gridSize) < width; i++) {
+        const x = i * gridSize;
+        if (x > rulerSize) { 
+            allObjects.push(new fabric.Line([x, rulerSize, x, height], { stroke: lineColor }));
+        }
+    }
+
+    // --- 2. Vẽ Lưới (Trục Y) ---
+    for (let i = 1; (i * gridSize) < height; i++) {
+        const y = i * gridSize;
+        if (y > rulerSize) {
+            allObjects.push(new fabric.Line([rulerSize, y, width, y], { stroke: lineColor }));
+        }
+    }
+
+    // --- 3. Vẽ nền thước ---
+    allObjects.push(new fabric.Rect({
+        left: 0, top: 0, width: width, height: rulerSize,
+        fill: rulerColor, stroke: lineColor,
+    }));
+    allObjects.push(new fabric.Rect({
+        left: 0, top: 0, width: rulerSize, height: height,
+        fill: rulerColor, stroke: lineColor,
+    }));
+
+    // --- 4. Vẽ Vạch thước (Trục X) ---
+    for (let i = 1; (i * gridSize) < width; i++) {
+        const x = i * gridSize;
+        allObjects.push(new fabric.Line([x, rulerSize - 10, x, rulerSize], {
+            stroke: textColor,
+        }));
+        // ===== ĐÃ XÓA KHỐI TẠO fabric.Text (GÂY LỖI) =====
+    }
+
+    // --- 5. Vẽ Vạch thước (Trục Y) ---
+    for (let i = 1; (i * gridSize) < height; i++) {
+        const y = i * gridSize;
+        allObjects.push(new fabric.Line([rulerSize - 10, y, rulerSize, y], {
+            stroke: textColor,
+        }));
+        // ===== ĐÃ XÓA KHỐI TẠO fabric.Text (GÂY LỖI) =====
+    }
+
+    // --- 6. Thêm tất cả vào canvas ---
+    canvas.add(...allObjects);
+    
+    allObjects.forEach(obj => {
+        obj.set({ selectable: false, evented: false }); 
+        canvas.sendToBack(obj);
+    });
+    
+    canvas.renderAll();
+}
+
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): CHUYỂN CHẾ ĐỘ VẼ (ĐÃ THÊM LOGIC HỦY SINEWAVE)
+// ==================================================
+function setDrawingMode(canvasId, mode) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+
+    // QUAN TRỌNG: Hủy các chế độ đặc biệt (nếu có)
+    finishPolygon(canvas, false);
+    finishCurve(canvas, false);
+    finishSineWave(canvas); // <-- MỚI
+
+    if (mode === 'draw') {
+        canvas.isDrawingMode = true; 
+        canvas.freeDrawingBrush.width = 3;
+        const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+        canvas.freeDrawingBrush.color = strokePicker ? strokePicker.value : '#000000';
+    } else {
+        canvas.isDrawingMode = false; // Chế độ Chọn/Select
+    }
+}
+
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): BẮT ĐẦU VẼ HÌNH SIN
+// ==================================================
+function startSineWaveMode(canvasId) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+
+    // Hủy các chế độ khác
+    canvas.isDrawingMode = false;
+    finishPolygon(canvas, false);
+    finishCurve(canvas, false);
+    
+    // Lưu trữ trạng thái VÀO canvas
+    canvas.sineWaveState = {
+        isActive: true,
+        points: [], // Sẽ lưu 2 điểm (Start, End)
+        startPointCircle: null
+    };
+
+    // Tắt lựa chọn, đổi con trỏ
+    canvas.selection = false; 
+    canvas.defaultCursor = 'crosshair';
+    canvas.hoverCursor = 'crosshair';
+    canvas.renderAll();
+
+    // Gỡ listener cũ, thêm listener mới
+    canvas.off('mouse:down');
+    canvas.on('mouse:down', handleSineWaveClick);
+    
+    alert("Chế độ Vẽ Sin: Click 2 điểm. Điểm 1 (Bắt đầu chu kỳ), Điểm 2 (Kết thúc chu kỳ). Bấm 'Escape' để hủy.");
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): XỬ LÝ CLICK KHI VẼ SIN
+// ==================================================
+function handleSineWaveClick(options) {
+    const canvas = this; // 'this' là canvas
+    if (!canvas.sineWaveState || !canvas.sineWaveState.isActive) return;
+
+    const gridSize = 20; 
+    const pointer = canvas.getPointer(options.e);
+    
+    // Bắt điểm vào lưới
+    const snappedPoint = {
+        x: Math.round(pointer.x / gridSize) * gridSize,
+        y: Math.round(pointer.y / gridSize) * gridSize
+    };
+
+    const state = canvas.sineWaveState;
+    state.points.push(snappedPoint);
+
+    // Điểm 1 (Start)
+    if (state.points.length === 1) {
+        const startPointCircle = new fabric.Circle({
+            left: snappedPoint.x, top: snappedPoint.y, radius: 3,
+            fill: 'green', originX: 'center', originY: 'center',
+            selectable: false, evented: false
+        });
+        canvas.add(startPointCircle);
+        state.startPointCircle = startPointCircle;
+    } 
+    // Điểm 2 (End) -> Hoàn thành
+    else if (state.points.length === 2) {
+        generateAndAddSineWave(canvas, state.points[0], state.points[1]);
+        finishSineWave(canvas); // Tự động hoàn thành
+    }
+    
+    canvas.renderAll();
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): TẠO VÀ VẼ HÌNH SIN (TOÁN HỌC)
+// ==================================================
+function generateAndAddSineWave(canvas, p1, p2) {
+    const canvasId = canvas.getElement().id;
+    const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+    let strokeColor = strokePicker ? strokePicker.value : '#000000'; 
+    const gridSize = 20;
+
+    const amplitude = 2 * gridSize; // Biên độ = 2 ô lưới
+    const width = p2.x - p1.x; // Chiều dài 1 chu kỳ (khoảng cách x)
+    
+    // Nếu kéo ngược (p2.x < p1.x), chúng ta không vẽ
+    if (width <= 0) return;
+
+    const startX = p1.x;
+    const startY = p1.y; // Gốc (y)
+    
+    let pathString = `M ${startX} ${startY} `; // Bắt đầu
+    const steps = 50; // Tăng độ mượt
+
+    for (let i = 0; i <= steps; i++) {
+        const x_offset = (i / steps) * width; // Vị trí x tương đối (0 -> width)
+        const angle = (i / steps) * (2 * Math.PI); // Góc (0 -> 2*PI)
+        
+        // y = -sin(angle) * amplitude
+        // Dấu trừ (-) vì trục Y của canvas hướng xuống
+        const y_offset = -Math.sin(angle) * (amplitude / 2);
+        
+        const x_abs = startX + x_offset;
+        const y_abs = startY + y_offset;
+        
+        pathString += `L ${x_abs} ${y_abs} `; // Vẽ đường thẳng tới điểm tiếp theo
+    }
+
+    const sineWave = new fabric.Path(pathString, {
+        fill: 'rgba(0,0,0,0)', // Không tô nền
+        stroke: strokeColor,
+        strokeWidth: 2,
+        selectable: true,
+        evented: true,
+        objectCaching: false
+    });
+        
+    canvas.add(sineWave);
+    canvas.renderAll();
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): KẾT THÚC VẼ SIN
+// ==================================================
+function finishSineWave(canvas) {
+    if (!canvas || !canvas.sineWaveState || !canvas.sineWaveState.isActive) {
+        return; 
+    }
+
+    const state = canvas.sineWaveState;
+    
+    // Dọn dẹp điểm tạm
+    if (state.startPointCircle) {
+        canvas.remove(state.startPointCircle);
+    }
+    
+    // Reset trạng thái
+    canvas.sineWaveState = { isActive: false, points: [], tempLines: [] };
+    canvas.selection = true; 
+    canvas.defaultCursor = 'default';
+    canvas.hoverCursor = 'default';
+    
+    // Gỡ listener và trả lại listener mặc định
+    canvas.off('mouse:down', handleSineWaveClick);
+    canvas.on('mouse:down', () => { window.activeFabricCanvas = canvas; });
+    
+    canvas.renderAll();
+}
+
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): BẮT ĐẦU VẼ ĐƯỜNG CONG
+// ==================================================
+function startCurveMode(canvasId) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+
+    // Hủy các chế độ khác
+    canvas.isDrawingMode = false;
+    finishPolygon(canvas, false); // Hủy đa giác (nếu có)
+    
+    // Lưu trữ trạng thái VÀO canvas
+    canvas.curveState = {
+        isActive: true,
+        points: [], // Sẽ lưu 3 điểm
+        tempLines: [],
+        startPointCircle: null
+    };
+
+    // Tắt lựa chọn đối tượng, đổi con trỏ
+    canvas.selection = false; 
+    canvas.defaultCursor = 'crosshair';
+    canvas.hoverCursor = 'crosshair';
+    canvas.renderAll();
+
+    // Xóa listener 'mouse:down' cũ
+    canvas.off('mouse:down');
+    // Thêm listener mới chỉ cho vẽ đường cong
+    canvas.on('mouse:down', handleCurveClick);
+    
+    alert("Chế độ Vẽ Đường cong: Click 3 điểm. Điểm 1 (Bắt đầu), Điểm 2 (Điểm cong), Điểm 3 (Kết thúc). Bấm 'Escape' để hủy.");
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): XỬ LÝ CLICK KHI VẼ ĐƯỜNG CONG
+// ==================================================
+function handleCurveClick(options) {
+    const canvas = this; // 'this' là canvas
+    if (!canvas.curveState || !canvas.curveState.isActive) return;
+
+    const gridSize = 20; 
+    const pointer = canvas.getPointer(options.e);
+    
+    // Bắt điểm vào lưới
+    const snappedPoint = {
+        x: Math.round(pointer.x / gridSize) * gridSize,
+        y: Math.round(pointer.y / gridSize) * gridSize
+    };
+
+    const state = canvas.curveState;
+    state.points.push(snappedPoint);
+
+    // Điểm 1 (Start)
+    if (state.points.length === 1) {
+        const startPointCircle = new fabric.Circle({
+            left: snappedPoint.x, top: snappedPoint.y, radius: 3,
+            fill: 'blue', originX: 'center', originY: 'center',
+            selectable: false, evented: false
+        });
+        canvas.add(startPointCircle);
+        state.startPointCircle = startPointCircle;
+    } 
+    // Điểm 2 (Control)
+    else if (state.points.length === 2) {
+        const prevPoint = state.points[0];
+        const tempLine = new fabric.Line([prevPoint.x, prevPoint.y, snappedPoint.x, snappedPoint.y], {
+            stroke: '#999', strokeDashArray: [3, 3],
+            selectable: false, evented: false
+        });
+        canvas.add(tempLine);
+        state.tempLines.push(tempLine);
+    } 
+    // Điểm 3 (End) -> Hoàn thành
+    else if (state.points.length === 3) {
+        const line2 = new fabric.Line([state.points[1].x, state.points[1].y, snappedPoint.x, snappedPoint.y], {
+            stroke: '#999', strokeDashArray: [3, 3],
+            selectable: false, evented: false
+        });
+        canvas.add(line2);
+        state.tempLines.push(line2);
+        
+        // Gọi hàm hoàn thành
+        finishCurve(canvas, true);
+    }
+    
+    canvas.renderAll();
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): KẾT THÚC VẼ ĐƯỜNG CONG
+// ==================================================
+function finishCurve(canvas, isComplete) {
+    if (!canvas || !canvas.curveState || !canvas.curveState.isActive) {
+        return; // Chế độ này không active
+    }
+
+    const state = canvas.curveState;
+    
+    // 1. Dọn dẹp các đường/điểm tạm
+    state.tempLines.forEach(line => canvas.remove(line));
+    if (state.startPointCircle) {
+        canvas.remove(state.startPointCircle);
+    }
+
+    // 2. Hoàn thành hình (Nếu bấm Enter và có đủ 3 điểm)
+    if (isComplete && state.points.length === 3) {
+        const canvasId = canvas.getElement().id; // Lấy ID của canvas
+        const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+        let strokeColor = strokePicker ? strokePicker.value : '#000000'; 
+        
+        const p1 = state.points[0]; // Start
+        const p2 = state.points[1]; // Control
+        const p3 = state.points[2]; // End
+
+        // Tạo đường dẫn SVG cho đường cong Quadratic
+        // M = Move To (p1), Q = Quadratic curve (p2, p3)
+        const pathString = `M ${p1.x} ${p1.y} Q ${p2.x} ${p2.y} ${p3.x} ${p3.y}`;
+
+        const newCurve = new fabric.Path(pathString, {
+            fill: 'rgba(0,0,0,0)', // Không tô nền
+            stroke: strokeColor,
+            strokeWidth: 2,
+            selectable: true,
+            evented: true,
+            objectCaching: false // Quan trọng cho Path
+        });
+        
+        canvas.add(newCurve);
+    }
+    
+    // 3. Reset trạng thái
+    canvas.curveState = { isActive: false, points: [], tempLines: [] };
+    canvas.selection = true; // Bật lại lựa chọn
+    canvas.defaultCursor = 'default';
+    canvas.hoverCursor = 'default';
+    
+    // 4. Gỡ listener đường cong và trả lại listener mặc định
+    canvas.off('mouse:down', handleCurveClick);
+    canvas.on('mouse:down', () => { window.activeFabricCanvas = canvas; });
+    
+    canvas.renderAll();
+}
+
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): BẮT ĐẦU VẼ ĐA GIÁC
+// ==================================================
+function startPolygonMode(canvasId) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+
+    // Hủy các chế độ khác
+    canvas.isDrawingMode = false;
+    
+    // Lưu trữ trạng thái VÀO canvas
+    canvas.polygonState = {
+        isActive: true,
+        points: [],
+        tempLines: [],
+        startPointCircle: null
+    };
+
+    // Tắt lựa chọn đối tượng, đổi con trỏ
+    canvas.selection = false; 
+    canvas.defaultCursor = 'crosshair';
+    canvas.hoverCursor = 'crosshair';
+    canvas.renderAll();
+
+    // Xóa listener 'mouse:down' cũ (dùng để set activeFabricCanvas)
+    canvas.off('mouse:down');
+    // Thêm listener mới chỉ cho vẽ đa giác
+    canvas.on('mouse:down', handlePolygonClick);
+    
+    alert("Chế độ Vẽ Đa giác: Click các điểm trên lưới. Bấm 'Enter' để hoàn thành, 'Escape' để hủy.");
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): XỬ LÝ CLICK KHI VẼ ĐA GIÁC
+// ==================================================
+function handlePolygonClick(options) {
+    const canvas = this; // 'this' là canvas
+    if (!canvas.polygonState || !canvas.polygonState.isActive) return;
+
+    const gridSize = 20; 
+    const pointer = canvas.getPointer(options.e);
+    
+    // Bắt điểm vào lưới
+    const snappedPoint = {
+        x: Math.round(pointer.x / gridSize) * gridSize,
+        y: Math.round(pointer.y / gridSize) * gridSize
+    };
+
+    const state = canvas.polygonState;
+
+    // Nếu là điểm đầu tiên, vẽ 1 vòng tròn nhỏ
+    if (state.points.length === 0) {
+        const startPointCircle = new fabric.Circle({
+            left: snappedPoint.x,
+            top: snappedPoint.y,
+            radius: 3,
+            fill: 'red',
+            originX: 'center', originY: 'center',
+            selectable: false, evented: false
+        });
+        canvas.add(startPointCircle);
+        state.startPointCircle = startPointCircle;
+    } else {
+        // Vẽ đường nối tạm thời
+        const prevPoint = state.points[state.points.length - 1];
+        const tempLine = new fabric.Line([prevPoint.x, prevPoint.y, snappedPoint.x, snappedPoint.y], {
+            stroke: '#999', // Màu xám
+            strokeDashArray: [3, 3], // Nét đứt
+            selectable: false, evented: false
+        });
+        canvas.add(tempLine);
+        state.tempLines.push(tempLine);
+    }
+    
+    state.points.push(snappedPoint);
+    canvas.renderAll();
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): KẾT THÚC VẼ ĐA GIÁC (ĐÃ SỬA 2 ĐIỂM)
+// ==================================================
+function finishPolygon(canvas, isComplete) {
+    if (!canvas || !canvas.polygonState || !canvas.polygonState.isActive) {
+        return; // Chế độ này không active
+    }
+
+    const state = canvas.polygonState;
+    
+    // 1. Dọn dẹp các đường/điểm tạm
+    state.tempLines.forEach(line => canvas.remove(line));
+    if (state.startPointCircle) {
+        canvas.remove(state.startPointCircle);
+    }
+
+    // ===== BẮT ĐẦU SỬA LỖI (Vẽ 2 điểm) =====
+    // 2. Hoàn thành hình (Nếu bấm Enter và có đủ 2 điểm)
+    if (isComplete && state.points.length >= 2) { 
+        const canvasId = canvas.getElement().id; 
+        
+        const colorPicker = document.getElementById(`color-picker-${canvasId}`);
+        const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+        let fillColor = hexToRgba(colorPicker ? colorPicker.value : '#FF0000', 0.3); 
+        let strokeColor = strokePicker ? strokePicker.value : '#000000'; 
+
+        const options = {
+            stroke: strokeColor,
+            strokeWidth: 2,
+            selectable: true,
+            evented: true,
+        };
+
+        let newShape;
+        if (state.points.length === 2) {
+            // Nếu chỉ có 2 điểm -> Vẽ LINE
+            newShape = new fabric.Line([
+                state.points[0].x, state.points[0].y, 
+                state.points[1].x, state.points[1].y
+            ], { ...options, fill: 'rgba(0,0,0,0)' }); // Line không có fill
+        } else {
+            // Nếu > 2 điểm -> Vẽ POLYGON
+            newShape = new fabric.Polygon(state.points, {
+                ...options,
+                fill: fillColor,
+            });
+        }
+        canvas.add(newShape);
+        // ===== KẾT THÚC SỬA LỖI =====
+    }
+    
+    // 3. Reset trạng thái
+    canvas.polygonState = { isActive: false, points: [], tempLines: [] };
+    canvas.selection = true; // Bật lại lựa chọn
+    canvas.defaultCursor = 'default';
+    canvas.hoverCursor = 'default';
+    
+    // 4. Gỡ listener đa giác và trả lại listener mặc định
+    canvas.off('mouse:down', handlePolygonClick);
+    canvas.on('mouse:down', () => { window.activeFabricCanvas = canvas; });
+    
+    canvas.renderAll();
+}
+
+
+
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): ĐẶT MÀU NÉT (STROKE)
+// ==================================================
+function setStrokeColor(canvasId, hexColor) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+
+    // Áp dụng cho đối tượng đang chọn
+    const activeObjects = canvas.getActiveObjects(); // Dùng getActiveObjects()
+    if (activeObjects && activeObjects.length > 0) {
+        activeObjects.forEach(obj => {
+            if (obj.type === 'group') {
+                // Xử lý riêng cho Vector (Group)
+                obj.getObjects().forEach(item => {
+                    if (item.type === 'line') item.set('stroke', hexColor);
+                    if (item.type === 'triangle') item.set('fill', hexColor);
+                });
+            } else {
+                // Áp dụng cho các hình khối và nét vẽ tự do
+                obj.set('stroke', hexColor);
+            }
+        });
+        canvas.renderAll();
+    }
+    
+    // Nếu đang ở chế độ vẽ tự do, đổi màu bút
+    if (canvas.isDrawingMode) {
+        canvas.freeDrawingBrush.color = hexColor;
+    }
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): ĐẶT NÉT ĐỨT/LIỀN
+// ==================================================
+function setStrokeDash(canvasId, isDashed) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+    
+    // Mảng dash: 5px vẽ, 5px trống
+    const dashArray = isDashed ? [5, 5] : []; 
+
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects && activeObjects.length > 0) {
+        activeObjects.forEach(obj => {
+            // Áp dụng cho các loại có nét
+            if (obj.type === 'line' || obj.type === 'rect' || obj.type === 'circle' || obj.type === 'path') {
+                obj.set('strokeDashArray', dashArray);
+            }
+            // Xử lý riêng cho Vector (Group)
+            if (obj.type === 'group') {
+                obj.getObjects().forEach(item => {
+                    if (item.type === 'line') item.set('strokeDashArray', dashArray);
+                });
+            }
+        });
+        canvas.renderAll();
+    }
+    
+    // Nếu đang ở chế độ vẽ tự do, đổi nét bút
+    if (canvas.isDrawingMode) {
+        canvas.freeDrawingBrush.strokeDashArray = dashArray;
+    }
+}
+
+// ==================================================
+// HÀM (TRỢ GIÚP): THÊM CHỮ (TEXT) - ĐÃ SỬA LỖI 'alphabetical'
+// ==================================================
+function addText(canvasId) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+    
+    // Hủy các chế độ vẽ khác
+    canvas.isDrawingMode = false; 
+    finishPolygon(canvas, false); // Hủy đa giác (nếu có)
+    
+    // ===== BẮT ĐẦU SỬA LỖI (Dùng prompt() và fabric.Text) =====
+    
+    // 1. Dùng prompt() để lấy text
+    const textContent = prompt("Nhập nội dung chữ:", "Text");
+
+    // 2. Nếu người dùng bấm "Cancel" (null) hoặc không nhập gì
+    if (!textContent || textContent.trim() === "") {
+        return; // Dừng lại
+    }
+
+    // 3. Dùng fabric.Text (đơn giản, tĩnh) thay vì IText (phức tạp)
+    const text = new fabric.Text(textContent, {
+        left: 50,
+        top: 100,
+        fontSize: 18,
+        fill: '#000000', // Chữ màu đen
+        // Không cần 'textBaseline' vì 'fabric.Text' ổn định hơn
+    });
+    // ===== KẾT THÚC SỬA LỖI =====
+    
+    canvas.add(text);
+    canvas.setActiveObject(text); // Tự động chọn text vừa tạo
+    canvas.renderAll();
+}
+
+
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): ĐẶT MÀU TÔ (FILL)
+// ==================================================
+function setFillColor(canvasId, hexColor) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+
+    // Chuyển hex (#FF0000) sang rgba (rgba(255,0,0,0.3))
+    const fillColor = hexToRgba(hexColor, 0.3);
+
+    const activeObject = canvas.getActiveObject();
+    if (activeObject) {
+        // Nếu đang chọn 1 đối tượng -> đổi màu nó
+        // Nếu là Vector (Group), không tô màu
+        if (activeObject.type !== 'group') {
+            activeObject.set('fill', fillColor);
+            canvas.renderAll();
+        }
+    }
+    // Nếu không chọn gì, màu sẽ được áp dụng khi gọi addShape
+}
+
+// ==================================================
+// HÀM MỚI (TRỢ GIÚP): CHUYỂN MÀU HEX -> RGBA
+// ==================================================
+function hexToRgba(hex, alpha) {
+    // Xóa dấu # nếu có
+    hex = hex.replace('#', '');
+    
+    const r = parseInt(hex.length === 3 ? hex.slice(0, 1).repeat(2) : hex.slice(0, 2), 16);
+    const g = parseInt(hex.length === 3 ? hex.slice(1, 2).repeat(2) : hex.slice(2, 4), 16);
+    const b = parseInt(hex.length === 3 ? hex.slice(2, 3).repeat(2) : hex.slice(4, 6), 16);
+    
+    if (isNaN(r) || isNaN(g) || isNaN(b)) {
+        return 'rgba(255, 0, 0, 0.3)'; // Fallback
+    }
+
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+
+
+// ==================================================
+// HÀM (TRỢ GIÚP): XÓA ĐỐI TƯỢNG ĐANG CHỌN (ĐÃ SỬA LỖI XÓA NHIỀU)
+// ==================================================
+function deleteSelectedObject(canvasId) {
+    const canvas = window.drawingPads[canvasId];
+    if (!canvas) return;
+    
+    // ===== BẮT ĐẦU SỬA LỖI (Dùng getActiveObjects - số nhiều) =====
+    const activeObjects = canvas.getActiveObjects(); // Lấy MẢNG các đối tượng
+    // ===== KẾT THÚC SỬA LỖI =====
+
+    if (activeObjects && activeObjects.length > 0) {
+        
+        // Lặp qua mảng và xóa từng cái
+        activeObjects.forEach(obj => { 
+            canvas.remove(obj);
+        });
+        
+        canvas.discardActiveObject(); // Bỏ chọn nhóm
+        canvas.renderAll();
+    } else {
+        alert("Vui lòng chọn một đối tượng (hình khối, nét vẽ) để xóa.");
+    }
+}
+
+
 
 // Hàm để xóa/dừng timer khi thoát/nộp bài thủ công
 function stopQuizTimer() {
@@ -3201,7 +4290,9 @@ function confirmBoxAsync(title, message, confirmText = 'OK', cancelText = 'Hủy
     });
 }
 
-// Thay thế hàm submitQuiz (khoảng dòng 2056) - FINAL ReferenceError FIX
+// =================================================================
+// HÀM SUBMITQUIZ (KHÔNG CẦN THAY ĐỔI)
+// =================================================================
 async function submitQuiz(isTimeout = false) {
     // 1. Kiểm tra dữ liệu ban đầu
     if (!currentQuiz || !currentAssignmentId) {
@@ -3229,22 +4320,21 @@ async function submitQuiz(isTimeout = false) {
             collectionError = true;
             return { questionId: `error-invalid-q-${index}`, type: 'error', answer: 'invalid_data' };
         }
-        
-        // Xác định ID
+
         const idFrom_id = q._id ? String(q._id) : null;
         const idFromId = q.id ? String(q.id) : null;
-        const qidForKey = idFrom_id || idFromId; // ID dùng để tìm DOM
-        const qIdForPayload = idFromId || idFrom_id; // ID gửi đi
+        const qidForKey = idFromId || idFrom_id; // ưu tiên q.id
+        const qIdForPayload = idFromId || idFrom_id;
         const qtype = q.type || q.questionType || "mc";
 
         if (!qidForKey) {
             collectionError = true;
             return { questionId: `error-missing-ids-${index}`, type: 'error', answer: 'missing_id' };
         }
-        
+
         const container = document.querySelector(`.card[data-question-id="${qidForKey}"]`);
         if (!container) {
-            return { questionId: qIdForPayload, type: qtype, answer: null }; 
+            return { questionId: qIdForPayload, type: qtype, answer: null };
         }
 
         // Lấy câu trả lời
@@ -3253,36 +4343,81 @@ async function submitQuiz(isTimeout = false) {
             if (qtype === "multiple_choice" || qtype === "mc") {
                 const selected = container.querySelector(`input[name="q_${qidForKey}"]:checked`);
                 if (selected) studentAnswer = selected.value;
-                
+
             } else if (qtype === "essay" || qtype === "tu_luan") {
                 const textarea = container.querySelector("textarea.essay-answer");
                 if (textarea) studentAnswer = textarea.value.trim() || null;
-            
+
             } else if (qtype === "true_false") {
                 const options = q.options || [];
-                const collectedAnswers = []; 
+                const collectedAnswers = [];
                 options.forEach((opt, optIndex) => {
                     const inputName = `tf_${qidForKey}_${optIndex}`;
                     const selectedRadio = container.querySelector(`input[name="${inputName}"]:checked`);
                     if (selectedRadio) {
-                        collectedAnswers.push(selectedRadio.value === 'true'); // Chuyển sang boolean
+                        collectedAnswers.push(selectedRadio.value === 'true');
                     } else {
-                        collectedAnswers.push(null); // Gửi null nếu bỏ trống
+                        collectedAnswers.push(null);
                     }
                 });
-                studentAnswer = collectedAnswers; // Câu trả lời là một mảng
-            
-            } else if (qtype === "fill_blank") { 
-                // Tìm tất cả các ô input inline
+                studentAnswer = collectedAnswers;
+
+            } else if (qtype === "fill_blank") {
                 const inputs = container.querySelectorAll("input.fill-blank-inline");
                 const collectedAnswers = [];
-                // NodeList trả về theo đúng thứ tự DOM
                 inputs.forEach(input => {
-                    collectedAnswers.push(input.value.trim() || null); // Gửi null nếu bỏ trống
+                    collectedAnswers.push(input.value.trim() || null);
                 });
-                studentAnswer = collectedAnswers; // Câu trả lời là một mảng
+                studentAnswer = collectedAnswers;
+
+            } else if (qtype === "draw") {
+                const canvasId = `draw_${qidForKey}`;
+                if (window.drawingPads && window.drawingPads[canvasId]) {
+                    const canvas = window.drawingPads[canvasId];
+
+                    // =====================================
+                    // BẮT ĐẦU SỬA LỖI (Lưu hình vẽ)
+                    // =====================================
+
+                    // 1. Kiểm tra xem HS có vẽ gì không.
+                    // Một số object gốc (grid/guide) có thể có selectable=false.
+                    // Ta coi là có vẽ nếu có object có type không phải 'background' hoặc có selectable true,
+                    // hoặc tổng objects.length > 0 và có object có thuộc tính 'isUserDrawing' nếu bạn gắn flag.
+                    let hasDrawing = false;
+                    try {
+                        const objs = canvas.getObjects() || [];
+                        // heuristic: tồn tại object có selectable true OR loại object là path/line/circle/text,...
+                        hasDrawing = objs.some(o => {
+                            const t = (o.type || "").toLowerCase();
+                            if (o.selectable === true) return true;
+                            if (["path", "path-group", "line", "polyline", "circle", "rect", "triangle", "image", "text"].includes(t)) return true;
+                            return false;
+                        });
+                    } catch (e) {
+                        console.warn("submitQuiz: lỗi khi kiểm tra objects trên canvas:", e);
+                    }
+
+                    if (!hasDrawing) {
+                        studentAnswer = null;
+                    } else {
+                        // 2. Serialize TOÀN BỘ canvas
+                        try {
+                            studentAnswer = JSON.stringify(canvas.toObject());
+                        } catch (serErr) {
+                            console.error("submitQuiz: Lỗi serialize canvas:", serErr);
+                            // fallback: null chứ không crash
+                            studentAnswer = null;
+                        }
+                    }
+                    // =====================================
+                    // KẾT THÚC SỬA LỖI
+                    // =====================================
+
+                } else {
+                    studentAnswer = null;
+                }
             }
-            
+
         } catch (domError) {
             console.error(`submitQuiz: DOM Error getting answer for qid ${qidForKey}:`, domError);
             collectionError = true;
@@ -3294,7 +4429,7 @@ async function submitQuiz(isTimeout = false) {
     // 5. Dừng nếu có lỗi nghiêm trọng khi thu thập
     if (collectionError) {
         console.error("submitQuiz: Aborting submission due to critical errors collecting answers.");
-        showMessageBox("Lỗi nghiêm trọng", "Không thể thu thập đủ câu trả lời do lỗi dữ liệu hoặc giao diện. Vui lòng thử tải lại trang.");
+        showMessageBox("Lỗi nghi trọng", "Không thể thu thập đủ câu trả lời do lỗi dữ liệu hoặc giao diện. Vui lòng thử tải lại trang.");
         const submitBtnReEnable = document.getElementById("btn-submit-quiz");
         if(submitBtnReEnable) submitBtnReEnable.disabled = false;
         return;
@@ -3305,19 +4440,18 @@ async function submitQuiz(isTimeout = false) {
     try {
         if (submitButton) submitButton.disabled = true;
 
-        // ✅ SỬA LỖI: Đảm bảo 'currentTest' tồn tại (đã được sửa trong startQuiz)
         const testId = currentTest?.id || currentQuiz[0]?.testId || currentAssignmentId;
         const studentId = currentUser?.id;
-        
+
         if (!testId || !studentId) {
             throw new Error("Không thể xác định ID bài thi hoặc học sinh để nộp bài.");
         }
 
         const resultPayload = {
-            studentId, 
-            assignmentId: currentAssignmentId, 
+            studentId,
+            assignmentId: currentAssignmentId,
             testId,
-            studentAnswers: answers, // Mảng 'answers' giờ đã chứa cả mảng T/F và Fill_Blank
+            studentAnswers: answers,
             submittedAt: new Date().toISOString()
         };
 
@@ -3326,33 +4460,76 @@ async function submitQuiz(isTimeout = false) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(resultPayload)
         });
-        
-        // 7. Hiển thị kết quả và chuyển tab
+
+        // 7. Sau khi nộp thành công: khoá mọi canvas để không cho sửa nữa
+        try {
+            lockAllDrawingPads(); // <-- hàm helper bên dưới
+        } catch (lockErr) {
+            console.warn("submitQuiz: lockAllDrawingPads thất bại:", lockErr);
+        }
+
+        // 8. Hiển thị kết quả và chuyển tab
         if (typeof displayQuizResults === 'function') {
-            displayQuizResults(result); 
+            displayQuizResults(result);
         }
         showToast('Nộp bài thành công! Đang tự động chấm điểm.', 'success');
-        
+
         if (typeof loadAssignments === 'function') {
             await loadAssignments(true);
         }
-        
+
         const tabDoneButton = document.querySelector('button[data-bs-target="#stu-done"]');
         if (tabDoneButton) {
-            try { 
+            try {
                 tabDoneButton.click();
             } catch (clickError) {
                 if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
                     try { new bootstrap.Tab(tabDoneButton).show(); } catch (tabApiError) {}
                 }
             }
-        } 
-    } catch (err) { 
+        }
+
+    } catch (err) {
         console.error("❌ Lỗi Nộp Bài (trong try...catch):", err);
-        showMessageBox("Lỗi", "Không thể nộp bài: " (err.message || "Lỗi không xác định"));
+        // SỬA: nối chuỗi đúng (thiếu dấu + trước đó)
+        showMessageBox("Lỗi", "Không thể nộp bài: " + (err.message || "Lỗi không xác định"));
         if (submitButton) submitButton.disabled = false;
-    } 
+    }
 }
+
+
+// ==================================================
+// HÀM VẼ LƯỚI (GRID) ĐƠN GIẢN (THAY THẾ HÀM VẼ THƯỚC)
+// ==================================================
+function drawCanvasGrid(canvas, gridSize) {
+    const width = canvas.getWidth();
+    const height = canvas.getHeight();
+    const lineObjects = [];
+    const lineOptions = {
+        stroke: '#eee', // Màu xám nhạt
+        selectable: false,
+        evented: false // Không bắt sự kiện (tối ưu)
+    };
+
+    // Vẽ đường dọc
+    for (let i = 1; i < (width / gridSize); i++) {
+        lineObjects.push(new fabric.Line([i * gridSize, 0, i * gridSize, height], lineOptions));
+    }
+    // Vẽ đường ngang
+    for (let i = 1; i < (height / gridSize); i++) {
+        lineObjects.push(new fabric.Line([0, i * gridSize, width, i * gridSize], lineOptions));
+    }
+
+    // Thêm tất cả vào canvas
+    // Chúng ta không dùng Group để tránh lỗi 'alphabetical' (dù đây không phải text)
+    lineObjects.forEach(obj => {
+        canvas.add(obj);
+        canvas.sendToBack(obj); // Đẩy lưới ra sau cùng
+    });
+    
+    canvas.renderAll();
+}
+
 
 function showMessageBox(title, message) {
     // Tùy chọn 1: Dùng alert đơn giản (hoạt động tốt)
@@ -3371,7 +4548,9 @@ function showMessageBox(title, message) {
     */
 }
 
-// Thay thế hàm này (khoảng dòng 2185)
+// =================================================================
+// HÀM DISPLAYQUIZRESULTS (ĐÃ THÊM LOGIC "DRAW")
+// =================================================================
 async function displayQuizResults(result) {
     console.log(" displayQuizResults RUNNING - Result ID:", result?.id);
 
@@ -3382,7 +4561,6 @@ async function displayQuizResults(result) {
     const details = result.detailedResults || [];
     if (!details.length) { 
         console.warn("displayQuizResults: No detailedResults."); 
-        // (Code khóa UI khi không có details... giữ nguyên)
         const submitBtn=document.getElementById("btn-submit-quiz"); const exitBtn=document.getElementById("btn-exit-quiz"); const closeBtn=document.getElementById("btn-close-quiz"); if(submitBtn){submitBtn.classList.add("d-none"); submitBtn.disabled=true;} if(exitBtn){exitBtn.textContent="Đóng"; exitBtn.classList.remove("btn-danger"); exitBtn.classList.add("btn-secondary"); exitBtn.onclick=()=>{if(quizModalInstance)quizModalInstance.hide();};} if(closeBtn){closeBtn.onclick=()=>{if(quizModalInstance)quizModalInstance.hide();};} return; 
     }
 
@@ -3397,34 +4575,45 @@ async function displayQuizResults(result) {
         const qidFromDetail = detail.questionId; 
         const originalQ = originalQuestionMap.get(String(qidFromDetail)); 
 
-        const idToFindCard = originalQ?._id ? String(originalQ._id)
-                          : (originalQ?.id ? String(originalQ.id)
+        // =====================================
+        // ✅ BẮT ĐẦU SỬA LỖI (Khóa canvas)
+        // =====================================
+        // Ưu tiên 'originalQ.id' (UUID) để khớp với DOM
+        const idToFindCard = originalQ?.id ? String(originalQ.id) 
+                          : (originalQ?._id ? String(originalQ._id)
                           : qidFromDetail); 
+        // =====================================
+        // ✅ KẾT THÚC SỬA LỖI
+        // =====================================
 
         const card = document.querySelector(`#quiz-questions-container .card[data-question-id="${idToFindCard}"]`);
         
         // Khóa input
-        const inputs = card ? card.querySelectorAll('input, textarea') : document.querySelectorAll(`#quiz-questions-container input[name="q_${idToFindCard}"], #quiz-questions-container textarea#essay_${idToFindCard}`);
-        inputs.forEach(i => i.disabled = true);
+        const inputs = card ? card.querySelectorAll('input, textarea, canvas') : []; // Thêm canvas
+        inputs.forEach(i => {
+            i.disabled = true;
+            // Vô hiệu hóa bảng vẽ
+            if (i.tagName === 'CANVAS' && window.drawingPads && window.drawingPads[i.id]) {
+                window.drawingPads[i.id].off();
+                i.style.cursor = 'not-allowed';
+            }
+        });
 
-        // ✅ SỬA LỖI ĐẾM: Phân loại chính xác
         const qtypeCalc = (detail.type || 'mc').toLowerCase();
         const currentMaxPointsCalc = detail.maxPoints ?? originalQ?.points ?? 1;
         
-        if (qtypeCalc === 'essay' || qtypeCalc === 'tu_luan') { 
+        if (qtypeCalc === 'essay' || qtypeCalc === 'tu_luan' || qtypeCalc === 'draw') { 
             totalEssay++; 
-        } else { 
-            // Coi MC, T/F, Fill_Blank là 1 nhóm
+        } 
+        else { 
             totalMc++; 
             maxScoreCalculated += (typeof currentMaxPointsCalc === 'number' && !isNaN(currentMaxPointsCalc) ? currentMaxPointsCalc : 1); 
-            // ✅ SỬA LỖI ĐẾM CÂU ĐÚNG: Chỉ đếm khi đạt điểm TỐI ĐA (isCorrect === true)
             if (detail.isCorrect === true) { 
                 correctCountBasedOnPoints++; 
             } 
         }
-        // --- KẾT THÚC SỬA LỖI ĐẾM ---
 
-        if (!card) return; // Bỏ qua highlight nếu không tìm thấy card
+        if (!card) return; 
 
         // Lấy dữ liệu và highlight
         const qtype = (detail.type || card.dataset.questionType || 'mc').toLowerCase();
@@ -3432,8 +4621,8 @@ async function displayQuizResults(result) {
         const studentAnsRaw = detail.studentAnswer; 
         const isUnanswered = studentAnsRaw === null || studentAnsRaw === undefined || (Array.isArray(studentAnsRaw) && studentAnsRaw.every(item => item === null)) || String(studentAnsRaw).trim() === ""; 
         const correctAnsRaw = detail?.correctAnswer ?? originalQ?.answer ?? null; 
-        const isCorrectBasedOnPoints = detail.isCorrect === true; // Chỉ tính khi đúng 100%
-        const isPartialCredit = detail.isCorrect === null; // Backend trả về null nếu điểm 1 phần
+        const isCorrectBasedOnPoints = detail.isCorrect === true; 
+        const isPartialCredit = detail.isCorrect === null; 
 
         if (qtype === 'mc' || qtype === 'multiple_choice') {
             // (Logic highlight MC... giữ nguyên)
@@ -3442,13 +4631,10 @@ async function displayQuizResults(result) {
             if (isUnanswered) { const firstOptionLabel = card.querySelector('.form-check label'); if (firstOptionLabel) { firstOptionLabel.insertAdjacentHTML('beforebegin', '<p class="text-danger small mb-1 feedback-text">⚠️ Chưa chọn câu trả lời</p>'); } } card.querySelectorAll('.form-check').forEach(opt => { const input = opt.querySelector('input[type="radio"]'); const label = opt.querySelector('label'); if (!input || !label) return; const optionValueRaw = input.value || ''; const val = optionValueRaw.trim().toLowerCase(); opt.classList.remove('bg-success-subtle', 'bg-warning-subtle', 'border-success', 'border-danger', 'fw-bold'); label.querySelectorAll('.feedback-text').forEach(span => span.remove()); const isTheCorrectOption = (correctAns !== null && val === correctAns); const isStudentChoice = (!isUnanswered && val === studentAns); let feedbackHtml = ''; if (isTheCorrectOption) { opt.classList.add('bg-success-subtle', 'border', 'border-success'); feedbackHtml = ' <span class="text-success fw-bold feedback-text">(Đáp án đúng)</span>'; } if (isStudentChoice) { if (isCorrectBasedOnPoints) { opt.classList.add('fw-bold'); feedbackHtml = ' <span class="text-success fw-bold feedback-text">(Bạn chọn đúng)</span>'; } else { if (!isTheCorrectOption) { opt.classList.add('bg-warning-subtle', 'border', 'border-danger'); feedbackHtml = ' <span class="text-danger fw-bold feedback-text">(Bạn chọn sai)</span>'; } } } if (feedbackHtml) { label.insertAdjacentHTML('beforeend', feedbackHtml); } });
         
         } else if (qtype === 'true_false') {
+            // (Logic highlight True/False... giữ nguyên)
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
-            // ✅ SỬA LỖI: Di chuyển khai báo lên ĐẦU khối
             const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
-            
-            // Tìm tất cả các hàng mệnh đề
             const items = card.querySelectorAll('.border-bottom.p-2.mb-2');
-            
             items.forEach((item, i) => {
                 const correctAnswer = correctAnswers[i]; 
                 const studentChoice = studentAnswers[i]; 
@@ -3469,80 +4655,77 @@ async function displayQuizResults(result) {
             });
             
         } else if (qtype === 'fill_blank') {
-            // ✅ SỬA LỖI: Thêm logic highlight Fill_Blank
+            // (Logic highlight Fill_Blank... giữ nguyên)
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
-            // ✅ SỬA LỖI: Di chuyển khai báo lên ĐẦU khối
             const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
-            
-            // Tìm tất cả các ô input inline
             const inputs = card.querySelectorAll("input.fill-blank-inline");
             inputs.forEach((input, i) => {
                 const studentAnsNorm = norm_str(studentAnswers[i]);
                 const correctAnsNorm = norm_str(correctAnswers[i]);
-
                 if (studentAnswers[i] === null) {
-                    input.classList.add('is-invalid'); // Bỏ trống
+                    input.classList.add('is-invalid'); 
                 } else if (studentAnsNorm === correctAnsNorm) {
-                    input.classList.add('is-valid'); // Đúng
+                    input.classList.add('is-valid'); 
                 } else {
-                    input.classList.add('is-invalid'); // Sai
-                    // Hiển thị đáp án đúng
+                    input.classList.add('is-invalid'); 
                     const feedback = document.createElement('div');
-                    feedback.className = 'valid-feedback d-block'; // Dùng valid-feedback (màu xanh lá) để hiển thị đáp án
+                    feedback.className = 'valid-feedback d-block'; 
                     feedback.textContent = `Đáp án: ${correctAnswers[i] || ''}`;
-                    // Chèn feedback sau input
                     if(input.parentNode) {
                         input.parentNode.insertBefore(feedback, input.nextSibling);
                     }
                 }
             });
             
-        } else if (qtype === 'essay' || qtype === 'tu_luan') {
-            // (Logic essay... giữ nguyên)
-            const questionTextDiv = card.querySelector('.question-text'); if (questionTextDiv) { questionTextDiv.insertAdjacentHTML('afterbegin', '<span class="badge bg-warning text-dark float-end feedback-text">Chờ chấm</span>'); } const textarea = card.querySelector('textarea'); if(textarea) { textarea.classList.add('border-warning'); }
+        } else if (qtype === 'essay' || qtype === 'tu_luan' || qtype === 'draw') {
+            // (Logic Gộp cho 'essay' và 'draw'... giữ nguyên)
+            const questionTextDiv = card.querySelector('.question-text'); 
+            if (questionTextDiv) { 
+                questionTextDiv.insertAdjacentHTML('afterbegin', '<span class="badge bg-warning text-dark float-end feedback-text">Chờ chấm</span>'); 
+            } 
+            
+            const inputEl = card.querySelector('textarea') || card.querySelector('canvas'); 
+            if(inputEl) { 
+                inputEl.classList.add('border-warning'); 
+            }
         }
 
     });
     // --- Kết thúc vòng lặp ---
 
-    // --- Cập nhật summary (Đã sửa) ---
+    // --- Cập nhật summary ---
     const summaryBox = document.getElementById("quiz-results-summary");
     if (summaryBox) { 
          summaryBox.classList.remove("d-none"); 
          summaryBox.innerHTML = `<div class="alert alert-info mt-3">
             <h5 class="text-primary mb-2">KẾT QUẢ BÀI LÀM TẠM THỜI</h5>
             <p>Tổng số câu: <strong>${totalQuestions}</strong><br>
-               Số câu Tự động chấm (TN, Đ/S, Điền từ): <strong>${totalMc}</strong> | Số câu Tự luận (Chờ chấm): <strong>${totalEssay}</strong><br>
+               Số câu Tự động chấm (TN, Đ/S, Điền từ): <strong>${totalMc}</strong> | Số câu Tự luận/Vẽ (Chờ chấm): <strong>${totalEssay}</strong><br>
                Số câu đúng (Tự động chấm): <strong>${correctCountBasedOnPoints}</strong><br>
                Điểm (tạm tính): <strong>${autoScoreFromResult.toFixed(1)} / ${maxScoreCalculated.toFixed(1)}</strong>
             </p>
-            <small class="text-muted fst-italic">* Điểm tự luận sẽ được cộng thêm sau khi giáo viên chấm.</small>
+            <small class="text-muted fst-italic">* Điểm tự luận/vẽ sẽ được cộng thêm sau khi giáo viên chấm.</small>
          </div>`; 
     }
-    // --- Kết thúc ---
 
-    // --- Khóa UI cuối cùng (Đã sửa) ---
+    // --- Khóa UI cuối cùng ---
      const submitBtn = document.getElementById("btn-submit-quiz"); 
      const exitBtn = document.getElementById("btn-exit-quiz"); 
      const closeBtn = document.getElementById("btn-close-quiz"); 
      
-     // Ẩn nút Nộp
      if (submitBtn) { 
          submitBtn.classList.add("d-none"); 
          submitBtn.disabled = true;
      } 
-     // ✅ SỬA LỖI: Chuyển nút "Thoát/Hủy" thành nút "Đóng"
      if (exitBtn) { 
-         exitBtn.textContent = "Đóng"; // Đổi text
-         exitBtn.classList.remove("btn-danger"); // Bỏ màu đỏ
-         exitBtn.classList.add("btn-secondary"); // Thêm màu xám
-         exitBtn.onclick = () => { if (quizModalInstance) quizModalInstance.hide(); }; // Gán hành động đóng modal
+         exitBtn.textContent = "Đóng"; 
+         exitBtn.classList.remove("btn-danger"); 
+         exitBtn.classList.add("btn-secondary"); 
+         exitBtn.onclick = () => { if (quizModalInstance) quizModalInstance.hide(); }; 
      } 
-     // Gán hành động đóng cho nút X
      if (closeBtn) { 
          closeBtn.onclick = () => { if (quizModalInstance) quizModalInstance.hide(); }; 
      }
-    // --- Kết thúc ---
 }
 
 
@@ -3741,7 +4924,14 @@ function normalizeAnswer(detailData, questionData = null, old = {}) {
     const qTypeFromQuestion = (questionData?.type || '').toLowerCase();
     // Ưu tiên type từ detailedData, fallback về questionData, mặc định là mc
     const type = qTypeFromDetail || qTypeFromQuestion || 'mc';
-    const isEssay = type === 'essay' || type === 'tu_luan';
+    
+    // =====================================
+    // ✅ BẮT ĐẦU SỬA LỖI (Thêm 'draw')
+    // =====================================
+    const isEssay = type === 'essay' || type === 'tu_luan' || type === 'draw';
+    // =====================================
+    // ✅ KẾT THÚC SỬA LỖI
+    // =====================================
 
     // --- Xác định Đúng/Sai (Ưu tiên boolean từ detailData) ---
     let isCorrect;
@@ -3812,6 +5002,7 @@ function normalizeAnswer(detailData, questionData = null, old = {}) {
         // ===== KẾT THÚC SỬA LỖI =====
     };
 }
+
 
 window.buildAnswersFromResult = buildAnswersFromResult;
 
@@ -3943,19 +5134,15 @@ window.openResultDetail = openResultDetail;
 
 
 
-// =================================================================
-// HÀM RENDERRESULTDETAILMODAL (ĐÃ CẬP NHẬT STICK "2/3" THAY VÌ "1/2")
-// =================================================================
 async function renderResultDetailModal(data) {
     if (!data || !data.id) {
         console.error("renderResultDetailModal: Invalid input data.");
         return;
     }
 
-    // Lưu dữ liệu vào biến toàn cục để hàm saveGrading có thể truy cập
     window.currentResultData = data;
 
-    // Khóa nút Lưu nếu đã chấm 2 lần
+    // --- Khóa nút Lưu nếu đã chấm 2 lần ---
     const saveBtn = document.getElementById("btn-save-grading");
     if (saveBtn) {
         if ((data.regradeCount || 0) >= 2) {
@@ -3971,7 +5158,7 @@ async function renderResultDetailModal(data) {
         }
     }
 
-    // Các phần tử Header
+    // --- Header ---
     const container = document.getElementById('grading-questions-container');
     const sumTest = document.getElementById('sum-testName');
     const sumStudent = document.getElementById('sum-studentName');
@@ -3982,111 +5169,73 @@ async function renderResultDetailModal(data) {
     const sumTotal = document.getElementById('sum-totalScore');
     const modalTitle = document.querySelector('#modalGrading .modal-title');
 
-    // Cập nhật Header
-    if(modalTitle) modalTitle.innerText = `Chi tiết bài làm: ${data.testName || 'Bài làm'}`;
-    if(sumTest) sumTest.innerText = data.testName || 'N/A';
-    if(sumStudent) sumStudent.innerText = data.studentName || 'N/A';
-    if(sumClass) sumClass.innerText = data.className || 'N/A';
-    if(sumSubmitted) sumSubmitted.innerText = data.submittedAt ? new Date(data.submittedAt).toLocaleString('vi-VN') : 'Chưa nộp';
-    if(sumAuto) sumAuto.innerText = (data.mcScore ?? 0).toFixed(1);
-    if(sumEssay) sumEssay.innerText = (data.essayScore ?? 0).toFixed(1);
-    if(sumTotal) sumTotal.innerText = (data.totalScore ?? 0).toFixed(1);
-    
+    if (modalTitle) modalTitle.innerText = `Chi tiết bài làm: ${data.testName || 'Bài làm'}`;
+    if (sumTest) sumTest.innerText = data.testName || 'N/A';
+    if (sumStudent) sumStudent.innerText = data.studentName || 'N/A';
+    if (sumClass) sumClass.innerText = data.className || 'N/A';
+    if (sumSubmitted) sumSubmitted.innerText = data.submittedAt ? new Date(data.submittedAt).toLocaleString('vi-VN') : 'Chưa nộp';
+    if (sumAuto) sumAuto.innerText = (data.mcScore ?? 0).toFixed(1);
+    if (sumEssay) sumEssay.innerText = (data.essayScore ?? 0).toFixed(1);
+    if (sumTotal) sumTotal.innerText = (data.totalScore ?? 0).toFixed(1);
+
     if (!container) {
-         console.error("renderResultDetailModal: Cannot find container #grading-questions-container");
-         return;
+        console.error("renderResultDetailModal: Cannot find container #grading-questions-container");
+        return;
     }
 
-    // Chuẩn hóa answers
     const answers = await buildAnswersFromResult(data);
-    console.log('  renderResultDetailModal: Normalized answers received:', answers);
-
-    if (!answers || !answers.length) {
+    console.log('renderResultDetailModal: Normalized answers received:', answers);
+    if (!answers?.length) {
         container.innerHTML = `<div class="alert alert-warning text-center"><h5 class="mb-0">Không tìm thấy chi tiết câu hỏi và đáp án!</h5></div>`;
         return;
     }
 
-    // Tạo HTML cho từng câu hỏi
     let html = '';
+    const canvasLoadCallbacks = [];
+
     answers.forEach((ans, i) => {
         try {
             const q = ans.question || {};
-            let questionContent = q.q || '(Không có nội dung)'; 
+            let questionContent = q.q || '(Không có nội dung)';
             const q_type = (q.type || ans.type || '').toLowerCase();
-            const isEssay = ans.isEssay || q_type === 'essay' || q_type === 'tu_luan';
-            
-            const studentAnsRaw = ans.studentAnswer; 
+            const isEssay = ['essay', 'tu_luan', 'draw'].includes(q_type);
+
+            const studentAnsRaw = ans.studentAnswer;
             const correctAnsRaw = ans.correctAnswer ?? null;
             const teacherScore = ans.teacherScore;
             const maxPoints = ans.maxPoints ?? q.points ?? 1;
             const qId = q.id || ans.questionId;
             const gainedPoints = ans.gainedScore ?? 0;
 
-            
-            // ===== BẮT ĐẦU SỬA LỖI (Logic Stick "2/3") =====
-            
-            let pointsForBadge = 0;
-            const isUngradedEssay = isEssay && (teacherScore === null || teacherScore === undefined || teacherScore === '');
-            
-            // LẤY DỮ LIỆU MỚI TỪ DATABASE
-            const correctItems = ans.correctItems; // e.g., 2 (hoặc null/undefined nếu là essay)
-            const totalItems = ans.totalItems;     // e.g., 3 (hoặc null/undefined nếu là essay)
-
-            if (isEssay) {
-                pointsForBadge = (teacherScore !== null && teacherScore !== undefined) ? Number(teacherScore) : 0;
-            } else {
-                pointsForBadge = gainedPoints;
-            }
-
-            let stickText = '';
-            let stickClass = '';
-            let scoreBadgeClass = '';
-            
+            // --- Stick & Badge ---
+            let pointsForBadge = isEssay ? (teacherScore ?? 0) : gainedPoints;
+            let stickText = '', stickClass = '', scoreBadgeClass = '';
             const pfb_rounded = parseFloat(pointsForBadge.toFixed(2));
             const max_rounded = parseFloat(maxPoints.toFixed(2));
 
-            if (isUngradedEssay) {
+            if (isEssay && (teacherScore === null || teacherScore === undefined || teacherScore === '')) {
                 stickText = '…';
-                stickClass = 'stick-orange'; 
-                scoreBadgeClass = 'badge bg-light text-dark border ms-2'; 
-            } else if (pfb_rounded >= max_rounded && pfb_rounded > 0) { 
+                stickClass = 'stick-orange';
+                scoreBadgeClass = 'badge bg-light text-dark border ms-2';
+            } else if (pfb_rounded >= max_rounded && pfb_rounded > 0) {
                 stickText = 'Đ';
-                stickClass = 'stick-green'; 
-                scoreBadgeClass = 'badge bg-success text-white ms-2'; 
+                stickClass = 'stick-green';
+                scoreBadgeClass = 'badge bg-success text-white ms-2';
             } else if (pfb_rounded > 0) {
-                
-                // === LOGIC MỚI: HIỂN THỊ "2/3" THAY VÌ "1/2" ===
-                if (correctItems !== null && correctItems !== undefined && totalItems !== null && totalItems > 0) {
-                     stickText = `${correctItems}/${totalItems}`; // Hiển thị 2/3, 1/3...
-                } else {
-                     stickText = '½'; // Fallback nếu dữ liệu cũ
-                }
-                // =============================================
-
-                stickClass = 'stick-orange'; 
-                scoreBadgeClass = 'badge bg-warning text-dark ms-2'; 
-            } else { // pfb_rounded <= 0
+                stickText = `${((pfb_rounded / max_rounded) * 100).toFixed(0)}%`;
+                stickClass = 'stick-orange';
+                scoreBadgeClass = 'badge bg-warning text-dark ms-2';
+            } else {
                 stickText = 'S';
-                stickClass = 'stick-red'; 
+                stickClass = 'stick-red';
                 scoreBadgeClass = 'badge bg-danger text-white ms-2';
             }
-            
             const stickHtml = `<span class="score-stick ${stickClass}" data-question-id="${qId}" title="${q_type}">${stickText}</span>`;
-            
-            const scoreBadgeHtml = `<span class="${scoreBadgeClass}" style="font-size: 0.8em; padding: 0.2em 0.4em; border-radius: 4px; vertical-align: middle;">${pointsForBadge.toFixed(2)} đ</span>`;
-            
-            // ===== KẾT THÚC SỬA LỖI =====
+            const scoreBadgeHtml = `<span class="${scoreBadgeClass}" style="font-size: 0.8em; padding: 0.2em 0.4em; border-radius: 4px;">${pointsForBadge.toFixed(2)} đ</span>`;
 
+            let essayFields = '', answerDisplay = '', correctAnswerHtml = '', imageHtml = '', studentAnswerLabelHtml = '';
 
-            // Khai báo biến
-            let essayFields = '';
-            let answerDisplay = '';
-            let correctAnswerHtml = ''; 
-            let imageHtml = '';
-            let studentAnswerLabelHtml = '';
-
-            // --- Logic Render ---
-
+            // --- MULTIPLE CHOICE ---
             if (q_type === 'mc' || q_type === 'multiple_choice') {
                 const correctAns = String(correctAnsRaw || '').trim().toLowerCase();
                 const studentAnswerTrimmedLower = String(studentAnsRaw || '').trim().toLowerCase();
@@ -4094,25 +5243,24 @@ async function renderResultDetailModal(data) {
                     const optionText = String(opt.text || opt.value || '').trim();
                     const optionTextLower = optionText.toLowerCase();
                     let cls = '';
-                    if (correctAns && optionTextLower === correctAns) { cls = 'bg-success-subtle border-success fw-bold'; }
-                    else if (optionTextLower === studentAnswerTrimmedLower) { cls = 'bg-danger-subtle border-danger'; } 
+                    if (correctAns && optionTextLower === correctAns) cls = 'bg-success-subtle border-success fw-bold';
+                    else if (optionTextLower === studentAnswerTrimmedLower) cls = 'bg-danger-subtle border-danger';
                     return `<div class="border rounded p-2 my-1 ${cls}">${escapeHtml(opt.text || opt.value || '')}</div>`;
                 }).join('');
+            }
 
-            } else if (q_type === 'true_false') {
+            // --- TRUE/FALSE ---
+            else if (q_type === 'true_false') {
                 const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
                 const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
-                
-                answerDisplay = (q.options || []).map((opt, i) => {
-                    const optText = escapeHtml(opt.text || `Mệnh đề ${i+1}`);
-                    const correctAnswer = correctAnswers[i];
-                    const studentChoice = studentAnswers[i];
-                    let isItemCorrect = (studentChoice === correctAnswer);
+                answerDisplay = (q.options || []).map((opt, idx) => {
+                    const optText = escapeHtml(opt.text || `Mệnh đề ${idx + 1}`);
+                    const correctAnswer = correctAnswers[idx];
+                    const studentChoice = studentAnswers[idx];
                     let highlightClass = '';
-                    if (studentChoice === null) { isItemCorrect = false; highlightClass = 'bg-light border-warning'; }
-                    else if (isItemCorrect) { highlightClass = 'bg-success-subtle border-success'; }
-                    else { highlightClass = 'bg-warning-subtle border-danger'; }
-                    
+                    if (studentChoice === null) highlightClass = 'bg-light border-warning';
+                    else if (studentChoice === correctAnswer) highlightClass = 'bg-success-subtle border-success';
+                    else highlightClass = 'bg-warning-subtle border-danger';
                     return `
                         <div class="border p-2 mb-2 rounded ${highlightClass}">
                             <p class="mb-1">${optText}</p>
@@ -4120,75 +5268,113 @@ async function renderResultDetailModal(data) {
                             <span class="small text-success">Đáp án: <strong>${correctAnswer ? 'Đúng' : 'Sai'}</strong></span>
                         </div>`;
                 }).join('');
+            }
 
-            } else if (q_type === 'fill_blank') {
+            // --- FILL BLANK ---
+            else if (q_type === 'fill_blank') {
                 const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
                 const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
-                
                 let blankIndex = 0;
-                const spanStyle = "border-radius: 4px; border: 1px solid; margin: 0 4px; min-width: 60px; text-align:center; font-size: 0.9em; line-height: 1.5; padding: 0 0.25rem; vertical-align: baseline;";
-
-                answerDisplay = questionContent.replace(/\n/g, '<br>').replace(/\[BLANK\]/g, () => {
+                const spanStyle = "border-radius: 4px; border: 1px solid; margin: 0 4px; min-width: 60px; text-align:center; font-size: 0.9em; line-height: 1.5; padding: 0 0.25rem;";
+                answerDisplay = questionContent.replace(/\[BLANK\]/g, () => {
                     const i = blankIndex++;
                     const studentAnsText = studentAnswers[i] || null;
                     const studentAnsDisplay = studentAnsText ? escapeHtml(studentAnsText) : '[Bỏ trống]';
                     const isCorrect = norm_str(studentAnsText) === norm_str(correctAnswers[i]);
-                    
                     let spanClass = isCorrect ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger';
-                    if(studentAnsText === null) {
-                        spanClass = 'bg-warning-subtle border-warning';
-                    }
-
-                    return `<span class="d-inline-block ${spanClass}" 
-                                  style="${spanStyle}">
-                                ${studentAnsDisplay}
-                           </span>`;
+                    if (studentAnsText === null) spanClass = 'bg-warning-subtle border-warning';
+                    return `<span class="d-inline-block ${spanClass}" style="${spanStyle}">${studentAnsDisplay}</span>`;
                 });
-                
-                questionContent = ''; 
-                correctAnswerHtml = `<p class="small text-muted mt-2 mb-0">Đáp án đúng (theo thứ tự): <strong>${correctAnswers.map(escapeHtml).join(', ')}</strong></p>`;
+                questionContent = '';
+                correctAnswerHtml = `<p class="small text-muted mt-2 mb-0">Đáp án đúng: <strong>${correctAnswers.map(escapeHtml).join(', ')}</strong></p>`;
+            }
 
-            } else { // Tự luận (essay)
-                let essayText = escapeHtml(String(studentAnsRaw || ''));
-                let placeholderText = '';
-                if (studentAnsRaw === null || studentAnsRaw === undefined || String(studentAnsRaw).trim() === '') {
-                    placeholderText = 'placeholder="Chưa trả lời..."';
-                    essayText = '';
+            // --- DRAW (Hình vẽ học sinh) ---
+            else if (q_type === 'draw') {
+                const canvasId = `review_${qId}`;
+                studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh (Hình vẽ):</p>';
+                answerDisplay = `<canvas id="${canvasId}" style="width:100%;height:320px;border:1px solid #ccc;background:#fff;"></canvas>`;
+
+                if (studentAnsRaw && typeof studentAnsRaw === "string" && studentAnsRaw.trim().startsWith("{")) {
+                    canvasLoadCallbacks.push(() => {
+                        try {
+                            const canvasEl = document.getElementById(canvasId);
+                            if (!canvasEl) return;
+                            const reviewCanvas = new fabric.Canvas(canvasId);
+                            const parsed = JSON.parse(studentAnsRaw);
+                            reviewCanvas.loadFromJSON(parsed, () => {
+                                reviewCanvas.renderAll();
+                                reviewCanvas.isDrawingMode = false;
+                                reviewCanvas.selection = false;
+                                reviewCanvas.getObjects().forEach(o => {
+                                    o.selectable = false;
+                                    o.evented = false;
+                                });
+                                drawCanvasGrid(reviewCanvas, 20);
+                                const wrapper = canvasEl.closest('.mb-2');
+                                if (wrapper) {
+                                    reviewCanvas.setWidth(wrapper.clientWidth - 2);
+                                    reviewCanvas.setHeight(320);
+                                }
+                            });
+                        } catch (e) {
+                            console.error("⚠️ Lỗi load hình vẽ:", e);
+                        }
+                    });
+                } else {
+                    answerDisplay = `<div class="border rounded p-3 text-muted bg-light">[Chưa có hình vẽ hoặc dữ liệu bị lỗi]</div>`;
                 }
-                
-                answerDisplay = `<textarea class="form-control" rows="3" readonly ${placeholderText}>${essayText}</textarea>`;
-                studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh:</p>';
+
                 essayFields = `
                     <div class="mt-2 border-top pt-2">
                         <label class="form-label small mb-0">Nhận xét GV</label>
-                        <textarea class="form-control" id="note-${qId}" rows="2">${escapeHtml(ans.teacherNote||'')}</textarea>
+                        <textarea class="form-control" id="note-${qId}" rows="2">${escapeHtml(ans.teacherNote || '')}</textarea>
                         <label class="form-label small mt-2 mb-0">Điểm (tối đa ${maxPoints})</label>
-                        <input type="number" class="form-control w-50 w-md-25" id="score-${qId}" min="0" max="${maxPoints}" step="0.5" value="${teacherScore === null || teacherScore === undefined ? '' : teacherScore}" placeholder="chưa chấm">
+                        <input type="number" class="form-control w-50 w-md-25" id="score-${qId}" min="0" max="${maxPoints}" step="0.5" value="${teacherScore ?? ''}" placeholder="chưa chấm">
                     </div>`;
             }
 
-            // Tạo Image HTML
-            if (q.imageId) {
-                 imageHtml = `<img src="${serverUrl}/images/${q.imageId}" class="mt-2 img-fluid rounded" style="max-height:300px;">`;
+            // --- ESSAY ---
+            else if (q_type === 'essay' || q_type === 'tu_luan') {
+                const essayText = escapeHtml(String(studentAnsRaw || ''));
+                studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh:</p>';
+                answerDisplay = `<textarea class="form-control" rows="3" readonly>${essayText}</textarea>`;
+                essayFields = `
+                    <div class="mt-2 border-top pt-2">
+                        <label class="form-label small mb-0">Nhận xét GV</label>
+                        <textarea class="form-control" id="note-${qId}" rows="2">${escapeHtml(ans.teacherNote || '')}</textarea>
+                        <label class="form-label small mt-2 mb-0">Điểm (tối đa ${maxPoints})</label>
+                        <input type="number" class="form-control w-50 w-md-25" id="score-${qId}" min="0" max="${maxPoints}" step="0.5" value="${teacherScore ?? ''}" placeholder="chưa chấm">
+                    </div>`;
             }
 
-            // Ghép HTML cho card
+            // --- IMAGE (nếu có) ---
+            if (q.imageId)
+                imageHtml = `<img src="${serverUrl}/images/${q.imageId}" class="mt-2 img-fluid rounded" style="max-height:300px;">`;
+
             html += `
-                <div class="border rounded p-3 mb-3 shadow-sm bg-white"style="page-break-inside: avoid !important;">
+                <div class="border rounded p-3 mb-3 shadow-sm bg-white" style="page-break-inside: avoid !important;">
                     <div><strong>Câu ${i + 1}</strong> <span class="badge bg-secondary ms-2">${maxPoints} điểm</span> ${stickHtml} ${scoreBadgeHtml}</div>
-                    <div class="mt-2 text-wrap" style="${q_type === 'fill_blank' ? 'line-height: 2.5;' : ''}">${questionContent}</div>
+                    <div class="mt-2 text-wrap">${questionContent}</div>
                     ${imageHtml}
-                    <div class="mt-3 border-top pt-2" style="${q_type === 'fill_blank' ? 'line-height: 2.5;' : ''}"> ${studentAnswerLabelHtml} <div class="mb-2">${answerDisplay}</div> ${correctAnswerHtml} </div>
+                    <div class="mt-3 border-top pt-2">${studentAnswerLabelHtml}<div class="mb-2">${answerDisplay}</div>${correctAnswerHtml}</div>
                     ${essayFields}
                 </div>`;
-        } catch (renderError) {
-             console.error(`ERROR rendering question in modal at index ${i} (ID: ${ans?.questionId}):`, renderError);
-             html += `<div class="alert alert-danger">Lỗi hiển thị câu ${i + 1}.</div>`;
+        } catch (err) {
+            console.error(`ERROR rendering question ${i}:`, err);
+            html += `<div class="alert alert-danger">Lỗi hiển thị câu ${i + 1}.</div>`;
         }
-    }); // Kết thúc forEach
+    });
 
-    // Gán HTML vào container
     container.innerHTML = html;
+
+    // Khởi tạo các canvas xem lại
+    if (canvasLoadCallbacks.length) {
+        setTimeout(() => {
+            canvasLoadCallbacks.forEach(cb => cb());
+            console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ xem lại.`);
+        }, 200);
+    }
 }
 
 
@@ -4196,6 +5382,9 @@ async function renderResultDetailModal(data) {
 // Đảm bảo bạn có dòng này ở đầu file HTML/JS của bạn:
 // const serverUrl = 'https://quiz-to21.onrender.com';
 
+// =================================================================
+// HÀM SAVEGRADING (ĐÃ THÊM LOGIC "DRAW" VÀO BỘ LỌC)
+// =================================================================
 async function saveGrading() {
     const modal = document.getElementById('modalGrading');
     const resultId = modal?.dataset?.resultId || window.currentResultId;
@@ -4214,18 +5403,19 @@ async function saveGrading() {
         // ==== 1️⃣ Lấy câu trả lời đã normalize từ FE ====
         const answers = await buildAnswersFromResult(window.currentResultData);
 
-        // ==== 2️⃣ Chỉ lấy câu tự luận ====
+        // ==== 2️⃣ Lấy câu tự luận VÀ CÂU VẼ ====
         const essays = answers
             .filter(a => {
                 const t = (a.question?.type || a.type || "").toLowerCase();
-                return t.includes("essay") || t.includes("tu_luan"); // Bao gồm cả tu_luan
+                // ===== BẮT ĐẦU SỬA LỖI (Thêm "draw") =====
+                return t.includes("essay") || t.includes("tu_luan") || t.includes("draw");
+                // ===== KẾT THÚC SỬA LỖI =====
             })
             .map(a => {
-                // Sử dụng ID chính xác từ question object hoặc ans object
                 const qid = a.question?.id || a.questionId;
                 if (!qid) {
-                     console.warn("Bỏ qua essay không có ID:", a);
-                     return null; // Bỏ qua nếu không có ID
+                     console.warn("Bỏ qua essay/draw không có ID:", a);
+                     return null; 
                 }
                 const scoreEl = document.querySelector(`#score-${qid}`);
                 const noteEl = document.querySelector(`#note-${qid}`);
@@ -4233,25 +5423,22 @@ async function saveGrading() {
                 let rawScore = scoreEl?.value?.trim();
                 let teacherScore = null;
 
-                // ✅ CHƯA CHẤM: vẫn là null
                 if (rawScore !== "" && rawScore !== null && rawScore !== undefined) {
                     const parsed = parseFloat(rawScore);
-                    // Chấp nhận cả điểm 0
                     if (!isNaN(parsed) && parsed >= 0) teacherScore = parsed;
                 }
 
                 return {
-                    questionId: qid, // Đảm bảo gửi đúng ID
-                    teacherScore, // null nếu trống, số nếu hợp lệ
+                    questionId: qid, 
+                    teacherScore, 
                     teacherNote: noteEl?.value?.trim() || "",
                 };
-            }).filter(e => e !== null); // Loại bỏ các entry null do thiếu ID
+            }).filter(e => e !== null); 
 
         const payload = { essays };
         console.log("📤 Payload gửi lên server:", payload);
 
         // ==== 3️⃣ Check số lần chấm ====
-        // Tối ưu: Đọc regradeCount từ window.currentResultData thay vì fetch lại
         const currentRegradeCount = window.currentResultData?.regradeCount || 0;
 
         if (currentRegradeCount >= 2) {
@@ -4273,7 +5460,6 @@ async function saveGrading() {
             return;
         }
 
-        // Thông báo thành công từ server (đã bao gồm điểm)
         alert(data.message || "✅ Đã lưu chấm thành công!");
 
         // ==== 5️⃣ Refresh bảng danh sách ====
@@ -4289,16 +5475,11 @@ async function saveGrading() {
         // Cập nhật state toàn cục
         window.currentResultData = updated;
 
-        // >>> THÊM LOG NGAY TẠI ĐÂY <<<
         console.log("Dữ liệu Updated TRƯỚC KHI render lại modal:", updated);
-
-
-        // ==== 7️⃣ Load câu hỏi để merge lại metadata (nếu cần, nhưng buildAnswersFromResult đã làm) ====
-        // Đoạn code fetch quiz có thể không cần thiết nếu buildAnswersFromResult hoạt động đúng
 
         // ==== 8️⃣ Render lại modal với dữ liệu MỚI NHẤT ====
         if (typeof renderResultDetailModal === "function") {
-            await renderResultDetailModal(updated); // Truyền dữ liệu vừa fetch lại
+            await renderResultDetailModal(updated); 
         }
 
         // cuộn về đầu
@@ -4307,7 +5488,7 @@ async function saveGrading() {
 
     } catch (err) {
         console.error("🔥 Lỗi hệ thống saveGrading:", err);
-        alert("Lỗi hệ thống khi lưu chấm: " + err.message); // Hiển thị lỗi cụ thể
+        alert("Lỗi hệ thống khi lưu chấm: " + err.message); 
     }
 }
 
@@ -9315,7 +10496,7 @@ async function viewResult(resultId) {
 }
 
 // =================================================================
-// HÀM RENDERREVIEWQUIZ (ĐÃ XÓA BẢNG THỐNG KÊ ĐIỂM)
+// HÀM RENDERREVIEWQUIZ (ĐÃ GỠ BỎ THƯỚC KẺ)
 // =================================================================
 function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     const escapeHtml = (str) => { return str ? String(str).replace(/[&<>"']/g, s => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s])) : ''; };
@@ -9339,6 +10520,9 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     let totalQuestions = questionsFromQuiz.length; let totalMc = 0; let totalEssay = 0;
     let correctMcCount = 0; let calculatedMcScore = 0; let maxMcScore = 0;
 
+    // Mảng để lưu các hàm callback sau khi HTML được render
+    const canvasLoadCallbacks = [];
+
     detailed.forEach((res, idx) => {
         const resultQid = res.questionId;
         const q = originalQuestionMap.get(String(resultQid)); 
@@ -9351,7 +10535,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         const correctAnsRaw = res?.correctAnswer ?? null;
         const studentAnsRaw = res?.studentAnswer ?? null;
 
-        if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') { totalEssay++; }
+        if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan' || qTypeCheck === 'draw') { totalEssay++; }
         else { totalMc++; maxMcScore += max; }
         
         const gained = res?.pointsGained ?? 0;
@@ -9363,7 +10547,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         else if (isPartialCredit) {
             isCorrect = null; 
         }
-        else if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') {
+        else if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan' || qTypeCheck === 'draw') { 
             if (res.teacherScore !== null && res.teacherScore !== undefined) {
                 isCorrect = Number(res.teacherScore) > 0;
             } else {
@@ -9373,14 +10557,14 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
             isCorrect = gained > 0; // MC
         }
 
-        if (qTypeCheck !== 'essay' && qTypeCheck !== 'tu_luan') {
+        if (qTypeCheck !== 'essay' && qTypeCheck !== 'tu_luan' && qTypeCheck !== 'draw') { 
             calculatedMcScore += gained;
             if (isCorrect === true) { correctMcCount++; }
         }
 
         // Cập nhật logic badge
         let borderClass = ''; let badgeClass = ''; let badgeText = '';
-        if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan') {
+        if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan' || qTypeCheck === 'draw') { 
             if (isCorrect === true) { borderClass = 'border-success'; badgeClass = 'bg-success'; badgeText = 'Đã Chấm (Đ)'; }
             else if (isCorrect === false) { borderClass = 'border-danger'; badgeClass = 'bg-danger'; badgeText = 'Đã Chấm (S)'; }
             else { borderClass = 'border-warning'; badgeClass = 'bg-warning text-dark'; badgeText = 'Chờ Chấm'; }
@@ -9388,7 +10572,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
            borderClass = 'border-success'; badgeClass = 'bg-success'; badgeText = 'Đ';
         } else if (isCorrect === false) {
            borderClass = 'border-danger'; badgeClass = 'bg-danger'; badgeText = 'S';
-        } else { // isCorrect is null (điểm 1 phần hoặc chờ chấm)
+        } else { 
            borderClass = 'border-warning'; badgeClass = 'bg-warning text-dark'; badgeText = 'Một phần';
         }
 
@@ -9398,9 +10582,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         if (qTypeCheck === 'multiple_choice' || qTypeCheck === 'mc') {
             const correctAns = correctAnsRaw ? String(correctAnsRaw).toLowerCase() : null;
             const studentAns = (studentAnsRaw ?? "").toString().trim().toLowerCase();
-            
             if (studentAnsRaw === null) { unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa chọn đáp án</p>'; }
-            
             answerHtml = optionsToRender.map(opt => {
                  if (!opt) return ''; let cls = ''; const optionText = (typeof opt === 'string' ? opt : (opt.value || opt.text || '')).toString(); const optValue = escapeHtml(optionText); const optValueLower = optValue ? optValue.toLowerCase() : ''; const correctOptionValue = correctAns; const studentOptionValue = studentAns; if (correctOptionValue !== null && optValueLower === correctOptionValue) { cls = 'bg-success-subtle border-success fw-bold'; } if (optValueLower === studentOptionValue && isCorrect === false) { cls += ' bg-warning-subtle border-danger'; } const radioChecked = (optValueLower === studentOptionValue) ? 'checked' : '';
                 return `<div class="p-2 border rounded mb-1 ${cls}" style="pointer-events: none;"> <input type="radio" disabled ${radioChecked} class="me-2" style="opacity: 0.7;"> ${optValue || '(Lựa chọn trống)'} </div>`;
@@ -9409,11 +10591,9 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         } else if (qTypeCheck === 'true_false') {
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
             const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : []; 
-            
             if (studentAnsRaw === null || (Array.isArray(studentAnswers) && studentAnswers.every(ans => ans === null))) {
                 unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa chọn đáp án</p>';
             }
-            
             answerHtml = '';
             optionsToRender.forEach((opt, i) => {
                 const optLetter = String.fromCharCode(97 + i); 
@@ -9437,14 +10617,11 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         } else if (qTypeCheck === 'fill_blank') { 
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
             const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
-            
             if (studentAnsRaw === null || (Array.isArray(studentAnswers) && studentAnswers.every(ans => ans === null || String(ans).trim() === ''))) {
                 unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa điền đáp án</p>';
             }
-
             let blankIndex = 0;
             const spanStyle = "border-radius: 4px; border: 1px solid; margin: 0 4px; min-width: 60px; text-align:center; font-size: 0.9em; line-height: 1.5; padding: 0 0.25rem; vertical-align: baseline;";
-
             answerHtml = questionText.replace(/\n/g, '<br>').replace(/\[BLANK\]|\.{5,}/g, () => {
                 const i = blankIndex++;
                 const studentAnsText = studentAnswers[i] || null;
@@ -9461,7 +10638,6 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
                 if (!isCorrect && studentAnsText !== null) {
                      feedbackHtml = `<div class="valid-feedback d-block" style="text-align: center; font-size: 0.8em; line-height: 1; margin-top: -5px;">Đáp án: ${correctAns}</div>`;
                 }
-
                 return `<span class="d-inline-block" style="position: relative; vertical-align: baseline; margin-bottom: 20px;">
                             <span class="d-inline-block ${spanClass}" style="${spanStyle}">
                                 ${studentAnsDisplay}
@@ -9471,16 +10647,41 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
             });
             mainQuestionTextHtml = '';
 
-        } else { // Tự luận
+        } else if (qTypeCheck === 'draw') {
+            const canvasId = `review_${resultQid}`; // ✅ SỬA LỖI: Đổi qId -> resultQid 
+            answerHtml = `<div class="form-group"><label class="form-label fw-bold">Hình vẽ của bạn:</label>`;
+            
+            answerHtml += `<canvas id="${canvasId}" style="width: 100%; height: 300px; border: 1px solid #ccc; background: #f9f9f9;"></canvas>`;
+            
+            if (studentAnsRaw && studentAnsRaw.startsWith('{')) { 
+                canvasLoadCallbacks.push(() => {
+                    const reviewCanvas = new fabric.Canvas(canvasId, {
+                        interactive: false, 
+                        backgroundColor: '#ffffff', // Sửa: Nền trắng
+                    });
+                    const container = document.getElementById(canvasId).closest('.mt-3');
+                    if (container) {
+                        reviewCanvas.setWidth(container.clientWidth - 2);
+                        reviewCanvas.setHeight(300);
+                    }
+                    // ===== SỬA LỖI: Gọi hàm vẽ lưới đơn giản =====
+                    drawCanvasGrid(reviewCanvas, 20);
+                    reviewCanvas.loadFromJSON(studentAnsRaw, reviewCanvas.renderAll.bind(reviewCanvas));
+                });
+            } else {
+                 unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa trả lời</p>';
+                 answerHtml += `<div class="border rounded p-3 text-muted" style="background: #f8f9fa;">[Chưa trả lời]</div>`;
+            }
+            answerHtml += `</div>`;
+
+        } else { // Tự luận (essay)
              let essayText = escapeHtml(String(studentAnsRaw || ''));
              let placeholderText = '';
              if (studentAnsRaw === null || studentAnsRaw === undefined || String(studentAnsRaw).trim() === '') {
                  placeholderText = 'placeholder="Chưa trả lời..."'; 
                  essayText = ''; 
              }
-        
              answerHtml = `<div class="form-group"><label class="form-label fw-bold">Câu trả lời của bạn:</label><textarea class="form-control ${borderClass}" disabled rows="4" ${placeholderText}>${essayText}</textarea></div>`;
-             
              if (correctAnsRaw && String(correctAnsRaw).trim() !== '') { 
                  answerHtml += `<div class="form-group mt-2"><label class="form-label small text-success">Đáp án gợi ý:</label><textarea class="form-control bg-light" disabled rows="2">${escapeHtml(String(correctAnsRaw))}</textarea></div>`; 
              }
@@ -9509,6 +10710,13 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     });
     // --- Kết thúc vòng lặp ---
 
+    if (canvasLoadCallbacks.length > 0) {
+        setTimeout(() => {
+            canvasLoadCallbacks.forEach(cb => cb());
+            console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ xem lại (HS).`);
+        }, 100); 
+    }
+
     // --- Cập nhật bảng SUMMARY ---
     totalQuestions = detailed.length;
     const finalTotalScore = result.totalScore !== undefined ? parseFloat(result.totalScore).toFixed(2) : 'Chưa có';
@@ -9517,11 +10725,6 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     let gradedAtHtml = '';
     if (result.gradedAt) { gradedAtHtml = `<p class="small text-muted mt-2">Ngày chấm: ${safeFormat(result.gradedAt)}</p>`; }
     
-    // ===== BẮT ĐẦU SỬA LỖI (XÓA BẢNG THỐNG KÊ) =====
-    // let statsHtml = ''; // Xóa khai báo này
-    // if (stats && stats.count > 1) { ... } // Xóa toàn bộ khối 'if (stats...)'
-    // ===== KẾT THÚC SỬA LỖI =====
-
     summaryContainer.innerHTML = `<div class="alert alert-info mt-3">
         <h4 class="text-primary mb-3">Tổng kết bài làm</h4>
         <p>Tổng số câu: <strong>${totalQuestions}</strong></p>
@@ -9537,7 +10740,6 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         ${gradedAtHtml}
     </div>`;
 }
-
 
 
 // Thêm hàm thống kê này vào khối
@@ -10685,86 +11887,189 @@ async function waitForImagesToLoad() {
 
 
 // =================================================================
-// KHỐI DOMContentLoaded DUY NHẤT (ĐÃ THÊM LOGIC RESET 2 CHIỀU)
+// KHỐI DOMContentLoaded (ĐÃ SỬA PHÍM TẮT W -> S)
 // =================================================================
 document.addEventListener('DOMContentLoaded', () => {
 
-    // ----- 1. KHỞI TẠO CÁC MODAL INSTANCE (Giữ nguyên) -----
-    
+    // ----- 1. KHỞI TẠO CÁC MODAL INSTANCE -----
+    // (Giữ nguyên code khởi tạo 5 modal của bạn...)
     const reviewModalEl = document.getElementById("modalReviewQuiz");
-    if (reviewModalEl) { /* ... (khởi tạo reviewQuizModalInstance) ... */ }
+    if (reviewModalEl) { /* ... khởi tạo ... */ }
     const infoModalEl = document.getElementById("infoModal");
-    if (infoModalEl) { /* ... (khởi tạo infoModalInstance) ... */ }
+    if (infoModalEl) { /* ... khởi tạo ... */ }
     const modalElement = document.getElementById('modalQuiz');
-    if (modalElement) { /* ... (khởi tạo quizModalInstance) ... */ }
+    if (modalElement) { /* ... khởi tạo ... */ }
     const modalAssignElement = qs('#modalAssign');
-    if (modalAssignElement) { /* ... (khởi tạo modalAssignInstance) ... */ }
+    if (modalAssignElement) { /* ... khởi tạo ... */ }
     const confirmDeleteModalEl = document.getElementById('modalConfirmDelete');
-    if (confirmDeleteModalEl) { /* ... (khởi tạo và debug confirmDeleteModalInstance) ... */ }
-
-    // (Lưu ý: Tôi đã rút gọn code khởi tạo modal ở trên cho ngắn gọn,
-    // bạn hãy giữ nguyên code khởi tạo đầy đủ của mình)
+    if (confirmDeleteModalEl) { /* ... khởi tạo ... */ }
+    
+    // (Phần khởi tạo modal đầy đủ của bạn)
+    if (reviewModalEl) {
+      reviewQuizModalInstance = new bootstrap.Modal(reviewModalEl, {
+        backdrop: 'static',
+        keyboard: false
+      });
+    }
+    if (infoModalEl) { 
+        try { infoModalInstance = new bootstrap.Modal(infoModalEl); } catch(e) {}
+    }
+    if (modalElement) { 
+        quizModalInstance = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+    if (modalAssignElement) { 
+        try { modalAssignInstance = new bootstrap.Modal(modalAssignElement); } catch(e) {}
+    }
+    if (confirmDeleteModalEl) { 
+        try { confirmDeleteModalInstance = new bootstrap.Modal(confirmDeleteModalEl); } catch(e) {}
+    }
 
     
     // ----- 2. GÁN CÁC EVENT LISTENER -----
 
-    // Listener cho Tab Results (Giữ nguyên)
+    // (Giữ nguyên các listener của tab: resultsTabElement, pendingSubject, pendingDate, pendingSort...)
     const resultsTabElement = qs('#r-tab'); 
     if (resultsTabElement) {
         resultsTabElement.addEventListener('shown.bs.tab', (event) => {
             loadResults();
         });
     }
-
-    // ----- ✅ LOGIC MỚI CHO TAB "ĐỀ ĐƯỢC GIAO" -----
-    
     const pendingSubject = qs('#filter-stu-subject');
     const pendingDate = qs('#filter-stu-assigned-date');
     const pendingSort = qs('#sort-stu-assignment');
-
-    // Hàm gọi render chung cho tab 1
     const triggerPendingRender = () => {
-        // Gọi hàm render chính (hàm này sẽ tự đọc giá trị từ input)
-        renderPendingAssignments(null, true); // true = reset về trang 1
+        renderPendingAssignments(null, true); 
     };
-
-    // Khi lọc Môn
     if (pendingSubject) {
         pendingSubject.addEventListener('change', triggerPendingRender);
     }
-
-    // KHI CHỌN NGÀY (Logic bạn yêu cầu)
     if (pendingDate) {
         pendingDate.addEventListener('change', () => {
-            if (pendingDate.value) { // Nếu có chọn ngày
-                if (pendingSort) pendingSort.value = 'none'; // ✅ Tự động reset Sắp xếp
+            if (pendingDate.value) { 
+                if (pendingSort) pendingSort.value = 'none'; 
             }
             triggerPendingRender();
         });
     }
-
-    // KHI CHỌN SẮP XẾP (Logic bạn yêu cầu)
     if (pendingSort) {
         pendingSort.addEventListener('change', () => {
-            // Nếu chọn "Mới" hoặc "Cũ"
             if (pendingSort.value === 'newest' || pendingSort.value === 'oldest') {
-                if (pendingDate) pendingDate.value = ''; // ✅ Tự động reset Ngày
+                if (pendingDate) pendingDate.value = ''; 
             }
             triggerPendingRender();
         });
     }
     
-    // ----- KẾT THÚC LOGIC MỚI -----
+    
+    // ===== BẮT ĐẦU SỬA LỖI (Sự kiện phím tắt) =====
+    document.addEventListener('keydown', function(event) {
+        if (!window.activeFabricCanvas) {
+            return;
+        }
+        
+        const canvas = window.activeFabricCanvas;
+        const key = event.key.toLowerCase(); 
+        const canvasId = canvas.getElement().id; 
 
+        const targetTag = event.target.tagName.toLowerCase();
+        if (targetTag === 'input' || targetTag === 'textarea' || event.target.isEditing) {
+            return;
+        }
+        
+        if (canvas.polygonState && canvas.polygonState.isActive) {
+            if (key === 'enter') {
+                finishPolygon(canvas, true); 
+                event.preventDefault();
+            } else if (key === 'escape') {
+                finishPolygon(canvas, false); 
+                event.preventDefault();
+            }
+            return; 
+        }
 
-    // Listeners cho Filter của Học sinh (TAB "BÀI ĐÃ LÀM" - Giữ nguyên)
-    // (Lưu ý: Bạn đã làm việc này trong hàm setupAssignmentFilters(),
-    // vì vậy chúng ta không cần gán lại listener cho #stu-done ở đây)
+        if (canvas.curveState && canvas.curveState.isActive) {
+            if (key === 'escape') {
+                finishCurve(canvas, false); 
+                event.preventDefault();
+            }
+            return; 
+        }
+
+        if (canvas.sineWaveState && canvas.sineWaveState.isActive) {
+            if (key === 'escape') {
+                finishSineWave(canvas); // Hủy
+                event.preventDefault();
+            }
+            return;
+        }
+
+        // --- 3. Xử lý phím Ctrl (hoặc Cmd trên Mac) ---
+        if (event.ctrlKey || event.metaKey) {
+            event.preventDefault(); 
+            
+            switch (key) {
+                // Chỉ giữ lại các phím tắt hệ thống
+                case 'c': copyObjects(canvas); break;
+                case 'v': pasteObjects(canvas); break;
+                case 'd': duplicateObjects(canvas); break;
+                
+                // Chỉ giữ lại 'X' (theo yêu cầu) và 'E'
+                case 'x': addText(canvasId); break;
+                case 'e': setObjectDimensions(canvasId); break; 
+            }
+        
+        // --- 4. Xử lý phím tắt KHÔNG Ctrl ---
+        } else if (key === "delete" || key === "backspace") {
+            event.preventDefault(); 
+            deleteSelectedObject(canvasId); 
+        
+        } else if (key.startsWith("arrow")) {
+            event.preventDefault(); 
+            const activeObjects = canvas.getActiveObjects();
+            if (!activeObjects || activeObjects.length === 0) return;
+            const moveStep = 2; 
+            activeObjects.forEach(obj => {
+                switch (key) {
+                    case "arrowup": obj.set('top', obj.top - moveStep); break;
+                    case "arrowdown": obj.set('top', obj.top + moveStep); break;
+                    case "arrowleft": obj.set('left', obj.left - moveStep); break;
+                    case "arrowright": obj.set('left', obj.left + moveStep); break;
+                }
+                obj.setCoords();
+            });
+            canvas.renderAll();
+
+        } else if (key === 'v') { 
+             event.preventDefault();
+             setDrawingMode(canvasId, 'select');
+        } else if (key === 'f') { 
+             event.preventDefault();
+             setDrawingMode(canvasId, 'draw');
+        }
+        // Phím đơn
+        else if (key === 'l') { event.preventDefault(); addShape(canvasId, 'line'); }
+        else if (key === 'r') { event.preventDefault(); addShape(canvasId, 'rect'); }
+        else if (key === 'c') { event.preventDefault(); addShape(canvasId, 'circle'); }
+        else if (key === 't') { event.preventDefault(); addShape(canvasId, 'triangle'); }
+        else if (key === 'u') { event.preventDefault(); addShape(canvasId, 'vector'); } 
+        else if (key === 'p') { event.preventDefault(); addShape(canvasId, 'polygon'); }
+        else if (key === 'b') { event.preventDefault(); addShape(canvasId, 'curve'); }
+        // ===== SỬA LỖI: W -> S =====
+        else if (key === 's') { event.preventDefault(); addShape(canvasId, 'sinewave'); } 
+        // ===========================
+    });
+    // ===== KẾT THÚC SỬA LỖI =====
 
 });
 // =================================================================
 // KẾT THÚC KHỐI DOMContentLoaded
 // =================================================================
+
+
+
 
 </script>
 
