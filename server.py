@@ -224,6 +224,8 @@ def calculate_question_counts(question_ids, db):
         
         if q_type == "essay":
             essay_count += 1
+        elif q_type == "draw": # <-- THÊM DÒNG NÀY
+            essay_count += 1 # <-- Đếm "Vẽ" như là "Tự luận"    
         elif q_type == "true_false": # <-- MỚI
             tf_count += 1
         elif q_type == "fill_blank": # <-- MỚI
@@ -236,7 +238,7 @@ def calculate_question_counts(question_ids, db):
              else:
                 essay_count += 1
 
-    return mc_count, essay_count, tf_count, fill_count # <-- Trả về 4 giá trị
+    return mc_count, essay_count, tf_count, fill_count, draw_count # <-- Trả về 5 giá trị
 
 
 @app.route("/api/test-deploy", methods=["GET"])
@@ -1217,6 +1219,8 @@ def create_test_auto():
         q_type = q.get('type')
         if q_type == 'essay':
             essay_count += 1
+        elif q_type == 'draw': # <-- THÊM DÒNG NÀY
+            essay_count += 1 # <-- Đếm "Vẽ" như là "Tự luận"    
         elif q_type == 'true_false':
             tf_count += 1
         elif q_type == 'fill_blank':
