@@ -1130,9 +1130,9 @@
                     <strong class="me-3">Thống kê Kết quả:</strong>
                     <span id="results-stats-total-display">Đang tải...</span>
                     
-                    <button id="toggle-chart-btn" class="btn btn-sm btn-outline-secondary ms-auto" onclick="toggleGradeChart()">
-                        Ẩn biểu đồ
-                    </button>
+                    <button id="toggle-chart-btn" class="btn btn-sm btn-outline-primary ms-auto" onclick="toggleGradeChart()">
+				Hiện biểu đồ
+			</button>
                     </div>
                 <div id="results-stats-detailed-info" class="d-flex flex-wrap align-items-center gap-2">
                     Đang tải...
@@ -2108,11 +2108,12 @@
 
 	<div id="print-area" style="display:none;"></div>
 	<!--<div id="print-area"></div>-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+ 
  <script>
  
   
@@ -2272,45 +2273,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function lockAllDrawingPads() {
     if (!window.drawingPads) return;
+
     Object.keys(window.drawingPads).forEach(canvasId => {
         try {
             const canvas = window.drawingPads[canvasId];
-            if (!canvas) return;
+            if (!canvas || typeof canvas.getObjects !== "function") return;
 
-            // Tắt chế độ vẽ
-            if (typeof canvas.isDrawingMode !== "undefined") canvas.isDrawingMode = false;
-            // Vô hiệu hóa selection
-            if (typeof canvas.selection !== "undefined") canvas.selection = false;
+            // 🔒 Tắt chế độ vẽ & chọn
+            canvas.isDrawingMode = false;
+            canvas.selection = false;
 
-            // Với mỗi object: set selectable/evented false
-            const objs = canvas.getObjects ? canvas.getObjects() : [];
+            // 🔒 Tắt mọi tương tác object
+            const objs = canvas.getObjects();
             objs.forEach(o => {
-                try {
-                    o.selectable = false;
-                    o.evented = false;
-                    // nếu bạn thêm flag để phân biệt grid/guide, hãy giữ nguyên grid nếu cần
-                    // o.hasControls = false;
-                } catch (eo) { /* ignore */ }
+                o.selectable = false;
+                o.evented = false;
             });
 
-            // Gắn cờ đã khoá để có thể kiểm tra sau này
+            // 🔒 Vô hiệu hóa toàn bộ pointer events
+            if (canvas.upperCanvasEl) canvas.upperCanvasEl.style.pointerEvents = "none";
+            if (canvas.lowerCanvasEl) canvas.lowerCanvasEl.style.pointerEvents = "none";
+
+            // 🔒 Render và gắn cờ
+            canvas.renderAll();
             canvas.__locked = true;
 
-            // Render lại
-            if (typeof canvas.renderAll === "function") canvas.renderAll();
+            // ✅ Cho phép mở khóa thủ công (nếu cần)
+            canvas.__unlock = function() {
+                this.isDrawingMode = true;
+                this.selection = true;
+                if (this.upperCanvasEl) this.upperCanvasEl.style.pointerEvents = "auto";
+                if (this.lowerCanvasEl) this.lowerCanvasEl.style.pointerEvents = "auto";
+                this.getObjects().forEach(o => {
+                    o.selectable = true;
+                    o.evented = true;
+                });
+                this.renderAll();
+                this.__locked = false;
+            };
 
-            // (Option) vô hiệu hóa pointer events trên phần DOM để chặn drag/touch
-            if (canvas.upperCanvasEl) {
-                canvas.upperCanvasEl.style.pointerEvents = "none";
-            }
-            if (canvas.lowerCanvasEl) {
-                canvas.lowerCanvasEl.style.pointerEvents = "none";
-            }
         } catch (e) {
-            console.warn("lockAllDrawingPads: lỗi với", canvasId, e);
+            console.warn("⚠️ lockAllDrawingPads: lỗi với", canvasId, e);
         }
     });
 }
+
 
 
 
@@ -3178,27 +3185,27 @@ function renderQuizInterface(questions) {
                     <div class="btn-toolbar mb-2" role="toolbar" style="flex-wrap: wrap; gap: 5px;">
                         
                         <div class="btn-group btn-group-sm me-2" role="group">
-                            <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'select')">Chọn (Di chuyển)<span style="${shortcutStyle}">(V)</span></button>
-                            <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'draw')">Vẽ (Tự do)<span style="${shortcutStyle}">(F)</span></button>
+                            <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'select')">Chọn ✠ (Di chuyển)<span style="${shortcutStyle}">(V)</span></button>
+                            <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'draw')">Vẽ ෴(Tự do)<span style="${shortcutStyle}">(F)</span></button>
                         </div>
                         
                         <div class="btn-group btn-group-sm me-2" role="group">
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'line')">Đường thẳng<span style="${shortcutStyle}">(L)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'rect')">Hình chữ nhật<span style="${shortcutStyle}">(R)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'circle')">Hình tròn<span style="${shortcutStyle}">(C)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'triangle')">Hình tam giác<span style="${shortcutStyle}">(T)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'vector')">Vector<span style="${shortcutStyle}">(U)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'polygon')">Vẽ Đa giác<span style="${shortcutStyle}">(P)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'curve')">Vẽ đường cong<span style="${shortcutStyle}">(B)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'sinewave')">Vẽ Sin<span style="${shortcutStyle}">(S)</span></button> <button type="button" class="btn btn-outline-secondary" onclick="addText('${canvasId}')">Thêm chữ<span style="${shortcutStyle}">(Ctrl+X)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'line')">Đường thẳng <span style="${shortcutStyle}">(L)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'rect')">Hình chữ nhật ▭<span style="${shortcutStyle}">(R)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'circle')">Hình tròn ◯<span style="${shortcutStyle}">(C)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'triangle')">Hình tam giác △<span style="${shortcutStyle}">(T)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'vector')">Vector ⬈<span style="${shortcutStyle}">(U)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'polygon')">Vẽ Đa giác ⭔<span style="${shortcutStyle}">(P)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'curve')">Vẽ đường cong ◠ <span style="${shortcutStyle}">(B)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'sinewave')">Vẽ Sin <span style="${shortcutStyle}">(S)</span></button> <button type="button" class="btn btn-outline-secondary" onclick="addText('${canvasId}')">Thêm chữ<span style="${shortcutStyle}">(Ctrl+X)</span></button>
                         </div>
                         <div class="btn-group btn-group-sm me-2" role="group">
                             <label for="color-picker-${canvasId}" class="btn btn-sm btn-outline-secondary">Tô màu</label>
                             <input type="color" class="form-control-color" id="color-picker-${canvasId}" value="#FF0000" oninput="setFillColor('${canvasId}', this.value)">
                             <label for="stroke-picker-${canvasId}" class="btn btn-sm btn-outline-secondary ms-2">Màu nét</label>
                             <input type="color" class="form-control-color" id="stroke-picker-${canvasId}" value="#000000" oninput="setStrokeColor('${canvasId}', this.value)">
-                            <button type="button" class="btn btn-outline-secondary ms-2" onclick="setStrokeDash('${canvasId}', true)">Nét đứt</button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="setStrokeDash('${canvasId}', false)">Nét liền</button>
+                            <button type="button" class="btn btn-outline-secondary ms-2" onclick="setStrokeDash('${canvasId}', true)">Nét đứt---</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="setStrokeDash('${canvasId}', false)">Nét liền ___ </button>
                         </div>
 
                         <div class="btn-group btn-group-sm me-2" role="group">
@@ -3206,7 +3213,7 @@ function renderQuizInterface(questions) {
                         </div>
 
                         <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-danger" onclick="deleteSelectedObject('${canvasId}')">Xóa (Đang chọn)</button>
+                            <button type="button" class="btn btn-danger" onclick="deleteSelectedObject('${canvasId}')">🧽Xóa (Đang chọn)</button>
                         </div>
                     </div>
 
@@ -4290,9 +4297,7 @@ function confirmBoxAsync(title, message, confirmText = 'OK', cancelText = 'Hủy
     });
 }
 
-// =================================================================
-// HÀM SUBMITQUIZ (KHÔNG CẦN THAY ĐỔI)
-// =================================================================
+// DÁN THAY THẾ TOÀN BỘ HÀM CŨ (khoảng dòng 6176)
 async function submitQuiz(isTimeout = false) {
     // 1. Kiểm tra dữ liệu ban đầu
     if (!currentQuiz || !currentAssignmentId) {
@@ -4375,43 +4380,49 @@ async function submitQuiz(isTimeout = false) {
                 if (window.drawingPads && window.drawingPads[canvasId]) {
                     const canvas = window.drawingPads[canvasId];
 
-                    // =====================================
-                    // BẮT ĐẦU SỬA LỖI (Lưu hình vẽ)
-                    // =====================================
+                    // ===== BẮT ĐẦU FIX TRIỆT ĐỂ: LÀM SẠCH JSON TRƯỚC KHI LƯU =====
+                        try {
+                            // 1. Lọc bỏ lưới
+                            const userObjects = canvas.getObjects().filter(obj => {
+                                const isGridLine = (obj.type === 'line' && obj.stroke === '#eee');
+                                return !isGridLine;
+                            });
 
-                    // 1. Kiểm tra xem HS có vẽ gì không.
-                    // Một số object gốc (grid/guide) có thể có selectable=false.
-                    // Ta coi là có vẽ nếu có object có type không phải 'background' hoặc có selectable true,
-                    // hoặc tổng objects.length > 0 và có object có thuộc tính 'isUserDrawing' nếu bạn gắn flag.
-                    let hasDrawing = false;
-                    try {
-                        const objs = canvas.getObjects() || [];
-                        // heuristic: tồn tại object có selectable true OR loại object là path/line/circle/text,...
-                        hasDrawing = objs.some(o => {
-                            const t = (o.type || "").toLowerCase();
-                            if (o.selectable === true) return true;
-                            if (["path", "path-group", "line", "polyline", "circle", "rect", "triangle", "image", "text"].includes(t)) return true;
-                            return false;
-                        });
-                    } catch (e) {
-                        console.warn("submitQuiz: lỗi khi kiểm tra objects trên canvas:", e);
-                    }
+                            if (userObjects.length > 0) {
+                                // 2. LÀM SẠCH: Chuyển object Fabric thành object JS thô VÀ xóa thuộc tính lỗi
+                                const cleanObjects = userObjects.map(obj => {
+                                    // Dùng toObject() để lấy dữ liệu thô
+                                    const objData = obj.toObject(); 
+                                    
+                                    // Xóa thuộc tính 'backgroundColor' rỗng bị lỗi
+                                    if (objData.backgroundColor === "") {
+                                        delete objData.backgroundColor;
+                                    }
+                                    return objData; // Trả về đối tượng đã làm sạch
+                                });
 
-                    if (!hasDrawing) {
-                        studentAnswer = null;
-                    } else {
-                        // 2. Serialize TOÀN BỘ canvas
-                        try {
-                            studentAnswer = JSON.stringify(canvas.toObject());
-                        } catch (serErr) {
-                            console.error("submitQuiz: Lỗi serialize canvas:", serErr);
-                            // fallback: null chứ không crash
-                            studentAnswer = null;
-                        }
-                    }
-                    // =====================================
-                    // KẾT THÚC SỬA LỖI
-                    // =====================================
+                                // 3. Tạo payload SẠCH để lưu
+                                const canvasDataToSave = {
+                                    version: canvas.version || '5.3.0',
+                                    objects: cleanObjects // Dùng mảng ĐÃ LÀM SẠCH
+                                };
+                                
+                                // ================================================
+                                // === YÊU CẦU DEBUG: THÊM CONSOLE LOG TẠI ĐÂY ===
+                                console.log(`[submitQuiz] 📤 Serializing data for canvas ${canvasId}:`, canvasDataToSave);
+                                // ================================================
+                                
+                                // 4. Stringify JSON sạch
+                                studentAnswer = JSON.stringify(canvasDataToSave);
+                            
+                            } else {
+                                studentAnswer = null; // Không có gì để lưu
+                            }
+                        } catch (serErr) {
+                            console.error("submitQuiz: Lỗi serialize canvas:", serErr);
+                            studentAnswer = null;
+                        }
+                        // ===== KẾT THÚC FIX TRIỆT ĐỂ =====
 
                 } else {
                     studentAnswer = null;
@@ -4463,9 +4474,22 @@ async function submitQuiz(isTimeout = false) {
 
         // 7. Sau khi nộp thành công: khoá mọi canvas để không cho sửa nữa
         try {
-            lockAllDrawingPads(); // <-- hàm helper bên dưới
+          // 🔒 Khóa toàn bộ bảng vẽ
+          lockAllDrawingPads();
+
+          // 🔒 Khóa tất cả nút công cụ vẽ
+          document.querySelectorAll(
+            ".btn-toolbar button, .btn-toolbar input, .btn-toolbar select, .btn-toolbar label"
+          ).forEach(el => {
+            if (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "BUTTON") {
+              el.disabled = true;
+            }
+            el.classList.add("disabled");
+            el.style.pointerEvents = "none";
+            el.style.opacity = "0.55";
+          });
         } catch (lockErr) {
-            console.warn("submitQuiz: lockAllDrawingPads thất bại:", lockErr);
+          console.warn("submitQuiz: lockAllDrawingPads thất bại:", lockErr);
         }
 
         // 8. Hiển thị kết quả và chuyển tab
@@ -4491,7 +4515,6 @@ async function submitQuiz(isTimeout = false) {
 
     } catch (err) {
         console.error("❌ Lỗi Nộp Bài (trong try...catch):", err);
-        // SỬA: nối chuỗi đúng (thiếu dấu + trước đó)
         showMessageBox("Lỗi", "Không thể nộp bài: " + (err.message || "Lỗi không xác định"));
         if (submitButton) submitButton.disabled = false;
     }
@@ -5041,7 +5064,7 @@ async function attachQuestions(data, arr) {
 
 
 
-// Thay thế hàm openResultDetail (khoảng dòng 2627)
+// DÁN THAY THẾ HÀM CŨ (khoảng dòng 5198)
 async function openResultDetail(resultId) {
     console.log(`openResultDetail called with resultId: '${resultId}'`);
     if (!resultId) {
@@ -5064,15 +5087,12 @@ async function openResultDetail(resultId) {
 
         // --- BỔ SUNG TÊN/LỚP TỪ allStudentData LÀM PHƯƠNG ÁN DỰ PHÒNG ---
         const studentId = data.studentId;
-        // Đảm bảo studentsSource là mảng
         const studentsSource = window.allStudentData || [];
-        const student = studentsSource.find(u => u.id === studentId || u._id === studentId); // Tìm học sinh
+        const student = studentsSource.find(u => u.id === studentId || u._id === studentId);
         
         if (student) {
             const studentNameFromData = student.fullName || 'N/A';
             const classNameFromData = student.className || 'N/A';
-
-            // Chỉ gán nếu Backend không trả về tên/lớp hoặc Backend trả về N/A
             if (!data.studentName || data.studentName === 'N/A') {
                  data.studentName = studentNameFromData;
             }
@@ -5080,25 +5100,21 @@ async function openResultDetail(resultId) {
                  data.className = classNameFromData;
             }
             console.log(`  FIXED: Student Info supplemented from allStudentData: ${data.studentName} (${data.className})`);
-        } else {
- 
         }
         // --- KẾT THÚC BỔ SUNG DỰ PHÒNG ---
 
-        // 2. Load quiz gốc để lấy tên đề và cấu trúc câu hỏi
+        // 2. Load quiz gốc
         if (data.testId) {
             let quiz = null;
             try {
-                // Ưu tiên gọi API mới hơn nếu có
                 quiz = await fetchJson(`${serverUrl}/api/tests/${data.testId}`)
-                           .catch(() => fetchJson(`${serverUrl}/api/quizzes/${data.testId}`)); // Fallback API cũ
+                           .catch(() => fetchJson(`${serverUrl}/api/quizzes/${data.testId}`));
             } catch (quizError) {
                 console.warn(`Could not fetch original quiz/test data for testId ${data.testId}:`, quizError);
             }
 
             if (quiz?.questions?.length) {
-                window.currentLoadedQuestions = quiz.questions; // Lưu câu hỏi gốc
-                // Chỉ gán tên đề thi nếu BE không trả về
+                window.currentLoadedQuestions = quiz.questions;
                 data.testName = data.testName || quiz.name;       
             } else {
                  console.warn(`Original quiz/test data for ${data.testId} not found or has no questions.`);
@@ -5106,23 +5122,26 @@ async function openResultDetail(resultId) {
             }
         } else {
              console.warn("Result data is missing testId.");
-             window.currentLoadedQuestions = []; // Reset nếu không có testId
+             window.currentLoadedQuestions = [];
         }
         
-        // 3. Lưu dữ liệu kết quả hiện tại vào biến toàn cục
+        // 3. Lưu dữ liệu
         window.currentResultData = data;
 
-        // 4. Gọi hàm render
+        // 4. Lấy modal
         const modalEl = document.getElementById('modalGrading');
         if (!modalEl) { console.error('Modal #modalGrading not found!'); return; }
         
-      
-        await renderResultDetailModal(data); 
+        
+        // ===== SỬA LỖI THỜI GIAN (TIMING ERROR) =====
 
-        // 5. Gán resultId và hiển thị modal
+        // 5. Gán resultId VÀ HIỂN THỊ MODAL TRƯỚC
         modalEl.dataset.resultId = resultId;
         const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-        modalInstance.show();
+        modalInstance.show(); // <-- HIỂN THỊ TRƯỚC
+
+        // 6. VẼ NỘI DUNG SAU KHI MODAL ĐÃ HIỂN THỊ
+        await renderResultDetailModal(data); // <-- VẼ SAU
 
     } catch (err) {
         console.error('❌ Error in openResultDetail:', err);
@@ -5140,6 +5159,7 @@ async function renderResultDetailModal(data) {
         return;
     }
 
+    // Lưu global để saveGrading có thể dùng
     window.currentResultData = data;
 
     // --- Khóa nút Lưu nếu đã chấm 2 lần ---
@@ -5158,7 +5178,7 @@ async function renderResultDetailModal(data) {
         }
     }
 
-    // --- Header ---
+    // --- Header update ---
     const container = document.getElementById('grading-questions-container');
     const sumTest = document.getElementById('sum-testName');
     const sumStudent = document.getElementById('sum-studentName');
@@ -5183,13 +5203,93 @@ async function renderResultDetailModal(data) {
         return;
     }
 
+    // Chuẩn hóa answers từ result object (hàm này có trong code của bạn)
     const answers = await buildAnswersFromResult(data);
     console.log('renderResultDetailModal: Normalized answers received:', answers);
-    if (!answers?.length) {
+
+    if (!answers || !answers.length) {
         container.innerHTML = `<div class="alert alert-warning text-center"><h5 class="mb-0">Không tìm thấy chi tiết câu hỏi và đáp án!</h5></div>`;
         return;
     }
 
+    // Helper nội bộ: disable toolbar controls nằm trong một drawing-pad-container
+    function disableToolbarInContainer(drawContainer) {
+        if (!drawContainer) return;
+        // Disable all buttons, inputs, selects, color pickers, labels that act like controls
+        const controls = drawContainer.querySelectorAll('button, input, select, .form-control-color, .btn-group, .btn-toolbar, .tool-btn, .draw-tool-btn, .draw-action-btn');
+        controls.forEach(c => {
+            try {
+                if (c.tagName === 'INPUT' || c.tagName === 'SELECT' || c.tagName === 'BUTTON') {
+                    c.disabled = true;
+                }
+                // set CSS to visually show disabled
+                c.classList.add('disabled');
+                c.style.pointerEvents = 'none';
+                c.style.opacity = '0.55';
+            } catch (e) { /* ignore */ }
+        });
+    }
+
+    // Helper: safely parse stored studentAnswer (string or already-object)
+  function parseStudentAnswer(raw) {
+    if (raw === null || raw === undefined) return null;
+    if (typeof raw === 'object') return raw; // Đã là object, trả về
+    if (typeof raw === 'string') {
+        const s = raw.trim();
+        if (!s) return null;
+        
+        try {
+            let parsed = JSON.parse(s);
+            
+            // ===== BẮT ĐẦU FIX: XỬ LÝ JSON-TRONG-JSON (Double-Escaped) =====
+            // Nếu kết quả parse VẪN LÀ MỘT CHUỖI, parse nó một lần nữa
+            if (typeof parsed === 'string') {
+                console.log("parseStudentAnswer: Phát hiện double-escaped JSON. Đang parse lần 2...");
+                parsed = JSON.parse(parsed);
+            }
+            // ===== KẾT THÚC FIX =====
+
+            return parsed; // Bây giờ nó chắc chắn là object
+
+        } catch (e) {
+            // Thử unescape (dự phòng)
+            try {
+                let unescaped = JSON.parse(unescape(s));
+                if (typeof unescaped === 'string') {
+                     unescaped = JSON.parse(unescaped);
+                }
+                return unescaped;
+            } catch (ee) {
+                console.error("parseStudentAnswer: Lỗi parse JSON:", ee, "raw data:", raw);
+                return null;
+            }
+        }
+    }
+    return null;
+}
+
+    // Helper: lock a fabric canvas instance (prevent edits)
+    function lockFabricCanvas(inst) {
+        try {
+            if (!inst) return;
+            if (typeof inst.isDrawingMode !== 'undefined') inst.isDrawingMode = false;
+            if (typeof inst.selection !== 'undefined') inst.selection = false;
+            if (inst.getObjects && inst.getObjects().length) {
+                inst.getObjects().forEach(o => {
+                    try { o.selectable = false; o.evented = false; } catch(e) {}
+                });
+            }
+            // Disable pointer events on upper/lower canvas elements
+            if (inst.upperCanvasEl) inst.upperCanvasEl.style.pointerEvents = 'none';
+            if (inst.lowerCanvasEl) inst.lowerCanvasEl.style.pointerEvents = 'none';
+            // mark locked
+            inst.__locked = true;
+        } catch (e) {
+            console.warn("lockFabricCanvas error:", e);
+        }
+    }
+
+    // Xây dựng HTML
     let html = '';
     const canvasLoadCallbacks = [];
 
@@ -5198,44 +5298,34 @@ async function renderResultDetailModal(data) {
             const q = ans.question || {};
             let questionContent = q.q || '(Không có nội dung)';
             const q_type = (q.type || ans.type || '').toLowerCase();
-            const isEssay = ['essay', 'tu_luan', 'draw'].includes(q_type);
-
             const studentAnsRaw = ans.studentAnswer;
             const correctAnsRaw = ans.correctAnswer ?? null;
             const teacherScore = ans.teacherScore;
             const maxPoints = ans.maxPoints ?? q.points ?? 1;
-            const qId = q.id || ans.questionId;
+            const qId = q.id || ans.questionId || `q_${i}`;
             const gainedPoints = ans.gainedScore ?? 0;
 
-            // --- Stick & Badge ---
+            // Badge / stick logic (giữ như bạn)
+            const isEssay = ['essay', 'tu_luan', 'draw'].includes(q_type);
             let pointsForBadge = isEssay ? (teacherScore ?? 0) : gainedPoints;
             let stickText = '', stickClass = '', scoreBadgeClass = '';
-            const pfb_rounded = parseFloat(pointsForBadge.toFixed(2));
-            const max_rounded = parseFloat(maxPoints.toFixed(2));
-
+            const pfb_rounded = parseFloat(Number(pointsForBadge).toFixed(2));
+            const max_rounded = parseFloat(Number(maxPoints).toFixed(2));
             if (isEssay && (teacherScore === null || teacherScore === undefined || teacherScore === '')) {
-                stickText = '…';
-                stickClass = 'stick-orange';
-                scoreBadgeClass = 'badge bg-light text-dark border ms-2';
+                stickText = '…'; stickClass = 'stick-orange'; scoreBadgeClass = 'badge bg-light text-dark border ms-2';
             } else if (pfb_rounded >= max_rounded && pfb_rounded > 0) {
-                stickText = 'Đ';
-                stickClass = 'stick-green';
-                scoreBadgeClass = 'badge bg-success text-white ms-2';
+                stickText = 'Đ'; stickClass = 'stick-green'; scoreBadgeClass = 'badge bg-success text-white ms-2';
             } else if (pfb_rounded > 0) {
-                stickText = `${((pfb_rounded / max_rounded) * 100).toFixed(0)}%`;
-                stickClass = 'stick-orange';
-                scoreBadgeClass = 'badge bg-warning text-dark ms-2';
+                stickText = `${((pfb_rounded / max_rounded) * 100).toFixed(0)}%`; stickClass = 'stick-orange'; scoreBadgeClass = 'badge bg-warning text-dark ms-2';
             } else {
-                stickText = 'S';
-                stickClass = 'stick-red';
-                scoreBadgeClass = 'badge bg-danger text-white ms-2';
+                stickText = 'S'; stickClass = 'stick-red'; scoreBadgeClass = 'badge bg-danger text-white ms-2';
             }
             const stickHtml = `<span class="score-stick ${stickClass}" data-question-id="${qId}" title="${q_type}">${stickText}</span>`;
-            const scoreBadgeHtml = `<span class="${scoreBadgeClass}" style="font-size: 0.8em; padding: 0.2em 0.4em; border-radius: 4px;">${pointsForBadge.toFixed(2)} đ</span>`;
+            const scoreBadgeHtml = `<span class="${scoreBadgeClass}" style="font-size:0.8em;padding:0.2em 0.4em;border-radius:4px;">${pointsForBadge.toFixed(2)} đ</span>`;
 
             let essayFields = '', answerDisplay = '', correctAnswerHtml = '', imageHtml = '', studentAnswerLabelHtml = '';
 
-            // --- MULTIPLE CHOICE ---
+            // === MC ===
             if (q_type === 'mc' || q_type === 'multiple_choice') {
                 const correctAns = String(correctAnsRaw || '').trim().toLowerCase();
                 const studentAnswerTrimmedLower = String(studentAnsRaw || '').trim().toLowerCase();
@@ -5249,7 +5339,7 @@ async function renderResultDetailModal(data) {
                 }).join('');
             }
 
-            // --- TRUE/FALSE ---
+            // === TRUE_FALSE ===
             else if (q_type === 'true_false') {
                 const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
                 const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
@@ -5270,15 +5360,15 @@ async function renderResultDetailModal(data) {
                 }).join('');
             }
 
-            // --- FILL BLANK ---
+            // === FILL_BLANK ===
             else if (q_type === 'fill_blank') {
                 const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
                 const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
                 let blankIndex = 0;
-                const spanStyle = "border-radius: 4px; border: 1px solid; margin: 0 4px; min-width: 60px; text-align:center; font-size: 0.9em; line-height: 1.5; padding: 0 0.25rem;";
+                const spanStyle = "border-radius:4px;border:1px solid;margin:0 4px;min-width:60px;text-align:center;font-size:0.9em;line-height:1.5;padding:0 0.25rem;";
                 answerDisplay = questionContent.replace(/\[BLANK\]/g, () => {
                     const i = blankIndex++;
-                    const studentAnsText = studentAnswers[i] || null;
+                    const studentAnsText = (typeof studentAnswers[i] !== 'undefined') ? studentAnswers[i] : null;
                     const studentAnsDisplay = studentAnsText ? escapeHtml(studentAnsText) : '[Bỏ trống]';
                     const isCorrect = norm_str(studentAnsText) === norm_str(correctAnswers[i]);
                     let spanClass = isCorrect ? 'bg-success-subtle border-success' : 'bg-danger-subtle border-danger';
@@ -5286,42 +5376,129 @@ async function renderResultDetailModal(data) {
                     return `<span class="d-inline-block ${spanClass}" style="${spanStyle}">${studentAnsDisplay}</span>`;
                 });
                 questionContent = '';
-                correctAnswerHtml = `<p class="small text-muted mt-2 mb-0">Đáp án đúng: <strong>${correctAnswers.map(escapeHtml).join(', ')}</strong></p>`;
+                correctAnswerHtml = `<p class="small text-muted mt-2 mb-0">Đáp án đúng: <strong>${(correctAnswers||[]).map(escapeHtml).join(', ')}</strong></p>`;
             }
 
-            // --- DRAW (Hình vẽ học sinh) ---
+            // === DRAW ===
             else if (q_type === 'draw') {
                 const canvasId = `review_${qId}`;
                 studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh (Hình vẽ):</p>';
-                answerDisplay = `<canvas id="${canvasId}" style="width:100%;height:320px;border:1px solid #ccc;background:#fff;"></canvas>`;
+                // include a wrapper class .drawing-pad-container so we can find toolbar when present
+                answerDisplay = `
+    <div class="drawing-pad-container">
+        <canvas id="${canvasId}" style="height:320px;border:1px solid #ccc;background:#fff;"></canvas>
+    </div>
+`;
 
-                if (studentAnsRaw && typeof studentAnsRaw === "string" && studentAnsRaw.trim().startsWith("{")) {
-                    canvasLoadCallbacks.push(() => {
-                        try {
-                            const canvasEl = document.getElementById(canvasId);
-                            if (!canvasEl) return;
-                            const reviewCanvas = new fabric.Canvas(canvasId);
-                            const parsed = JSON.parse(studentAnsRaw);
-                            reviewCanvas.loadFromJSON(parsed, () => {
-                                reviewCanvas.renderAll();
-                                reviewCanvas.isDrawingMode = false;
-                                reviewCanvas.selection = false;
-                                reviewCanvas.getObjects().forEach(o => {
-                                    o.selectable = false;
-                                    o.evented = false;
-                                });
-                                drawCanvasGrid(reviewCanvas, 20);
-                                const wrapper = canvasEl.closest('.mb-2');
-                                if (wrapper) {
-                                    reviewCanvas.setWidth(wrapper.clientWidth - 2);
-                                    reviewCanvas.setHeight(320);
-                                }
-                            });
-                        } catch (e) {
-                            console.error("⚠️ Lỗi load hình vẽ:", e);
+                // push callback to initialize fabric canvas AFTER DOM insertion
+                if (studentAnsRaw) {
+   canvasLoadCallbacks.push(() => {
+                    const canvasEl = document.getElementById(canvasId);
+                    if (!canvasEl) return;
+                    if (typeof fabric === "undefined" || !fabric.Canvas) {
+                        console.error("⚠️ Fabric.js chưa sẵn sàng, bỏ qua canvas render");
+                        return;
+                    }
+
+                    try {
+                        // 1. Khởi tạo canvas (vẫn dùng nền trắng)
+                        const reviewCanvas = new fabric.Canvas(canvasId, {
+                            selection: false, isDrawingMode: false, renderOnAddRemove: true,
+                            backgroundColor: '#ffffff' 
+                        });
+                        window.drawingPads = window.drawingPads || {};
+                        window.drawingPads[canvasId] = reviewCanvas;
+
+                        // 2. Chuẩn bị dữ liệu VÀ LÀM SẠCH
+                        const raw = parseStudentAnswer(studentAnsRaw);
+                        if (!raw || !raw.objects || !Array.isArray(raw.objects)) {
+                            throw new Error("Dữ liệu canvas không hợp lệ");
                         }
-                    });
+
+                        // ===== BẮT ĐẦU FIX MỚI: LÀM SẠCH AN TOÀN (MAP + FILTER) =====
+                        
+                        // Dùng .map() để tạo một mảng MỚI, không sửa mảng cũ
+                        raw.objects = raw.objects
+                            .map(obj => {
+                                // Tạo một bản sao nông của đối tượng
+                                const newObj = { ...obj }; 
+                                
+                                // Xóa thuộc tính 'backgroundColor' rỗng bị lỗi khỏi BẢN SAO
+                                if (newObj.backgroundColor === "") {
+                                    delete newObj.backgroundColor;
+                                }
+                                return newObj;
+                            })
+                            .filter(obj => {
+                                // Lọc bỏ lưới (từ bản sao đã làm sạch)
+                                const isGridLine = (obj.type === 'line' && obj.stroke === '#eee');
+                                return !isGridLine;
+                            });
+
+                        // Xóa nền của toàn canvas (nếu có)
+                        delete raw.background;
+                        // ===== KẾT THÚC FIX MỚI =====
+
+                        // 3. HÀM QUAN TRỌNG: Đặt kích thước, CĂN GIỮA, VÀ khóa
+                        const fixSizeAndLock = () => {
+                            const wrapper = canvasEl.closest('.drawing-pad-container') || canvasEl.parentElement;
+                            if (wrapper) {
+                                const w = Math.max(wrapper.clientWidth - 2, 800); 
+                                reviewCanvas.setWidth(w);
+                                reviewCanvas.setHeight(320);
+                            }
+                            
+                            // ===== BẮT ĐẦU FIX MỚI: RESET VIEWPORT =====
+                            // 1. Reset zoom (1x) và pan (vị trí 0,0)
+                            reviewCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]); 
+
+                            // 2. Lấy vật thể (chỉ có 1 cái)
+                            const objects = reviewCanvas.getObjects();
+                            if (objects.length > 0) {
+                                const mainObject = objects[0];
+                                
+                                // 3. Đảm bảo nó CÓ THỂ hiển thị
+                                mainObject.set({ visible: true, selectable: false, evented: false });
+                                
+                                // 4. BUỘC CĂN GIỮA vật thể vào trung tâm canvas
+                                reviewCanvas.centerObject(mainObject); 
+                            }
+                            
+                            // 5. Render lại lần cuối với vị trí mới
+                            reviewCanvas.renderAll();
+                            reviewCanvas.requestRenderAll(); 
+                            // ===== KẾT THÚC FIX MỚI =====
+                            
+                            // Khóa canvas (giữ nguyên)
+                            lockFabricCanvas(reviewCanvas); 
+                            disableToolbarInContainer(wrapper);
+                            console.log(`GV Canvas: ĐÃ HIỂN THỊ MODAL. Đặt W=${reviewCanvas.width}, H=${reviewCanvas.height}. Đã CĂN GIỮA & khóa.`);
+                        };
+
+                        // 4. Tải JSON. SAU KHI TẢI XONG, mới gọi hàm fixSize
+                        reviewCanvas.loadFromJSON(raw, () => {
+                            reviewCanvas.renderAll(); // Render hình vẽ
+                            
+                            // 5. CHỜ MODAL HIỂN THỊ XONG MỚI SET KÍCH THƯỚC
+                            const modalEl = document.getElementById("modalGrading");
+                            if (modalEl && modalEl.classList.contains("show")) {
+                                // Nếu modal đã hiện, chạy ngay
+                                setTimeout(fixSizeAndLock, 50);
+                            } else {
+                                // Nếu modal CHƯA hiện, chờ sự kiện 'shown.bs.modal'
+                                modalEl?.addEventListener("shown.bs.modal", fixSizeAndLock, { once: true });
+                            }
+                        });
+
+                    } catch (err) {
+                        console.error("⚠️ Lỗi load hình vẽ (GV):", err);
+                        canvasEl.insertAdjacentHTML("afterend", `<div class="text-danger small mt-1">Không thể hiển thị hình vẽ</div>`);
+                    }
+                });
+
+
                 } else {
+                    // no student answer: show placeholder (we placed canvas markup above, but we can present message instead)
                     answerDisplay = `<div class="border rounded p-3 text-muted bg-light">[Chưa có hình vẽ hoặc dữ liệu bị lỗi]</div>`;
                 }
 
@@ -5334,7 +5511,7 @@ async function renderResultDetailModal(data) {
                     </div>`;
             }
 
-            // --- ESSAY ---
+            // === ESSAY ===
             else if (q_type === 'essay' || q_type === 'tu_luan') {
                 const essayText = escapeHtml(String(studentAnsRaw || ''));
                 studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh:</p>';
@@ -5348,34 +5525,44 @@ async function renderResultDetailModal(data) {
                     </div>`;
             }
 
-            // --- IMAGE (nếu có) ---
-            if (q.imageId)
+            // IMAGE nếu có
+            if (q.imageId) {
                 imageHtml = `<img src="${serverUrl}/images/${q.imageId}" class="mt-2 img-fluid rounded" style="max-height:300px;">`;
+            }
 
+            // Ghép card câu hỏi
             html += `
                 <div class="border rounded p-3 mb-3 shadow-sm bg-white" style="page-break-inside: avoid !important;">
                     <div><strong>Câu ${i + 1}</strong> <span class="badge bg-secondary ms-2">${maxPoints} điểm</span> ${stickHtml} ${scoreBadgeHtml}</div>
                     <div class="mt-2 text-wrap">${questionContent}</div>
-                    ${imageHtml}
-                    <div class="mt-3 border-top pt-2">${studentAnswerLabelHtml}<div class="mb-2">${answerDisplay}</div>${correctAnswerHtml}</div>
-                    ${essayFields}
+                    ${imageHtml || ''}
+                    <div class="mt-3 border-top pt-2">${studentAnswerLabelHtml || ''}<div class="mb-2">${answerDisplay}</div>${correctAnswerHtml || ''}</div>
+                    ${essayFields || ''}
                 </div>`;
-        } catch (err) {
-            console.error(`ERROR rendering question ${i}:`, err);
+        } catch (renderErr) {
+            console.error(`ERROR rendering question ${i}:`, renderErr);
             html += `<div class="alert alert-danger">Lỗi hiển thị câu ${i + 1}.</div>`;
         }
     });
 
+    // Gán HTML cuối cùng
     container.innerHTML = html;
 
-    // Khởi tạo các canvas xem lại
+    // Khởi tạo canvas xem lại (nếu có)
     if (canvasLoadCallbacks.length) {
         setTimeout(() => {
-            canvasLoadCallbacks.forEach(cb => cb());
-            console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ xem lại.`);
+            try {
+                canvasLoadCallbacks.forEach(cb => {
+                    try { cb(); } catch (e) { console.error("canvasLoadCallback error:", e); }
+                });
+                console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ xem lại.`);
+            } catch (e) {
+                console.error("Error initializing canvasLoadCallbacks:", e);
+            }
         }, 200);
     }
 }
+
 
 
 
@@ -6849,7 +7036,7 @@ function renderGradeDistribution(results) {
         }
     });
 
-    container.style.display = 'block'; // Hiển thị biểu đồ
+    //container.style.display = 'block'; // Hiển thị biểu đồ
 }
 
 /*function dragQuestion(event, qId) {
@@ -10432,21 +10619,18 @@ function setupAssignmentFilters() {
 
 
 
-// Hàm viewResult cũ cần giữ lại hoặc được định nghĩa lại nếu bạn không muốn dùng test.html
+// DÁN THAY THẾ HÀM CŨ (khoảng dòng 8963)
 async function viewResult(resultId) {
     try {
         // 1. Gọi API lấy kết quả chi tiết của học sinh
         const resultPromise = fetchJson(`${serverUrl}/api/results/${resultId}`);
         
         // 2. Lấy dữ liệu tạm thời (chỉ cần testId) để gọi API thống kê
-        // (Chúng ta không thể await resultPromise vì cần gọi song song)
-        // Thay vào đó, tìm trong danh sách 'completed' đã tải
         const assignmentData = (assignmentState.completed || []).find(a => a.resultId === resultId);
         const testId = assignmentData ? assignmentData.testId : null;
 
         let statsPromise = null;
         if (testId) {
-            // 2b. Gọi API thống kê điểm (trung bình, cao nhất) cho bài thi này
             statsPromise = fetchJson(`${serverUrl}/api/results/test-stats/${testId}`);
         }
 
@@ -10457,14 +10641,14 @@ async function viewResult(resultId) {
             return;
         }
 
-        // 4. Lấy chi tiết đề thi (để hiển thị câu hỏi, đáp án đúng)
+        // 4. Lấy chi tiết đề thi
         const quiz = await fetchJson(`${serverUrl}/api/quizzes/${result.testId}`);
         if (!quiz || !quiz.questions) {
             showMessageBox("Lỗi", "Không tải được thông tin đề thi.");
             return;
         }
 
-        // 5. Tạo Map câu trả lời thô (phòng trường hợp detailedResults bị lỗi)
+        // 5. Tạo Map câu trả lời thô
         const studentAnswersMap = new Map();
         if (result.studentAnswers) {
             result.studentAnswers.forEach(ans => {
@@ -10479,14 +10663,31 @@ async function viewResult(resultId) {
                 stats = await statsPromise;
             } catch (statsError) {
                 console.warn("Không tải được thống kê lớp:", statsError);
-                stats = null; // Bỏ qua nếu lỗi
+                stats = null;
             }
         }
 
-        // 7. Render câu hỏi và highlight
-        renderReviewQuiz(result, quiz, studentAnswersMap, stats); // Truyền 'stats' vào hàm render
+        // ===== SỬA LỖI THỜI GIAN (TIMING ERROR) =====
+        
+        // 7. LẤY ELEMENT MODAL (NHƯNG CHƯA VẼ)
+        const modalEl = document.getElementById("modalReviewQuiz");
 
-        // 8. Hiển thị modal
+        // 8. XÓA LISTENER CŨ (NẾU CÓ) VÀ GẮN LISTENER MỚI
+        if (window.dynamicViewResultHandler) {
+            modalEl.removeEventListener('shown.bs.modal', window.dynamicViewResultHandler);
+        }
+
+        // Tạo hàm handler mới
+        window.dynamicViewResultHandler = () => {
+            // HÀNH ĐỘNG VẼ CHỈ XẢY RA Ở ĐÂY (KHI MODAL ĐÃ HIỆN)
+            console.log("Modal học sinh ĐÃ HIỂN THỊ, bắt đầu render canvas...");
+            renderReviewQuiz(result, quiz, studentAnswersMap, stats);
+        };
+
+        // Gắn listener (chỉ chạy 1 lần)
+        modalEl.addEventListener('shown.bs.modal', window.dynamicViewResultHandler, { once: true });
+
+        // 9. HIỂN THỊ MODAL (BÂY GIỜ SẼ KÍCH HOẠT LISTENER TRÊN)
         reviewQuizModalInstance.show();
 
     } catch (err) {
@@ -10495,9 +10696,9 @@ async function viewResult(resultId) {
     }
 }
 
-// =================================================================
-// HÀM RENDERREVIEWQUIZ (ĐÃ GỠ BỎ THƯỚC KẺ)
-// =================================================================
+
+
+// DÁN THAY THẾ HÀM CŨ (khoảng dòng 9007)
 function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     const escapeHtml = (str) => { return str ? String(str).replace(/[&<>"']/g, s => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s])) : ''; };
     const safeFormat = (dateStr) => { return dateStr ? dateStr.substring(0, 16).replace('T', ' ') : '—'; };
@@ -10524,6 +10725,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     const canvasLoadCallbacks = [];
 
     detailed.forEach((res, idx) => {
+        // [ ... code xử lý logic cho MC, TRUE_FALSE, FILL_BLANK (từ dòng 9034 đến 9098) ... giữ nguyên ... ]
         const resultQid = res.questionId;
         const q = originalQuestionMap.get(String(resultQid)); 
         const qTypeCheck = (res.type || q?.type || 'mc').toLowerCase();
@@ -10561,8 +10763,6 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
             calculatedMcScore += gained;
             if (isCorrect === true) { correctMcCount++; }
         }
-
-        // Cập nhật logic badge
         let borderClass = ''; let badgeClass = ''; let badgeText = '';
         if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan' || qTypeCheck === 'draw') { 
             if (isCorrect === true) { borderClass = 'border-success'; badgeClass = 'bg-success'; badgeText = 'Đã Chấm (Đ)'; }
@@ -10590,7 +10790,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         
         } else if (qTypeCheck === 'true_false') {
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
-            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : []; 
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnswers : []; 
             if (studentAnsRaw === null || (Array.isArray(studentAnswers) && studentAnswers.every(ans => ans === null))) {
                 unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa chọn đáp án</p>';
             }
@@ -10616,7 +10816,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         
         } else if (qTypeCheck === 'fill_blank') { 
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
-            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnswers : [];
             if (studentAnsRaw === null || (Array.isArray(studentAnswers) && studentAnswers.every(ans => ans === null || String(ans).trim() === ''))) {
                 unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa điền đáp án</p>';
             }
@@ -10648,33 +10848,116 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
             mainQuestionTextHtml = '';
 
         } else if (qTypeCheck === 'draw') {
-            const canvasId = `review_${resultQid}`; // ✅ SỬA LỖI: Đổi qId -> resultQid 
+            const canvasId = `review_${resultQid}`;
             answerHtml = `<div class="form-group"><label class="form-label fw-bold">Hình vẽ của bạn:</label>`;
+            answerHtml += `<canvas id="${canvasId}" style="height: 300px; border: 1px solid #ccc; background: #f9f9f9;"></canvas>`;
             
-            answerHtml += `<canvas id="${canvasId}" style="width: 100%; height: 300px; border: 1px solid #ccc; background: #f9f9f9;"></canvas>`;
-            
-            if (studentAnsRaw && studentAnsRaw.startsWith('{')) { 
+           if (studentAnsRaw && (studentAnsRaw.startsWith('{') || studentAnsRaw.startsWith('"'))) { 
+                
+                // ==========================================================
+                // === LOG MỚI 1: Log dữ liệu thô nhận được ===
+                console.log(`[renderReviewQuiz] DEBUG (DRAW): Found raw canvas data for q=${resultQid}:`, studentAnsRaw);
+                // ==========================================================
+                
                 canvasLoadCallbacks.push(() => {
-                    const reviewCanvas = new fabric.Canvas(canvasId, {
-                        interactive: false, 
-                        backgroundColor: '#ffffff', // Sửa: Nền trắng
-                    });
-                    const container = document.getElementById(canvasId).closest('.mt-3');
-                    if (container) {
-                        reviewCanvas.setWidth(container.clientWidth - 2);
-                        reviewCanvas.setHeight(300);
+                    const canvasEl = document.getElementById(canvasId);
+                    if (!canvasEl) return;
+                    if (typeof fabric === "undefined") return;
+
+                    try {
+                        // 1. Khởi tạo canvas (vẫn dùng nền trắng)
+                        const reviewCanvas = new fabric.Canvas(canvasId, {
+                            interactive: false, 
+                            backgroundColor: '#ffffff' 
+                        });
+
+                        // 2. Chuẩn bị dữ liệu VÀ LÀM SẠCH
+                        let parsedData = JSON.parse(studentAnsRaw);
+                        if (typeof parsedData === "string") {
+                            parsedData = JSON.parse(parsedData);
+                        }
+                        
+                        // ==========================================================
+                        // === LOG MỚI 2: Log dữ liệu sau khi parse ===
+                        console.log(`[renderReviewQuiz] DEBUG (DRAW): Parsed data for q=${resultQid}:`, parsedData);
+                        // ==========================================================
+                        
+                        if (!parsedData.objects || !Array.isArray(parsedData.objects)) {
+                             throw new Error("Dữ liệu canvas (HS) không hợp lệ");
+                        }
+
+                        // ===== BẮT ĐẦU FIX MỚI: LÀM SẠCH AN TOÀN (MAP + FILTER) =====
+                        parsedData.objects = parsedData.objects
+                            .map(obj => {
+                                const newObj = { ...obj }; 
+                                if (newObj.backgroundColor === "") {
+                                    delete newObj.backgroundColor;
+                                }
+                                return newObj;
+                            })
+                            .filter(obj => {
+                                const isGridLine = (obj.type === 'line' && obj.stroke === '#eee');
+                                return !isGridLine;
+                            });
+                        delete parsedData.background;
+                        // ===== KẾT THÚC FIX MỚI =====
+
+                        // 3. HÀM QUAN TRỌNG: Đặt kích thước, CĂN GIỮA, VÀ khóa
+                        const fixSizeAndLock = () => {
+                            const container = canvasEl.closest('.mt-3');
+                            if (container) {
+                                const w = Math.max(container.clientWidth - 2, 800); 
+                                reviewCanvas.setWidth(w);
+                                reviewCanvas.setHeight(300); 
+                            }
+                            
+                            // === SỬA LỖI CĂN GIỮA (CENTERING) CỦA HỌC SINH ===
+                            reviewCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]); 
+                            const objects = reviewCanvas.getObjects();
+                            if (objects.length > 0) {
+                                const allObjectsGroup = new fabric.Group(objects, {
+                                    originX: 'center',
+                                    originY: 'center'
+                                });
+                                reviewCanvas.centerObject(allObjectsGroup);
+                                allObjectsGroup.destroy(); 
+                            }
+                            // === KẾT THÚC SỬA LỖI CĂN GIỮA ===
+                            
+                            reviewCanvas.renderAll();
+                            reviewCanvas.requestRenderAll(); 
+                            reviewCanvas.selection = false;
+                            reviewCanvas.getObjects().forEach(o => { o.selectable = false; o.evented = false; });
+                            console.log(`HS Canvas: ĐÃ HIỂN THỊ MODAL. Đặt W=${reviewCanvas.width}, H=${reviewCanvas.height}. Đã CĂN GIỮA & khóa.`);
+                        };
+
+                        // 4. Tải JSON. SAU KHI TẢI XONG, mới gọi hàm fixSize
+                        reviewCanvas.loadFromJSON(parsedData, () => {
+                            
+                            // ==========================================================
+                            // === LOG MỚI 3 & 4: Log khi callback chạy và số đối tượng ===
+                            console.log(`[renderReviewQuiz] DEBUG (DRAW): loadFromJSON callback fired for q=${resultQid}.`);
+                            const loadedObjects = reviewCanvas.getObjects();
+                            console.log(`[renderReviewQuiz] DEBUG (DRAW): Canvas reports ${loadedObjects.length} objects loaded.`, loadedObjects);
+                            // ==========================================================
+
+                            reviewCanvas.renderAll(); // Render hình vẽ
+                            
+                            setTimeout(fixSizeAndLock, 50); 
+                        });
+
+                    } catch (e) {
+                        console.error("Lỗi parse/load JSON hình vẽ (Student View):", e);
                     }
-                    // ===== SỬA LỖI: Gọi hàm vẽ lưới đơn giản =====
-                    drawCanvasGrid(reviewCanvas, 20);
-                    reviewCanvas.loadFromJSON(studentAnsRaw, reviewCanvas.renderAll.bind(reviewCanvas));
                 });
             } else {
                  unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa trả lời</p>';
-                 answerHtml += `<div class="border rounded p-3 text-muted" style="background: #f8f9fa;">[Chưa trả lời]</div>`;
+                 answerHtml += `<div class="border rounded p-3 text-muted" style="background: #f8f8fa;">[Chưa trả lời]</div>`;
             }
             answerHtml += `</div>`;
 
         } else { // Tự luận (essay)
+             // [ ... code xử lý essay (từ dòng 9161 đến 9170) ... giữ nguyên ... ]
              let essayText = escapeHtml(String(studentAnsRaw || ''));
              let placeholderText = '';
              if (studentAnsRaw === null || studentAnsRaw === undefined || String(studentAnsRaw).trim() === '') {
@@ -10686,7 +10969,8 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
                  answerHtml += `<div class="form-group mt-2"><label class="form-label small text-success">Đáp án gợi ý:</label><textarea class="form-control bg-light" disabled rows="2">${escapeHtml(String(correctAnsRaw))}</textarea></div>`; 
              }
         }
-
+        
+        // ... (Code HTML để ghép card, từ dòng 9180 đến 9202 giữ nguyên) ...
         const card = document.createElement('div');
         card.className = `card mb-3 shadow-sm ${borderClass}`;
         card.innerHTML = `
@@ -10711,13 +10995,14 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     // --- Kết thúc vòng lặp ---
 
     if (canvasLoadCallbacks.length > 0) {
-        setTimeout(() => {
-            canvasLoadCallbacks.forEach(cb => cb());
-            console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ xem lại (HS).`);
-        }, 100); 
+        canvasLoadCallbacks.forEach(cb => {
+            try { cb(); } catch(e) { console.error("HS canvas callback error:", e); }
+        });
+        console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ xem lại (HS).`);
     }
 
     // --- Cập nhật bảng SUMMARY ---
+    // [ ... code summary (từ 9205 đến 9225) ... giữ nguyên ... ]
     totalQuestions = detailed.length;
     const finalTotalScore = result.totalScore !== undefined ? parseFloat(result.totalScore).toFixed(2) : 'Chưa có';
     const finalEssayScore = result.essayScore !== undefined ? parseFloat(result.essayScore).toFixed(1) : 'Chờ chấm';
