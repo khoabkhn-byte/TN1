@@ -1952,6 +1952,9 @@ def grade_result(result_id):
     
     🔥 CẢI TIẾN (11/6):
     6. Nhận thêm payload 'teacherDrawing' và lưu vào 'detailedResults'.
+    
+    🔥 SỬA LỖI (12/6):
+    7. Lưu 'teacherDrawing' và 'teacherNote' ngay cả khi điểm (teacherScore) không được cung cấp.
     """
     try:
         data = request.get_json() or {}
@@ -1985,42 +1988,48 @@ def grade_result(result_id):
             
             q_type = det.get("type")
             
-            # ===== BẮT ĐẦU SỬA LỖI (Thêm "draw") =====
-            # Chỉ xử lý câu Tự luận HOẶC câu Vẽ
             if q_type == "essay" or q_type == "draw":
-            # ===== KẾT THÚC SỬA LỖI =====
             
                 # Tìm xem GV có chấm câu này trong payload không
                 essay_data = next((e for e in essays_payload if str(e.get("questionId")) == q_id_str), None)
-                
                 max_points = float(points_map.get(q_id_str, 1.0)) 
                 
-                if essay_data and essay_data.get("teacherScore") is not None:
-                    # Giáo viên CÓ chấm câu này
-                    ts_float = 0.0
-                    try: 
-                        ts_float = float(essay_data.get("teacherScore"))
-                    except: 
+                # 🔥 SỬA LỖI LOGIC: Tách rời việc lưu điểm và lưu bản vẽ
+                
+                if essay_data:
+                    # --- 4a. Xử lý Điểm (Nếu có) ---
+                    if essay_data.get("teacherScore") is not None:
                         ts_float = 0.0
-                    
-                    if ts_float > max_points:
-                        ts_float = max_points 
-                    if ts_float < 0:
-                        ts_float = 0.0
+                        try: ts_float = float(essay_data.get("teacherScore"))
+                        except: ts_float = 0.0
                         
-                    det["teacherScore"] = ts_float
+                        if ts_float > max_points: ts_float = max_points 
+                        if ts_float < 0: ts_float = 0.0
+                            
+                        det["teacherScore"] = ts_float
+                        det["pointsGained"] = ts_float
+                        det["isCorrect"] = ts_float > 0
+                        new_essay_score += ts_float
+                    else:
+                        # GV không nhập điểm, kiểm tra xem có điểm cũ không
+                        if det.get("teacherScore") is None:
+                            has_ungraded_essay = True # Vẫn là 'Đang Chấm'
+                        else:
+                            # Giữ điểm cũ (nếu có)
+                            new_essay_score += float(det.get("pointsGained", 0.0))
+
+                    # --- 4b. Xử lý Nhận xét (Luôn cập nhật) ---
                     det["teacherNote"] = essay_data.get("teacherNote", "")
-                    det["pointsGained"] = ts_float
-                    det["isCorrect"] = ts_float > 0
-                    
-                    # 🔥 CẢI TIẾN (11/6): LƯU BẢN VẼ CỦA GIÁO VIÊN
+
+                    # --- 4c. Xử lý Bản vẽ (Luôn cập nhật nếu là loại 'draw') ---
                     if q_type == "draw":
-                        det["teacherDrawing"] = essay_data.get("teacherDrawing") # Lưu JSON string
-                    
-                    new_essay_score += ts_float 
+                        # Chỉ cập nhật nếu payload gửi lên có 'teacherDrawing'
+                        # (Nếu không nó sẽ là None, xóa mất bản vẽ cũ)
+                        if "teacherDrawing" in essay_data:
+                            det["teacherDrawing"] = essay_data.get("teacherDrawing") 
                 
                 else:
-                    # Giáo viên KHÔNG chấm câu này
+                    # Không có payload cho câu này (lỗi hiếm gặp)
                     if det.get("teacherScore") is None:
                         has_ungraded_essay = True
                     else:
@@ -2035,9 +2044,9 @@ def grade_result(result_id):
         if has_ungraded_essay:
              new_status = "Đang Chấm"
         elif current_regrade + 1 >= 2:
-            new_status = "Hoàn tất"
+            new_status = "Hoàn tất" # Đã chấm đủ 2 lần -> Khóa
         else:
-            new_status = "Đã Chấm"
+            new_status = "Đã Chấm" # Mới chấm lần 1
 
         # === 6. Cập nhật DB ===
         update_payload = {
@@ -2053,7 +2062,7 @@ def grade_result(result_id):
             {"id": result_id},
             {
                 "$set": update_payload,
-                "$inc": { "regradeCount": 1 }
+                "$inc": { "regradeCount": 1 } # Tăng số lần chấm
             }
         )
 
