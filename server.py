@@ -1940,7 +1940,7 @@ def create_result():
 # ==================================================
 # ✅ THAY THẾ HÀM CHẤM ĐIỂM (Khoảng dòng 1557)
 # ==================================================
-@app.route("/api/results/<result_id>/grade", methods=["POST", "OPTIONS"])
+@app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
     """
     Giáo viên chấm điểm (Logic đã sửa theo yêu cầu của bạn):
