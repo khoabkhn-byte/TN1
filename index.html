@@ -2108,6 +2108,8 @@
 
 	<div id="print-area" style="display:none;"></div>
 	<!--<div id="print-area"></div>-->
+	
+  <script src="https://unpkg.com/konva@9.3.11/konva.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -2257,63 +2259,35 @@ function getVietnameseSubject(englishSubject) {
     return SUBJECT_NAMES[lowerCaseSubject] || englishSubject; 
 }
 
-// Hàm khởi tạo instance của Modal
-document.addEventListener('DOMContentLoaded', () => {
-    // ... (các khởi tạo DOMContentLoaded khác của bạn)
-    
-    // Khởi tạo Quiz Modal Instance
-    const modalElement = document.getElementById('modalQuiz');
-    if (modalElement && typeof bootstrap !== 'undefined') {
-        quizModalInstance = new bootstrap.Modal(modalElement, {
-            backdrop: 'static',
-            keyboard: false
-        });
-    }
-});
+
 
 function lockAllDrawingPads() {
     if (!window.drawingPads) return;
 
     Object.keys(window.drawingPads).forEach(canvasId => {
         try {
-            const canvas = window.drawingPads[canvasId];
-            if (!canvas || typeof canvas.getObjects !== "function") return;
+            // 1. Lấy Konva 'pad' (bao gồm stage và layers)
+            const pad = window.drawingPads[canvasId];
+            if (!pad || !pad.stage || !pad.drawingLayer) return;
 
-            // 🔒 Tắt chế độ vẽ & chọn
-            canvas.isDrawingMode = false;
-            canvas.selection = false;
+            const stage = pad.stage;
+            const drawingLayer = pad.drawingLayer;
 
-            // 🔒 Tắt mọi tương tác object
-            const objs = canvas.getObjects();
-            objs.forEach(o => {
-                o.selectable = false;
-                o.evented = false;
+            // 2. 🔒 Tắt mọi tương tác trên Stage (click, di chuột, v.v.)
+            stage.listening(false);
+            
+            // 3. 🔒 Tắt kéo thả trên mọi đối tượng trong layer vẽ
+            drawingLayer.getChildren().forEach(shape => {
+                shape.draggable(false);
             });
-
-            // 🔒 Vô hiệu hóa toàn bộ pointer events
-            if (canvas.upperCanvasEl) canvas.upperCanvasEl.style.pointerEvents = "none";
-            if (canvas.lowerCanvasEl) canvas.lowerCanvasEl.style.pointerEvents = "none";
-
-            // 🔒 Render và gắn cờ
-            canvas.renderAll();
-            canvas.__locked = true;
-
-            // ✅ Cho phép mở khóa thủ công (nếu cần)
-            canvas.__unlock = function() {
-                this.isDrawingMode = true;
-                this.selection = true;
-                if (this.upperCanvasEl) this.upperCanvasEl.style.pointerEvents = "auto";
-                if (this.lowerCanvasEl) this.lowerCanvasEl.style.pointerEvents = "auto";
-                this.getObjects().forEach(o => {
-                    o.selectable = true;
-                    o.evented = true;
-                });
-                this.renderAll();
-                this.__locked = false;
-            };
+            
+            // 4. 🔒 Render lại (vẽ lại) layer vẽ
+            drawingLayer.draw();
+            
+            stage.__locked = true; // Gắn cờ (giống logic cũ)
 
         } catch (e) {
-            console.warn("⚠️ lockAllDrawingPads: lỗi với", canvasId, e);
+            console.warn("⚠️ lockAllDrawingPads (Konva): lỗi với", canvasId, e);
         }
     });
 }
@@ -3106,7 +3080,8 @@ function startQuizTimer(durationMinutes) {
 
 
 
-// ==================== HÀM HIỂN THỊ GIAO DIỆN LÀM BÀI (ĐÃ SỬA PHÍM TẮT S) ====================
+// ==================== HÀM HIỂN THỊ GIAO DIỆN LÀM BÀI ====================
+// (DÁN THAY THẾ HÀM CŨ - Khoảng dòng 3698)
 function renderQuizInterface(questions) {
     window.currentLoadedQuestions = questions;
     const container = document.getElementById('quiz-questions-container');
@@ -3195,9 +3170,10 @@ function renderQuizInterface(questions) {
                             <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'circle')">Hình tròn ◯<span style="${shortcutStyle}">(C)</span></button>
                             <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'triangle')">Hình tam giác △<span style="${shortcutStyle}">(T)</span></button>
                             <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'vector')">Vector ⬈<span style="${shortcutStyle}">(U)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'polygon')">Vẽ Đa giác ⭔<span style="${shortcutStyle}">(P)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'curve')">Vẽ đường cong ◠ <span style="${shortcutStyle}">(B)</span></button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'sinewave')">Vẽ Sin <span style="${shortcutStyle}">(S)</span></button> <button type="button" class="btn btn-outline-secondary" onclick="addText('${canvasId}')">Thêm chữ<span style="${shortcutStyle}">(Ctrl+X)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="startPolygonModeKonva('${canvasId}')" disabled>Vẽ Đa giác ⭔<span style="${shortcutStyle}">(P)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="startCurveModeKonva('${canvasId}')" disabled>Vẽ đường cong ◠ <span style="${shortcutStyle}">(B)</span></button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="startSineWaveModeKonva('${canvasId}')" disabled>Vẽ Sin <span style="${shortcutStyle}">(S)</span></button> 
+							<button type="button" class="btn btn-outline-secondary" onclick="addText('${canvasId}')">Thêm chữ<span style="${shortcutStyle}">(Ctrl+X)</span></button>
                         </div>
                         <div class="btn-group btn-group-sm me-2" role="group">
                             <label for="color-picker-${canvasId}" class="btn btn-sm btn-outline-secondary">Tô màu</label>
@@ -3217,7 +3193,7 @@ function renderQuizInterface(questions) {
                         </div>
                     </div>
 
-                    <canvas id="${canvasId}" class="drawing-canvas" style="width: 100%; height: 300px; border: 1px solid #000;"></canvas>
+                    <div id="${canvasId}" class="drawing-canvas-container" style="width: 100%; height: 450px; border: 1px solid #000; background: #fff;"></div>
                 </div>
             `;
         }
@@ -3236,984 +3212,98 @@ function renderQuizInterface(questions) {
     });
     container.innerHTML = questionsHtml;
 
-    initDrawingCanvas();
-}
-
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): THÊM HÌNH KHỐI (ĐÃ THÊM LOGIC GỌI SINEWAVE)
-// ==================================================
-function addShape(canvasId, shapeType) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
-
-    // Hủy các chế độ đặc biệt (nếu có)
-    finishPolygon(canvas, false); 
-    finishCurve(canvas, false);
-    finishSineWave(canvas); // <-- MỚI
-
-    // ===== BẮT ĐẦU SỬA LỖI (Thêm SineWave) =====
-    if (shapeType === 'polygon') {
-        startPolygonMode(canvasId); 
-        return; 
-    }
-    if (shapeType === 'curve') {
-        startCurveMode(canvasId); 
-        return; 
-    }
-    if (shapeType === 'sinewave') {
-        startSineWaveMode(canvasId); // <-- MỚI
-        return;
-    }
-    // ===== KẾT THÚC SỬA LỖI =====
-    
-    canvas.isDrawingMode = false; 
-
-    const colorPicker = document.getElementById(`color-picker-${canvasId}`);
-    const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
-    
-    let fillColor = hexToRgba(colorPicker ? colorPicker.value : '#FF0000', 0.3); 
-    let strokeColor = strokePicker ? strokePicker.value : '#000000'; 
-
-    let shape;
-    
-    const options = {
-        left: 50,
-        top: 50,
-        fill: fillColor, 
-        stroke: strokeColor, 
-        strokeWidth: 2,
-    };
-
-    if (shapeType === 'line') {
-        shape = new fabric.Line([50, 50, 150, 50], options);
-    } else if (shapeType === 'rect') {
-        shape = new fabric.Rect({ ...options, width: 80, height: 60 });
-    } else if (shapeType === 'circle') {
-        shape = new fabric.Circle({ ...options, radius: 40 });
-    } else if (shapeType === 'triangle') {
-        shape = new fabric.Triangle({ ...options, width: 80, height: 70 });
-    } else if (shapeType === 'vector') {
-        const line = new fabric.Line([50, 50, 150, 50], { stroke: strokeColor, strokeWidth: 2 }); 
-        const arrow = new fabric.Triangle({
-            left: 150, top: 50,
-            width: 10, height: 15,
-            fill: strokeColor, 
-            angle: 90,
-            originX: 'center', originY: 'center'
-        });
-        shape = new fabric.Group([line, arrow], { left: 50, top: 50 });
-        shape.set('fill', 'rgba(0,0,0,0)');
-    }
-
-    if (shape) {
-        canvas.add(shape);
-        canvas.setActiveObject(shape); 
-        canvas.renderAll();
-    }
-}
-
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): TỶ LỆ QUY ĐỔI (QUAN TRỌNG)
-// ==================================================
-// Quy ước: 1 ô lưới = 20px = 1cm
-const GRID_SIZE_PX = 20; 
-const CM_PER_GRID = 1;
-
-function cmToPx(cm) {
-    return (cm / CM_PER_GRID) * GRID_SIZE_PX;
-}
-function pxToCm(px) {
-    return (px / GRID_SIZE_PX) * CM_PER_GRID;
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): ĐẶT KÍCH THƯỚC (CTRL+E)
-// ==================================================
-function setObjectDimensions(canvasId) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
-
-    const obj = canvas.getActiveObject();
-    if (!obj) {
-        alert("Vui lòng chọn một đối tượng (Hình chữ nhật, Tròn, Line...) trước khi đặt kích thước.");
-        return;
-    }
-    
-    // Tắt các chế độ vẽ khác
-    canvas.isDrawingMode = false;
-    finishPolygon(canvas, false);
-    finishCurve(canvas, false);
-
-    try {
-        if (obj.type === 'rect') {
-            // Lấy W/H thực tế (bao gồm cả scale)
-            const currentW_px = obj.get('width') * obj.get('scaleX');
-            const currentH_px = obj.get('height') * obj.get('scaleY');
+    const quizContainer = document.getElementById('quiz-questions-container');
+    if (quizContainer) {
+        const canvasesToInit = quizContainer.querySelectorAll('.drawing-canvas-container');
+        
+        canvasesToInit.forEach(canvasEl => {
+            // 🔥 SỬA LỖI TẠI ĐÂY: Thêm 'student'
+            const pad = initKonvaCanvas(canvasEl.id, 'student'); 
             
-            const newW_cm = prompt(`Đặt chiều rộng (cm). 1 ô = ${CM_PER_GRID}cm.`, pxToCm(currentW_px).toFixed(1));
-            if (newW_cm === null) return; // Hủy
-            const newH_cm = prompt(`Đặt chiều cao (cm). 1 ô = ${CM_PER_GRID}cm.`, pxToCm(currentH_px).toFixed(1));
-            if (newH_cm === null) return;
-
-            obj.set({
-                width: cmToPx(parseFloat(newW_cm)),
-                height: cmToPx(parseFloat(newH_cm)),
-                scaleX: 1, // Reset scale
-                scaleY: 1
-            });
-            
-        } else if (obj.type === 'circle') {
-            const currentR_px = obj.get('radius') * obj.get('scaleX'); // Giả sử scale đồng nhất
-            
-            const newR_cm = prompt(`Đặt BÁN KÍNH (cm). 1 ô = ${CM_PER_GRID}cm.`, pxToCm(currentR_px).toFixed(1));
-            if (newR_cm === null) return;
-
-            obj.set({
-                radius: cmToPx(parseFloat(newR_cm)),
-                scaleX: 1, // Reset scale
-                scaleY: 1
-            });
-
-        } else if (obj.type === 'line' || (obj.type === 'group' && obj._objects?.length === 2 && obj._objects[0].type === 'line')) {
-            // Xử lý Line hoặc Vector (Group of line+triangle)
-            
-            // Lấy chiều dài hiện tại
-            const currentL_px = obj.get('width') * obj.get('scaleX'); // Line/Group lưu chiều dài trong width
-            
-            const newL_cm = prompt(`Đặt Chiều Dài (cm). 1 ô = ${CM_PER_GRID}cm.`, pxToCm(currentL_px).toFixed(1));
-            if (newL_cm === null) return;
-
-            // Đặt chiều dài mới
-            obj.set({
-                width: cmToPx(parseFloat(newL_cm)),
-                scaleX: 1, // Reset scale
-            });
-            
-            // (Lưu ý: Thao tác này chỉ thay đổi độ dài, KHÔNG thay đổi góc xoay)
-            
-        } else {
-            alert("Tính năng này hiện chỉ hỗ trợ Hình chữ nhật, Hình tròn, và Đường thẳng/Vector.");
-            return;
-        }
-
-        obj.setCoords();
-        canvas.renderAll();
-        
-    } catch (e) {
-        alert("Giá trị nhập không hợp lệ.");
-        console.error("Lỗi đặt kích thước:", e);
-    }
-}
-
-
-
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): KHỞI TẠO BẢNG VẼ (FABRIC.JS) - ĐÃ SỬA LỖI
-// ==================================================
-// Biến toàn cục để lưu trữ các đối tượng Fabric.js
-window.drawingPads = {};
-window.activeFabricCanvas = null;
-
-// ==================================================
-// HÀM KHỞI TẠO BẢNG VẼ (ĐÃ SỬA LỖI BẮT ĐIỂM VÀ XOAY LINE)
-// ==================================================
-function initDrawingCanvas() {
-    window.drawingPads = {};
-    window.activeFabricCanvas = null; // Reset
-    
-    const canvases = document.querySelectorAll('.drawing-canvas');
-    if (canvases.length === 0) return;
-
-    const gridSize = 20; // Kích thước lưới
-
-    // ===== BẮT ĐẦU SỬA LỖI 1 (Xoay Line) =====
-    // GỠ BỎ 2 DÒNG GÂY LỖI NÀY NẾU BẠN CÓ CHÚNG TRONG CODE
-    // fabric.Object.prototype.originX = 'center'; // (XÓA DÒNG NÀY)
-    // fabric.Object.prototype.originY = 'center'; // (XÓA DÒNG NÀY)
-    // ===== KẾT THÚC SỬA LỖI 1 =====
-
-
-    canvases.forEach(canvasEl => {
-        try {
-            const canvas = new fabric.Canvas(canvasEl.id, {
-                isDrawingMode: false, 
-                backgroundColor: '#ffffff',
-            });
-            
-            const container = canvasEl.closest('.drawing-pad-container');
-            if (container) {
-                canvas.setWidth(container.clientWidth - 2); 
-                canvas.setHeight(300);
-            }
-
-            // Khi click vào canvas, đặt nó là canvas "active"
-            canvas.on('mouse:down', () => {
-                window.activeFabricCanvas = canvas;
-            });
-
-            // ===== BẮT ĐẦU SỬA LỖI 2 (Bắt điểm) =====
-            
-            // 1. TẮT tính năng snap-to-grid "mạnh" (gây bất tiện)
-            // (Không còn dòng canvas.snapToGrid = true)
-
-            // 2. BẬT LẠI logic bắt điểm tùy chỉnh (CHỈ KHI DI CHUYỂN)
-            canvas.on('object:moving', (options) => {
-                const target = options.target;
-                if (!target) return;
-                
-                // "Hút" đối tượng vào các đường lưới gần nhất
-                target.set({
-                    left: Math.round(target.left / gridSize) * gridSize,
-                    top: Math.round(target.top / gridSize) * gridSize
-                });
-                target.setCoords();
-            });
-            // ===== KẾT THÚC SỬA LỖI 2 =====
-            
-
-            // Gọi hàm vẽ lưới (đã sửa ở bước trước)
-            drawCanvasGrid(canvas, 20); 
-
-            window.drawingPads[canvasEl.id] = canvas;
-
-        } catch (e) {
-            console.error("Lỗi khởi tạo Fabric.js:", e);
-            canvasEl.parentElement.innerHTML = '<div class="alert alert-danger">Lỗi tải bảng vẽ.</div>';
-        }
-    });
-}
-
-
-// Biến toàn cục để lưu trữ clipboard
-let _clipboard = null;
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): SAO CHÉP (CTRL+C)
-// ==================================================
-function copyObjects(canvas) {
-    const activeObj = canvas.getActiveObject();
-    if (!activeObj) return;
-
-    // Clone đối tượng (hoặc nhóm) đang chọn và lưu vào clipboard
-    activeObj.clone(cloned => {
-        _clipboard = cloned;
-        console.log("Đã sao chép vào clipboard.");
-    });
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): DÁN (CTRL+V)
-// ==================================================
-function pasteObjects(canvas) {
-    if (!_clipboard) return;
-
-    // Clone từ clipboard
-    _clipboard.clone(clonedObj => {
-        canvas.discardActiveObject(); // Bỏ chọn đối tượng cũ
-        
-        // Dịch chuyển đối tượng dán đi 10px
-        clonedObj.set({
-            left: clonedObj.left + 10,
-            top: clonedObj.top + 10,
-            evented: true, // Đảm bảo có thể chọn
-        });
-
-        // Xử lý nếu đối tượng là một nhóm (multi-select)
-        if (clonedObj.type === 'activeSelection') {
-            clonedObj.canvas = canvas;
-            clonedObj.forEachObject(obj => canvas.add(obj));
-            clonedObj.setCoords();
-        } else {
-            // Nếu là 1 đối tượng đơn lẻ
-            canvas.add(clonedObj);
-        }
-        
-        // Cập nhật vị trí dán cho lần tiếp theo
-        _clipboard.top += 10;
-        _clipboard.left += 10;
-        
-        canvas.setActiveObject(clonedObj); // Chọn đối tượng vừa dán
-        canvas.requestRenderAll();
-        console.log("Đã dán từ clipboard.");
-    });
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): NHÂN BẢN (CTRL+D)
-// ==================================================
-function duplicateObjects(canvas) {
-    const activeObj = canvas.getActiveObject();
-    if (!activeObj) return;
-    
-    // Sao chép và Dán ngay lập tức
-    activeObj.clone(cloned => {
-        _clipboard = cloned; // Cập nhật clipboard
-        pasteObjects(canvas); // Gọi hàm dán
-    });
-}
-
-// ==================================================
-// HÀM VẼ THƯỚC (RULERS) VÀ LƯỚI (ĐÃ GỠ BỎ TEXT ĐỂ FIX LỖI)
-// ==================================================
-function drawRulersAndGrid(canvas, gridSize, unitName = 'mm', unitsPerGrid = 10) {
-    const width = canvas.getWidth();
-    const height = canvas.getHeight();
-    const rulerSize = 25; 
-    const rulerColor = '#f8f9fa'; 
-    const lineColor = '#eee'; 
-    const textColor = '#555'; 
-
-    const allObjects = [];
-
-    // --- 1. Vẽ Lưới (Trục X) ---
-    for (let i = 1; (i * gridSize) < width; i++) {
-        const x = i * gridSize;
-        if (x > rulerSize) { 
-            allObjects.push(new fabric.Line([x, rulerSize, x, height], { stroke: lineColor }));
-        }
-    }
-
-    // --- 2. Vẽ Lưới (Trục Y) ---
-    for (let i = 1; (i * gridSize) < height; i++) {
-        const y = i * gridSize;
-        if (y > rulerSize) {
-            allObjects.push(new fabric.Line([rulerSize, y, width, y], { stroke: lineColor }));
-        }
-    }
-
-    // --- 3. Vẽ nền thước ---
-    allObjects.push(new fabric.Rect({
-        left: 0, top: 0, width: width, height: rulerSize,
-        fill: rulerColor, stroke: lineColor,
-    }));
-    allObjects.push(new fabric.Rect({
-        left: 0, top: 0, width: rulerSize, height: height,
-        fill: rulerColor, stroke: lineColor,
-    }));
-
-    // --- 4. Vẽ Vạch thước (Trục X) ---
-    for (let i = 1; (i * gridSize) < width; i++) {
-        const x = i * gridSize;
-        allObjects.push(new fabric.Line([x, rulerSize - 10, x, rulerSize], {
-            stroke: textColor,
-        }));
-        // ===== ĐÃ XÓA KHỐI TẠO fabric.Text (GÂY LỖI) =====
-    }
-
-    // --- 5. Vẽ Vạch thước (Trục Y) ---
-    for (let i = 1; (i * gridSize) < height; i++) {
-        const y = i * gridSize;
-        allObjects.push(new fabric.Line([rulerSize - 10, y, rulerSize, y], {
-            stroke: textColor,
-        }));
-        // ===== ĐÃ XÓA KHỐI TẠO fabric.Text (GÂY LỖI) =====
-    }
-
-    // --- 6. Thêm tất cả vào canvas ---
-    canvas.add(...allObjects);
-    
-    allObjects.forEach(obj => {
-        obj.set({ selectable: false, evented: false }); 
-        canvas.sendToBack(obj);
-    });
-    
-    canvas.renderAll();
-}
-
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): CHUYỂN CHẾ ĐỘ VẼ (ĐÃ THÊM LOGIC HỦY SINEWAVE)
-// ==================================================
-function setDrawingMode(canvasId, mode) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
-
-    // QUAN TRỌNG: Hủy các chế độ đặc biệt (nếu có)
-    finishPolygon(canvas, false);
-    finishCurve(canvas, false);
-    finishSineWave(canvas); // <-- MỚI
-
-    if (mode === 'draw') {
-        canvas.isDrawingMode = true; 
-        canvas.freeDrawingBrush.width = 3;
-        const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
-        canvas.freeDrawingBrush.color = strokePicker ? strokePicker.value : '#000000';
-    } else {
-        canvas.isDrawingMode = false; // Chế độ Chọn/Select
-    }
-}
-
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): BẮT ĐẦU VẼ HÌNH SIN
-// ==================================================
-function startSineWaveMode(canvasId) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
-
-    // Hủy các chế độ khác
-    canvas.isDrawingMode = false;
-    finishPolygon(canvas, false);
-    finishCurve(canvas, false);
-    
-    // Lưu trữ trạng thái VÀO canvas
-    canvas.sineWaveState = {
-        isActive: true,
-        points: [], // Sẽ lưu 2 điểm (Start, End)
-        startPointCircle: null
-    };
-
-    // Tắt lựa chọn, đổi con trỏ
-    canvas.selection = false; 
-    canvas.defaultCursor = 'crosshair';
-    canvas.hoverCursor = 'crosshair';
-    canvas.renderAll();
-
-    // Gỡ listener cũ, thêm listener mới
-    canvas.off('mouse:down');
-    canvas.on('mouse:down', handleSineWaveClick);
-    
-    alert("Chế độ Vẽ Sin: Click 2 điểm. Điểm 1 (Bắt đầu chu kỳ), Điểm 2 (Kết thúc chu kỳ). Bấm 'Escape' để hủy.");
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): XỬ LÝ CLICK KHI VẼ SIN
-// ==================================================
-function handleSineWaveClick(options) {
-    const canvas = this; // 'this' là canvas
-    if (!canvas.sineWaveState || !canvas.sineWaveState.isActive) return;
-
-    const gridSize = 20; 
-    const pointer = canvas.getPointer(options.e);
-    
-    // Bắt điểm vào lưới
-    const snappedPoint = {
-        x: Math.round(pointer.x / gridSize) * gridSize,
-        y: Math.round(pointer.y / gridSize) * gridSize
-    };
-
-    const state = canvas.sineWaveState;
-    state.points.push(snappedPoint);
-
-    // Điểm 1 (Start)
-    if (state.points.length === 1) {
-        const startPointCircle = new fabric.Circle({
-            left: snappedPoint.x, top: snappedPoint.y, radius: 3,
-            fill: 'green', originX: 'center', originY: 'center',
-            selectable: false, evented: false
-        });
-        canvas.add(startPointCircle);
-        state.startPointCircle = startPointCircle;
-    } 
-    // Điểm 2 (End) -> Hoàn thành
-    else if (state.points.length === 2) {
-        generateAndAddSineWave(canvas, state.points[0], state.points[1]);
-        finishSineWave(canvas); // Tự động hoàn thành
-    }
-    
-    canvas.renderAll();
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): TẠO VÀ VẼ HÌNH SIN (TOÁN HỌC)
-// ==================================================
-function generateAndAddSineWave(canvas, p1, p2) {
-    const canvasId = canvas.getElement().id;
-    const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
-    let strokeColor = strokePicker ? strokePicker.value : '#000000'; 
-    const gridSize = 20;
-
-    const amplitude = 2 * gridSize; // Biên độ = 2 ô lưới
-    const width = p2.x - p1.x; // Chiều dài 1 chu kỳ (khoảng cách x)
-    
-    // Nếu kéo ngược (p2.x < p1.x), chúng ta không vẽ
-    if (width <= 0) return;
-
-    const startX = p1.x;
-    const startY = p1.y; // Gốc (y)
-    
-    let pathString = `M ${startX} ${startY} `; // Bắt đầu
-    const steps = 50; // Tăng độ mượt
-
-    for (let i = 0; i <= steps; i++) {
-        const x_offset = (i / steps) * width; // Vị trí x tương đối (0 -> width)
-        const angle = (i / steps) * (2 * Math.PI); // Góc (0 -> 2*PI)
-        
-        // y = -sin(angle) * amplitude
-        // Dấu trừ (-) vì trục Y của canvas hướng xuống
-        const y_offset = -Math.sin(angle) * (amplitude / 2);
-        
-        const x_abs = startX + x_offset;
-        const y_abs = startY + y_offset;
-        
-        pathString += `L ${x_abs} ${y_abs} `; // Vẽ đường thẳng tới điểm tiếp theo
-    }
-
-    const sineWave = new fabric.Path(pathString, {
-        fill: 'rgba(0,0,0,0)', // Không tô nền
-        stroke: strokeColor,
-        strokeWidth: 2,
-        selectable: true,
-        evented: true,
-        objectCaching: false
-    });
-        
-    canvas.add(sineWave);
-    canvas.renderAll();
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): KẾT THÚC VẼ SIN
-// ==================================================
-function finishSineWave(canvas) {
-    if (!canvas || !canvas.sineWaveState || !canvas.sineWaveState.isActive) {
-        return; 
-    }
-
-    const state = canvas.sineWaveState;
-    
-    // Dọn dẹp điểm tạm
-    if (state.startPointCircle) {
-        canvas.remove(state.startPointCircle);
-    }
-    
-    // Reset trạng thái
-    canvas.sineWaveState = { isActive: false, points: [], tempLines: [] };
-    canvas.selection = true; 
-    canvas.defaultCursor = 'default';
-    canvas.hoverCursor = 'default';
-    
-    // Gỡ listener và trả lại listener mặc định
-    canvas.off('mouse:down', handleSineWaveClick);
-    canvas.on('mouse:down', () => { window.activeFabricCanvas = canvas; });
-    
-    canvas.renderAll();
-}
-
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): BẮT ĐẦU VẼ ĐƯỜNG CONG
-// ==================================================
-function startCurveMode(canvasId) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
-
-    // Hủy các chế độ khác
-    canvas.isDrawingMode = false;
-    finishPolygon(canvas, false); // Hủy đa giác (nếu có)
-    
-    // Lưu trữ trạng thái VÀO canvas
-    canvas.curveState = {
-        isActive: true,
-        points: [], // Sẽ lưu 3 điểm
-        tempLines: [],
-        startPointCircle: null
-    };
-
-    // Tắt lựa chọn đối tượng, đổi con trỏ
-    canvas.selection = false; 
-    canvas.defaultCursor = 'crosshair';
-    canvas.hoverCursor = 'crosshair';
-    canvas.renderAll();
-
-    // Xóa listener 'mouse:down' cũ
-    canvas.off('mouse:down');
-    // Thêm listener mới chỉ cho vẽ đường cong
-    canvas.on('mouse:down', handleCurveClick);
-    
-    alert("Chế độ Vẽ Đường cong: Click 3 điểm. Điểm 1 (Bắt đầu), Điểm 2 (Điểm cong), Điểm 3 (Kết thúc). Bấm 'Escape' để hủy.");
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): XỬ LÝ CLICK KHI VẼ ĐƯỜNG CONG
-// ==================================================
-function handleCurveClick(options) {
-    const canvas = this; // 'this' là canvas
-    if (!canvas.curveState || !canvas.curveState.isActive) return;
-
-    const gridSize = 20; 
-    const pointer = canvas.getPointer(options.e);
-    
-    // Bắt điểm vào lưới
-    const snappedPoint = {
-        x: Math.round(pointer.x / gridSize) * gridSize,
-        y: Math.round(pointer.y / gridSize) * gridSize
-    };
-
-    const state = canvas.curveState;
-    state.points.push(snappedPoint);
-
-    // Điểm 1 (Start)
-    if (state.points.length === 1) {
-        const startPointCircle = new fabric.Circle({
-            left: snappedPoint.x, top: snappedPoint.y, radius: 3,
-            fill: 'blue', originX: 'center', originY: 'center',
-            selectable: false, evented: false
-        });
-        canvas.add(startPointCircle);
-        state.startPointCircle = startPointCircle;
-    } 
-    // Điểm 2 (Control)
-    else if (state.points.length === 2) {
-        const prevPoint = state.points[0];
-        const tempLine = new fabric.Line([prevPoint.x, prevPoint.y, snappedPoint.x, snappedPoint.y], {
-            stroke: '#999', strokeDashArray: [3, 3],
-            selectable: false, evented: false
-        });
-        canvas.add(tempLine);
-        state.tempLines.push(tempLine);
-    } 
-    // Điểm 3 (End) -> Hoàn thành
-    else if (state.points.length === 3) {
-        const line2 = new fabric.Line([state.points[1].x, state.points[1].y, snappedPoint.x, snappedPoint.y], {
-            stroke: '#999', strokeDashArray: [3, 3],
-            selectable: false, evented: false
-        });
-        canvas.add(line2);
-        state.tempLines.push(line2);
-        
-        // Gọi hàm hoàn thành
-        finishCurve(canvas, true);
-    }
-    
-    canvas.renderAll();
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): KẾT THÚC VẼ ĐƯỜNG CONG
-// ==================================================
-function finishCurve(canvas, isComplete) {
-    if (!canvas || !canvas.curveState || !canvas.curveState.isActive) {
-        return; // Chế độ này không active
-    }
-
-    const state = canvas.curveState;
-    
-    // 1. Dọn dẹp các đường/điểm tạm
-    state.tempLines.forEach(line => canvas.remove(line));
-    if (state.startPointCircle) {
-        canvas.remove(state.startPointCircle);
-    }
-
-    // 2. Hoàn thành hình (Nếu bấm Enter và có đủ 3 điểm)
-    if (isComplete && state.points.length === 3) {
-        const canvasId = canvas.getElement().id; // Lấy ID của canvas
-        const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
-        let strokeColor = strokePicker ? strokePicker.value : '#000000'; 
-        
-        const p1 = state.points[0]; // Start
-        const p2 = state.points[1]; // Control
-        const p3 = state.points[2]; // End
-
-        // Tạo đường dẫn SVG cho đường cong Quadratic
-        // M = Move To (p1), Q = Quadratic curve (p2, p3)
-        const pathString = `M ${p1.x} ${p1.y} Q ${p2.x} ${p2.y} ${p3.x} ${p3.y}`;
-
-        const newCurve = new fabric.Path(pathString, {
-            fill: 'rgba(0,0,0,0)', // Không tô nền
-            stroke: strokeColor,
-            strokeWidth: 2,
-            selectable: true,
-            evented: true,
-            objectCaching: false // Quan trọng cho Path
-        });
-        
-        canvas.add(newCurve);
-    }
-    
-    // 3. Reset trạng thái
-    canvas.curveState = { isActive: false, points: [], tempLines: [] };
-    canvas.selection = true; // Bật lại lựa chọn
-    canvas.defaultCursor = 'default';
-    canvas.hoverCursor = 'default';
-    
-    // 4. Gỡ listener đường cong và trả lại listener mặc định
-    canvas.off('mouse:down', handleCurveClick);
-    canvas.on('mouse:down', () => { window.activeFabricCanvas = canvas; });
-    
-    canvas.renderAll();
-}
-
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): BẮT ĐẦU VẼ ĐA GIÁC
-// ==================================================
-function startPolygonMode(canvasId) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
-
-    // Hủy các chế độ khác
-    canvas.isDrawingMode = false;
-    
-    // Lưu trữ trạng thái VÀO canvas
-    canvas.polygonState = {
-        isActive: true,
-        points: [],
-        tempLines: [],
-        startPointCircle: null
-    };
-
-    // Tắt lựa chọn đối tượng, đổi con trỏ
-    canvas.selection = false; 
-    canvas.defaultCursor = 'crosshair';
-    canvas.hoverCursor = 'crosshair';
-    canvas.renderAll();
-
-    // Xóa listener 'mouse:down' cũ (dùng để set activeFabricCanvas)
-    canvas.off('mouse:down');
-    // Thêm listener mới chỉ cho vẽ đa giác
-    canvas.on('mouse:down', handlePolygonClick);
-    
-    alert("Chế độ Vẽ Đa giác: Click các điểm trên lưới. Bấm 'Enter' để hoàn thành, 'Escape' để hủy.");
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): XỬ LÝ CLICK KHI VẼ ĐA GIÁC
-// ==================================================
-function handlePolygonClick(options) {
-    const canvas = this; // 'this' là canvas
-    if (!canvas.polygonState || !canvas.polygonState.isActive) return;
-
-    const gridSize = 20; 
-    const pointer = canvas.getPointer(options.e);
-    
-    // Bắt điểm vào lưới
-    const snappedPoint = {
-        x: Math.round(pointer.x / gridSize) * gridSize,
-        y: Math.round(pointer.y / gridSize) * gridSize
-    };
-
-    const state = canvas.polygonState;
-
-    // Nếu là điểm đầu tiên, vẽ 1 vòng tròn nhỏ
-    if (state.points.length === 0) {
-        const startPointCircle = new fabric.Circle({
-            left: snappedPoint.x,
-            top: snappedPoint.y,
-            radius: 3,
-            fill: 'red',
-            originX: 'center', originY: 'center',
-            selectable: false, evented: false
-        });
-        canvas.add(startPointCircle);
-        state.startPointCircle = startPointCircle;
-    } else {
-        // Vẽ đường nối tạm thời
-        const prevPoint = state.points[state.points.length - 1];
-        const tempLine = new fabric.Line([prevPoint.x, prevPoint.y, snappedPoint.x, snappedPoint.y], {
-            stroke: '#999', // Màu xám
-            strokeDashArray: [3, 3], // Nét đứt
-            selectable: false, evented: false
-        });
-        canvas.add(tempLine);
-        state.tempLines.push(tempLine);
-    }
-    
-    state.points.push(snappedPoint);
-    canvas.renderAll();
-}
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): KẾT THÚC VẼ ĐA GIÁC (ĐÃ SỬA 2 ĐIỂM)
-// ==================================================
-function finishPolygon(canvas, isComplete) {
-    if (!canvas || !canvas.polygonState || !canvas.polygonState.isActive) {
-        return; // Chế độ này không active
-    }
-
-    const state = canvas.polygonState;
-    
-    // 1. Dọn dẹp các đường/điểm tạm
-    state.tempLines.forEach(line => canvas.remove(line));
-    if (state.startPointCircle) {
-        canvas.remove(state.startPointCircle);
-    }
-
-    // ===== BẮT ĐẦU SỬA LỖI (Vẽ 2 điểm) =====
-    // 2. Hoàn thành hình (Nếu bấm Enter và có đủ 2 điểm)
-    if (isComplete && state.points.length >= 2) { 
-        const canvasId = canvas.getElement().id; 
-        
-        const colorPicker = document.getElementById(`color-picker-${canvasId}`);
-        const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
-        let fillColor = hexToRgba(colorPicker ? colorPicker.value : '#FF0000', 0.3); 
-        let strokeColor = strokePicker ? strokePicker.value : '#000000'; 
-
-        const options = {
-            stroke: strokeColor,
-            strokeWidth: 2,
-            selectable: true,
-            evented: true,
-        };
-
-        let newShape;
-        if (state.points.length === 2) {
-            // Nếu chỉ có 2 điểm -> Vẽ LINE
-            newShape = new fabric.Line([
-                state.points[0].x, state.points[0].y, 
-                state.points[1].x, state.points[1].y
-            ], { ...options, fill: 'rgba(0,0,0,0)' }); // Line không có fill
-        } else {
-            // Nếu > 2 điểm -> Vẽ POLYGON
-            newShape = new fabric.Polygon(state.points, {
-                ...options,
-                fill: fillColor,
-            });
-        }
-        canvas.add(newShape);
-        // ===== KẾT THÚC SỬA LỖI =====
-    }
-    
-    // 3. Reset trạng thái
-    canvas.polygonState = { isActive: false, points: [], tempLines: [] };
-    canvas.selection = true; // Bật lại lựa chọn
-    canvas.defaultCursor = 'default';
-    canvas.hoverCursor = 'default';
-    
-    // 4. Gỡ listener đa giác và trả lại listener mặc định
-    canvas.off('mouse:down', handlePolygonClick);
-    canvas.on('mouse:down', () => { window.activeFabricCanvas = canvas; });
-    
-    canvas.renderAll();
-}
-
-
-
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): ĐẶT MÀU NÉT (STROKE)
-// ==================================================
-function setStrokeColor(canvasId, hexColor) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
-
-    // Áp dụng cho đối tượng đang chọn
-    const activeObjects = canvas.getActiveObjects(); // Dùng getActiveObjects()
-    if (activeObjects && activeObjects.length > 0) {
-        activeObjects.forEach(obj => {
-            if (obj.type === 'group') {
-                // Xử lý riêng cho Vector (Group)
-                obj.getObjects().forEach(item => {
-                    if (item.type === 'line') item.set('stroke', hexColor);
-                    if (item.type === 'triangle') item.set('fill', hexColor);
-                });
-            } else {
-                // Áp dụng cho các hình khối và nét vẽ tự do
-                obj.set('stroke', hexColor);
+            if (pad) {
+                 console.log(`[HS LIVE QUIZ]: Đã khởi tạo Konva Stage: ${canvasEl.id} ở chế độ 'student'`);
             }
         });
-        canvas.renderAll();
-    }
-    
-    // Nếu đang ở chế độ vẽ tự do, đổi màu bút
-    if (canvas.isDrawingMode) {
-        canvas.freeDrawingBrush.color = hexColor;
     }
 }
 
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): ĐẶT NÉT ĐỨT/LIỀN
-// ==================================================
-function setStrokeDash(canvasId, isDashed) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
+
+// =================================================================
+// ===== KHỐI CODE KONVA.JS HOÀN CHỈNH (THAY THẾ TẤT CẢ HÀM CŨ) =====
+// =================================================================
+
+// ----- 1. BIẾN TOÀN CỤC -----
+window.drawingPads = {}; // Giữ nguyên tên biến global
+window.activeFabricCanvas = null; // Biến này sẽ lưu Konva.Stage
+let konvaClipboard = []; // Bộ nhớ tạm cho Konva
+let isKeydownListenerAttached = false; // Biến cờ chống trùng lặp
+
+// ----- 2. CÁC HÀM TRỢ GIÚP (HELPER) -----
+
+/**
+ * Hàm trợ giúp: Lấy canvasId từ Stage đang active
+ */
+function _getActiveCanvasId() {
+    if (!window.activeFabricCanvas) return null; // activeFabricCanvas giờ là Konva.Stage
     
-    // Mảng dash: 5px vẽ, 5px trống
-    const dashArray = isDashed ? [5, 5] : []; 
-
-    const activeObjects = canvas.getActiveObjects();
-    if (activeObjects && activeObjects.length > 0) {
-        activeObjects.forEach(obj => {
-            // Áp dụng cho các loại có nét
-            if (obj.type === 'line' || obj.type === 'rect' || obj.type === 'circle' || obj.type === 'path') {
-                obj.set('strokeDashArray', dashArray);
-            }
-            // Xử lý riêng cho Vector (Group)
-            if (obj.type === 'group') {
-                obj.getObjects().forEach(item => {
-                    if (item.type === 'line') item.set('strokeDashArray', dashArray);
-                });
-            }
-        });
-        canvas.renderAll();
-    }
-    
-    // Nếu đang ở chế độ vẽ tự do, đổi nét bút
-    if (canvas.isDrawingMode) {
-        canvas.freeDrawingBrush.strokeDashArray = dashArray;
-    }
-}
-
-// ==================================================
-// HÀM (TRỢ GIÚP): THÊM CHỮ (TEXT) - ĐÃ SỬA LỖI 'alphabetical'
-// ==================================================
-function addText(canvasId) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
-    
-    // Hủy các chế độ vẽ khác
-    canvas.isDrawingMode = false; 
-    finishPolygon(canvas, false); // Hủy đa giác (nếu có)
-    
-    // ===== BẮT ĐẦU SỬA LỖI (Dùng prompt() và fabric.Text) =====
-    
-    // 1. Dùng prompt() để lấy text
-    const textContent = prompt("Nhập nội dung chữ:", "Text");
-
-    // 2. Nếu người dùng bấm "Cancel" (null) hoặc không nhập gì
-    if (!textContent || textContent.trim() === "") {
-        return; // Dừng lại
-    }
-
-    // 3. Dùng fabric.Text (đơn giản, tĩnh) thay vì IText (phức tạp)
-    const text = new fabric.Text(textContent, {
-        left: 50,
-        top: 100,
-        fontSize: 18,
-        fill: '#000000', // Chữ màu đen
-        // Không cần 'textBaseline' vì 'fabric.Text' ổn định hơn
-    });
-    // ===== KẾT THÚC SỬA LỖI =====
-    
-    canvas.add(text);
-    canvas.setActiveObject(text); // Tự động chọn text vừa tạo
-    canvas.renderAll();
-}
-
-
-
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): ĐẶT MÀU TÔ (FILL)
-// ==================================================
-function setFillColor(canvasId, hexColor) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
-
-    // Chuyển hex (#FF0000) sang rgba (rgba(255,0,0,0.3))
-    const fillColor = hexToRgba(hexColor, 0.3);
-
-    const activeObject = canvas.getActiveObject();
-    if (activeObject) {
-        // Nếu đang chọn 1 đối tượng -> đổi màu nó
-        // Nếu là Vector (Group), không tô màu
-        if (activeObject.type !== 'group') {
-            activeObject.set('fill', fillColor);
-            canvas.renderAll();
+    const activeStage = window.activeFabricCanvas;
+    for (const id in window.drawingPads) {
+        if (window.drawingPads[id].stage === activeStage) {
+            return id;
         }
     }
-    // Nếu không chọn gì, màu sẽ được áp dụng khi gọi addShape
+    return null;
 }
 
-// ==================================================
-// HÀM MỚI (TRỢ GIÚP): CHUYỂN MÀU HEX -> RGBA
-// ==================================================
+/**
+ * Hàm trợ giúp: Lấy pad (stage, layer, transformer) đang active
+ */
+function _getActiveKonvaPad(canvasId) {
+    if (!canvasId && window.activeFabricCanvas) {
+        // Thử tìm theo stage active (dùng cho phím tắt)
+        const activeStage = window.activeFabricCanvas;
+        for (const id in window.drawingPads) {
+            if (window.drawingPads[id].stage === activeStage) {
+                canvasId = id;
+                break;
+            }
+        }
+    }
+    
+    const pad = window.drawingPads[canvasId];
+    if (!pad || !pad.drawingLayer || !pad.transformer) {
+        console.error("Konva Helper: Không tìm thấy pad/layer/transformer cho", canvasId);
+        return null;
+    }
+    return pad;
+}
+
+/**
+ * Hàm trợ giúp: Kích hoạt các nút toolbar sau khi canvas sẵn sàng
+ */
+function _enableToolbar(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const padContainer = container.closest('.drawing-pad-container');
+    if (!padContainer) return;
+    const toolbar = padContainer.querySelector('.btn-toolbar');
+    if (!toolbar) return;
+    
+    toolbar.querySelectorAll('button, input').forEach(el => {
+        el.disabled = false;
+    });
+    toolbar.querySelectorAll('label.disabled').forEach(label => {
+        label.classList.remove('disabled');
+    });
+    
+    console.log(`Konva: Đã KÍCH HOẠT Toolbar cho ${containerId}`);
+}
+
+/**
+ * HÀM MỚI (TRỢ GIÚP): CHUYỂN MÀU HEX -> RGBA (Bị thiếu ở lần trước)
+ */
 function hexToRgba(hex, alpha) {
-    // Xóa dấu # nếu có
     hex = hex.replace('#', '');
-    
     const r = parseInt(hex.length === 3 ? hex.slice(0, 1).repeat(2) : hex.slice(0, 2), 16);
     const g = parseInt(hex.length === 3 ? hex.slice(1, 2).repeat(2) : hex.slice(2, 4), 16);
     const b = parseInt(hex.length === 3 ? hex.slice(2, 3).repeat(2) : hex.slice(4, 6), 16);
@@ -4221,36 +3311,1149 @@ function hexToRgba(hex, alpha) {
     if (isNaN(r) || isNaN(g) || isNaN(b)) {
         return 'rgba(255, 0, 0, 0.3)'; // Fallback
     }
-
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+// ----- 3. HÀM KHỞI TẠO KONVA (CORE) -----
 
 
-// ==================================================
-// HÀM (TRỢ GIÚP): XÓA ĐỐI TƯỢNG ĐANG CHỌN (ĐÃ SỬA LỖI XÓA NHIỀU)
-// ==================================================
-function deleteSelectedObject(canvasId) {
-    const canvas = window.drawingPads[canvasId];
-    if (!canvas) return;
+
+/**
+ * Khởi tạo một Konva Stage (Sân khấu) vào một container div.
+ * (Phiên bản Lần 6 - 🔥 Sửa lỗi Công cụ bị tính là Hình vẽ)
+ */
+function initKonvaCanvas(containerId, mode = 'teacher') {
+    if (!containerId) return null;
+
+    if (window.drawingPads[containerId]) {
+         const pad = window.drawingPads[containerId];
+         pad.drawingLayer = (mode === 'student' ? pad.studentLayer : pad.teacherLayer);
+         pad.transformer = (mode === 'student' ? pad.studentTransformer : pad.teacherTransformer);
+         return pad;
+    }
     
-    // ===== BẮT ĐẦU SỬA LỖI (Dùng getActiveObjects - số nhiều) =====
-    const activeObjects = canvas.getActiveObjects(); // Lấy MẢNG các đối tượng
-    // ===== KẾT THÚC SỬA LỖI =====
+    try {
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error("Konva Init: Không tìm thấy container", containerId);
+            return null;
+        }
 
-    if (activeObjects && activeObjects.length > 0) {
+        const width = container.clientWidth;
+        const height = container.clientHeight;
         
-        // Lặp qua mảng và xóa từng cái
-        activeObjects.forEach(obj => { 
-            canvas.remove(obj);
+        if (width < 100) {
+            console.warn(`Konva Init: clientWidth quá nhỏ (${width}). Thử lại sau 150ms.`);
+            setTimeout(() => initKonvaCanvas(containerId, mode), 150);
+            return null;
+        }
+
+        const stage = new Konva.Stage({
+            container: containerId, 
+            width: width,
+            height: height,
+        });
+
+        const gridLayer = new Konva.Layer({ listening: false }); 
+        drawKonvaGrid(gridLayer, width, height, 20);
+        stage.add(gridLayer);
+        
+        const studentLayer = new Konva.Layer({ name: 'studentLayer' });
+        stage.add(studentLayer);
+        
+        const teacherLayer = new Konva.Layer({ name: 'teacherLayer' });
+        stage.add(teacherLayer);
+
+        // --- 🔥 CẢI TIẾN: TẠO 2 BỘ CÔNG CỤ RIÊNG ---
+        
+        // --- 1. Bộ công cụ Học sinh ---
+        const tr_student = new Konva.Transformer({ nodes: [], keepRatio: false, anchorSize: 10, anchorFill: '#fff', anchorStroke: '#007bff', anchorStrokeWidth: 2, borderStroke: '#007bff', borderDash: [3, 3] });
+        const sel_student = new Konva.Rect({ fill: 'rgba(0,123,255,0.2)', stroke: 'rgba(0,123,255,0.6)', strokeWidth: 1, visible: false, name: 'sel_rect_student', listening: false });
+
+        // --- 2. Bộ công cụ Giáo viên ---
+        const tr_teacher = new Konva.Transformer({ nodes: [], keepRatio: false, anchorSize: 10, anchorFill: '#fff', anchorStroke: '#007bff', anchorStrokeWidth: 2, borderStroke: '#007bff', borderDash: [3, 3] });
+        const sel_teacher = new Konva.Rect({ fill: 'rgba(0,123,255,0.2)', stroke: 'rgba(0,123,255,0.6)', strokeWidth: 1, visible: false, name: 'sel_rect_teacher', listening: false });
+
+        // --- 3. Xác định bộ công cụ "Hoạt động" (Active) ---
+        const activeLayer = (mode === 'student') ? studentLayer : teacherLayer;
+        const activeTransformer = (mode === 'student') ? tr_student : tr_teacher;
+        const activeSelectionRect = (mode === 'student') ? sel_student : sel_teacher;
+        
+        // 🔥 SỬA LỖI: Gắn công cụ vào Layer tương ứng
+        // Quan trọng: Phải gắn sau khi 'activeLayer' được xác định
+        studentLayer.add(tr_student, sel_student);
+        teacherLayer.add(tr_teacher, sel_teacher);
+        
+        // --- Logic Marquee/Selection ---
+        
+        let x1, y1, x2, y2;
+        let isSelecting = false;
+
+        stage.on('mousedown.selection', (e) => {
+            const pad = _getActiveKonvaPad(containerId);
+            const inSpecialMode = (pad && pad.polygonState && pad.polygonState.isActive) || 
+                                  (pad && pad.curveState && pad.curveState.isActive) ||
+                                  (pad && pad.sineState && pad.sineState.isActive) ||
+                                  (pad && pad.currentMode === 'draw'); 
+
+            if (e.target !== stage || inSpecialMode) {
+                return;
+            }
+            
+            activeTransformer.nodes([]);
+            e.evt.preventDefault();
+            isSelecting = true;
+            x1 = stage.getPointerPosition().x;
+            y1 = stage.getPointerPosition().y;
+            x2 = x1;
+            y2 = y1;
+            activeSelectionRect.visible(true);
+            activeSelectionRect.width(0);
+            activeSelectionRect.height(0);
+        });
+
+        stage.on('mousemove.selection', (e) => {
+            if (!isSelecting) return;
+            e.evt.preventDefault();
+            x2 = stage.getPointerPosition().x;
+            y2 = stage.getPointerPosition().y;
+            activeSelectionRect.setAttrs({
+                x: Math.min(x1, x2), y: Math.min(y1, y2),
+                width: Math.abs(x2 - x1), height: Math.abs(y2 - y1),
+            });
+        });
+
+        stage.on('mouseup.selection', (e) => {
+            if (!isSelecting) return;
+            e.evt.preventDefault();
+            isSelecting = false;
+            activeSelectionRect.visible(false);
+
+            const shapes = activeLayer.getChildren(); 
+            const box = activeSelectionRect.getClientRect();
+            
+            const selected = shapes.filter((shape) => {
+                // 🔥 SỬA LỖI: Lọc bỏ CẢ 4 CÔNG CỤ
+                if (!shape.isListening() || shape === tr_student || shape === sel_student || shape === tr_teacher || shape === sel_teacher) {
+                    return false;
+                }
+                return Konva.Util.haveIntersection(box, shape.getClientRect());
+            });
+
+            const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
+            
+            if (metaPressed) {
+                const currentNodes = activeTransformer.nodes();
+                const newNodes = currentNodes.concat(selected.filter(s => !currentNodes.includes(s)));
+                activeTransformer.nodes(newNodes);
+            } else {
+                activeTransformer.nodes(selected);
+            }
         });
         
-        canvas.discardActiveObject(); // Bỏ chọn nhóm
-        canvas.renderAll();
-    } else {
-        alert("Vui lòng chọn một đối tượng (hình khối, nét vẽ) để xóa.");
+        stage.on('click tap', function (e) {
+            const pad = _getActiveKonvaPad(containerId);
+            const inSpecialMode = (pad && pad.polygonState && pad.polygonState.isActive) || 
+                                  (pad && pad.curveState && pad.curveState.isActive) ||
+                                  (pad && pad.sineState && pad.sineState.isActive) ||
+                                  (pad && pad.currentMode === 'draw');
+            if (inSpecialMode) return; 
+            if (isSelecting) return;
+            
+            if (e.target === stage) {
+                activeTransformer.nodes([]);
+                return;
+            }
+            
+            if (e.target.getParent().getClassName() === 'Transformer') {
+                return;
+            }
+
+            if (e.target.getLayer() !== activeLayer) {
+                activeTransformer.nodes([]); 
+                return;
+            }
+
+            const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
+            const isSelected = activeTransformer.nodes().indexOf(e.target) >= 0; 
+            
+            if (!metaPressed && !isSelected) { activeTransformer.nodes([e.target]); }
+            else if (metaPressed && isSelected) { const nodes = activeTransformer.nodes().slice(); nodes.splice(nodes.indexOf(e.target), 1); activeTransformer.nodes(nodes); }
+            else if (metaPressed && !isSelected) { const nodes = activeTransformer.nodes().concat([e.target]); activeTransformer.nodes(nodes); }
+        });
+        
+        // --- 4. Lưu vào Pad Object ---
+        const pad = {
+            stage: stage,
+            drawingLayer: activeLayer, 
+            transformer: activeTransformer,
+            studentLayer: studentLayer,
+            teacherLayer: teacherLayer,
+            studentTransformer: tr_student,
+            teacherTransformer: tr_teacher,
+            gridLayer: gridLayer
+        };
+        window.drawingPads[containerId] = pad;
+        
+        stage.on('click tap', () => { window.activeFabricCanvas = stage; });
+        window.activeFabricCanvas = stage;
+        
+        console.log(`Konva: Đã khởi tạo Stage 2-Layer '${containerId}' (Mode: ${mode})`);
+        _enableToolbar(containerId);
+        
+        return pad;
+
+    } catch (e) {
+        console.error("Lỗi khởi tạo Konva.js:", e);
+        return null;
     }
 }
+
+/**
+ * Hàm trợ giúp: Vẽ lưới cho Konva Layer
+ */
+function drawKonvaGrid(layer, width, height, gridSize) {
+    const lines = [];
+    const stroke = '#eee'; 
+
+    for (let i = 1; i < (width / gridSize); i++) {
+        lines.push(new Konva.Line({
+            points: [i * gridSize, 0, i * gridSize, height],
+            stroke: stroke, strokeWidth: 1,
+        }));
+    }
+    for (let i = 1; i < (height / gridSize); i++) {
+        lines.push(new Konva.Line({
+            points: [0, i * gridSize, width, i * gridSize],
+            stroke: stroke, strokeWidth: 1,
+        }));
+    }
+    layer.add(...lines);
+}
+
+// ----- 4. HÀM TOOLBAR (ĐÃ VIẾT LẠI CHO KONVA) -----
+
+/**
+ * Chuyển chế độ (Chọn ✠) hoặc (Vẽ ෴)
+ * (Phiên bản 6 - Sửa lỗi .call() )
+ */
+function setDrawingMode(canvasId, mode) {
+    _cancelAllDrawingModes(canvasId); // Hủy các chế độ đặc biệt (Poly, Curve...)
+    
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+    
+    pad.currentMode = mode; // Set trạng thái (QUAN TRỌNG)
+    const { stage, drawingLayer, transformer } = pad;
+
+    // --- LOGIC MỚI ---
+    
+    // 1. Luôn TẮT các listener của chế độ VẼ (drawing)
+    stage.off('contentMousedown.drawing contentMousemove.drawing contentMouseup.drawing');
+    
+    // 2. KHÔNG BAO GIỜ TẮT listener của chế độ CHỌN (selection)
+    //    Vì các listener đó (trong initKonvaCanvas) đã tự kiểm tra pad.currentMode
+    
+    transformer.nodes([]); // Xóa các đối tượng đang chọn
+
+    if (mode === 'select') {
+        // === CHẾ ĐỘ CHỌN ✠ ===
+        
+        // 1. Cho phép click vào các hình đã vẽ (để chọn)
+        drawingLayer.listening(true);
+        // (Không cần làm gì thêm, vì listener 'selection' đang chờ sẵn)
+
+    } else if (mode === 'draw') {
+        // === CHẾ ĐỘ VẼ ෴ ===
+        
+        // 1. Tắt click vào các hình đã vẽ (để vẽ xuyên qua)
+        drawingLayer.listening(false);
+        
+        // 2. Bật (THÊM MỚI) listener cho chế độ VẼ
+        let isPaint = false;
+        let currentLine;
+        
+        stage.on('contentMousedown.drawing', function (evt) {
+            // (Hàm này đã có logic kiểm tra inSpecialMode ở initKonvaCanvas,
+            // nhưng ta vẫn cần lấy pad.currentMode)
+            const currentPad = _getActiveKonvaPad(canvasId);
+            if (currentPad && currentPad.currentMode !== 'draw') return; // An toàn
+            
+            isPaint = true;
+            const pos = stage.getPointerPosition();
+            const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+            const strokeColor = strokePicker ? strokePicker.value : '#000000';
+            
+            currentLine = new Konva.Line({
+                points: [pos.x, pos.y, pos.x, pos.y],
+                stroke: strokeColor,
+                strokeWidth: 3,
+                lineCap: 'round',
+                lineJoin: 'round',
+                tension: 0.5,
+                hitStrokeWidth: 10,
+                strokeScaleEnabled: false 
+            });
+            
+            drawingLayer.add(currentLine); 
+            drawingLayer.batchDraw(); // Vẽ điểm bắt đầu
+        });
+
+        stage.on('contentMousemove.drawing', function () {
+            if (!isPaint || !currentLine) return;
+            const pos = stage.getPointerPosition();
+            const newPoints = currentLine.points().concat([pos.x, pos.y]);
+            currentLine.points(newPoints);
+            drawingLayer.batchDraw(); // Vẽ khi kéo
+        });
+
+        stage.on('contentMouseup.drawing', function () {
+            isPaint = false;
+            if (currentLine) {
+                currentLine.listening(true); // Cho phép chọn nét vẽ này sau đó
+            }
+            currentLine = null;
+            // (Không bật lại drawingLayer.listening(true))
+        });
+    }
+}
+
+/**
+ * Thêm hình khối (Line, Rect, Circle, ...)
+ */
+function addShape(canvasId, shapeType) {
+    // ===== BẮT ĐẦU SỬA LỖI =====
+    // Hủy TẤT CẢ các chế độ vẽ (bao gồm cả 'draw' tự do)
+    setDrawingMode(canvasId, 'select'); 
+    // ===== KẾT THÚC SỬA LỖI =====
+
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad || !pad.drawingLayer) {
+        console.error("Konva addShape: Không tìm thấy pad hoặc drawingLayer cho", canvasId);
+        return;
+    }
+    
+    const layer = pad.drawingLayer; 
+    
+    const colorPicker = document.getElementById(`color-picker-${canvasId}`);
+    const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+    let fillColor = hexToRgba(colorPicker ? colorPicker.value : '#FF0000', 0.3); 
+    let strokeColor = strokePicker ? strokePicker.value : '#000000'; 
+
+    let shape;
+    const options = {
+        x: 50, y: 50,
+        fill: fillColor, 
+        stroke: strokeColor, 
+        strokeWidth: 2,
+        draggable: true,
+        strokeScaleEnabled: false // (Giữ nguyên từ lần sửa trước)
+    };
+
+    if (shapeType === 'line') {
+        shape = new Konva.Line({ 
+            ...options, 
+            points: [0, 0, 100, 0], 
+            x: 50, y: 50,
+            hitStrokeWidth: 20 
+        });
+    } else if (shapeType === 'rect') {
+        shape = new Konva.Rect({ ...options, width: 80, height: 60 });
+    } else if (shapeType === 'circle') {
+        shape = new Konva.Circle({ ...options, radius: 40 });
+    } else if (shapeType === 'triangle') {
+        shape = new Konva.RegularPolygon({ ...options, sides: 3, radius: 40 });
+    } else if (shapeType === 'vector') {
+        shape = new Konva.Arrow({ 
+            ...options, 
+            points: [0, 0, 100, 0], 
+            pointerLength: 10, 
+            pointerWidth: 10, 
+            fill: strokeColor, 
+            stroke: strokeColor,
+            hitStrokeWidth: 20 
+        });
+    }
+
+    if (shape) {
+        layer.add(shape);
+        layer.batchDraw(); 
+    }
+}
+
+/**
+ * Thêm chữ (Text)
+ */
+function addText(canvasId) {
+    // ===== BẮT ĐẦU SỬA LỖI =====
+    // Hủy TẤT CẢ các chế độ vẽ (bao gồm cả 'draw' tự do)
+    setDrawingMode(canvasId, 'select');
+    // ===== KẾT THÚC SỬA LỖI =====
+    
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+
+    const textContent = prompt("Nhập nội dung chữ:", "Text");
+    if (!textContent) return;
+    
+    const text = new Konva.Text({
+        x: 50, y: 100,
+        text: textContent,
+        fontSize: 18,
+        fill: '#000000',
+        draggable: true,
+        strokeScaleEnabled: false // (Giữ nguyên từ lần sửa trước)
+    });
+    
+    pad.drawingLayer.add(text);
+    pad.transformer.nodes([text]); 
+    pad.drawingLayer.batchDraw(); 
+}
+
+/**
+ * Hàm trợ giúp: Áp dụng thuộc tính cho các đối tượng đã chọn
+ */
+function _applyToSelectedNodes(canvasId, attr, value) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+    
+    pad.transformer.nodes().forEach(node => {
+        if (node.getClassName() === 'Arrow') {
+            if (attr === 'fill') node.fill(value);
+            if (attr === 'stroke') node.stroke(value);
+        } else {
+            node.setAttr(attr, value);
+        }
+    });
+}
+
+/**
+ * Đặt màu Tô (Fill)
+ */
+function setFillColor(canvasId, hexColor) {
+    const fillColor = hexToRgba(hexColor, 0.3); 
+    _applyToSelectedNodes(canvasId, 'fill', fillColor);
+}
+
+/**
+ * Đặt màu Nét (Stroke)
+ */
+function setStrokeColor(canvasId, hexColor) {
+    _applyToSelectedNodes(canvasId, 'stroke', hexColor);
+}
+
+/**
+ * Đặt Nét đứt/liền
+ */
+function setStrokeDash(canvasId, isDashed) {
+    const dashArray = isDashed ? [5, 5] : [];
+    _applyToSelectedNodes(canvasId, 'dash', dashArray);
+}
+
+/**
+ * Xóa đối tượng đang chọn
+ */
+function deleteSelectedObject(canvasId) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+    
+    pad.transformer.nodes().forEach(node => {
+        node.destroy(); 
+    });
+    pad.transformer.nodes([]); 
+    pad.drawingLayer.batchDraw(); 
+}
+
+/**
+ * Đặt kích thước (Ctrl+E)
+ */
+function setObjectDimensions(canvasId) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+            
+    const nodes = pad.transformer.nodes();
+    if (nodes.length !== 1) {
+        alert("Vui lòng chọn MỘT đối tượng để đặt kích thước.");
+        return;
+    }
+    const node = nodes[0];
+    const className = node.getClassName();
+    
+    const gridSize = 20; const cmPerGrid = 1;
+    const pxToCm = (px) => (px / gridSize) * cmPerGrid;
+    const cmToPx = (cm) => (cm / cmPerGrid) * gridSize;
+    
+    try {
+        if (className === 'Rect') {
+            const currentW = node.width() * node.scaleX();
+            const currentH = node.height() * node.scaleY();
+            const newW_cm = prompt(`Đặt chiều rộng (cm). 1 ô = ${cmPerGrid}cm.`, pxToCm(currentW).toFixed(1));
+            if (newW_cm === null) return;
+            const newH_cm = prompt(`Đặt chiều cao (cm). 1 ô = ${cmPerGrid}cm.`, pxToCm(currentH).toFixed(1));
+            if (newH_cm === null) return;
+
+            node.width(cmToPx(parseFloat(newW_cm)));
+            node.height(cmToPx(parseFloat(newH_cm)));
+            node.scaleX(1); node.scaleY(1);
+
+        } else if (className === 'Circle') {
+            const currentR = node.radius() * node.scaleX();
+            const newR_cm = prompt(`Đặt BÁN KÍNH (cm). 1 ô = ${cmPerGrid}cm.`, pxToCm(currentR).toFixed(1));
+            if (newR_cm === null) return;
+            
+            node.radius(cmToPx(parseFloat(newR_cm)));
+            node.scaleX(1); node.scaleY(1);
+            
+        } else if (className === 'Line' || className === 'Arrow') {
+            const points = node.points();
+            const currentL_px = Math.sqrt(Math.pow(points[2] - points[0], 2) + Math.pow(points[3] - points[1], 2));
+            
+            const newL_cm = prompt(`Đặt Chiều Dài (cm). 1 ô = ${cmPerGrid}cm.`, pxToCm(currentL_px).toFixed(1));
+            if (newL_cm === null) return;
+            
+            const newL_px = cmToPx(parseFloat(newL_cm));
+            if (currentL_px === 0) return; 
+            const ratio = newL_px / currentL_px;
+            
+            node.points([
+                points[0],
+                points[1],
+                points[0] + (points[2] - points[0]) * ratio,
+                points[1] + (points[3] - points[1]) * ratio
+            ]);
+            
+        } else {
+            alert("Tính năng này hiện chỉ hỗ trợ Hình chữ nhật, Hình tròn, và Đường thẳng/Vector.");
+        }
+        
+        pad.drawingLayer.batchDraw(); 
+
+    } catch(e) {
+        alert("Giá trị nhập không hợp lệ.");
+        console.error("Lỗi setObjectDimensions:", e);
+    }
+}
+
+// ----- 5. HÀM VẼ PHỨC TẠP (ĐA GIÁC, COPY/PASTE) -----
+
+/**
+ * Hàm trợ giúp Master: Hủy tất cả các chế độ vẽ đặc biệt
+ */
+function _cancelAllDrawingModes(canvasId) {
+    _finishPolygonKonva(canvasId, false); // Hủy Đa giác
+    _finishCurveKonva(canvasId, false);   // Hủy Đường cong
+    _finishSineWaveKonva(canvasId, false);  // Hủy Sóng Sin
+}
+
+// ----- LOGIC VẼ ĐA GIÁC (P) - ĐÃ CẬP NHẬT -----
+
+/**
+ * Hàm trợ giúp: Kết thúc hoặc Hủy chế độ vẽ Đa giác
+ * (ĐÃ CẬP NHẬT: Thêm logic set style cuối cùng)
+ */
+function _finishPolygonKonva(canvasId, isComplete) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad || !pad.polygonState || !pad.polygonState.isActive) {
+        return; 
+    }
+
+    const poly = pad.polygonState.currentPolygon;
+    const points = pad.polygonState.points;
+    const tempPoints = pad.polygonState.tempPoints;
+    
+    // 1. Dọn dẹp các chấm đỏ tạm
+    tempPoints.forEach(p => p.destroy());
+    pad.polygonState.tempPoints = [];
+
+    const colorPicker = document.getElementById(`color-picker-${canvasId}`);
+    const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+    let fillColor = hexToRgba(colorPicker ? colorPicker.value : '#FF0000', 0.3); 
+    let strokeColor = strokePicker ? strokePicker.value : '#000000';
+    
+    // 2a. Hoàn thành hình (3+ điểm -> Đa giác)
+    if (isComplete && poly && points.length >= 6) { 
+        poly.points(points); 
+        poly.closed(true); 
+        poly.draggable(true); 
+        
+        poly.dashEnabled(false);
+        poly.stroke(strokeColor);
+        poly.fill(fillColor);
+        poly.listening(true);
+        
+        pad.drawingLayer.batchDraw();
+    } 
+    // 2b. Hoàn thành hình (2 điểm -> Đường thẳng)
+    else if (isComplete && poly && points.length === 4) {
+        poly.points(points);
+        poly.closed(false); 
+        poly.draggable(true);
+        
+        poly.dashEnabled(false);
+        poly.stroke(strokeColor);
+        poly.fillEnabled(false); 
+        poly.listening(true);
+        
+        // ===== BẮT ĐẦU FIX 1: TĂNG VÙNG CLICK =====
+        poly.hitStrokeWidth(20); // 20px
+        // ===== KẾT THÚC FIX 1 =====
+        
+        pad.drawingLayer.batchDraw();
+    }
+    // 3. Hủy hình
+    else if (poly) {
+        poly.destroy(); 
+        pad.drawingLayer.batchDraw();
+    }
+    
+    // 4. Dọn dẹp
+    pad.stage.off('.polygon'); 
+    pad.stage.container().style.cursor = 'default';
+    pad.polygonState = { isActive: false, points: [], currentPolygon: null, tempPoints: [] };
+    pad.drawingLayer.listening(true); 
+}
+
+/**
+ * Kích hoạt chế độ vẽ Đa giác
+ * (ĐÃ CẬP NHẬT: Nét mỏng hơn + Thêm chấm đỏ)
+ */
+function startPolygonModeKonva(canvasId) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+    
+    if (pad.polygonState && pad.polygonState.isActive) {
+        _finishPolygonKonva(canvasId, false);
+        return;
+    }
+
+    _cancelAllDrawingModes(canvasId); 
+    pad.drawingLayer.listening(false); 
+    pad.transformer.nodes([]); 
+    
+    pad.polygonState = {
+        isActive: true,
+        points: [], 
+        currentPolygon: null,
+        tempPoints: [] 
+    };
+    pad.stage.container().style.cursor = 'crosshair';
+    
+    pad.stage.on('click.polygon', function(e) {
+        if (e.evt.button !== 0) return;
+        
+        const pos = pad.stage.getPointerPosition();
+        const snappedPos = {
+            x: Math.round(pos.x / 20) * 20, 
+            y: Math.round(pos.y / 20) * 20
+        };
+        
+        pad.polygonState.points.push(snappedPos.x, snappedPos.y);
+        
+        const pointCircle = new Konva.Circle({
+            x: snappedPos.x, y: snappedPos.y,
+            radius: 3, fill: 'red',
+            stroke: 'black', strokeWidth: 1,
+            listening: false 
+        });
+        pad.drawingLayer.add(pointCircle);
+        pad.polygonState.tempPoints.push(pointCircle); 
+        
+        if (!pad.polygonState.currentPolygon) {
+            
+            // ===== BẮT ĐẦU SỬA LỖI (Thêm strokeScaleEnabled) =====
+            pad.polygonState.currentPolygon = new Konva.Line({
+                points: pad.polygonState.points,
+                stroke: '#007bff', 
+                strokeWidth: 1, 
+                lineCap: 'round',
+                lineJoin: 'round',
+                closed: false,
+                dash: [5, 5],      
+                listening: false,
+                strokeScaleEnabled: false // <-- THÊM DÒNG NÀY
+            });
+            // ===== KẾT THÚC SỬA LỖI =====
+            
+            pad.drawingLayer.add(pad.polygonState.currentPolygon);
+        } else {
+            pad.polygonState.currentPolygon.points(pad.polygonState.points);
+        }
+        pad.drawingLayer.batchDraw();
+    });
+
+    // ... (các listener mousemove, dblclick giữ nguyên) ...
+    pad.stage.on('mousemove.polygon', function() {
+        if (!pad.polygonState.currentPolygon) return;
+        const pos = pad.stage.getPointerPosition();
+        const snappedPos = {
+            x: Math.round(pos.x / 20) * 20,
+            y: Math.round(pos.y / 20) * 20
+        };
+        const tempPoints = pad.polygonState.points.concat([snappedPos.x, snappedPos.y]);
+        pad.polygonState.currentPolygon.points(tempPoints);
+        pad.drawingLayer.batchDraw();
+    });
+    pad.stage.on('dblclick.polygon', function() {
+        _finishPolygonKonva(canvasId, true); 
+    });
+}
+
+// ----- LOGIC VẼ ĐƯỜNG CONG (B) - MỚI -----
+
+function _finishCurveKonva(canvasId, isComplete) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad || !pad.curveState || !pad.curveState.isActive) return;
+    
+    // Dọn dẹp các đường/điểm tạm
+    pad.curveState.tempElements.forEach(el => el.destroy());
+
+    const curve = pad.curveState.currentCurve;
+    
+    // Hoàn thành (nếu đủ 3 điểm)
+    if (isComplete && curve) {
+        curve.draggable(true);
+        curve.listening(true);
+        pad.drawingLayer.batchDraw();
+    } 
+    // Hủy
+    else if (curve) {
+        curve.destroy();
+        pad.drawingLayer.batchDraw();
+    }
+
+    pad.stage.off('.curve');
+    pad.stage.container().style.cursor = 'default';
+    pad.curveState = { isActive: false, points: [], currentCurve: null, tempElements: [] };
+    pad.drawingLayer.listening(true);
+}
+
+function startCurveModeKonva(canvasId) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+
+    _cancelAllDrawingModes(canvasId);
+
+    pad.drawingLayer.listening(false);
+    pad.transformer.nodes([]);
+    
+    pad.curveState = {
+        isActive: true,
+        points: [], // [p1, p2, p3]
+        currentCurve: null,
+        tempElements: [] // Chấm tròn, đường mờ
+    };
+    pad.stage.container().style.cursor = 'crosshair';
+
+    const drawPoint = (p, color = 'red') => {
+        const circle = new Konva.Circle({
+            x: p.x, y: p.y, radius: 4,
+            fill: color, stroke: 'black', strokeWidth: 1,
+            listening: false
+        });
+        pad.drawingLayer.add(circle);
+        pad.curveState.tempElements.push(circle);
+        return circle;
+    };
+
+    pad.stage.on('click.curve', function(e) {
+        if (e.evt.button !== 0) return;
+        const pos = pad.stage.getPointerPosition();
+        const snappedPos = { x: Math.round(pos.x / 20) * 20, y: Math.round(pos.y / 20) * 20 };
+        
+        pad.curveState.points.push(snappedPos);
+        drawPoint(snappedPos);
+
+        const [p1, p2, p3] = pad.curveState.points;
+        
+        if (pad.curveState.points.length === 1) {
+            // (p1) Mới click điểm đầu, chưa làm gì
+        } 
+        else if (pad.curveState.points.length === 2) {
+            // (p2) Click điểm 2 (control point)
+            const line = new Konva.Line({
+                points: [p1.x, p1.y, p2.x, p2.y],
+                stroke: '#007bff', dash: [5, 5], strokeWidth: 1, listening: false
+            });
+            pad.drawingLayer.add(line);
+            pad.curveState.tempElements.push(line);
+        }
+        else if (pad.curveState.points.length === 3) {
+            // (p3) Click điểm 3 (end point) -> HOÀN THÀNH
+            const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+            let strokeColor = strokePicker ? strokePicker.value : '#000000';
+            
+            // ===== BẮT ĐẦU SỬA LỖI (Thêm strokeScaleEnabled) =====
+            pad.curveState.currentCurve = new Konva.Path({
+                data: `M ${p1.x} ${p1.y} Q ${p2.x} ${p2.y} ${p3.x} ${p3.y}`,
+                stroke: strokeColor,
+                strokeWidth: 2,
+                fillEnabled: false,
+                listening: false,
+                strokeScaleEnabled: false // <-- THÊM DÒNG NÀY
+            });
+            // ===== KẾT THÚC SỬA LỖI =====
+            
+            pad.drawingLayer.add(pad.curveState.currentCurve);
+            
+            _finishCurveKonva(canvasId, true); // Tự động hoàn thành
+        }
+        pad.drawingLayer.batchDraw();
+    });
+    // ... (listener mousemove giữ nguyên là rỗng) ...
+    pad.stage.on('mousemove.curve', function() { });
+}
+
+// ----- LOGIC VẼ SÓNG SIN (S) - MỚI -----
+
+function _finishSineWaveKonva(canvasId, isComplete) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad || !pad.sineState || !pad.sineState.isActive) return;
+
+    pad.sineState.tempElements.forEach(el => el.destroy());
+    const sineWave = pad.sineState.currentWave;
+
+    if (isComplete && sineWave) {
+        sineWave.draggable(true);
+        sineWave.listening(true);
+        pad.drawingLayer.batchDraw();
+    } else if (sineWave) {
+        sineWave.destroy();
+        pad.drawingLayer.batchDraw();
+    }
+
+    pad.stage.off('.sine');
+    pad.stage.container().style.cursor = 'default';
+    pad.sineState = { isActive: false, points: [], currentWave: null, tempElements: [] };
+    pad.drawingLayer.listening(true);
+}
+
+function startSineWaveModeKonva(canvasId) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+
+    _cancelAllDrawingModes(canvasId);
+
+    pad.drawingLayer.listening(false);
+    pad.transformer.nodes([]);
+    
+    pad.sineState = {
+        isActive: true,
+        points: [], // [p1, p2]
+        currentWave: null,
+        tempElements: []
+    };
+    pad.stage.container().style.cursor = 'crosshair';
+
+    const drawPoint = (p) => {
+        const circle = new Konva.Circle({
+            x: p.x, y: p.y, radius: 4,
+            fill: 'green', stroke: 'black', strokeWidth: 1, listening: false
+        });
+        pad.drawingLayer.add(circle);
+        pad.sineState.tempElements.push(circle);
+    };
+
+    pad.stage.on('click.sine', function(e) {
+        if (e.evt.button !== 0) return;
+        const pos = pad.stage.getPointerPosition();
+        const snappedPos = { x: Math.round(pos.x / 20) * 20, y: Math.round(pos.y / 20) * 20 };
+        
+        pad.sineState.points.push(snappedPos);
+        drawPoint(snappedPos);
+
+        const [p1, p2] = pad.sineState.points;
+        
+        if (pad.sineState.points.length === 2) {
+            // (p2) Click điểm 2 (end) -> HOÀN THÀNH
+            const strokePicker = document.getElementById(`stroke-picker-${canvasId}`); 
+            let strokeColor = strokePicker ? strokePicker.value : '#000000';
+            const gridSize = 20;
+            const amplitude = 2 * gridSize; 
+            const width = p2.x - p1.x;
+            
+            if (width > 0) {
+                const startX = p1.x;
+                const startY = p1.y;
+                let pathData = [];
+                const steps = 50; 
+
+                for (let i = 0; i <= steps; i++) {
+                    const x_offset = (i / steps) * width;
+                    const angle = (i / steps) * (2 * Math.PI);
+                    const y_offset = -Math.sin(angle) * (amplitude / 2);
+                    const x_abs = startX + x_offset;
+                    const y_abs = startY + y_offset;
+                    if (i === 0) { pathData.push('M', x_abs, y_abs); } 
+                    else { pathData.push('L', x_abs, y_abs); }
+                }
+                
+                // ===== BẮT ĐẦU SỬA LỖI (Thêm strokeScaleEnabled) =====
+                pad.sineState.currentWave = new Konva.Path({
+                    data: pathData.join(' '),
+                    stroke: strokeColor,
+                    strokeWidth: 2,
+                    fillEnabled: false,
+                    listening: false,
+                    strokeScaleEnabled: false // <-- THÊM DÒNG NÀY
+                });
+                // ===== KẾT THÚC SỬA LỖI =====
+                
+                pad.drawingLayer.add(pad.sineState.currentWave);
+                _finishSineWaveKonva(canvasId, true); // Tự động hoàn thành
+            } else {
+                 _finishSineWaveKonva(canvasId, false); // Hủy nếu kéo ngược
+            }
+        }
+        pad.drawingLayer.batchDraw();
+    });
+}
+
+// ----- CÁC HÀM COPY/PASTE/DUPLICATE (Giữ nguyên) -----
+
+function copyObjectsKonva(canvasId) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+    const nodes = pad.transformer.nodes(); 
+    konvaClipboard = nodes.map(node => {
+        return node.clone({
+            x: node.x() + 10,
+            y: node.y() + 10,
+        });
+    });
+    console.log(`Konva Clipboard: Đã sao chép ${konvaClipboard.length} đối tượng.`);
+}
+
+function pasteObjectsKonva(canvasId) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad || konvaClipboard.length === 0) {
+        return; 
+    }
+    const newNodesToSelect = [];
+    konvaClipboard.forEach(nodeFromClipboard => {
+        const newNode = nodeFromClipboard.clone();
+        pad.drawingLayer.add(newNode);
+        newNodesToSelect.push(newNode);
+        nodeFromClipboard.x(nodeFromClipboard.x() + 10);
+        nodeFromClipboard.y(nodeFromClipboard.y() + 10);
+    });
+    pad.transformer.nodes(newNodesToSelect);
+    pad.drawingLayer.batchDraw();
+    console.log(`Konva Clipboard: Đã dán ${newNodesToSelect.length} đối tượng.`);
+}
+
+function duplicateObjectsKonva(canvasId) {
+    const pad = _getActiveKonvaPad(canvasId);
+    if (!pad) return;
+    if (pad.transformer.nodes().length > 0) {
+        copyObjectsKonva(canvasId);
+        pasteObjectsKonva(canvasId);
+    }
+}
+// =================================================================
+
+
+// =================================================================
+// KHỐI DOMContentLoaded DUY NHẤT (ĐÃ GỘP TẤT CẢ)
+// =================================================================
+document.addEventListener('DOMContentLoaded', () => {
+
+    // ===== FIX LỖI "dublue": Thêm biến cờ =====
+    if (window.isKeydownListenerAttached) {
+        console.warn("WARN: Trình nghe phím tắt DOMContentLoaded đã được gán, bỏ qua gán trùng lặp.");
+        return;
+    }
+    window.isKeydownListenerAttached = true;
+    console.log("INFO: Đang gán trình nghe phím tắt DOMContentLoaded (Konva)...");
+    // ========================================
+
+    
+    // ----- 1. KHỞI TẠO CÁC MODAL INSTANCE -----
+    
+    // A. Review Modal (Học sinh) - Đã có dọn dẹp
+    const reviewModalEl = document.getElementById("modalReviewQuiz");
+    if (reviewModalEl) {
+      reviewQuizModalInstance = new bootstrap.Modal(reviewModalEl, {
+        backdrop: 'static',
+        keyboard: false
+      });
+      
+      // Gắn listener dọn dẹp Konva KHI modal Review đóng
+      reviewModalEl.addEventListener('hide.bs.modal', function () {
+          console.log("Review modal (Student) is closing, destroying canvases...");
+          if (typeof destroyAllQuizCanvases === 'function') {
+              destroyAllQuizCanvases();
+          }
+      });
+    }
+    
+    // B. Các modal còn lại
+    const infoModalEl = document.getElementById("infoModal");
+    if (infoModalEl) { 
+        try { infoModalInstance = new bootstrap.Modal(infoModalEl); } catch(e) {}
+    }
+    
+    const modalElement = document.getElementById('modalQuiz');
+    if (modalElement) { 
+        quizModalInstance = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+    
+    const modalAssignElement = qs('#modalAssign');
+    if (modalAssignElement) { 
+        try { modalAssignInstance = new bootstrap.Modal(modalAssignElement); } catch(e) {}
+    }
+    
+    const confirmDeleteModalEl = document.getElementById('modalConfirmDelete');
+    if (confirmDeleteModalEl) { 
+        try { confirmDeleteModalInstance = new bootstrap.Modal(confirmDeleteModalEl); } catch(e) {}
+    }
+
+    // C. (MỚI) Gắn listener dọn dẹp cho Modal Chấm bài (Giáo viên)
+    const modalGradingEl = document.getElementById('modalGrading');
+    if (modalGradingEl) {
+        modalGradingEl.addEventListener('hide.bs.modal', function () {
+            console.log("Grading modal (Teacher) is closing, destroying canvases...");
+            if (typeof destroyAllQuizCanvases === 'function') {
+                // Gọi hàm dọn dẹp chung
+                destroyAllQuizCanvases();
+            }
+        });
+    }
+
+    
+    // ----- 2. GÁN CÁC EVENT LISTENER (TAB) -----
+    const resultsTabElement = qs('#r-tab'); 
+    if (resultsTabElement) {
+        resultsTabElement.addEventListener('shown.bs.tab', (event) => {
+            loadResults();
+        });
+    }
+    const pendingSubject = qs('#filter-stu-subject');
+    const pendingDate = qs('#filter-stu-assigned-date');
+    const pendingSort = qs('#sort-stu-assignment');
+    const triggerPendingRender = () => {
+        renderPendingAssignments(null, true); 
+    };
+    if (pendingSubject) {
+        pendingSubject.addEventListener('change', triggerPendingRender);
+    }
+    if (pendingDate) {
+        pendingDate.addEventListener('change', () => {
+            if (pendingDate.value) { 
+                if (pendingSort) pendingSort.value = 'none'; 
+            }
+            triggerPendingRender();
+        });
+    }
+    if (pendingSort) {
+        pendingSort.addEventListener('change', () => {
+            if (pendingSort.value === 'newest' || pendingSort.value === 'oldest') {
+                if (pendingDate) pendingDate.value = ''; 
+            }
+            triggerPendingRender();
+        });
+    }
+    
+    
+    // ----- 3. SỰ KIỆN PHÍM TẮT (KONVA) -----
+    document.addEventListener('keydown', function(event) {
+        
+        const activeStage = window.activeFabricCanvas; 
+        if (!activeStage) {
+            return; 
+        }
+        const canvasId = _getActiveCanvasId(); 
+        if (!canvasId) {
+            return;
+        }
+
+        const key = event.key.toLowerCase(); 
+        const targetTag = event.target.tagName.toLowerCase();
+        
+        if (targetTag === 'input' || targetTag === 'textarea' || event.target.isEditing) {
+            return;
+        }
+        
+        const pad = _getActiveKonvaPad(canvasId);
+        
+        // Xử lý chế độ Đa giác
+        if (pad && pad.polygonState && pad.polygonState.isActive) {
+            if (key === 'enter') {
+                event.preventDefault();
+                _finishPolygonKonva(canvasId, true); // Hoàn thành
+            } else if (key === 'escape') {
+                event.preventDefault();
+                _finishPolygonKonva(canvasId, false); // Hủy
+            }
+            return; 
+        }
+        
+        // Xử lý phím Ctrl
+        if (event.ctrlKey || event.metaKey) {
+            event.preventDefault(); 
+            switch (key) {
+                case 'c': copyObjectsKonva(canvasId); break;
+                case 'v': pasteObjectsKonva(canvasId); break;
+                case 'd': duplicateObjectsKonva(canvasId); break;
+                case 'x': addText(canvasId); break;
+                case 'e': setObjectDimensions(canvasId); break; 
+            }
+        
+        // Xử lý phím không Ctrl
+        } else if (key === "delete" || key === "backspace") {
+            event.preventDefault(); 
+            deleteSelectedObject(canvasId); 
+        
+        } else if (key.startsWith("arrow")) {
+            event.preventDefault(); 
+            if (!pad) return;
+            const nodes = pad.transformer.nodes();
+            if (!nodes || nodes.length === 0) return;
+            const moveStep = 2; 
+            nodes.forEach(node => {
+                switch (key) {
+                    case "arrowup":    node.y(node.y() - moveStep); break;
+                    case "arrowdown":  node.y(node.y() + moveStep); break;
+                    case "arrowleft":  node.x(node.x() - moveStep); break;
+                    case "arrowright": node.x(node.x() + moveStep); break;
+                }
+            });
+            // Konva tự vẽ lại khi thay đổi vị trí
+
+        // Phím đơn
+        } else if (key === 'v') { 
+             event.preventDefault();
+             setDrawingMode(canvasId, 'select');
+        } else if (key === 'f') { 
+             event.preventDefault();
+             setDrawingMode(canvasId, 'draw');
+        }
+        else if (key === 'l') { event.preventDefault(); addShape(canvasId, 'line'); }
+        else if (key === 'r') { event.preventDefault(); addShape(canvasId, 'rect'); }
+        else if (key === 'c') { event.preventDefault(); addShape(canvasId, 'circle'); }
+        else if (key === 't') { event.preventDefault(); addShape(canvasId, 'triangle'); }
+        else if (key === 'u') { event.preventDefault(); addShape(canvasId, 'vector'); } 
+        // Phím tắt cho các hàm placeholder
+        else if (key === 'p') { event.preventDefault(); startPolygonModeKonva(canvasId); }
+        else if (key === 'b') { event.preventDefault(); startCurveModeKonva(canvasId); }
+        else if (key === 's') { event.preventDefault(); startSineWaveModeKonva(canvasId); } 
+    });
+
+    // ----- 4. GỘP HÀM INIT() VÀO ĐÂY -----
+    // Init: try restore session
+    (function init(){ 
+        const s = sessionStorage.getItem('quiz_user'); 
+        if(s){ 
+            currentUser = JSON.parse(s); 
+            showApp(); 
+        } 
+    })();
+
+});
+
+
 
 
 
@@ -4262,6 +4465,33 @@ function stopQuizTimer() {
     }
 }
 
+
+function destroyAllQuizCanvases() {
+    console.log("Destroying all Konva stages...");
+    if (window.drawingPads) {
+        Object.keys(window.drawingPads).forEach(canvasId => {
+            try {
+                const pad = window.drawingPads[canvasId];
+                if (pad && pad.stage) {
+                    pad.stage.destroy(); // Hủy stage, gỡ bỏ listeners
+                    console.log(`Destroyed stage: ${canvasId}`);
+                }
+            } catch (e) {
+                console.error("Error destroying stage:", canvasId, e);
+            }
+        });
+    }
+    
+    // Reset global state
+    window.drawingPads = {};
+    window.activeFabricCanvas = null;
+    
+    // Dọn dẹp HTML
+    const container = document.getElementById('quiz-questions-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+}
 
 function confirmExitQuiz() {
     // Sử dụng hàm confirmBoxAsync (sẽ được định nghĩa ở bước B)
@@ -4287,147 +4517,211 @@ function confirmExitQuiz() {
     }
 }
 
+// =================================================================
+// FIX LỖI THOÁT/HỦY KHI LÀM BÀI
+// (Dán 2 hàm này thay thế cho hàm confirmExitQuiz cũ)
+// =================================================================
 
-function confirmBoxAsync(title, message, confirmText = 'OK', cancelText = 'Hủy') {
-    return new Promise(resolve => {
-        // Giả định bạn có một Modal/Logic tùy chỉnh để hiển thị hộp xác nhận
-        // Nếu không, tạm thời dùng confirm() của trình duyệt để khắc phục ReferenceError
-        const result = confirm(title + "\n\n" + message);
-        resolve(result);
+let globalConfirmResolver = null; // Biến global để lưu hàm resolve
+
+/**
+ * Hàm mới: Mở modal xác nhận (dùng modalConfirmDelete) và trả về Promise
+ */
+function _openConfirmPromise(title, message, confirmText = 'OK', confirmClass = 'btn-primary') {
+    return new Promise((resolve) => {
+        // 1. Lưu hàm resolve để các nút có thể gọi
+        globalConfirmResolver = resolve; 
+
+        // 2. Lấy các phần tử modal (dùng lại modalConfirmDelete)
+        const modalEl = qs('modalConfirmDelete'); 
+        if (!modalEl) {
+             console.error("Không tìm thấy modalConfirmDelete. Quay về confirm() gốc.");
+             resolve(confirm(title + "\n\n" + message)); // Fallback cuối cùng
+             return;
+        }
+        
+        const modalHeader = modalEl.querySelector('.modal-header');
+        const modalTitle = modalEl.querySelector('.modal-title');
+        const msgEl = qs('confirm-delete-message');
+        const confirmBtn = qs('confirm-delete-btn');
+        const cancelBtn = modalEl.querySelector('button[data-bs-dismiss="modal"]');
+
+        // 3. Cập nhật giao diện (cho nút Thoát/Hủy)
+        const headerClass = (confirmClass === 'btn-danger') ? 'bg-danger' : 'bg-primary';
+        if (modalHeader) {
+            modalHeader.className = `modal-header ${headerClass} text-white`;
+        }
+        if (modalTitle) {
+            modalTitle.textContent = title;
+        }
+        if (msgEl) {
+            msgEl.textContent = message;
+        }
+        
+        // Cập nhật nút xác nhận
+        if (confirmBtn) {
+            confirmBtn.textContent = confirmText;
+            confirmBtn.className = `btn ${confirmClass}`;
+        }
+
+        // 4. Gán sự kiện (quan trọng!)
+        if (confirmBtn) {
+            // Xóa listener cũ (nếu có) bằng cách clone
+            const newConfirmBtn = confirmBtn.cloneNode(true);
+            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+            
+            newConfirmBtn.onclick = () => {
+                if (globalConfirmResolver) globalConfirmResolver(true);
+                bootstrap.Modal.getInstance(modalEl).hide();
+            };
+        }
+        
+        if (cancelBtn) {
+             // Đảm bảo nút cancel cũng resolve(false)
+            const newCancelBtn = cancelBtn.cloneNode(true);
+            cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+            
+            newCancelBtn.addEventListener('click', () => {
+                 if (globalConfirmResolver) globalConfirmResolver(false);
+                 // modal tự ẩn
+            }, { once: true }); // Chỉ chạy 1 lần
+        }
+        
+        // 5. Hiển thị modal
+        const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modalInstance.show();
     });
 }
 
-// DÁN THAY THẾ TOÀN BỘ HÀM CŨ (khoảng dòng 6176)
+/**
+ * HÀM MỚI (thay thế confirmExitQuiz):
+ * Xử lý nút "Thoát/Hủy" khi làm bài
+ */
+async function confirmExitQuiz() {
+    // 1. Gọi hàm modal mới (nó trả về một Promise)
+    const confirmed = await _openConfirmPromise(
+        "Xác nhận Thoát", 
+        "Bạn có chắc chắn muốn thoát bài làm? Mọi câu trả lời chưa nộp sẽ bị mất.",
+        "Thoát", // Chữ trên nút OK
+        "btn-danger" // Màu nút OK (màu đỏ)
+    );
+
+    // 2. Xử lý kết quả
+    if (confirmed) {
+        stopQuizTimer(); // Dừng bộ đếm ngược
+
+        // ▼▼▼ BẮT ĐẦU SỬA LỖI (Dọn dẹp Konva) ▼▼▼
+        destroyAllQuizCanvases(); // Hủy canvas và dọn dẹp state
+        // ▲▲▲ KẾT THÚC SỬA LỖI ▲▲▲
+
+        if (quizModalInstance) {
+            quizModalInstance.hide(); // Ẩn modal
+        }
+    }
+    // Nếu confirmed = false (bấm Hủy), không làm gì cả
+}
+
+
+
+// DÁN THAY THẾ TOÀN BỘ HÀM (khoảng dòng 6176)
 async function submitQuiz(isTimeout = false) {
-    // 1. Kiểm tra dữ liệu ban đầu
+    // 1. Kiểm tra... (Giữ nguyên)
     if (!currentQuiz || !currentAssignmentId) {
         console.error("submitQuiz Error: Missing currentQuiz or currentAssignmentId.");
         showMessageBox("Lỗi", "Không tìm thấy dữ liệu bài thi để nộp.");
         return;
     }
 
-    // 2. Xác nhận nộp bài (nếu không phải hết giờ)
+    // 2. Xác nhận... (Giữ nguyên)
     if (!isTimeout) {
         const confirmSubmit = await confirmBoxAsync("Xác nhận", "Bạn có chắc chắn muốn nộp bài? Bài làm sẽ không thể chỉnh sửa sau khi nộp.");
-        if (!confirmSubmit) return; // Dừng nếu người dùng hủy
+        if (!confirmSubmit) return;
     }
 
-    // 3. Dừng timer
+    // 3. Dừng timer... (Giữ nguyên)
     if (timerInterval) {
         clearInterval(timerInterval);
-        timerInterval = null; // Reset interval variable
+        timerInterval = null; 
     }
 
     // 4. Thu thập câu trả lời
     let collectionError = false;
     const answers = currentQuiz.map((q, index) => {
-        if (!q || typeof q !== 'object') {
-            collectionError = true;
-            return { questionId: `error-invalid-q-${index}`, type: 'error', answer: 'invalid_data' };
-        }
-
+        // ... (code xử lý ID giữ nguyên) ...
         const idFrom_id = q._id ? String(q._id) : null;
         const idFromId = q.id ? String(q.id) : null;
-        const qidForKey = idFromId || idFrom_id; // ưu tiên q.id
+        const qidForKey = idFromId || idFrom_id; 
         const qIdForPayload = idFromId || idFrom_id;
         const qtype = q.type || q.questionType || "mc";
-
-        if (!qidForKey) {
-            collectionError = true;
-            return { questionId: `error-missing-ids-${index}`, type: 'error', answer: 'missing_id' };
-        }
-
+        if (!qidForKey) { /* ... */ }
         const container = document.querySelector(`.card[data-question-id="${qidForKey}"]`);
-        if (!container) {
-            return { questionId: qIdForPayload, type: qtype, answer: null };
-        }
+        if (!container) { /* ... */ }
 
-        // Lấy câu trả lời
         let studentAnswer = null;
         try {
+            // ... (code xử lý MC, ESSAY, TRUE_FALSE, FILL_BLANK giữ nguyên) ...
             if (qtype === "multiple_choice" || qtype === "mc") {
                 const selected = container.querySelector(`input[name="q_${qidForKey}"]:checked`);
                 if (selected) studentAnswer = selected.value;
-
             } else if (qtype === "essay" || qtype === "tu_luan") {
                 const textarea = container.querySelector("textarea.essay-answer");
                 if (textarea) studentAnswer = textarea.value.trim() || null;
-
             } else if (qtype === "true_false") {
                 const options = q.options || [];
                 const collectedAnswers = [];
                 options.forEach((opt, optIndex) => {
                     const inputName = `tf_${qidForKey}_${optIndex}`;
                     const selectedRadio = container.querySelector(`input[name="${inputName}"]:checked`);
-                    if (selectedRadio) {
-                        collectedAnswers.push(selectedRadio.value === 'true');
-                    } else {
-                        collectedAnswers.push(null);
-                    }
+                    if (selectedRadio) { collectedAnswers.push(selectedRadio.value === 'true'); } 
+                    else { collectedAnswers.push(null); }
                 });
                 studentAnswer = collectedAnswers;
-
             } else if (qtype === "fill_blank") {
                 const inputs = container.querySelectorAll("input.fill-blank-inline");
                 const collectedAnswers = [];
-                inputs.forEach(input => {
-                    collectedAnswers.push(input.value.trim() || null);
-                });
+                inputs.forEach(input => { collectedAnswers.push(input.value.trim() || null); });
                 studentAnswer = collectedAnswers;
 
+            // =======================================================
+            // === KHỐI SỬA LỖI: DRAW (submitQuiz) ===
+            // (Phiên bản 8 - Bỏ .toArray())
+            // =======================================================
             } else if (qtype === "draw") {
                 const canvasId = `draw_${qidForKey}`;
                 if (window.drawingPads && window.drawingPads[canvasId]) {
-                    const canvas = window.drawingPads[canvasId];
+                    
+                    try {
+                        const pad = window.drawingPads[canvasId];
+                        if (!pad) throw new Error("Không tìm thấy Konva pad");
 
-                    // ===== BẮT ĐẦU FIX TRIỆT ĐỂ: LÀM SẠCH JSON TRƯỚC KHI LƯU =====
-                        try {
-                            // 1. Lọc bỏ lưới
-                            const userObjects = canvas.getObjects().filter(obj => {
-                                const isGridLine = (obj.type === 'line' && obj.stroke === '#eee');
-                                return !isGridLine;
-                            });
+                        const layer = pad.studentLayer; 
+                        if (!layer) throw new Error("Không tìm thấy studentLayer");
+                        
+                        const shapes = layer.getChildren(node => {
+                            const className = node.getClassName();
+                            const shapeName = node.name();
+                            return className !== 'Transformer' && shapeName !== 'sel_rect_student';
+                        });
 
-                            if (userObjects.length > 0) {
-                                // 2. LÀM SẠCH: Chuyển object Fabric thành object JS thô VÀ xóa thuộc tính lỗi
-                                const cleanObjects = userObjects.map(obj => {
-                                    // Dùng toObject() để lấy dữ liệu thô
-                                    const objData = obj.toObject(); 
-                                    
-                                    // Xóa thuộc tính 'backgroundColor' rỗng bị lỗi
-                                    if (objData.backgroundColor === "") {
-                                        delete objData.backgroundColor;
-                                    }
-                                    return objData; // Trả về đối tượng đã làm sạch
-                                });
-
-                                // 3. Tạo payload SẠCH để lưu
-                                const canvasDataToSave = {
-                                    version: canvas.version || '5.3.0',
-                                    objects: cleanObjects // Dùng mảng ĐÃ LÀM SẠCH
-                                };
-                                
-                                // ================================================
-                                // === YÊU CẦU DEBUG: THÊM CONSOLE LOG TẠI ĐÂY ===
-                                console.log(`[submitQuiz] 📤 Serializing data for canvas ${canvasId}:`, canvasDataToSave);
-                                // ================================================
-                                
-                                // 4. Stringify JSON sạch
-                                studentAnswer = JSON.stringify(canvasDataToSave);
-                            
-                            } else {
-                                studentAnswer = null; // Không có gì để lưu
-                            }
-                        } catch (serErr) {
-                            console.error("submitQuiz: Lỗi serialize canvas:", serErr);
-                            studentAnswer = null;
-                        }
-                        // ===== KẾT THÚC FIX TRIỆT ĐỂ =====
+                        if (shapes.length > 0) {
+                            // 🔥 SỬA LỖI TẠI ĐÂY: Bỏ .toArray()
+                            studentAnswer = JSON.stringify(shapes); 
+                        } else {
+                            studentAnswer = null; // Không có gì để lưu
+                        }
+                        
+                    } catch (serErr) {
+                        console.error("submitQuiz: Lỗi serialize Konva layer:", serErr);
+                        studentAnswer = null;
+                    }
 
                 } else {
                     studentAnswer = null;
                 }
             }
+            // =======================================================
+            // === KẾT THÚC KHỐI SỬA LỖI: DRAW ===
+            // =======================================================
 
         } catch (domError) {
             console.error(`submitQuiz: DOM Error getting answer for qid ${qidForKey}:`, domError);
@@ -4437,7 +4731,7 @@ async function submitQuiz(isTimeout = false) {
         return { questionId: qIdForPayload, type: qtype, answer: studentAnswer };
     });
 
-    // 5. Dừng nếu có lỗi nghiêm trọng khi thu thập
+    // 5. Dừng nếu có lỗi... (Giữ nguyên)
     if (collectionError) {
         console.error("submitQuiz: Aborting submission due to critical errors collecting answers.");
         showMessageBox("Lỗi nghi trọng", "Không thể thu thập đủ câu trả lời do lỗi dữ liệu hoặc giao diện. Vui lòng thử tải lại trang.");
@@ -4446,7 +4740,7 @@ async function submitQuiz(isTimeout = false) {
         return;
     }
 
-    // 6. Tiến hành Nộp bài
+    // 6. Tiến hành Nộp bài... (Toàn bộ code 'try...catch...finally' còn lại của hàm submitQuiz giữ nguyên)
     const submitButton = document.getElementById("btn-submit-quiz");
     try {
         if (submitButton) submitButton.disabled = true;
@@ -4474,10 +4768,7 @@ async function submitQuiz(isTimeout = false) {
 
         // 7. Sau khi nộp thành công: khoá mọi canvas để không cho sửa nữa
         try {
-          // 🔒 Khóa toàn bộ bảng vẽ
           lockAllDrawingPads();
-
-          // 🔒 Khóa tất cả nút công cụ vẽ
           document.querySelectorAll(
             ".btn-toolbar button, .btn-toolbar input, .btn-toolbar select, .btn-toolbar label"
           ).forEach(el => {
@@ -4489,7 +4780,7 @@ async function submitQuiz(isTimeout = false) {
             el.style.opacity = "0.55";
           });
         } catch (lockErr) {
-          console.warn("submitQuiz: lockAllDrawingPads thất bại:", lockErr);
+          console.warn("submitQuiz: lockAllDrawingPads (Konva) thất bại:", lockErr);
         }
 
         // 8. Hiển thị kết quả và chuyển tab
@@ -4521,37 +4812,14 @@ async function submitQuiz(isTimeout = false) {
 }
 
 
-// ==================================================
-// HÀM VẼ LƯỚI (GRID) ĐƠN GIẢN (THAY THẾ HÀM VẼ THƯỚC)
-// ==================================================
-function drawCanvasGrid(canvas, gridSize) {
-    const width = canvas.getWidth();
-    const height = canvas.getHeight();
-    const lineObjects = [];
-    const lineOptions = {
-        stroke: '#eee', // Màu xám nhạt
-        selectable: false,
-        evented: false // Không bắt sự kiện (tối ưu)
-    };
 
-    // Vẽ đường dọc
-    for (let i = 1; i < (width / gridSize); i++) {
-        lineObjects.push(new fabric.Line([i * gridSize, 0, i * gridSize, height], lineOptions));
-    }
-    // Vẽ đường ngang
-    for (let i = 1; i < (height / gridSize); i++) {
-        lineObjects.push(new fabric.Line([0, i * gridSize, width, i * gridSize], lineOptions));
-    }
 
-    // Thêm tất cả vào canvas
-    // Chúng ta không dùng Group để tránh lỗi 'alphabetical' (dù đây không phải text)
-    lineObjects.forEach(obj => {
-        canvas.add(obj);
-        canvas.sendToBack(obj); // Đẩy lưới ra sau cùng
-    });
-    
-    canvas.renderAll();
+
+function confirmBoxAsync(title, message, confirmText = 'OK', confirmClass = 'btn-primary') {
+    // Gọi hàm _openConfirmPromise đã có sẵn (định nghĩa ở trên, khoảng dòng 3900)
+    return _openConfirmPromise(title, message, confirmText, confirmClass);
 }
+
 
 
 function showMessageBox(title, message) {
@@ -4740,16 +5008,26 @@ async function displayQuizResults(result) {
          submitBtn.classList.add("d-none"); 
          submitBtn.disabled = true;
      } 
+     
+     // ▼▼▼ BẮT ĐẦU SỬA LỖI (Dọn dẹp Konva) ▼▼▼
      if (exitBtn) { 
          exitBtn.textContent = "Đóng"; 
          exitBtn.classList.remove("btn-danger"); 
          exitBtn.classList.add("btn-secondary"); 
-         exitBtn.onclick = () => { if (quizModalInstance) quizModalInstance.hide(); }; 
+         exitBtn.onclick = () => { 
+             destroyAllQuizCanvases(); // Dọn dẹp khi đóng
+             if (quizModalInstance) quizModalInstance.hide(); 
+         }; 
      } 
      if (closeBtn) { 
-         closeBtn.onclick = () => { if (quizModalInstance) quizModalInstance.hide(); }; 
+         closeBtn.onclick = () => { 
+             destroyAllQuizCanvases(); // Dọn dẹp khi đóng
+             if (quizModalInstance) quizModalInstance.hide(); 
+         }; 
      }
+     // ▲▲▲ KẾT THÚC SỬA LỖI ▲▲▲
 }
+
 
 
 async function getTestName(testId) {
@@ -5064,7 +5342,7 @@ async function attachQuestions(data, arr) {
 
 
 
-// DÁN THAY THẾ HÀM CŨ (khoảng dòng 5198)
+// DÁN THAY THẾ HÀM CŨ (khoảng dòng 5370)
 async function openResultDetail(resultId) {
     console.log(`openResultDetail called with resultId: '${resultId}'`);
     if (!resultId) {
@@ -5072,13 +5350,18 @@ async function openResultDetail(resultId) {
         alert("Lỗi: Không có ID kết quả để mở.");
         return;
     }
+
     try {
-        // 1. Gọi API lấy dữ liệu chi tiết
+        // 1. Lấy modal (nhưng chưa hiển thị)
+        const modalEl = document.getElementById('modalGrading');
+        if (!modalEl) { console.error('Modal #modalGrading not found!'); return; }
+        const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+
+        // 2. Tải dữ liệu API (trong khi modal ẩn)
         console.log('  🔍 Calling API:', `${serverUrl}/api/results/${resultId}`);
         const data = await fetchJson(`${serverUrl}/api/results/${resultId}`);
         console.log('  ✅ Raw data received from API:', data); 
 
-        // Kiểm tra dữ liệu trả về
         if (!data || !data.id || !Array.isArray(data.detailedResults)) {
             console.error("  ERROR: Invalid or incomplete data received from API.", data);
             alert("Lỗi: Không nhận được dữ liệu chi tiết hợp lệ từ server.");
@@ -5103,7 +5386,7 @@ async function openResultDetail(resultId) {
         }
         // --- KẾT THÚC BỔ SUNG DỰ PHÒNG ---
 
-        // 2. Load quiz gốc
+        // 3. Tải quiz gốc (vẫn trong khi modal ẩn)
         if (data.testId) {
             let quiz = null;
             try {
@@ -5125,23 +5408,27 @@ async function openResultDetail(resultId) {
              window.currentLoadedQuestions = [];
         }
         
-        // 3. Lưu dữ liệu
+        // 4. Lưu dữ liệu
         window.currentResultData = data;
-
-        // 4. Lấy modal
-        const modalEl = document.getElementById('modalGrading');
-        if (!modalEl) { console.error('Modal #modalGrading not found!'); return; }
-        
-        
-        // ===== SỬA LỖI THỜI GIAN (TIMING ERROR) =====
-
-        // 5. Gán resultId VÀ HIỂN THỊ MODAL TRƯỚC
         modalEl.dataset.resultId = resultId;
-        const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-        modalInstance.show(); // <-- HIỂN THỊ TRƯỚC
 
-        // 6. VẼ NỘI DUNG SAU KHI MODAL ĐÃ HIỂN THỊ
-        await renderResultDetailModal(data); // <-- VẼ SAU
+        // 5. GỠ BỎ listener cũ (nếu có) để tránh gọi nhiều lần
+        if (window.dynamicTeacherViewHandler) {
+            modalEl.removeEventListener('shown.bs.modal', window.dynamicTeacherViewHandler);
+        }
+
+        // 6. Tạo listener mới (CHẠY 1 LẦN)
+        window.dynamicTeacherViewHandler = async () => {
+            // HÀNH ĐỘNG VẼ CHỈ XẢY RA Ở ĐÂY (KHI MODAL ĐÃ HIỂN THỊ)
+            console.log("Modal giáo viên ĐÃ HIỂN THỊ, bắt đầu render canvas...");
+            await renderResultDetailModal(data); 
+        };
+        
+        // 7. GẮN listener
+        modalEl.addEventListener('shown.bs.modal', window.dynamicTeacherViewHandler, { once: true });
+
+        // 8. HIỂN THỊ MODAL (bây giờ sẽ kích hoạt listener ở trên)
+        modalInstance.show();
 
     } catch (err) {
         console.error('❌ Error in openResultDetail:', err);
@@ -5153,6 +5440,7 @@ window.openResultDetail = openResultDetail;
 
 
 
+// DÁN TOÀN BỘ HÀM NÀY THAY THẾ HÀM CŨ (khoảng dòng 8431)
 async function renderResultDetailModal(data) {
     if (!data || !data.id) {
         console.error("renderResultDetailModal: Invalid input data.");
@@ -5203,7 +5491,7 @@ async function renderResultDetailModal(data) {
         return;
     }
 
-    // Chuẩn hóa answers từ result object (hàm này có trong code của bạn)
+    // Chuẩn hóa answers từ result object
     const answers = await buildAnswersFromResult(data);
     console.log('renderResultDetailModal: Normalized answers received:', answers);
 
@@ -5212,81 +5500,33 @@ async function renderResultDetailModal(data) {
         return;
     }
 
-    // Helper nội bộ: disable toolbar controls nằm trong một drawing-pad-container
-    function disableToolbarInContainer(drawContainer) {
-        if (!drawContainer) return;
-        // Disable all buttons, inputs, selects, color pickers, labels that act like controls
-        const controls = drawContainer.querySelectorAll('button, input, select, .form-control-color, .btn-group, .btn-toolbar, .tool-btn, .draw-tool-btn, .draw-action-btn');
-        controls.forEach(c => {
-            try {
-                if (c.tagName === 'INPUT' || c.tagName === 'SELECT' || c.tagName === 'BUTTON') {
-                    c.disabled = true;
-                }
-                // set CSS to visually show disabled
-                c.classList.add('disabled');
-                c.style.pointerEvents = 'none';
-                c.style.opacity = '0.55';
-            } catch (e) { /* ignore */ }
-        });
-    }
-
     // Helper: safely parse stored studentAnswer (string or already-object)
-  function parseStudentAnswer(raw) {
-    if (raw === null || raw === undefined) return null;
-    if (typeof raw === 'object') return raw; // Đã là object, trả về
-    if (typeof raw === 'string') {
-        const s = raw.trim();
-        if (!s) return null;
-        
-        try {
-            let parsed = JSON.parse(s);
-            
-            // ===== BẮT ĐẦU FIX: XỬ LÝ JSON-TRONG-JSON (Double-Escaped) =====
-            // Nếu kết quả parse VẪN LÀ MỘT CHUỖI, parse nó một lần nữa
-            if (typeof parsed === 'string') {
-                console.log("parseStudentAnswer: Phát hiện double-escaped JSON. Đang parse lần 2...");
-                parsed = JSON.parse(parsed);
-            }
-            // ===== KẾT THÚC FIX =====
-
-            return parsed; // Bây giờ nó chắc chắn là object
-
-        } catch (e) {
-            // Thử unescape (dự phòng)
+    function parseStudentAnswer(raw) {
+        if (raw === null || raw === undefined) return null;
+        if (typeof raw === 'object') return raw; // Đã là object, trả về
+        if (typeof raw === 'string') {
+            const s = raw.trim();
+            if (!s) return null;
             try {
-                let unescaped = JSON.parse(unescape(s));
-                if (typeof unescaped === 'string') {
-                     unescaped = JSON.parse(unescaped);
+                let parsed = JSON.parse(s);
+                if (typeof parsed === 'string') {
+                    parsed = JSON.parse(parsed);
                 }
-                return unescaped;
-            } catch (ee) {
-                console.error("parseStudentAnswer: Lỗi parse JSON:", ee, "raw data:", raw);
-                return null;
+                return parsed; 
+            } catch (e) {
+                try {
+                    let unescaped = JSON.parse(unescape(s));
+                    if (typeof unescaped === 'string') {
+                         unescaped = JSON.parse(unescaped);
+                    }
+                    return unescaped;
+                } catch (ee) {
+                    console.error("parseStudentAnswer: Lỗi parse JSON:", ee, "raw data:", raw);
+                    return null;
+                }
             }
         }
-    }
-    return null;
-}
-
-    // Helper: lock a fabric canvas instance (prevent edits)
-    function lockFabricCanvas(inst) {
-        try {
-            if (!inst) return;
-            if (typeof inst.isDrawingMode !== 'undefined') inst.isDrawingMode = false;
-            if (typeof inst.selection !== 'undefined') inst.selection = false;
-            if (inst.getObjects && inst.getObjects().length) {
-                inst.getObjects().forEach(o => {
-                    try { o.selectable = false; o.evented = false; } catch(e) {}
-                });
-            }
-            // Disable pointer events on upper/lower canvas elements
-            if (inst.upperCanvasEl) inst.upperCanvasEl.style.pointerEvents = 'none';
-            if (inst.lowerCanvasEl) inst.lowerCanvasEl.style.pointerEvents = 'none';
-            // mark locked
-            inst.__locked = true;
-        } catch (e) {
-            console.warn("lockFabricCanvas error:", e);
-        }
+        return null;
     }
 
     // Xây dựng HTML
@@ -5305,7 +5545,7 @@ async function renderResultDetailModal(data) {
             const qId = q.id || ans.questionId || `q_${i}`;
             const gainedPoints = ans.gainedScore ?? 0;
 
-            // Badge / stick logic (giữ như bạn)
+            // Badge / stick logic
             const isEssay = ['essay', 'tu_luan', 'draw'].includes(q_type);
             let pointsForBadge = isEssay ? (teacherScore ?? 0) : gainedPoints;
             let stickText = '', stickClass = '', scoreBadgeClass = '';
@@ -5379,129 +5619,142 @@ async function renderResultDetailModal(data) {
                 correctAnswerHtml = `<p class="small text-muted mt-2 mb-0">Đáp án đúng: <strong>${(correctAnswers||[]).map(escapeHtml).join(', ')}</strong></p>`;
             }
 
-            // === DRAW ===
+            // TÌM HÀM 'renderResultDetailModal' (khoảng dòng 8431)
+// BÊN TRONG VÒNG LẶP 'answers.forEach((ans, i) => { ... })'
+// THAY THẾ KHỐI 'else if (q_type === 'draw')' (khoảng dòng 8617) BẰNG KHỐI SAU:
+
+            // =======================================================
+            // === KHỐI THAY THẾ: DRAW (Logic GV Chấm bài) ===
+            // (🔥 Sửa lỗi 12/6 - Lọc bằng TÊN)
+            // =======================================================
             else if (q_type === 'draw') {
                 const canvasId = `review_${qId}`;
-                studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh (Hình vẽ):</p>';
-                // include a wrapper class .drawing-pad-container so we can find toolbar when present
+                studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh (Đã khóa):</p>';
+                
+                // Toolbar HTML (Giữ nguyên)
+                const shortcutStyle = "font-size: 0.7em; opacity: 0.7; display: block; line-height: 1;";
+                const toolbarHtml = `
+                    <div class="btn-toolbar mb-2" role="toolbar" style="flex-wrap: wrap; gap: 5px;">
+                        <div class="btn-group btn-group-sm me-2" role="group">
+                            <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'select')">Chọn ✠ (V)</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'draw')">Vẽ ෴(F)</button>
+                        </div>
+                        <div class="btn-group btn-group-sm me-2" role="group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'line')">Line (L)</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'rect')">Rect (R)</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'circle')">Circle (C)</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'triangle')">Tri (T)</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'vector')">Vector (U)</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="startPolygonModeKonva('${canvasId}')">Poly (P)</button>
+							<button type="button" class="btn btn-outline-secondary" onclick="startCurveModeKonva('${canvasId}')">Curve (B)</button>
+							<button type="button" class="btn btn-outline-secondary" onclick="startSineWaveModeKonva('${canvasId}')">Sine (S)</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="addText('${canvasId}')">Text (Ctrl+X)</button>
+                        </div>
+                        <div class="btn-group btn-group-sm me-2" role="group">
+                            <label for="color-picker-${canvasId}" class="btn btn-sm btn-outline-secondary">Fill</label>
+                            <input type="color" class="form-control-color" id="color-picker-${canvasId}" value="#FF0000" oninput="setFillColor('${canvasId}', this.value)">
+                            <label for="stroke-picker-${canvasId}" class="btn btn-sm btn-outline-secondary ms-2">Stroke</label>
+                            <input type="color" class="form-control-color" id="stroke-picker-${canvasId}" value="#000000" oninput="setStrokeColor('${canvasId}', this.value)">
+                            <button type="button" class="btn btn-outline-secondary ms-2" onclick="setStrokeDash('${canvasId}', true)">Dash</button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="setStrokeDash('${canvasId}', false)">Solid</button>
+                        </div>
+                        <div class="btn-group btn-group-sm me-2" role="group">
+                             <button type="button" class="btn btn-outline-secondary" onclick="setObjectDimensions('${canvasId}')">Size (Ctrl+E)</button>
+                        </div>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-danger" onclick="deleteSelectedObject('${canvasId}')">Delete</button>
+                        </div>
+                    </div>
+                `;
+                
                 answerDisplay = `
-    <div class="drawing-pad-container">
-        <canvas id="${canvasId}" style="height:320px;border:1px solid #ccc;background:#fff;"></canvas>
-    </div>
-`;
+                    <div class="drawing-pad-container">
+                        ${toolbarHtml}
+                        <div id="${canvasId}" class="drawing-canvas-container" style="width: 100%; height:320px;border:1px solid #ccc;background:#fff;"></div>
+                    </div>
+                `;
 
-                // push callback to initialize fabric canvas AFTER DOM insertion
-                if (studentAnsRaw) {
-   canvasLoadCallbacks.push(() => {
+               // 🔥 CẢI TIẾN: Logic callback để tải 2 Layer (HS và GV)
+                canvasLoadCallbacks.push(() => {
                     const canvasEl = document.getElementById(canvasId);
                     if (!canvasEl) return;
-                    if (typeof fabric === "undefined" || !fabric.Canvas) {
-                        console.error("⚠️ Fabric.js chưa sẵn sàng, bỏ qua canvas render");
+                    if (typeof Konva === "undefined") {
+                        console.error("⚠️ Konva.js chưa sẵn sàng, bỏ qua canvas render");
                         return;
                     }
 
                     try {
-                        // 1. Khởi tạo canvas (vẫn dùng nền trắng)
-                        const reviewCanvas = new fabric.Canvas(canvasId, {
-                            selection: false, isDrawingMode: false, renderOnAddRemove: true,
-                            backgroundColor: '#ffffff' 
-                        });
-                        window.drawingPads = window.drawingPads || {};
-                        window.drawingPads[canvasId] = reviewCanvas;
+                        // 1. Khởi tạo Stage (mode: 'teacher')
+                        const pad = initKonvaCanvas(canvasId, 'teacher'); 
+                        if (!pad) throw new Error("Không thể khởi tạo Konva Stage");
 
-                        // 2. Chuẩn bị dữ liệu VÀ LÀM SẠCH
-                        const raw = parseStudentAnswer(studentAnsRaw);
-                        if (!raw || !raw.objects || !Array.isArray(raw.objects)) {
-                            throw new Error("Dữ liệu canvas không hợp lệ");
-                        }
+                        let hsShapesCount = 0;
+                        let gvShapesCount = 0;
 
-                        // ===== BẮT ĐẦU FIX MỚI: LÀM SẠCH AN TOÀN (MAP + FILTER) =====
-                        
-                        // Dùng .map() để tạo một mảng MỚI, không sửa mảng cũ
-                        raw.objects = raw.objects
-                            .map(obj => {
-                                // Tạo một bản sao nông của đối tượng
-                                const newObj = { ...obj }; 
-                                
-                                // Xóa thuộc tính 'backgroundColor' rỗng bị lỗi khỏi BẢN SAO
-                                if (newObj.backgroundColor === "") {
-                                    delete newObj.backgroundColor;
+                        // 2. Tải Layer HỌC SINH (studentAnsRaw)
+                        if (studentAnsRaw) {
+                            const parsedData_HS = parseStudentAnswer(studentAnsRaw);
+                            let shapesToLoad_HS = [];
+                            if (parsedData_HS?.className === 'Layer' && Array.isArray(parsedData_HS.children)) {
+                                shapesToLoad_HS = parsedData_HS.children; 
+                            } else if (Array.isArray(parsedData_HS)) {
+                                shapesToLoad_HS = parsedData_HS; 
+                            }
+
+                            shapesToLoad_HS.forEach(shapeData => {
+                                // 🔥 SỬA LỖI: Lọc bỏ công cụ bằng TÊN
+                                const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
+                                const className = shapeData.className;
+                                if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
+                                    const shape = Konva.Node.create(shapeData);
+                                    if (shape) {
+                                        pad.studentLayer.add(shape);
+                                        hsShapesCount++; // <-- Đếm hình thật
+                                    }
                                 }
-                                return newObj;
-                            })
-                            .filter(obj => {
-                                // Lọc bỏ lưới (từ bản sao đã làm sạch)
-                                const isGridLine = (obj.type === 'line' && obj.stroke === '#eee');
-                                return !isGridLine;
                             });
+                        }
+                        // 3. KHÓA LAYER HỌC SINH
+                        pad.studentLayer.listening(false);
+                        pad.studentLayer.batchDraw();
+                        console.log(`GV Konva: Đã tải ${hsShapesCount} hình của HS (Đã khóa).`);
 
-                        // Xóa nền của toàn canvas (nếu có)
-                        delete raw.background;
-                        // ===== KẾT THÚC FIX MỚI =====
-
-                        // 3. HÀM QUAN TRỌNG: Đặt kích thước, CĂN GIỮA, VÀ khóa
-                        const fixSizeAndLock = () => {
-                            const wrapper = canvasEl.closest('.drawing-pad-container') || canvasEl.parentElement;
-                            if (wrapper) {
-                                const w = Math.max(wrapper.clientWidth - 2, 800); 
-                                reviewCanvas.setWidth(w);
-                                reviewCanvas.setHeight(320);
+                        // 4. Tải Layer GIÁO VIÊN (ans.teacherDrawing)
+                        const teacherDrawingRaw = ans.teacherDrawing; 
+                        if (teacherDrawingRaw) {
+                            const parsedData_GV = parseStudentAnswer(teacherDrawingRaw);
+                            let shapesToLoad_GV = [];
+                            if (parsedData_GV?.className === 'Layer' && Array.isArray(parsedData_GV.children)) {
+                                shapesToLoad_GV = parsedData_GV.children;
+                            } else if (Array.isArray(parsedData_GV)) {
+                                shapesToLoad_GV = parsedData_GV;
                             }
                             
-                            // ===== BẮT ĐẦU FIX MỚI: RESET VIEWPORT =====
-                            // 1. Reset zoom (1x) và pan (vị trí 0,0)
-                            reviewCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]); 
-
-                            // 2. Lấy vật thể (chỉ có 1 cái)
-                            const objects = reviewCanvas.getObjects();
-                            if (objects.length > 0) {
-                                const mainObject = objects[0];
-                                
-                                // 3. Đảm bảo nó CÓ THỂ hiển thị
-                                mainObject.set({ visible: true, selectable: false, evented: false });
-                                
-                                // 4. BUỘC CĂN GIỮA vật thể vào trung tâm canvas
-                                reviewCanvas.centerObject(mainObject); 
-                            }
-                            
-                            // 5. Render lại lần cuối với vị trí mới
-                            reviewCanvas.renderAll();
-                            reviewCanvas.requestRenderAll(); 
-                            // ===== KẾT THÚC FIX MỚI =====
-                            
-                            // Khóa canvas (giữ nguyên)
-                            lockFabricCanvas(reviewCanvas); 
-                            disableToolbarInContainer(wrapper);
-                            console.log(`GV Canvas: ĐÃ HIỂN THỊ MODAL. Đặt W=${reviewCanvas.width}, H=${reviewCanvas.height}. Đã CĂN GIỮA & khóa.`);
-                        };
-
-                        // 4. Tải JSON. SAU KHI TẢI XONG, mới gọi hàm fixSize
-                        reviewCanvas.loadFromJSON(raw, () => {
-                            reviewCanvas.renderAll(); // Render hình vẽ
-                            
-                            // 5. CHỜ MODAL HIỂN THỊ XONG MỚI SET KÍCH THƯỚC
-                            const modalEl = document.getElementById("modalGrading");
-                            if (modalEl && modalEl.classList.contains("show")) {
-                                // Nếu modal đã hiện, chạy ngay
-                                setTimeout(fixSizeAndLock, 50);
-                            } else {
-                                // Nếu modal CHƯA hiện, chờ sự kiện 'shown.bs.modal'
-                                modalEl?.addEventListener("shown.bs.modal", fixSizeAndLock, { once: true });
-                            }
-                        });
+                            shapesToLoad_GV.forEach(shapeData => {
+                                // 🔥 SỬA LỖI: Lọc bỏ công cụ bằng TÊN
+                                const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
+                                const className = shapeData.className;
+                                if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
+                                    const shape = Konva.Node.create(shapeData);
+                                    if (shape) {
+                                        pad.teacherLayer.add(shape);
+                                        gvShapesCount++; // <-- Đếm hình thật
+                                    }
+                                }
+                            });
+                        }
+                        // 5. KHÔNG KHÓA LAYER GV
+                        pad.teacherLayer.batchDraw();
+                        console.log(`GV Konva: Đã tải ${gvShapesCount} hình của GV (Mở khóa).`);
 
                     } catch (err) {
-                        console.error("⚠️ Lỗi load hình vẽ (GV):", err);
-                        canvasEl.insertAdjacentHTML("afterend", `<div class="text-danger small mt-1">Không thể hiển thị hình vẽ</div>`);
+                        console.error("⚠️ Lỗi load hình vẽ (GV - Konva):", err);
+                        canvasEl.innerHTML = `<div class="text-danger small mt-1">Không thể hiển thị hình vẽ: ${err.message}</div>`;
                     }
                 });
 
 
-                } else {
-                    // no student answer: show placeholder (we placed canvas markup above, but we can present message instead)
-                    answerDisplay = `<div class="border rounded p-3 text-muted bg-light">[Chưa có hình vẽ hoặc dữ liệu bị lỗi]</div>`;
-                }
-
+                // Giữ nguyên phần chấm điểm
                 essayFields = `
                     <div class="mt-2 border-top pt-2">
                         <label class="form-label small mb-0">Nhận xét GV</label>
@@ -5510,8 +5763,11 @@ async function renderResultDetailModal(data) {
                         <input type="number" class="form-control w-50 w-md-25" id="score-${qId}" min="0" max="${maxPoints}" step="0.5" value="${teacherScore ?? ''}" placeholder="chưa chấm">
                     </div>`;
             }
+            // =======================================================
+            // === KẾT THÚC KHỐI THAY THẾ: DRAW ===
+            // =======================================================
 
-            // === ESSAY ===
+            // === ESSAY (Văn bản) ===
             else if (q_type === 'essay' || q_type === 'tu_luan') {
                 const essayText = escapeHtml(String(studentAnsRaw || ''));
                 studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh:</p>';
@@ -5548,29 +5804,29 @@ async function renderResultDetailModal(data) {
     // Gán HTML cuối cùng
     container.innerHTML = html;
 
-    // Khởi tạo canvas xem lại (nếu có)
+    // Khởi tạo canvas (Konva)
     if (canvasLoadCallbacks.length) {
-        setTimeout(() => {
-            try {
-                canvasLoadCallbacks.forEach(cb => {
-                    try { cb(); } catch (e) { console.error("canvasLoadCallback error:", e); }
-                });
-                console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ xem lại.`);
-            } catch (e) {
-                console.error("Error initializing canvasLoadCallbacks:", e);
-            }
-        }, 200);
+        try {
+            canvasLoadCallbacks.forEach(cb => {
+                try { cb(); } catch (e) { console.error("canvasLoadCallback error:", e); }
+            });
+            console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ Konva (GV).`);
+        } catch (e) {
+            console.error("Error initializing canvasLoadCallbacks:", e);
+        }
     }
 }
-
 
 
 
 // Đảm bảo bạn có dòng này ở đầu file HTML/JS của bạn:
 // const serverUrl = 'https://quiz-to21.onrender.com';
 
+
+
 // =================================================================
 // HÀM SAVEGRADING (ĐÃ THÊM LOGIC "DRAW" VÀO BỘ LỌC)
+// (🔥 Cải tiến 11/6: Thêm logic serialize teacherDrawing)
 // =================================================================
 async function saveGrading() {
     const modal = document.getElementById('modalGrading');
@@ -5590,13 +5846,11 @@ async function saveGrading() {
         // ==== 1️⃣ Lấy câu trả lời đã normalize từ FE ====
         const answers = await buildAnswersFromResult(window.currentResultData);
 
-        // ==== 2️⃣ Lấy câu tự luận VÀ CÂU VẼ ====
+        // ==== 2️⃣ Lấy payload Tự luận VÀ VẼ ====
         const essays = answers
             .filter(a => {
                 const t = (a.question?.type || a.type || "").toLowerCase();
-                // ===== BẮT ĐẦU SỬA LỖI (Thêm "draw") =====
                 return t.includes("essay") || t.includes("tu_luan") || t.includes("draw");
-                // ===== KẾT THÚC SỬA LỖI =====
             })
             .map(a => {
                 const qid = a.question?.id || a.questionId;
@@ -5614,11 +5868,41 @@ async function saveGrading() {
                     const parsed = parseFloat(rawScore);
                     if (!isNaN(parsed) && parsed >= 0) teacherScore = parsed;
                 }
+                
+                // 🔥 CẢI TIẾN (11/6): Lấy JSON bản vẽ của GV
+                const q_type = (a.question?.type || a.type || "").toLowerCase();
+                let teacherDrawingJson = null;
+    
+                if (q_type === "draw") {
+                    const canvasId = `review_${qid}`; // ID canvas trong modal chấm
+                    if (window.drawingPads && window.drawingPads[canvasId]) {
+                        try {
+                            const pad = window.drawingPads[canvasId];
+                            const teacherLayer = pad.teacherLayer; // Lấy layer của GV
+                            
+                            // 🔥 SỬA LỖI TẠI ĐÂY: Lọc bỏ công cụ bằng TÊN
+                            const shapes = teacherLayer.getChildren(node => {
+                                const className = node.getClassName();
+                                const shapeName = node.name();
+                                return className !== 'Transformer' && shapeName !== 'sel_rect_teacher';
+                            });
+    
+                            if (shapes.length > 0) {
+                                // 🔥 SỬA LỖI TẠI ĐÂY: Bỏ .toArray()
+                                teacherDrawingJson = JSON.stringify(shapes);
+                            }
+                        } catch (e) {
+                            console.error(`Lỗi serialize Konva (GV) cho ${canvasId}:`, e);
+                        }
+                    }
+                }
+                // 🔥 KẾT THÚC CẢI TIẾN
 
                 return {
                     questionId: qid, 
                     teacherScore, 
                     teacherNote: noteEl?.value?.trim() || "",
+                    teacherDrawing: teacherDrawingJson // <-- Gửi trường mới này
                 };
             }).filter(e => e !== null); 
 
@@ -5627,7 +5911,6 @@ async function saveGrading() {
 
         // ==== 3️⃣ Check số lần chấm ====
         const currentRegradeCount = window.currentResultData?.regradeCount || 0;
-
         if (currentRegradeCount >= 2) {
             alert("⚠️ Bài này đã được chấm 2 lần, không thể chấm lại!");
             return;
@@ -5659,9 +5942,7 @@ async function saveGrading() {
         if (!refreshedRes.ok) throw new Error("Không thể tải lại dữ liệu kết quả sau khi lưu.");
         const updated = await refreshedRes.json();
 
-        // Cập nhật state toàn cục
         window.currentResultData = updated;
-
         console.log("Dữ liệu Updated TRƯỚC KHI render lại modal:", updated);
 
         // ==== 8️⃣ Render lại modal với dữ liệu MỚI NHẤT ====
@@ -5669,7 +5950,6 @@ async function saveGrading() {
             await renderResultDetailModal(updated); 
         }
 
-        // cuộn về đầu
         const c = document.getElementById('grading-questions-container');
         if (c) c.scroll({ top: 0, behavior: "smooth" });
 
@@ -8449,13 +8729,6 @@ function deleteStudent(id) {
     // ====== GIAO ĐỀ ======
 let assignCurrentTestId = null; // Biến toàn cục để lưu ID đề đang được thao tác
 let studentsForModalLoaded = false;
-document.addEventListener('DOMContentLoaded', () => {
-    const modalElement = qs('#modalAssign');
-    if (modalElement) {
-        modalAssignInstance = new bootstrap.Modal(modalElement);
-    }
-});
-
 // Dán hàm này vào file JS của bạn (thay thế hàm cũ)
 let allStudentsForModal = []; 
 let modalAssignInstance;
@@ -10698,10 +10971,41 @@ async function viewResult(resultId) {
 
 
 
-// DÁN THAY THẾ HÀM CŨ (khoảng dòng 9007)
+// DÁN TOÀN BỘ HÀM NÀY THAY THẾ HÀM CŨ (khoảng dòng 9007)
 function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     const escapeHtml = (str) => { return str ? String(str).replace(/[&<>"']/g, s => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s])) : ''; };
     const safeFormat = (dateStr) => { return dateStr ? dateStr.substring(0, 16).replace('T', ' ') : '—'; };
+
+    // ▼▼▼ BẮT ĐẦU SỬA LỖI: Thêm helper parseStudentAnswer ▼▼▼
+    // Helper: safely parse stored studentAnswer (string or already-object)
+    function parseStudentAnswer(raw) {
+        if (raw === null || raw === undefined) return null;
+        if (typeof raw === 'object') return raw; // Đã là object, trả về
+        if (typeof raw === 'string') {
+            const s = raw.trim();
+            if (!s) return null;
+            try {
+                let parsed = JSON.parse(s);
+                if (typeof parsed === 'string') {
+                    parsed = JSON.parse(parsed);
+                }
+                return parsed; 
+            } catch (e) {
+                try {
+                    let unescaped = JSON.parse(unescape(s));
+                    if (typeof unescaped === 'string') {
+                         unescaped = JSON.parse(unescaped);
+                    }
+                    return unescaped;
+                } catch (ee) {
+                    console.error("parseStudentAnswer (HS): Lỗi parse JSON:", ee, "raw data:", raw);
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+    // ▲▲▲ KẾT THÚC SỬA LỖI ▲▲▲
 
     const container = document.getElementById("review-questions-container");
     const titleEl = document.getElementById("review-quiz-title");
@@ -10721,11 +11025,10 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     let totalQuestions = questionsFromQuiz.length; let totalMc = 0; let totalEssay = 0;
     let correctMcCount = 0; let calculatedMcScore = 0; let maxMcScore = 0;
 
-    // Mảng để lưu các hàm callback sau khi HTML được render
+    // Mảng để lưu các hàm callback Konva
     const canvasLoadCallbacks = [];
 
     detailed.forEach((res, idx) => {
-        // [ ... code xử lý logic cho MC, TRUE_FALSE, FILL_BLANK (từ dòng 9034 đến 9098) ... giữ nguyên ... ]
         const resultQid = res.questionId;
         const q = originalQuestionMap.get(String(resultQid)); 
         const qTypeCheck = (res.type || q?.type || 'mc').toLowerCase();
@@ -10763,6 +11066,8 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
             calculatedMcScore += gained;
             if (isCorrect === true) { correctMcCount++; }
         }
+
+        // Cập nhật logic badge
         let borderClass = ''; let badgeClass = ''; let badgeText = '';
         if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan' || qTypeCheck === 'draw') { 
             if (isCorrect === true) { borderClass = 'border-success'; badgeClass = 'bg-success'; badgeText = 'Đã Chấm (Đ)'; }
@@ -10790,7 +11095,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         
         } else if (qTypeCheck === 'true_false') {
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
-            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnswers : []; 
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : []; 
             if (studentAnsRaw === null || (Array.isArray(studentAnswers) && studentAnswers.every(ans => ans === null))) {
                 unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa chọn đáp án</p>';
             }
@@ -10816,7 +11121,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         
         } else if (qTypeCheck === 'fill_blank') { 
             const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
-            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnswers : [];
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
             if (studentAnsRaw === null || (Array.isArray(studentAnswers) && studentAnswers.every(ans => ans === null || String(ans).trim() === ''))) {
                 unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa điền đáp án</p>';
             }
@@ -10847,117 +11152,112 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
             });
             mainQuestionTextHtml = '';
 
+        // =======================================================
+        // === KHỐI THAY THẾ: DRAW (Logic HS Xem lại) ===
+        // (🔥 Sửa lỗi 12/6 - Lọc bằng TÊN)
+        // =======================================================
         } else if (qTypeCheck === 'draw') {
             const canvasId = `review_${resultQid}`;
-            answerHtml = `<div class="form-group"><label class="form-label fw-bold">Hình vẽ của bạn:</label>`;
-            answerHtml += `<canvas id="${canvasId}" style="height: 300px; border: 1px solid #ccc; background: #f9f9f9;"></canvas>`;
+            answerHtml = `<div class="form-group"><label class="form-label fw-bold">Hình vẽ của bạn (và sửa lỗi của GV):</label>`;
             
-           if (studentAnsRaw && (studentAnsRaw.startsWith('{') || studentAnsRaw.startsWith('"'))) { 
-                
-                // ==========================================================
-                // === LOG MỚI 1: Log dữ liệu thô nhận được ===
-                console.log(`[renderReviewQuiz] DEBUG (DRAW): Found raw canvas data for q=${resultQid}:`, studentAnsRaw);
-                // ==========================================================
-                
-                canvasLoadCallbacks.push(() => {
+            // ẨN thanh công cụ
+            const toolbarHtml = ''; 
+            
+            answerHtml += toolbarHtml;
+            answerHtml += `<div id="${canvasId}" class="drawing-canvas-container" style="width: 100%; height: 300px; border: 1px solid #ccc; background: #fff;"></div>`;
+
+            // Lấy cả 2 bản vẽ
+            const teacherDrawingRaw = res.teacherDrawing; 
+
+            if (studentAnsRaw || teacherDrawingRaw) { 
+               canvasLoadCallbacks.push(() => {
                     const canvasEl = document.getElementById(canvasId);
                     if (!canvasEl) return;
-                    if (typeof fabric === "undefined") return;
+                    if (typeof Konva === "undefined") {
+                        console.error("⚠️ Konva.js chưa sẵn sàng, bỏ qua canvas render");
+                        return;
+                    }
 
                     try {
-                        // 1. Khởi tạo canvas (vẫn dùng nền trắng)
-                        const reviewCanvas = new fabric.Canvas(canvasId, {
-                            interactive: false, 
-                            backgroundColor: '#ffffff' 
-                        });
+                        // 1. Khởi tạo Stage (mode: 'teacher' là đúng, vì đây là chế độ xem)
+                        const pad = initKonvaCanvas(canvasId, 'teacher');
+                        if (!pad) throw new Error("Không thể khởi tạo Konva Stage");
 
-                        // 2. Chuẩn bị dữ liệu VÀ LÀM SẠCH
-                        let parsedData = JSON.parse(studentAnsRaw);
-                        if (typeof parsedData === "string") {
-                            parsedData = JSON.parse(parsedData);
-                        }
-                        
-                        // ==========================================================
-                        // === LOG MỚI 2: Log dữ liệu sau khi parse ===
-                        console.log(`[renderReviewQuiz] DEBUG (DRAW): Parsed data for q=${resultQid}:`, parsedData);
-                        // ==========================================================
-                        
-                        if (!parsedData.objects || !Array.isArray(parsedData.objects)) {
-                             throw new Error("Dữ liệu canvas (HS) không hợp lệ");
-                        }
+                        let hsShapesCount = 0;
+                        let gvShapesCount = 0;
 
-                        // ===== BẮT ĐẦU FIX MỚI: LÀM SẠCH AN TOÀN (MAP + FILTER) =====
-                        parsedData.objects = parsedData.objects
-                            .map(obj => {
-                                const newObj = { ...obj }; 
-                                if (newObj.backgroundColor === "") {
-                                    delete newObj.backgroundColor;
+                        // 2. Tải Layer HỌC SINH (studentAnsRaw)
+                        if (studentAnsRaw) {
+                            const parsedData_HS = parseStudentAnswer(studentAnsRaw);
+                            let shapesToLoad_HS = [];
+                            if (parsedData_HS?.className === 'Layer' && Array.isArray(parsedData_HS.children)) {
+                                shapesToLoad_HS = parsedData_HS.children;
+                            } else if (Array.isArray(parsedData_HS)) {
+                                shapesToLoad_HS = parsedData_HS;
+                            }
+                            shapesToLoad_HS.forEach(shapeData => {
+                                // 🔥 SỬA LỖI: Lọc bỏ công cụ bằng TÊN
+                                const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
+                                const className = shapeData.className;
+                                if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
+                                    const shape = Konva.Node.create(shapeData);
+                                    if (shape) {
+                                        pad.studentLayer.add(shape);
+                                        hsShapesCount++; // <-- Đếm hình thật
+                                    }
                                 }
-                                return newObj;
-                            })
-                            .filter(obj => {
-                                const isGridLine = (obj.type === 'line' && obj.stroke === '#eee');
-                                return !isGridLine;
                             });
-                        delete parsedData.background;
-                        // ===== KẾT THÚC FIX MỚI =====
-
-                        // 3. HÀM QUAN TRỌNG: Đặt kích thước, CĂN GIỮA, VÀ khóa
-                        const fixSizeAndLock = () => {
-                            const container = canvasEl.closest('.mt-3');
-                            if (container) {
-                                const w = Math.max(container.clientWidth - 2, 800); 
-                                reviewCanvas.setWidth(w);
-                                reviewCanvas.setHeight(300); 
+                        }
+                        
+                        // 3. Tải Layer GIÁO VIÊN (teacherDrawingRaw)
+                        if (teacherDrawingRaw) {
+                            const parsedData_GV = parseStudentAnswer(teacherDrawingRaw);
+                            let shapesToLoad_GV = [];
+                            if (parsedData_GV?.className === 'Layer' && Array.isArray(parsedData_GV.children)) {
+                                shapesToLoad_GV = parsedData_GV.children;
+                            } else if (Array.isArray(parsedData_GV)) {
+                                shapesToLoad_GV = parsedData_GV;
                             }
-                            
-                            // === SỬA LỖI CĂN GIỮA (CENTERING) CỦA HỌC SINH ===
-                            reviewCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]); 
-                            const objects = reviewCanvas.getObjects();
-                            if (objects.length > 0) {
-                                const allObjectsGroup = new fabric.Group(objects, {
-                                    originX: 'center',
-                                    originY: 'center'
-                                });
-                                reviewCanvas.centerObject(allObjectsGroup);
-                                allObjectsGroup.destroy(); 
-                            }
-                            // === KẾT THÚC SỬA LỖI CĂN GIỮA ===
-                            
-                            reviewCanvas.renderAll();
-                            reviewCanvas.requestRenderAll(); 
-                            reviewCanvas.selection = false;
-                            reviewCanvas.getObjects().forEach(o => { o.selectable = false; o.evented = false; });
-                            console.log(`HS Canvas: ĐÃ HIỂN THỊ MODAL. Đặt W=${reviewCanvas.width}, H=${reviewCanvas.height}. Đã CĂN GIỮA & khóa.`);
-                        };
+                            shapesToLoad_GV.forEach(shapeData => {
+                                // 🔥 SỬA LỖI: Lọc bỏ công cụ bằng TÊN
+                                const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
+                                const className = shapeData.className;
+                                if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
+                                    const shape = Konva.Node.create(shapeData);
+                                    if (shape) {
+                                        pad.teacherLayer.add(shape);
+                                        gvShapesCount++; // <-- Đếm hình thật
+                                    }
+                                }
+                            });
+                        }
 
-                        // 4. Tải JSON. SAU KHI TẢI XONG, mới gọi hàm fixSize
-                        reviewCanvas.loadFromJSON(parsedData, () => {
-                            
-                            // ==========================================================
-                            // === LOG MỚI 3 & 4: Log khi callback chạy và số đối tượng ===
-                            console.log(`[renderReviewQuiz] DEBUG (DRAW): loadFromJSON callback fired for q=${resultQid}.`);
-                            const loadedObjects = reviewCanvas.getObjects();
-                            console.log(`[renderReviewQuiz] DEBUG (DRAW): Canvas reports ${loadedObjects.length} objects loaded.`, loadedObjects);
-                            // ==========================================================
-
-                            reviewCanvas.renderAll(); // Render hình vẽ
-                            
-                            setTimeout(fixSizeAndLock, 50); 
-                        });
+                        // 4. 🔥 KHÓA TOÀN BỘ STAGE
+                        pad.stage.listening(false);
+                        pad.stage.batchDraw();
+                        console.log(`HS Konva: Đã tải ${hsShapesCount} hình HS, ${gvShapesCount} hình GV (Đã khóa).`);
 
                     } catch (e) {
-                        console.error("Lỗi parse/load JSON hình vẽ (Student View):", e);
+                        console.error("Lỗi parse/load JSON hình vẽ (Student View - Konva):", e);
+                        const el = document.getElementById(canvasId);
+                        if(el) el.innerHTML = `<div class="text-danger small mt-1">Không thể hiển thị hình vẽ: ${e.message}</div>`;
                     }
                 });
             } else {
+                 // Không có hình vẽ, chỉ khởi tạo canvas rỗng
+                 canvasLoadCallbacks.push(() => initKonvaCanvas(canvasId, 'teacher'));
                  unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa trả lời</p>';
-                 answerHtml += `<div class="border rounded p-3 text-muted" style="background: #f8f8fa;">[Chưa trả lời]</div>`;
+                 // 🔥 SỬA LỖI: Hiển thị placeholder nếu không có cả 2 bản vẽ
+                 if (!studentAnsRaw && !teacherDrawingRaw) {
+                    answerHtml += `<div class="border rounded p-3 text-muted bg-light">[Chưa có hình vẽ]</div>`;
+                 }
             }
-            answerHtml += `</div>`;
+        
+        // =======================================================
+        // === KẾT THÚC KHỐI THAY THẾ: DRAW ===
+        // =======================================================
 
         } else { // Tự luận (essay)
-             // [ ... code xử lý essay (từ dòng 9161 đến 9170) ... giữ nguyên ... ]
              let essayText = escapeHtml(String(studentAnsRaw || ''));
              let placeholderText = '';
              if (studentAnsRaw === null || studentAnsRaw === undefined || String(studentAnsRaw).trim() === '') {
@@ -10970,7 +11270,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
              }
         }
         
-        // ... (Code HTML để ghép card, từ dòng 9180 đến 9202 giữ nguyên) ...
+        // Ghép thẻ card (Giữ nguyên)
         const card = document.createElement('div');
         card.className = `card mb-3 shadow-sm ${borderClass}`;
         card.innerHTML = `
@@ -10994,15 +11294,19 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     });
     // --- Kết thúc vòng lặp ---
 
+    // Khởi tạo Konva Callbacks
     if (canvasLoadCallbacks.length > 0) {
-        canvasLoadCallbacks.forEach(cb => {
-            try { cb(); } catch(e) { console.error("HS canvas callback error:", e); }
-        });
-        console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ xem lại (HS).`);
+        try {
+            canvasLoadCallbacks.forEach(cb => {
+                try { cb(); } catch (e) { console.error("canvasLoadCallback error:", e); }
+            });
+            console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} bảng vẽ Konva (HS).`);
+        } catch (e) {
+            console.error("Error initializing canvasLoadCallbacks:", e);
+        }
     }
 
-    // --- Cập nhật bảng SUMMARY ---
-    // [ ... code summary (từ 9205 đến 9225) ... giữ nguyên ... ]
+    // --- Cập nhật bảng SUMMARY (Giữ nguyên) ---
     totalQuestions = detailed.length;
     const finalTotalScore = result.totalScore !== undefined ? parseFloat(result.totalScore).toFixed(2) : 'Chưa có';
     const finalEssayScore = result.essayScore !== undefined ? parseFloat(result.essayScore).toFixed(1) : 'Chờ chấm';
@@ -11025,6 +11329,8 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         ${gradedAtHtml}
     </div>`;
 }
+
+
 
 
 // Thêm hàm thống kê này vào khối
@@ -12171,187 +12477,6 @@ async function waitForImagesToLoad() {
 
 
 
-// =================================================================
-// KHỐI DOMContentLoaded (ĐÃ SỬA PHÍM TẮT W -> S)
-// =================================================================
-document.addEventListener('DOMContentLoaded', () => {
-
-    // ----- 1. KHỞI TẠO CÁC MODAL INSTANCE -----
-    // (Giữ nguyên code khởi tạo 5 modal của bạn...)
-    const reviewModalEl = document.getElementById("modalReviewQuiz");
-    if (reviewModalEl) { /* ... khởi tạo ... */ }
-    const infoModalEl = document.getElementById("infoModal");
-    if (infoModalEl) { /* ... khởi tạo ... */ }
-    const modalElement = document.getElementById('modalQuiz');
-    if (modalElement) { /* ... khởi tạo ... */ }
-    const modalAssignElement = qs('#modalAssign');
-    if (modalAssignElement) { /* ... khởi tạo ... */ }
-    const confirmDeleteModalEl = document.getElementById('modalConfirmDelete');
-    if (confirmDeleteModalEl) { /* ... khởi tạo ... */ }
-    
-    // (Phần khởi tạo modal đầy đủ của bạn)
-    if (reviewModalEl) {
-      reviewQuizModalInstance = new bootstrap.Modal(reviewModalEl, {
-        backdrop: 'static',
-        keyboard: false
-      });
-    }
-    if (infoModalEl) { 
-        try { infoModalInstance = new bootstrap.Modal(infoModalEl); } catch(e) {}
-    }
-    if (modalElement) { 
-        quizModalInstance = new bootstrap.Modal(modalElement, {
-            backdrop: 'static',
-            keyboard: false
-        });
-    }
-    if (modalAssignElement) { 
-        try { modalAssignInstance = new bootstrap.Modal(modalAssignElement); } catch(e) {}
-    }
-    if (confirmDeleteModalEl) { 
-        try { confirmDeleteModalInstance = new bootstrap.Modal(confirmDeleteModalEl); } catch(e) {}
-    }
-
-    
-    // ----- 2. GÁN CÁC EVENT LISTENER -----
-
-    // (Giữ nguyên các listener của tab: resultsTabElement, pendingSubject, pendingDate, pendingSort...)
-    const resultsTabElement = qs('#r-tab'); 
-    if (resultsTabElement) {
-        resultsTabElement.addEventListener('shown.bs.tab', (event) => {
-            loadResults();
-        });
-    }
-    const pendingSubject = qs('#filter-stu-subject');
-    const pendingDate = qs('#filter-stu-assigned-date');
-    const pendingSort = qs('#sort-stu-assignment');
-    const triggerPendingRender = () => {
-        renderPendingAssignments(null, true); 
-    };
-    if (pendingSubject) {
-        pendingSubject.addEventListener('change', triggerPendingRender);
-    }
-    if (pendingDate) {
-        pendingDate.addEventListener('change', () => {
-            if (pendingDate.value) { 
-                if (pendingSort) pendingSort.value = 'none'; 
-            }
-            triggerPendingRender();
-        });
-    }
-    if (pendingSort) {
-        pendingSort.addEventListener('change', () => {
-            if (pendingSort.value === 'newest' || pendingSort.value === 'oldest') {
-                if (pendingDate) pendingDate.value = ''; 
-            }
-            triggerPendingRender();
-        });
-    }
-    
-    
-    // ===== BẮT ĐẦU SỬA LỖI (Sự kiện phím tắt) =====
-    document.addEventListener('keydown', function(event) {
-        if (!window.activeFabricCanvas) {
-            return;
-        }
-        
-        const canvas = window.activeFabricCanvas;
-        const key = event.key.toLowerCase(); 
-        const canvasId = canvas.getElement().id; 
-
-        const targetTag = event.target.tagName.toLowerCase();
-        if (targetTag === 'input' || targetTag === 'textarea' || event.target.isEditing) {
-            return;
-        }
-        
-        if (canvas.polygonState && canvas.polygonState.isActive) {
-            if (key === 'enter') {
-                finishPolygon(canvas, true); 
-                event.preventDefault();
-            } else if (key === 'escape') {
-                finishPolygon(canvas, false); 
-                event.preventDefault();
-            }
-            return; 
-        }
-
-        if (canvas.curveState && canvas.curveState.isActive) {
-            if (key === 'escape') {
-                finishCurve(canvas, false); 
-                event.preventDefault();
-            }
-            return; 
-        }
-
-        if (canvas.sineWaveState && canvas.sineWaveState.isActive) {
-            if (key === 'escape') {
-                finishSineWave(canvas); // Hủy
-                event.preventDefault();
-            }
-            return;
-        }
-
-        // --- 3. Xử lý phím Ctrl (hoặc Cmd trên Mac) ---
-        if (event.ctrlKey || event.metaKey) {
-            event.preventDefault(); 
-            
-            switch (key) {
-                // Chỉ giữ lại các phím tắt hệ thống
-                case 'c': copyObjects(canvas); break;
-                case 'v': pasteObjects(canvas); break;
-                case 'd': duplicateObjects(canvas); break;
-                
-                // Chỉ giữ lại 'X' (theo yêu cầu) và 'E'
-                case 'x': addText(canvasId); break;
-                case 'e': setObjectDimensions(canvasId); break; 
-            }
-        
-        // --- 4. Xử lý phím tắt KHÔNG Ctrl ---
-        } else if (key === "delete" || key === "backspace") {
-            event.preventDefault(); 
-            deleteSelectedObject(canvasId); 
-        
-        } else if (key.startsWith("arrow")) {
-            event.preventDefault(); 
-            const activeObjects = canvas.getActiveObjects();
-            if (!activeObjects || activeObjects.length === 0) return;
-            const moveStep = 2; 
-            activeObjects.forEach(obj => {
-                switch (key) {
-                    case "arrowup": obj.set('top', obj.top - moveStep); break;
-                    case "arrowdown": obj.set('top', obj.top + moveStep); break;
-                    case "arrowleft": obj.set('left', obj.left - moveStep); break;
-                    case "arrowright": obj.set('left', obj.left + moveStep); break;
-                }
-                obj.setCoords();
-            });
-            canvas.renderAll();
-
-        } else if (key === 'v') { 
-             event.preventDefault();
-             setDrawingMode(canvasId, 'select');
-        } else if (key === 'f') { 
-             event.preventDefault();
-             setDrawingMode(canvasId, 'draw');
-        }
-        // Phím đơn
-        else if (key === 'l') { event.preventDefault(); addShape(canvasId, 'line'); }
-        else if (key === 'r') { event.preventDefault(); addShape(canvasId, 'rect'); }
-        else if (key === 'c') { event.preventDefault(); addShape(canvasId, 'circle'); }
-        else if (key === 't') { event.preventDefault(); addShape(canvasId, 'triangle'); }
-        else if (key === 'u') { event.preventDefault(); addShape(canvasId, 'vector'); } 
-        else if (key === 'p') { event.preventDefault(); addShape(canvasId, 'polygon'); }
-        else if (key === 'b') { event.preventDefault(); addShape(canvasId, 'curve'); }
-        // ===== SỬA LỖI: W -> S =====
-        else if (key === 's') { event.preventDefault(); addShape(canvasId, 'sinewave'); } 
-        // ===========================
-    });
-    // ===== KẾT THÚC SỬA LỖI =====
-
-});
-// =================================================================
-// KẾT THÚC KHỐI DOMContentLoaded
-// =================================================================
 
 
 
