@@ -1938,7 +1938,7 @@ def create_result():
         return jsonify({"message": f"Server error: {str(e)}"}), 500
         
 # ==================================================
-# ✅ THAY THẾ HÀM CHẤM ĐIỂM (Dòng 1557)
+# ✅ THAY THẾ HÀM CHẤM ĐIỂM (Khoảng dòng 1557)
 # ==================================================
 @app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
@@ -1949,6 +1949,9 @@ def grade_result(result_id):
     3. Lấy điểm tối đa (maxPoints) của câu tự luận từ 'db.tests' (đã tính theo 5 quy tắc).
     4. Khống chế điểm giáo viên chấm không vượt quá maxPoints.
     5. Tính tổng = (Điểm MC cũ) + (Điểm Essay/Draw mới).
+    
+    🔥 CẢI TIẾN (11/6):
+    6. Nhận thêm payload 'teacherDrawing' và lưu vào 'detailedResults'.
     """
     try:
         data = request.get_json() or {}
@@ -2009,6 +2012,10 @@ def grade_result(result_id):
                     det["teacherNote"] = essay_data.get("teacherNote", "")
                     det["pointsGained"] = ts_float
                     det["isCorrect"] = ts_float > 0
+                    
+                    # 🔥 CẢI TIẾN (11/6): LƯU BẢN VẼ CỦA GIÁO VIÊN
+                    if q_type == "draw":
+                        det["teacherDrawing"] = essay_data.get("teacherDrawing") # Lưu JSON string
                     
                     new_essay_score += ts_float 
                 
