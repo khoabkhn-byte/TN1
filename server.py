@@ -1957,14 +1957,13 @@ def grade_result(result_id):
     7. Nếu GV không nhập điểm (null) nhưng có vẽ hoặc ghi chú, tự động gán điểm 0.0 
        để chuyển trạng thái sang "Đã Chấm".
        
-    🔥 SỬA LỖI (07/11 - Lần 2 - Vấn đề của BẠN):
+    🔥 SỬA LỖI (07/11 - Lần 2):
     8. Sửa logic lưu 'teacherDrawing'. Chỉ lưu nếu payload gửi lên có chứa
        dữ liệu (không phải None/null).
        
     🔥 SỬA LỖI (07/11 - Lần 3 - Vấn đề của BẠN):
-    9. Sửa đổi logic lặp: Lặp qua danh sách gốc bằng index (i)
-       thay vì lặp qua map (detailed_map.items()) để đảm bảo
-       dữ liệu được sửa đổi 'in-place' (tại chỗ) trước khi lưu.
+    9. Sửa đổi logic lặp: Sửa đổi TRỰC TIẾP 'detailed_list[i]' 
+       thay vì dùng biến tham chiếu 'det' để đảm bảo lưu dữ liệu.
     """
     try:
         data = request.get_json() or {}
@@ -1996,9 +1995,10 @@ def grade_result(result_id):
 
         # 🔥 SỬA LỖI: Lặp qua 'detailed_list' BẰNG INDEX
         for i in range(len(detailed_list)):
-            det = detailed_list[i] # Lấy dictionary của câu hỏi hiện tại
-            q_id_str = str(det.get("questionId"))
-            q_type = det.get("type")
+            
+            # Lấy thông tin trực tiếp từ list
+            q_id_str = str(detailed_list[i].get("questionId"))
+            q_type = detailed_list[i].get("type")
             
             if q_type == "essay" or q_type == "draw":
             
@@ -2010,7 +2010,7 @@ def grade_result(result_id):
                     # --- Lấy tất cả dữ liệu mới từ payload ---
                     teacher_provided_score = essay_data.get("teacherScore")
                     teacher_provided_note = essay_data.get("teacherNote")
-                    teacher_provided_drawing = essay_data.get("teacherDrawing") # <-- Lấy dữ liệu vẽ
+                    teacher_provided_drawing = essay_data.get("teacherDrawing") 
 
                     score_was_provided = (teacher_provided_score is not None)
                     
@@ -2023,46 +2023,45 @@ def grade_result(result_id):
                         
                         if ts_float > max_points: ts_float = max_points 
                         if ts_float < 0: ts_float = 0.0
-                            
-                        det["teacherScore"] = ts_float
-                        det["pointsGained"] = ts_float
-                        det["isCorrect"] = ts_float > 0
+                        
+                        # 🔥 SỬA LỖI: Cập nhật TRỰC TIẾP
+                        detailed_list[i]["teacherScore"] = ts_float
+                        detailed_list[i]["pointsGained"] = ts_float
+                        detailed_list[i]["isCorrect"] = ts_float > 0
                         new_essay_score += ts_float
                     else:
                         # GV KHÔNG nhập điểm (teacherScore là null)
-                        has_old_score = (det.get("teacherScore") is not None)
+                        has_old_score = (detailed_list[i].get("teacherScore") is not None)
                         
                         has_new_note = (teacher_provided_note is not None)
                         has_new_drawing = (teacher_provided_drawing is not None) 
 
                         if has_old_score:
-                            new_essay_score += float(det.get("pointsGained", 0.0))
+                            new_essay_score += float(detailed_list[i].get("pointsGained", 0.0))
                         elif has_new_note or has_new_drawing:
                             # GV có vẽ/ghi chú nhưng quên nhập điểm -> Gán điểm 0.0
-                            det["teacherScore"] = 0.0
-                            det["pointsGained"] = 0.0
-                            det["isCorrect"] = False
+                            detailed_list[i]["teacherScore"] = 0.0
+                            detailed_list[i]["pointsGained"] = 0.0
+                            detailed_list[i]["isCorrect"] = False
                         else:
                             has_ungraded_essay = True
 
                     # --- 4b. Xử lý Nhận xét (Chỉ cập nhật nếu key tồn tại) ---
                     if "teacherNote" in essay_data:
-                        det["teacherNote"] = teacher_provided_note
+                        detailed_list[i]["teacherNote"] = teacher_provided_note
 
                     # --- 4c. Xử lý Bản vẽ (Logic Sửa lỗi 07/11 Lần 2) ---
                     if q_type == "draw":
                         if "teacherDrawing" in essay_data and teacher_provided_drawing is not None:
-                            det["teacherDrawing"] = teacher_provided_drawing
+                            # 🔥 SỬA LỖI: Cập nhật TRỰC TIẾP
+                            detailed_list[i]["teacherDrawing"] = teacher_provided_drawing
             
                 else:
                     # Không có payload cho câu này
-                    if det.get("teacherScore") is None:
+                    if detailed_list[i].get("teacherScore") is None:
                         has_ungraded_essay = True
                     else:
-                        new_essay_score += float(det.get("pointsGained", 0.0))
-            
-            # 🔥 CẬP NHẬT LẠI LIST GỐC (an toàn)
-            detailed_list[i] = det 
+                        new_essay_score += float(detailed_list[i].get("pointsGained", 0.0))
         
         # === 5. Tính điểm tổng và xác định trạng thái ===
         new_total_score = new_mc_score + new_essay_score
