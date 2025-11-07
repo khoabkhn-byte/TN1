@@ -1938,7 +1938,7 @@ def create_result():
         return jsonify({"message": f"Server error: {str(e)}"}), 500
         
 # ==================================================
-# ✅ THAY THẾ HÀM CHẤM ĐIỂM (Khoảng dòng 1557)
+# ✅ THAY THẾ HÀM CHẤM ĐIỂM (Khoảng dòng 1792)
 # ==================================================
 @app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
@@ -1955,6 +1955,10 @@ def grade_result(result_id):
     
     🔥 SỬA LỖI (12/6):
     7. Lưu 'teacherDrawing' và 'teacherNote' ngay cả khi điểm (teacherScore) không được cung cấp.
+    
+    🔥 SỬA LỖI (07/11 - Vấn đề của BẠN):
+    8. Nếu GV không nhập điểm (null) nhưng có vẽ hoặc ghi chú, tự động gán điểm 0.0 
+       để chuyển trạng thái sang "Đã Chấm" thay vì "Đang Chấm".
     """
     try:
         data = request.get_json() or {}
@@ -1982,7 +1986,7 @@ def grade_result(result_id):
         new_essay_score = 0.0
         
         # === 4. XỬ LÝ ĐIỂM TỰ LUẬN MỚI TỪ GIÁO VIÊN ===
-        has_ungraded_essay = False 
+        has_ungraded_essay = False # <-- SẼ GIỮ NGUYÊN LÀ FALSE NHỜ LOGIC MỚI
 
         for q_id_str, det in detailed_map.items():
             
@@ -1994,13 +1998,19 @@ def grade_result(result_id):
                 essay_data = next((e for e in essays_payload if str(e.get("questionId")) == q_id_str), None)
                 max_points = float(points_map.get(q_id_str, 1.0)) 
                 
-                # 🔥 SỬA LỖI LOGIC: Tách rời việc lưu điểm và lưu bản vẽ
-                
                 if essay_data:
-                    # --- 4a. Xử lý Điểm (Nếu có) ---
-                    if essay_data.get("teacherScore") is not None:
+                    # --- Lấy tất cả dữ liệu mới từ payload ---
+                    teacher_provided_score = essay_data.get("teacherScore")
+                    teacher_provided_note = essay_data.get("teacherNote")
+                    teacher_provided_drawing = essay_data.get("teacherDrawing")
+
+                    score_was_provided = (teacher_provided_score is not None)
+                    
+                    # --- 4a. Xử lý Điểm ---
+                    if score_was_provided:
+                        # GV CÓ nhập điểm (kể cả 0)
                         ts_float = 0.0
-                        try: ts_float = float(essay_data.get("teacherScore"))
+                        try: ts_float = float(teacher_provided_score)
                         except: ts_float = 0.0
                         
                         if ts_float > max_points: ts_float = max_points 
@@ -2011,20 +2021,34 @@ def grade_result(result_id):
                         det["isCorrect"] = ts_float > 0
                         new_essay_score += ts_float
                     else:
-                        # GV không nhập điểm, kiểm tra xem có điểm cũ không
-                        if det.get("teacherScore") is None:
-                            has_ungraded_essay = True # Vẫn là 'Đang Chấm'
-                        else:
+                        # GV KHÔNG nhập điểm (teacherScore là null)
+                        has_old_score = (det.get("teacherScore") is not None)
+                        
+                        # 🔥 LOGIC SỬA LỖI: Kiểm tra xem GV có cung cấp note hoặc drawing không
+                        has_new_note = (teacher_provided_note is not None)
+                        has_new_drawing = (teacher_provided_drawing is not None)
+
+                        if has_old_score:
                             # Giữ điểm cũ (nếu có)
                             new_essay_score += float(det.get("pointsGained", 0.0))
+                        elif has_new_note or has_new_drawing:
+                            # GV có vẽ/ghi chú nhưng quên nhập điểm
+                            # => Tự động gán điểm 0.0
+                            det["teacherScore"] = 0.0
+                            det["pointsGained"] = 0.0
+                            det["isCorrect"] = False
+                            # (new_essay_score không cộng)
+                        else:
+                            # Không có điểm cũ, không có điểm mới, không có note, không có drawing
+                            # => Thực sự là "Chưa chấm"
+                            has_ungraded_essay = True
 
-                    # --- 4b. Xử lý Nhận xét (Luôn cập nhật) ---
-                    det["teacherNote"] = essay_data.get("teacherNote", "")
+                    # --- 4b. Xử lý Nhận xét (Chỉ cập nhật nếu key tồn tại) ---
+                    if "teacherNote" in essay_data:
+                        det["teacherNote"] = essay_data.get("teacherNote", "")
 
-                    # --- 4c. Xử lý Bản vẽ (Luôn cập nhật nếu là loại 'draw') ---
+                    # --- 4c. Xử lý Bản vẽ (Chỉ cập nhật nếu key tồn tại) ---
                     if q_type == "draw":
-                        # Chỉ cập nhật nếu payload gửi lên có 'teacherDrawing'
-                        # (Nếu không nó sẽ là None, xóa mất bản vẽ cũ)
                         if "teacherDrawing" in essay_data:
                             det["teacherDrawing"] = essay_data.get("teacherDrawing") 
                 
@@ -2041,6 +2065,7 @@ def grade_result(result_id):
         new_total_score = new_mc_score + new_essay_score
         graded_at = now_vn_iso()
         
+        # 🔥 LOGIC SỬA LỖI: has_ungraded_essay bây giờ sẽ là False
         if has_ungraded_essay:
              new_status = "Đang Chấm"
         elif current_regrade + 1 >= 2:
@@ -2050,11 +2075,11 @@ def grade_result(result_id):
 
         # === 6. Cập nhật DB ===
         update_payload = {
-            "detailedResults": list(detailed_map.values()),
+            "detailedResults": list(detailed_map.values()), # <-- Đã chứa teacherDrawing
             "totalScore": round(new_total_score, 2),
             "mcScore": round(new_mc_score, 2), 
             "essayScore": round(new_essay_score, 2), 
-            "gradingStatus": new_status,
+            "gradingStatus": new_status, # <-- Sẽ là "Đã Chấm"
             "gradedAt": graded_at,
         }
 
