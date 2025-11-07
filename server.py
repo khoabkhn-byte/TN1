@@ -1956,9 +1956,13 @@ def grade_result(result_id):
     🔥 SỬA LỖI (12/6):
     7. Lưu 'teacherDrawing' và 'teacherNote' ngay cả khi điểm (teacherScore) không được cung cấp.
     
-    🔥 SỬA LỖI (07/11 - Vấn đề của BẠN):
+    🔥 SỬA LỖI (07/11 - Lần 1):
     8. Nếu GV không nhập điểm (null) nhưng có vẽ hoặc ghi chú, tự động gán điểm 0.0 
-       để chuyển trạng thái sang "Đã Chấm" thay vì "Đang Chấm".
+       để chuyển trạng thái sang "Đã Chấm".
+       
+    🔥 SỬA LỖI (07/11 - Lần 2 - Vấn đề của BẠN):
+    9. Sửa logic lưu 'teacherDrawing'. Chỉ lưu nếu payload gửi lên có chứa
+       dữ liệu (không phải None/null).
     """
     try:
         data = request.get_json() or {}
@@ -1986,7 +1990,7 @@ def grade_result(result_id):
         new_essay_score = 0.0
         
         # === 4. XỬ LÝ ĐIỂM TỰ LUẬN MỚI TỪ GIÁO VIÊN ===
-        has_ungraded_essay = False # <-- SẼ GIỮ NGUYÊN LÀ FALSE NHỜ LOGIC MỚI
+        has_ungraded_essay = False 
 
         for q_id_str, det in detailed_map.items():
             
@@ -2002,7 +2006,7 @@ def grade_result(result_id):
                     # --- Lấy tất cả dữ liệu mới từ payload ---
                     teacher_provided_score = essay_data.get("teacherScore")
                     teacher_provided_note = essay_data.get("teacherNote")
-                    teacher_provided_drawing = essay_data.get("teacherDrawing")
+                    teacher_provided_drawing = essay_data.get("teacherDrawing") # <-- Lấy dữ liệu vẽ
 
                     score_was_provided = (teacher_provided_score is not None)
                     
@@ -2024,62 +2028,61 @@ def grade_result(result_id):
                         # GV KHÔNG nhập điểm (teacherScore là null)
                         has_old_score = (det.get("teacherScore") is not None)
                         
-                        # 🔥 LOGIC SỬA LỖI: Kiểm tra xem GV có cung cấp note hoặc drawing không
                         has_new_note = (teacher_provided_note is not None)
-                        has_new_drawing = (teacher_provided_drawing is not None)
+                        has_new_drawing = (teacher_provided_drawing is not None) # <-- Kiểm tra dữ liệu vẽ
 
                         if has_old_score:
-                            # Giữ điểm cũ (nếu có)
                             new_essay_score += float(det.get("pointsGained", 0.0))
                         elif has_new_note or has_new_drawing:
-                            # GV có vẽ/ghi chú nhưng quên nhập điểm
-                            # => Tự động gán điểm 0.0
+                            # GV có vẽ/ghi chú nhưng quên nhập điểm -> Gán điểm 0.0
                             det["teacherScore"] = 0.0
                             det["pointsGained"] = 0.0
                             det["isCorrect"] = False
-                            # (new_essay_score không cộng)
                         else:
-                            # Không có điểm cũ, không có điểm mới, không có note, không có drawing
-                            # => Thực sự là "Chưa chấm"
                             has_ungraded_essay = True
 
                     # --- 4b. Xử lý Nhận xét (Chỉ cập nhật nếu key tồn tại) ---
                     if "teacherNote" in essay_data:
-                        det["teacherNote"] = essay_data.get("teacherNote", "")
+                        det["teacherNote"] = teacher_provided_note
 
-                    # --- 4c. Xử lý Bản vẽ (Chỉ cập nhật nếu key tồn tại) ---
+                    # =================================================
+                    # === 🔥 SỬA LỖI TẠI ĐÂY (07/11 - Lần 2) ===
+                    # =================================================
+                    # Chỉ cập nhật 'teacherDrawing' nếu nó là 'draw' VÀ
+                    # payload gửi lên có key 'teacherDrawing' VÀ
+                    # giá trị của nó KHÔNG PHẢI None (tức là có hình vẽ)
                     if q_type == "draw":
-                        if "teacherDrawing" in essay_data:
-                            det["teacherDrawing"] = essay_data.get("teacherDrawing") 
+                        if "teacherDrawing" in essay_data and teacher_provided_drawing is not None:
+                            det["teacherDrawing"] = teacher_provided_drawing
+                    # =================================================
+                    # === KẾT THÚC SỬA LỖI ===
+                    # =================================================
                 
                 else:
-                    # Không có payload cho câu này (lỗi hiếm gặp)
+                    # Không có payload cho câu này
                     if det.get("teacherScore") is None:
                         has_ungraded_essay = True
                     else:
                         new_essay_score += float(det.get("pointsGained", 0.0))
 
-            # (Chúng ta không làm gì với câu 'mc')
-
         # === 5. Tính điểm tổng và xác định trạng thái ===
         new_total_score = new_mc_score + new_essay_score
         graded_at = now_vn_iso()
         
-        # 🔥 LOGIC SỬA LỖI: has_ungraded_essay bây giờ sẽ là False
         if has_ungraded_essay:
              new_status = "Đang Chấm"
         elif current_regrade + 1 >= 2:
-            new_status = "Hoàn tất" # Đã chấm đủ 2 lần -> Khóa
+            new_status = "Hoàn tất" 
         else:
-            new_status = "Đã Chấm" # Mới chấm lần 1
+            new_status = "Đã Chấm" 
 
         # === 6. Cập nhật DB ===
         update_payload = {
-            "detailedResults": list(detailed_map.values()), # <-- Đã chứa teacherDrawing
+            "detailedResults": list(detailed_map.values()),
             "totalScore": round(new_total_score, 2),
             "mcScore": round(new_mc_score, 2), 
             "essayScore": round(new_essay_score, 2), 
-            "gradingStatus": new_status, # <-- Sẽ là "Đã Chấm"
+            "gradingStatus": new_status,
             "gradedAt": graded_at,
         }
 
@@ -2087,7 +2090,7 @@ def grade_result(result_id):
             {"id": result_id},
             {
                 "$set": update_payload,
-                "$inc": { "regradeCount": 1 } # Tăng số lần chấm
+                "$inc": { "regradeCount": 1 } 
             }
         )
 
