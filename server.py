@@ -1944,41 +1944,33 @@ def create_result():
 def grade_result(result_id):
     """
     Giáo viên chấm điểm (Logic đã sửa theo yêu cầu của bạn):
-    1. Nhận điểm tự luận (Essay) VÀ VẼ (Draw) từ payload.
-    2. Lấy điểm trắc nghiệm (MC) đã được chấm tự động (lúc nộp bài) từ 'db.results'.
-    3. Lấy điểm tối đa (maxPoints) của câu tự luận từ 'db.tests' (đã tính theo 5 quy tắc).
-    4. Khống chế điểm giáo viên chấm không vượt quá maxPoints.
-    5. Tính tổng = (Điểm MC cũ) + (Điểm Essay/Draw mới).
-    
-    🔥 CẢI TIẾN (11/6):
-    6. Nhận thêm payload 'teacherDrawing' và lưu vào 'detailedResults'.
-    
-    🔥 SỬA LỖI (07/11 - Lần 1):
-    7. Nếu GV không nhập điểm (null) nhưng có vẽ hoặc ghi chú, tự động gán điểm 0.0 
-       để chuyển trạng thái sang "Đã Chấm".
+    ... (docstrings) ...
        
-    🔥 SỬA LỖI (07/11 - Lần 2):
-    8. Sửa logic lưu 'teacherDrawing'. Chỉ lưu nếu payload gửi lên có chứa
-       dữ liệu (không phải None/null).
-       
-    🔥 SỬA LỖI (07/11 - Lần 3 - Vấn đề của BẠN):
-    9. Sửa đổi logic lặp: Sửa đổi TRỰC TIẾP 'detailed_list[i]' 
-       thay vì dùng biến tham chiếu 'det' để đảm bảo lưu dữ liệu.
+    🔥 SỬA LỖI (07/11 - Lần 4 - Vấn đề của BẠN):
+    10. Thêm log chi tiết (BE LOG 1, 2, 3, 4) để theo dõi.
+    11. Thay đổi logic cập nhật 'detailed_list' sang
+        dùng Map (ánh xạ) để đảm bảo tham chiếu chính xác.
     """
     try:
         data = request.get_json() or {}
         essays_payload = [e for e in data.get("essays", []) if isinstance(e, dict)] # Lấy payload của GV
 
+        # =================================================
+        # === [BE LOG 1] LOG PAYLOAD THÔ ===
+        # =================================================
+        print(f"--- [BE LOG 1] grade_result cho {result_id} ---")
+        print(f"Payload thô nhận được (chỉ 'essays'): {essays_payload}")
+        # =================================================
+        
         # === 1. Lấy bài làm (Result) ===
         result = db.results.find_one({"id": result_id})
         if not result:
             return jsonify({"error": "Không tìm thấy bài làm"}), 404
 
         current_regrade = result.get("regradeCount", 0)
-        # Lấy danh sách gốc
         detailed_list = result.get("detailedResults", []) 
         
-        # === 2. LẤY BÀI THI GỐC (ĐỂ LẤY ĐIỂM TỐI ĐA CỦA TỪNG CÂU) ===
+        # === 2. LẤY BÀI THI GỐC ... ===
         test_id = result.get("testId")
         test_doc = db.tests.find_one({"id": test_id})
         if not test_doc:
@@ -1986,24 +1978,26 @@ def grade_result(result_id):
         
         points_map = {q.get('id') or str(q.get('_id')): q.get('points', 1) for q in test_doc.get('questions', [])}
 
-        # === 3. LẤY ĐIỂM TRẮC NGHIỆM ĐÃ CHẤM TỰ ĐỘNG (FIXED) ===
+        # === 3. LẤY ĐIỂM TRẮC NGHIỆM ... ===
         new_mc_score = result.get("mcScore", 0.0) 
         new_essay_score = 0.0
         
         # === 4. XỬ LÝ ĐIỂM TỰ LUẬN MỚI TỪ GIÁO VIÊN ===
         has_ungraded_essay = False 
 
-        # 🔥 SỬA LỖI: Lặp qua 'detailed_list' BẰNG INDEX
+        # 🔥 SỬA LỖI LẦN 4: Tạo một map payload để tra cứu
+        payload_map = { str(e.get("questionId")): e for e in essays_payload if e.get("questionId") }
+
+        # Lặp qua 'detailed_list' BẰNG INDEX
         for i in range(len(detailed_list)):
             
-            # Lấy thông tin trực tiếp từ list
             q_id_str = str(detailed_list[i].get("questionId"))
             q_type = detailed_list[i].get("type")
             
             if q_type == "essay" or q_type == "draw":
             
-                # Tìm xem GV có chấm câu này trong payload không
-                essay_data = next((e for e in essays_payload if str(e.get("questionId")) == q_id_str), None)
+                # Tìm payload trong map
+                essay_data = payload_map.get(q_id_str)
                 max_points = float(points_map.get(q_id_str, 1.0)) 
                 
                 if essay_data:
@@ -2016,7 +2010,6 @@ def grade_result(result_id):
                     
                     # --- 4a. Xử lý Điểm ---
                     if score_was_provided:
-                        # GV CÓ nhập điểm (kể cả 0)
                         ts_float = 0.0
                         try: ts_float = float(teacher_provided_score)
                         except: ts_float = 0.0
@@ -2024,22 +2017,18 @@ def grade_result(result_id):
                         if ts_float > max_points: ts_float = max_points 
                         if ts_float < 0: ts_float = 0.0
                         
-                        # 🔥 SỬA LỖI: Cập nhật TRỰC TIẾP
                         detailed_list[i]["teacherScore"] = ts_float
                         detailed_list[i]["pointsGained"] = ts_float
                         detailed_list[i]["isCorrect"] = ts_float > 0
                         new_essay_score += ts_float
                     else:
-                        # GV KHÔNG nhập điểm (teacherScore là null)
                         has_old_score = (detailed_list[i].get("teacherScore") is not None)
-                        
                         has_new_note = (teacher_provided_note is not None)
                         has_new_drawing = (teacher_provided_drawing is not None) 
 
                         if has_old_score:
                             new_essay_score += float(detailed_list[i].get("pointsGained", 0.0))
                         elif has_new_note or has_new_drawing:
-                            # GV có vẽ/ghi chú nhưng quên nhập điểm -> Gán điểm 0.0
                             detailed_list[i]["teacherScore"] = 0.0
                             detailed_list[i]["pointsGained"] = 0.0
                             detailed_list[i]["isCorrect"] = False
@@ -2053,8 +2042,14 @@ def grade_result(result_id):
                     # --- 4c. Xử lý Bản vẽ (Logic Sửa lỗi 07/11 Lần 2) ---
                     if q_type == "draw":
                         if "teacherDrawing" in essay_data and teacher_provided_drawing is not None:
-                            # 🔥 SỬA LỖI: Cập nhật TRỰC TIẾP
+                            # =================================================
+                            # === [BE LOG 2] LOG KHI CHUẨN BỊ LƯU DRAWING ===
+                            # =================================================
+                            print(f"[BE LOG 2] Đang lưu teacherDrawing cho câu {q_id_str}. Dữ liệu (100 chars): {str(teacher_provided_drawing)[:100]}...")
+                            # =================================================
                             detailed_list[i]["teacherDrawing"] = teacher_provided_drawing
+                        else:
+                            print(f"[BE LOG 2] BỎ QUA lưu teacherDrawing cho câu {q_id_str}. 'in': {'teacherDrawing' in essay_data}, 'is not None': {teacher_provided_drawing is not None}")
             
                 else:
                     # Không có payload cho câu này
@@ -2076,13 +2071,22 @@ def grade_result(result_id):
 
         # === 6. Cập nhật DB ===
         update_payload = {
-            "detailedResults": detailed_list, # <-- Giờ đây là list đã được sửa đổi
+            "detailedResults": detailed_list, 
             "totalScore": round(new_total_score, 2),
             "mcScore": round(new_mc_score, 2), 
             "essayScore": round(new_essay_score, 2), 
             "gradingStatus": new_status,
             "gradedAt": graded_at,
         }
+
+        # =================================================
+        # === [BE LOG 3 & 4] LOG TRƯỚC KHI LƯU DB ===
+        # =================================================
+        print(f"[BE LOG 3] Chuẩn bị update MongoDB. Status: {new_status}, EssayScore: {new_essay_score}")
+        for det in detailed_list:
+            if det.get("type") == "draw":
+                print(f"[BE LOG 4] Dữ liệu draw của câu {det.get('questionId')} trong update_payload (100 chars): {str(det.get('teacherDrawing'))[:100]}...")
+        # =================================================
 
         db.results.update_one(
             {"id": result_id},
@@ -2106,7 +2110,7 @@ def grade_result(result_id):
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e), "message": "Internal Server Error"}), 500
-
+        
 # ... (Các hàm /results_summary, /results/<id> (GET), /assignment_stats, /results (GET) giữ nguyên) ...
 @app.route("/api/results_summary", methods=["GET"])
 def get_results_summary():
