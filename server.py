@@ -1953,16 +1953,18 @@ def grade_result(result_id):
     🔥 CẢI TIẾN (11/6):
     6. Nhận thêm payload 'teacherDrawing' và lưu vào 'detailedResults'.
     
-    🔥 SỬA LỖI (12/6):
-    7. Lưu 'teacherDrawing' và 'teacherNote' ngay cả khi điểm (teacherScore) không được cung cấp.
-    
     🔥 SỬA LỖI (07/11 - Lần 1):
-    8. Nếu GV không nhập điểm (null) nhưng có vẽ hoặc ghi chú, tự động gán điểm 0.0 
+    7. Nếu GV không nhập điểm (null) nhưng có vẽ hoặc ghi chú, tự động gán điểm 0.0 
        để chuyển trạng thái sang "Đã Chấm".
        
     🔥 SỬA LỖI (07/11 - Lần 2 - Vấn đề của BẠN):
-    9. Sửa logic lưu 'teacherDrawing'. Chỉ lưu nếu payload gửi lên có chứa
+    8. Sửa logic lưu 'teacherDrawing'. Chỉ lưu nếu payload gửi lên có chứa
        dữ liệu (không phải None/null).
+       
+    🔥 SỬA LỖI (07/11 - Lần 3 - Vấn đề của BẠN):
+    9. Sửa đổi logic lặp: Lặp qua danh sách gốc bằng index (i)
+       thay vì lặp qua map (detailed_map.items()) để đảm bảo
+       dữ liệu được sửa đổi 'in-place' (tại chỗ) trước khi lưu.
     """
     try:
         data = request.get_json() or {}
@@ -1974,9 +1976,9 @@ def grade_result(result_id):
             return jsonify({"error": "Không tìm thấy bài làm"}), 404
 
         current_regrade = result.get("regradeCount", 0)
-        detailed_list = result.get("detailedResults", [])
-        detailed_map = { str(d.get("questionId")): d for d in detailed_list if d.get("questionId") }
-
+        # Lấy danh sách gốc
+        detailed_list = result.get("detailedResults", []) 
+        
         # === 2. LẤY BÀI THI GỐC (ĐỂ LẤY ĐIỂM TỐI ĐA CỦA TỪNG CÂU) ===
         test_id = result.get("testId")
         test_doc = db.tests.find_one({"id": test_id})
@@ -1992,8 +1994,10 @@ def grade_result(result_id):
         # === 4. XỬ LÝ ĐIỂM TỰ LUẬN MỚI TỪ GIÁO VIÊN ===
         has_ungraded_essay = False 
 
-        for q_id_str, det in detailed_map.items():
-            
+        # 🔥 SỬA LỖI: Lặp qua 'detailed_list' BẰNG INDEX
+        for i in range(len(detailed_list)):
+            det = detailed_list[i] # Lấy dictionary của câu hỏi hiện tại
+            q_id_str = str(det.get("questionId"))
             q_type = det.get("type")
             
             if q_type == "essay" or q_type == "draw":
@@ -2029,7 +2033,7 @@ def grade_result(result_id):
                         has_old_score = (det.get("teacherScore") is not None)
                         
                         has_new_note = (teacher_provided_note is not None)
-                        has_new_drawing = (teacher_provided_drawing is not None) # <-- Kiểm tra dữ liệu vẽ
+                        has_new_drawing = (teacher_provided_drawing is not None) 
 
                         if has_old_score:
                             new_essay_score += float(det.get("pointsGained", 0.0))
@@ -2045,26 +2049,21 @@ def grade_result(result_id):
                     if "teacherNote" in essay_data:
                         det["teacherNote"] = teacher_provided_note
 
-                    # =================================================
-                    # === 🔥 SỬA LỖI TẠI ĐÂY (07/11 - Lần 2) ===
-                    # =================================================
-                    # Chỉ cập nhật 'teacherDrawing' nếu nó là 'draw' VÀ
-                    # payload gửi lên có key 'teacherDrawing' VÀ
-                    # giá trị của nó KHÔNG PHẢI None (tức là có hình vẽ)
+                    # --- 4c. Xử lý Bản vẽ (Logic Sửa lỗi 07/11 Lần 2) ---
                     if q_type == "draw":
                         if "teacherDrawing" in essay_data and teacher_provided_drawing is not None:
                             det["teacherDrawing"] = teacher_provided_drawing
-                    # =================================================
-                    # === KẾT THÚC SỬA LỖI ===
-                    # =================================================
-                
+            
                 else:
                     # Không có payload cho câu này
                     if det.get("teacherScore") is None:
                         has_ungraded_essay = True
                     else:
                         new_essay_score += float(det.get("pointsGained", 0.0))
-
+            
+            # 🔥 CẬP NHẬT LẠI LIST GỐC (an toàn)
+            detailed_list[i] = det 
+        
         # === 5. Tính điểm tổng và xác định trạng thái ===
         new_total_score = new_mc_score + new_essay_score
         graded_at = now_vn_iso()
@@ -2078,7 +2077,7 @@ def grade_result(result_id):
 
         # === 6. Cập nhật DB ===
         update_payload = {
-            "detailedResults": list(detailed_map.values()),
+            "detailedResults": detailed_list, # <-- Giờ đây là list đã được sửa đổi
             "totalScore": round(new_total_score, 2),
             "mcScore": round(new_mc_score, 2), 
             "essayScore": round(new_essay_score, 2), 
