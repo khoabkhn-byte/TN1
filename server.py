@@ -2191,7 +2191,7 @@ def get_result_detail(result_id):
             "$project": {
                 "_id": 0, "id": {"$ifNull": ["$id", {"$toString": "$_id"}]},
                 "assignmentId": 1, "testId": 1, "studentId": 1, "submittedAt": 1, "gradedAt": 1,
-                "gradingStatus": 1, "totalScore": 1, "mcScore": 1, "essayScore": 1,
+                "gradingStatus": 1, "totalScore": 1, "mcScore": 1, "essayScore": 1, "tfScore": 1, "fillScore": 1, "drawScore": 1,
                 "teacherNote": 1, "regradeCount": 1, "studentAnswers": 1, "detailedResults": 1,
                 "testName": {"$ifNull": ["$test_info.name", "Bài thi đã xóa"]},
                 "subject": {"$ifNull": ["$test_info.subject", "khác"]}, 
