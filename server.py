@@ -1645,7 +1645,7 @@ def get_assignments_for_student():
         return jsonify({"success": True, "assignments": []})
     test_ids = [a["testId"] for a in assignments if a.get("testId")]
     tests = db.tests.find({"id": {"$in": test_ids}}, 
-                           {"_id": 0, "id": 1, "name": 1, "subject": 1, "time": 1, "mcCount": 1, "essayCount": 1})
+                           {"_id": 0, "id": 1, "name": 1, "subject": 1, "time": 1, "mcCount": 1, "essayCount": 1, "tfCount": 1, "fillCount": 1})
     tests_map = {t["id"]: t for t in tests}
     result_list = []
     for a in assignments:
@@ -1659,6 +1659,8 @@ def get_assignments_for_student():
             "time": test_info.get("time"),
             "mcCount": test_info.get("mcCount", 0),
             "essayCount": test_info.get("essayCount", 0),
+            "tfCount": test_info.get("tfCount", 0),     # <-- THÊM DÒNG NÀY
+            "fillCount": test_info.get("fillCount", 0), # <-- THÊM DÒNG NÀY
             "deadline": a.get("deadline"),
             "assignedAt": assigned_date,
             "status": a.get("status", "pending"),
