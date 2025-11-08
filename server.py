@@ -1946,10 +1946,10 @@ def grade_result(result_id):
     Giáo viên chấm điểm (Logic đã sửa theo yêu cầu của bạn):
     ... (docstrings) ...
        
-    🔥 SỬA LỖI (07/11 - Lần 4 - Vấn đề của BẠN):
-    10. Thêm log chi tiết (BE LOG 1, 2, 3, 4) để theo dõi.
-    11. Thay đổi logic cập nhật 'detailed_list' sang
-        dùng Map (ánh xạ) để đảm bảo tham chiếu chính xác.
+    🔥 SỬA LỖI (08/11 - Lỗi Race Condition):
+    12. Sửa đổi logic: Thay vì trả về {success: True},
+        hàm này sẽ tìm lại document vừa cập nhật trong DB
+        và trả về TOÀN BỘ document đó.
     """
     try:
         data = request.get_json() or {}
@@ -1985,10 +1985,8 @@ def grade_result(result_id):
         # === 4. XỬ LÝ ĐIỂM TỰ LUẬN MỚI TỪ GIÁO VIÊN ===
         has_ungraded_essay = False 
 
-        # 🔥 SỬA LỖI LẦN 4: Tạo một map payload để tra cứu
         payload_map = { str(e.get("questionId")): e for e in essays_payload if e.get("questionId") }
 
-        # Lặp qua 'detailed_list' BẰNG INDEX
         for i in range(len(detailed_list)):
             
             q_id_str = str(detailed_list[i].get("questionId"))
@@ -1996,24 +1994,20 @@ def grade_result(result_id):
             
             if q_type == "essay" or q_type == "draw":
             
-                # Tìm payload trong map
                 essay_data = payload_map.get(q_id_str)
                 max_points = float(points_map.get(q_id_str, 1.0)) 
                 
                 if essay_data:
-                    # --- Lấy tất cả dữ liệu mới từ payload ---
                     teacher_provided_score = essay_data.get("teacherScore")
                     teacher_provided_note = essay_data.get("teacherNote")
                     teacher_provided_drawing = essay_data.get("teacherDrawing") 
 
                     score_was_provided = (teacher_provided_score is not None)
                     
-                    # --- 4a. Xử lý Điểm ---
                     if score_was_provided:
                         ts_float = 0.0
                         try: ts_float = float(teacher_provided_score)
                         except: ts_float = 0.0
-                        
                         if ts_float > max_points: ts_float = max_points 
                         if ts_float < 0: ts_float = 0.0
                         
@@ -2035,24 +2029,17 @@ def grade_result(result_id):
                         else:
                             has_ungraded_essay = True
 
-                    # --- 4b. Xử lý Nhận xét (Chỉ cập nhật nếu key tồn tại) ---
                     if "teacherNote" in essay_data:
                         detailed_list[i]["teacherNote"] = teacher_provided_note
 
-                    # --- 4c. Xử lý Bản vẽ (Logic Sửa lỗi 07/11 Lần 2) ---
                     if q_type == "draw":
                         if "teacherDrawing" in essay_data and teacher_provided_drawing is not None:
-                            # =================================================
-                            # === [BE LOG 2] LOG KHI CHUẨN BỊ LƯU DRAWING ===
-                            # =================================================
                             print(f"[BE LOG 2] Đang lưu teacherDrawing cho câu {q_id_str}. Dữ liệu (100 chars): {str(teacher_provided_drawing)[:100]}...")
-                            # =================================================
                             detailed_list[i]["teacherDrawing"] = teacher_provided_drawing
                         else:
                             print(f"[BE LOG 2] BỎ QUA lưu teacherDrawing cho câu {q_id_str}. 'in': {'teacherDrawing' in essay_data}, 'is not None': {teacher_provided_drawing is not None}")
             
                 else:
-                    # Không có payload cho câu này
                     if detailed_list[i].get("teacherScore") is None:
                         has_ungraded_essay = True
                     else:
@@ -2079,14 +2066,10 @@ def grade_result(result_id):
             "gradedAt": graded_at,
         }
 
-        # =================================================
-        # === [BE LOG 3 & 4] LOG TRƯỚC KHI LƯU DB ===
-        # =================================================
         print(f"[BE LOG 3] Chuẩn bị update MongoDB. Status: {new_status}, EssayScore: {new_essay_score}")
         for det in detailed_list:
             if det.get("type") == "draw":
                 print(f"[BE LOG 4] Dữ liệu draw của câu {det.get('questionId')} trong update_payload (100 chars): {str(det.get('teacherDrawing'))[:100]}...")
-        # =================================================
 
         db.results.update_one(
             {"id": result_id},
@@ -2096,16 +2079,37 @@ def grade_result(result_id):
             }
         )
 
+        # =================================================
+        # === 🔥 SỬA LỖI (LẦN 5): TRẢ VỀ DỮ LIỆU MỚI NHẤT ===
+        # =================================================
+        # Thay vì return jsonify(success), 
+        # hãy tìm lại document vừa cập nhật và trả về nó.
+        
+        updated_document = db.results.find_one({"id": result_id})
+        if not updated_document:
+            # Fallback nếu không tìm thấy (lỗi hiếm)
+            return jsonify({"success": False, "message": "Lỗi: Không tìm thấy bài làm sau khi cập nhật."}), 500
+
+        # Dọn dẹp _id trước khi gửi
+        updated_document.pop("_id", None)
+        
+        # Bổ sung thông tin bị thiếu mà FE cần
+        test_info = db.tests.find_one({"id": updated_document.get("testId")}, {"_id": 0, "name": 1, "subject": 1}) or {}
+        student_info = db.users.find_one({"id": updated_document.get("studentId")}, {"_id": 0, "fullName": 1, "className": 1}) or {}
+        
+        updated_document["testName"] = updated_document.get("testName") or test_info.get("name", "Bài thi đã xóa")
+        updated_document["subject"] = updated_document.get("subject") or test_info.get("subject", "khác")
+        updated_document["studentName"] = updated_document.get("studentName") or student_info.get("fullName", "N/A")
+        updated_document["className"] = updated_document.get("className") or student_info.get("className", "N/A")
+
+        print(f"[BE LOG 5] Trả về tài liệu đã cập nhật. Hình vẽ (100 chars): {str(updated_document.get('detailedResults', [{}])[0].get('teacherDrawing'))[:100]}...")
+
         # === 7. Trả về ===
-        return jsonify({
-            "success": True,
-            "message": f"{new_status}! Tổng điểm: {round(new_total_score,2):.2f}",
-            "totalScore": round(new_total_score,2),
-            "mcScore": round(new_mc_score, 2),
-            "essayScore": round(new_essay_score, 2),
-            "gradingStatus": new_status,
-            "regradeCount": current_regrade + 1
-        })
+        # Trả về TOÀN BỘ document thay vì chỉ success message
+        return jsonify(updated_document), 200
+        # =================================================
+        # === KẾT THÚC SỬA LỖI ===
+        # =================================================
 
     except Exception as e:
         traceback.print_exc()
