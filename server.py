@@ -2138,6 +2138,7 @@ def get_results_summary():
             "tfScore": {"$ifNull": ["$tfScore", 0.0]},       # <-- THÊM MỚI
             "fillScore": {"$ifNull": ["$fillScore", 0.0]},   # <-- THÊM MỚI
             "essayScore": {"$ifNull": ["$essayScore", 0.0]},
+            "drawScore": {"$ifNull": ["$drawScore", 0.0]},   # <-- THÊM DÒNG NÀY
             "gradingStatus": {"$ifNull": ["$gradingStatus", "Đang Chấm"]},
             "gradedAt": {"$ifNull": ["$gradedAt", None]}, 
             "submittedAt": "$submittedAt",
