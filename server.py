@@ -188,9 +188,9 @@ def calculate_question_points(question_ids, db):
 # ✅ THAY THẾ TOÀN BỘ HÀM NÀY (Khoảng dòng 228)
 # ==================================================
 def calculate_question_counts(question_ids, db):
-    """Tính toán số câu MC, Essay, TF, Fill từ danh sách ID câu hỏi."""
+    """Tính toán số câu MC, Essay, TF, Fill, Draw từ danh sách ID câu hỏi."""
     if not question_ids:
-        return 0, 0, 0, 0 # Trả về 4 giá trị
+        return 0, 0, 0, 0, 0 # Trả về 5 giá trị
 
     object_ids = []
     uuid_strings = []
@@ -207,7 +207,7 @@ def calculate_question_counts(question_ids, db):
         or_clauses.append({"id": {"$in": uuid_strings}})
 
     if not or_clauses:
-        return 0, 0, 0, 0
+        return 0, 0, 0, 0, 0
         
     question_types = list(db.questions.find(
         {"$or": or_clauses},
@@ -218,14 +218,15 @@ def calculate_question_counts(question_ids, db):
     essay_count = 0
     tf_count = 0  
     fill_count = 0 
+    draw_count = 0 # <-- THÊM MỚI
 
     for q in question_types:
         q_type = q.get("type", "").lower()
         
         if q_type == "essay":
             essay_count += 1
-        elif q_type == "draw": # <-- ĐÃ THÊM "draw"
-            essay_count += 1 # <-- Đếm "Vẽ" như là "Tự luận"
+        elif q_type == "draw":
+            draw_count += 1 # <-- SỬA TỪ essay_count
         elif q_type == "true_false": 
             tf_count += 1
         elif q_type == "fill_blank": 
@@ -234,16 +235,11 @@ def calculate_question_counts(question_ids, db):
             mc_count += 1
         elif not q_type: # Fallback
              if q.get("options") and len(q.get("options")) > 0:
-                mc_count += 1 # Giả định câu cũ có options là MC
+                mc_count += 1 
              else:
                 essay_count += 1
 
-    return mc_count, essay_count, tf_count, fill_count # <-- Trả về 4 giá trị
-
-
-@app.route("/api/test-deploy", methods=["GET"])
-def test_deploy():
-    return jsonify({"status": "SUCCESS", "version": "v1.2-Point_Logic_Fix"})
+    return mc_count, essay_count, tf_count, fill_count, draw_count # <-- Trả về 5 giá trị
 
 # ------------------ GENERIC ERROR HANDLER ------------------
 @app.errorhandler(Exception)
@@ -1113,7 +1109,7 @@ def create_test():
     # 3. Định dạng lại mảng câu hỏi để lưu vào DB
     formatted_questions = []
     # ======== SỬA ĐỔI TẠI ĐÂY ========
-    mc_count, essay_count, tf_count, fill_count = calculate_question_counts(question_uuids_to_save, db)
+    mc_count, essay_count, tf_count, fill_count, draw_count = calculate_question_counts(question_uuids_to_save, db)
     # ===============================
 
     for q_id in question_uuids_to_save: 
@@ -1138,6 +1134,7 @@ def create_test():
         "essayCount": essay_count,
         "tfCount": tf_count,
         "fillCount": fill_count,
+        "drawCount": draw_count, # <-- THÊM DÒNG NÀY
         # ===============================
         "count": len(question_uuids_to_save) 
     }
@@ -1220,7 +1217,7 @@ def create_test_auto():
         if q_type == 'essay':
             essay_count += 1
         elif q_type == 'draw': # <-- THÊM DÒNG NÀY
-            essay_count += 1 # <-- Đếm "Vẽ" như là "Tự luận"    
+            draw_count += 1 # <-- SỬA TỪ essay_count 
         elif q_type == 'true_false':
             tf_count += 1
         elif q_type == 'fill_blank':
@@ -1244,6 +1241,7 @@ def create_test_auto():
         "essayCount": essay_count,
         "tfCount": tf_count,
         "fillCount": fill_count,
+        "drawCount": draw_count, # <-- THÊM DÒNG NÀY
         # ===============================
         "count": len(formatted_questions)
     }
@@ -1373,7 +1371,7 @@ def update_test(test_id):
     # 3. Định dạng lại mảng câu hỏi
     formatted_questions = []
     # ======== SỬA ĐỔI TẠI ĐÂY ========
-    mc_count, essay_count, tf_count, fill_count = calculate_question_counts(question_uuids_to_save, db)
+    mc_count, essay_count, tf_count, fill_count, draw_count = calculate_question_counts(question_uuids_to_save, db)
     # ===============================
 
     for q_id in question_uuids_to_save:
@@ -1395,6 +1393,7 @@ def update_test(test_id):
         "essayCount": essay_count,
         "tfCount": tf_count,
         "fillCount": fill_count,
+        "drawCount": draw_count, # <-- THÊM DÒNG NÀY
         # ===============================
         "count": len(question_uuids_to_save)
     }
@@ -1645,7 +1644,7 @@ def get_assignments_for_student():
         return jsonify({"success": True, "assignments": []})
     test_ids = [a["testId"] for a in assignments if a.get("testId")]
     tests = db.tests.find({"id": {"$in": test_ids}}, 
-                           {"_id": 0, "id": 1, "name": 1, "subject": 1, "time": 1, "mcCount": 1, "essayCount": 1, "tfCount": 1, "fillCount": 1})
+                           {"_id": 0, "id": 1, "name": 1, "subject": 1, "time": 1, "mcCount": 1, "essayCount": 1, "tfCount": 1, "fillCount": 1, "drawCount": 1})
     tests_map = {t["id"]: t for t in tests}
     result_list = []
     for a in assignments:
@@ -1661,6 +1660,7 @@ def get_assignments_for_student():
             "essayCount": test_info.get("essayCount", 0),
             "tfCount": test_info.get("tfCount", 0),     # <-- THÊM DÒNG NÀY
             "fillCount": test_info.get("fillCount", 0), # <-- THÊM DÒNG NÀY
+            "drawCount": test_info.get("drawCount", 0), # <-- THÊM MỚI
             "deadline": a.get("deadline"),
             "assignedAt": assigned_date,
             "status": a.get("status", "pending"),
@@ -1729,19 +1729,16 @@ def create_result():
              correct_questions_cursor = list(db.questions.find({"$or": or_clauses}))
 
         full_question_map = {}
-        has_essay = False # <-- SỬA LỖI 1 (Hoàn tất)
+        has_manual_grade = False # <-- SỬA TÊN BIẾN
         
         for q in correct_questions_cursor:
             q_id_uuid = q.get("id")
             q_id_obj_str = str(q.get("_id"))
             q_type = q.get("type", "mc")
             
-            # ===== SỬA LỖI 1 (Hoàn tất) =====
-            # Coi 'essay' HOẶC 'draw' là lý do để 'Đang Chấm'
             if q_type == "essay" or q_type == "draw":
-                has_essay = True
-            # ===============================
-
+                has_manual_grade = True # <-- SỬA TÊN BIẾN
+            
             if q_id_uuid: full_question_map[q_id_uuid] = q
             if q_id_obj_str: full_question_map[q_id_obj_str] = q
 
@@ -1753,9 +1750,14 @@ def create_result():
             if qkey:
                 student_ans_map[str(qkey)] = ans.get("answer") 
 
+        # ▼▼▼ KHỐI TÍNH ĐIỂM MỚI ▼▼▼
         mc_score = 0.0
+        tf_score = 0.0
+        fill_score = 0.0
+        essay_score = 0.0 # Sẽ là 0
+        draw_score = 0.0 # Sẽ là 0
         detailed_results = []
-        essay_count = 0 
+        # ▲▲▲ KẾT THÚC KHỐI MỚI ▲▲▲
 
         def norm_str(x):
             if x is None: return ""
@@ -1775,11 +1777,8 @@ def create_result():
             is_correct = None
             points_gained = 0.0
             correct_answer_for_storage = None 
-            
-            # ===== SỬA LỖI 2 (1/2) =====
             correct_items_count_for_storage = None
             total_items_for_storage = None
-            # ============================
 
             if q_type == "mc":
                 correct_ans_text = next((opt.get("text") for opt in question_obj.get("options", []) if opt.get("correct")), None)
@@ -1795,7 +1794,7 @@ def create_result():
                 else:
                     correct_items_count_for_storage = 0 
                     
-                mc_score += points_gained 
+                mc_score += points_gained # <-- SỬA: Gán vào mc_score
 
             elif q_type == "true_false":
                 correct_answers_list = [opt.get("correct") for opt in question_obj.get("options", [])]
@@ -1803,7 +1802,7 @@ def create_result():
                 student_answers_list = student_ans_value if isinstance(student_ans_value, list) else []
                 
                 num_items = len(correct_answers_list)
-                total_items_for_storage = num_items # <-- LƯU LẠI
+                total_items_for_storage = num_items
                 correct_items_count = 0
                 
                 if num_items == 0:
@@ -1822,7 +1821,7 @@ def create_result():
                             
                     points_gained = correct_items_count * points_per_item
                 
-                correct_items_count_for_storage = correct_items_count # <-- LƯU LẠI
+                correct_items_count_for_storage = correct_items_count
 
                 if points_gained == max_points:
                     is_correct = True
@@ -1831,7 +1830,7 @@ def create_result():
                 else:
                     is_correct = False
                     
-                mc_score += points_gained
+                tf_score += points_gained # <-- SỬA: Gán vào tf_score
             
             elif q_type == "fill_blank":
                 correct_options = question_obj.get("options", [])
@@ -1840,7 +1839,7 @@ def create_result():
                 student_answers_list = student_ans_value if isinstance(student_ans_value, list) else []
                 
                 num_blanks = len(correct_answers_list)
-                total_items_for_storage = num_blanks # <-- LƯU LẠI
+                total_items_for_storage = num_blanks
                 correct_blanks_count = 0
                 
                 if num_blanks == 0:
@@ -1856,7 +1855,7 @@ def create_result():
                             correct_blanks_count += 1
                     points_gained = correct_blanks_count * points_per_blank
                 
-                correct_items_count_for_storage = correct_blanks_count # <-- LƯU LẠI
+                correct_items_count_for_storage = correct_blanks_count
                 
                 if points_gained == max_points:
                     is_correct = True
@@ -1864,19 +1863,16 @@ def create_result():
                     is_correct = None 
                 else:
                     is_correct = False
-                mc_score += points_gained 
+                
+                fill_score += points_gained # <-- SỬA: Gán vào fill_score
             
             elif q_type == "essay":
-                essay_count += 1
                 is_correct = None 
                 correct_answer_for_storage = question_obj.get("answer") 
 
-            # ===== SỬA LỖI 1 (Hoàn tất) =====
             elif q_type == "draw":
-                essay_count += 1 # Đếm là 1 câu tự luận
-                is_correct = None # Chờ chấm
-                correct_answer_for_storage = question_obj.get("answer") # Lấy đáp án mẫu (nếu có)
-            # ===============================
+                is_correct = None
+                correct_answer_for_storage = question_obj.get("answer")
 
             detailed_results.append({
                 "questionId": q_id,
@@ -1888,20 +1884,19 @@ def create_result():
                 "type": q_type,
                 "teacherScore": None,
                 "teacherNote": "",
-                # ===== SỬA LỖI 2 (1/2) =====
                 "correctItems": correct_items_count_for_storage,
                 "totalItems": total_items_for_storage
-                # ===========================
             })
 
-        # 6. Xác định trạng thái chấm (Đã sửa)
-        grading_status = "Đang Chấm" if has_essay else "Hoàn tất"
+        # 6. Xác định trạng thái chấm
+        grading_status = "Đang Chấm" if has_manual_grade else "Hoàn tất" # <-- SỬA TÊN BIẾN
         result_id = str(uuid4())
-        total_score = round(mc_score, 2) 
+        total_score = round(mc_score + tf_score + fill_score, 2) # <-- SỬA TỔNG ĐIỂM
 
         # 7. Lấy thông tin user
         user_info = db.users.find_one({"id": student_id}) or {}
 
+        # ▼▼▼ SỬA KHỐI TẠO new_result ▼▼▼
         new_result = {
             "id": result_id,
             "studentId": student_id,
@@ -1912,13 +1907,17 @@ def create_result():
             "testName": test_doc.get("name"),
             "studentAnswers": student_answers_payload, 
             "detailedResults": detailed_results,
-            "gradingStatus": grading_status, # <-- Đã sửa
+            "gradingStatus": grading_status, 
             "mcScore": round(mc_score, 2), 
+            "tfScore": round(tf_score, 2),
+            "fillScore": round(fill_score, 2),
             "essayScore": 0.0,
+            "drawScore": 0.0,
             "totalScore": total_score,
             "submittedAt": now_vn_iso(),
             "gradedAt": None
         }
+        # ▲▲▲ KẾT THÚC SỬA ▲▲▲
         
         # 8. Dùng replace_one (UPSERT)
         db.results.replace_one(
@@ -1944,25 +1943,12 @@ def create_result():
 # ==================================================
 @app.route("/api/results/<result_id>/grade", methods=["POST"])
 def grade_result(result_id):
-    """
-    Giáo viên chấm điểm (Logic đã sửa theo yêu cầu của bạn):
-    ... (docstrings) ...
-       
-    🔥 SỬA LỖI (08/11 - Lỗi Race Condition):
-    12. Sửa đổi logic: Thay vì trả về {success: True},
-        hàm này sẽ tìm lại document vừa cập nhật trong DB
-        và trả về TOÀN BỘ document đó.
-    """
     try:
         data = request.get_json() or {}
-        essays_payload = [e for e in data.get("essays", []) if isinstance(e, dict)] # Lấy payload của GV
+        essays_payload = [e for e in data.get("essays", []) if isinstance(e, dict)] 
 
-        # =================================================
-        # === [BE LOG 1] LOG PAYLOAD THÔ ===
-        # =================================================
         print(f"--- [BE LOG 1] grade_result cho {result_id} ---")
         print(f"Payload thô nhận được (chỉ 'essays'): {essays_payload}")
-        # =================================================
         
         # === 1. Lấy bài làm (Result) ===
         result = db.results.find_one({"id": result_id})
@@ -1980,12 +1966,17 @@ def grade_result(result_id):
         
         points_map = {q.get('id') or str(q.get('_id')): q.get('points', 1) for q in test_doc.get('questions', [])}
 
-        # === 3. LẤY ĐIỂM TRẮC NGHIỆM ... ===
+        # ▼▼▼ SỬA KHỐI TÍNH ĐIỂM ▼▼▼
+        # === 3. LẤY ĐIỂM TỰ ĐỘNG (Đã có) ===
         new_mc_score = result.get("mcScore", 0.0) 
-        new_essay_score = 0.0
+        new_tf_score = result.get("tfScore", 0.0)
+        new_fill_score = result.get("fillScore", 0.0)
         
-        # === 4. XỬ LÝ ĐIỂM TỰ LUẬN MỚI TỪ GIÁO VIÊN ===
-        has_ungraded_essay = False 
+        # === 4. TÍNH ĐIỂM CHẤM TAY (MỚI) ===
+        new_essay_score = 0.0
+        new_draw_score = 0.0
+        has_ungraded_manual = False # Sửa tên biến
+        # ▲▲▲ KẾT THÚC SỬA ▲▲▲
 
         payload_map = { str(e.get("questionId")): e for e in essays_payload if e.get("questionId") }
 
@@ -1994,6 +1985,7 @@ def grade_result(result_id):
             q_id_str = str(detailed_list[i].get("questionId"))
             q_type = detailed_list[i].get("type")
             
+            # Chỉ xử lý 2 loại chấm tay
             if q_type == "essay" or q_type == "draw":
             
                 essay_data = payload_map.get(q_id_str)
@@ -2016,62 +2008,83 @@ def grade_result(result_id):
                         detailed_list[i]["teacherScore"] = ts_float
                         detailed_list[i]["pointsGained"] = ts_float
                         detailed_list[i]["isCorrect"] = ts_float > 0
-                        new_essay_score += ts_float
+                        
+                        # ▼▼▼ PHÂN LOẠI ĐIỂM CHẤM TAY ▼▼▼
+                        if q_type == "essay":
+                            new_essay_score += ts_float
+                        elif q_type == "draw":
+                            new_draw_score += ts_float
+                        # ▲▲▲ KẾT THÚC PHÂN LOẠI ▲▲▲
+
                     else:
+                        # (Code xử lý 'has_ungraded_manual' giữ nguyên)
                         has_old_score = (detailed_list[i].get("teacherScore") is not None)
                         has_new_note = (teacher_provided_note is not None)
                         has_new_drawing = (teacher_provided_drawing is not None) 
 
                         if has_old_score:
-                            new_essay_score += float(detailed_list[i].get("pointsGained", 0.0))
+                            # Lấy lại điểm cũ nếu GV không nhập điểm mới
+                            old_points_gained = float(detailed_list[i].get("pointsGained", 0.0))
+                            if q_type == "essay":
+                                new_essay_score += old_points_gained
+                            elif q_type == "draw":
+                                new_draw_score += old_points_gained
                         elif has_new_note or has_new_drawing:
+                            # Nếu GV chỉ ghi chú/vẽ mà không chấm -> 0 điểm
                             detailed_list[i]["teacherScore"] = 0.0
                             detailed_list[i]["pointsGained"] = 0.0
                             detailed_list[i]["isCorrect"] = False
                         else:
-                            has_ungraded_essay = True
+                            has_ungraded_manual = True # Đánh dấu chờ chấm
 
                     if "teacherNote" in essay_data:
                         detailed_list[i]["teacherNote"] = teacher_provided_note
 
                     if q_type == "draw":
                         if "teacherDrawing" in essay_data and teacher_provided_drawing is not None:
-                            print(f"[BE LOG 2] Đang lưu teacherDrawing cho câu {q_id_str}. Dữ liệu (100 chars): {str(teacher_provided_drawing)[:100]}...")
+                            print(f"[BE LOG 2] Đang lưu teacherDrawing cho câu {q_id_str}.")
                             detailed_list[i]["teacherDrawing"] = teacher_provided_drawing
                         else:
-                            print(f"[BE LOG 2] BỎ QUA lưu teacherDrawing cho câu {q_id_str}. 'in': {'teacherDrawing' in essay_data}, 'is not None': {teacher_provided_drawing is not None}")
+                            print(f"[BE LOG 2] BỎ QUA lưu teacherDrawing cho câu {q_id_str}.")
             
-                else:
+                else: # (Không có trong payload)
                     if detailed_list[i].get("teacherScore") is None:
-                        has_ungraded_essay = True
+                        has_ungraded_manual = True
                     else:
-                        new_essay_score += float(detailed_list[i].get("pointsGained", 0.0))
+                        # Lấy điểm cũ
+                        old_points_gained = float(detailed_list[i].get("pointsGained", 0.0))
+                        if q_type == "essay":
+                            new_essay_score += old_points_gained
+                        elif q_type == "draw":
+                            new_draw_score += old_points_gained
         
         # === 5. Tính điểm tổng và xác định trạng thái ===
-        new_total_score = new_mc_score + new_essay_score
+        new_total_score = new_mc_score + new_tf_score + new_fill_score + new_essay_score + new_draw_score
         graded_at = now_vn_iso()
         
-        if has_ungraded_essay:
+        if has_ungraded_manual: # Sửa tên biến
              new_status = "Đang Chấm"
         elif current_regrade + 1 >= 2:
             new_status = "Hoàn tất" 
         else:
             new_status = "Đã Chấm" 
 
-        # === 6. Cập nhật DB ===
+        # ▼▼▼ SỬA KHỐI CẬP NHẬT DB ▼▼▼
         update_payload = {
             "detailedResults": detailed_list, 
             "totalScore": round(new_total_score, 2),
             "mcScore": round(new_mc_score, 2), 
+            "tfScore": round(new_tf_score, 2),
+            "fillScore": round(new_fill_score, 2),
             "essayScore": round(new_essay_score, 2), 
+            "drawScore": round(new_draw_score, 2),
             "gradingStatus": new_status,
             "gradedAt": graded_at,
         }
+        # ▲▲▲ KẾT THÚC SỬA ▲▲▲
 
-        print(f"[BE LOG 3] Chuẩn bị update MongoDB. Status: {new_status}, EssayScore: {new_essay_score}")
-        for det in detailed_list:
-            if det.get("type") == "draw":
-                print(f"[BE LOG 4] Dữ liệu draw của câu {det.get('questionId')} trong update_payload (100 chars): {str(det.get('teacherDrawing'))[:100]}...")
+        print(f"[BE LOG 3] Chuẩn bị update MongoDB. Status: {new_status}, EssayScore: {new_essay_score}, DrawScore: {new_draw_score}")
+        # ... (Log 4 giữ nguyên) ...
 
         db.results.update_one(
             {"id": result_id},
@@ -2080,22 +2093,14 @@ def grade_result(result_id):
                 "$inc": { "regradeCount": 1 } 
             }
         )
-
-        # =================================================
-        # === 🔥 SỬA LỖI (LẦN 5): TRẢ VỀ DỮ LIỆU MỚI NHẤT ===
-        # =================================================
-        # Thay vì return jsonify(success), 
-        # hãy tìm lại document vừa cập nhật và trả về nó.
+        
+        # ... (Code trả về 'updated_document' giữ nguyên) ...
         
         updated_document = db.results.find_one({"id": result_id})
         if not updated_document:
-            # Fallback nếu không tìm thấy (lỗi hiếm)
             return jsonify({"success": False, "message": "Lỗi: Không tìm thấy bài làm sau khi cập nhật."}), 500
-
-        # Dọn dẹp _id trước khi gửi
         updated_document.pop("_id", None)
         
-        # Bổ sung thông tin bị thiếu mà FE cần
         test_info = db.tests.find_one({"id": updated_document.get("testId")}, {"_id": 0, "name": 1, "subject": 1}) or {}
         student_info = db.users.find_one({"id": updated_document.get("studentId")}, {"_id": 0, "fullName": 1, "className": 1}) or {}
         
@@ -2104,14 +2109,9 @@ def grade_result(result_id):
         updated_document["studentName"] = updated_document.get("studentName") or student_info.get("fullName", "N/A")
         updated_document["className"] = updated_document.get("className") or student_info.get("className", "N/A")
 
-        print(f"[BE LOG 5] Trả về tài liệu đã cập nhật. Hình vẽ (100 chars): {str(updated_document.get('detailedResults', [{}])[0].get('teacherDrawing'))[:100]}...")
+        print(f"[BE LOG 5] Trả về tài liệu đã cập nhật.")
 
-        # === 7. Trả về ===
-        # Trả về TOÀN BỘ document thay vì chỉ success message
         return jsonify(updated_document), 200
-        # =================================================
-        # === KẾT THÚC SỬA LỖI ===
-        # =================================================
 
     except Exception as e:
         traceback.print_exc()
@@ -2135,6 +2135,8 @@ def get_results_summary():
             "_id": 0, "id": "$id", "studentId": "$studentId", "testId": "$testId",
             "totalScore": {"$ifNull": ["$totalScore", 0.0]},
             "mcScore": {"$ifNull": ["$mcScore", 0.0]},
+            "tfScore": {"$ifNull": ["$tfScore", 0.0]},       # <-- THÊM MỚI
+            "fillScore": {"$ifNull": ["$fillScore", 0.0]},   # <-- THÊM MỚI
             "essayScore": {"$ifNull": ["$essayScore", 0.0]},
             "gradingStatus": {"$ifNull": ["$gradingStatus", "Đang Chấm"]},
             "gradedAt": {"$ifNull": ["$gradedAt", None]}, 
@@ -2155,8 +2157,11 @@ def get_results_summary():
         else:
              doc["gradingStatus"] = "Đang Chấm"
         doc["totalScore"] = round(doc.get("totalScore", 0.0), 2)
+        doc["tfScore"] = round(doc.get("tfScore", 0.0), 2)     # <-- THÊM MỚI
+        doc["fillScore"] = round(doc.get("fillScore", 0.0), 2) # <-- THÊM MỚI
         doc["mcScore"] = round(doc.get("mcScore", 0.0), 2)
         doc["essayScore"] = round(doc.get("essayScore", 0.0), 2)
+        doc["drawScore"] = round(doc.get("drawScore", 0.0), 2) # <-- THÊM MỚI
     return jsonify(docs)
 
 @app.route("/results/<result_id>", methods=["GET"])
@@ -2242,6 +2247,9 @@ def get_results_for_student():
                 "subject": {"$ifNull": ["$test_info.subject", "khác"]}, 
                 "submittedAt": 1, "gradedAt": 1, "gradingStatus": 1,
                 "totalScore": 1, "mcScore": 1, "essayScore": 1,
+                "tfScore": 1,     # <-- THÊM MỚI
+                "fillScore": 1, # <-- THÊM MỚI
+                "drawScore": 1, # <-- THÊM MỚI
                 "studentAnswers": 1, "detailedResults": 1 
             }}
         ]
