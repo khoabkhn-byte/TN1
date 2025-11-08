@@ -405,7 +405,7 @@
   /* 📄 Cấu hình trang A4 */
   @page {
     size: A4 portrait;
-    margin-top: 0.8cm;
+    margin-top: 1.5cm;
     margin-bottom: 1cm;
     margin-left: 0.8cm;
     margin-right: 0.8cm;
@@ -942,6 +942,7 @@
                             <th scope="col" class="text-center" style="width: 50px;" title="Trắc nghiệm">MC</th>
                             <th scope="col" class="text-center" style="width: 50px;" title="Đúng/Sai">Đ/S</th>
                             <th scope="col" class="text-center" style="width: 50px;" title="Điền từ">FILL</th>
+							<th scope="col" class="text-center" style="width: 50px;" title="Vẽ">DRW</th>
                             <th scope="col" class="text-center" style="width: 60px;">Thời gian</th>
                             <th scope="col" class="text-center">Ngày tạo</th>
                             <th scope="col" class="text-center">Loại đề</th>
@@ -1204,17 +1205,22 @@
                      <table class="table table-sm table-hover table-bordered">
                          <thead>
                             <tr>
-                                <th scope="col" style="width: 5%;" class="text-center">
+                                <th scope="col" style="width: 20px;" class="text-center">
                                     <input type="checkbox" id="check-all-results">
                                 </th>
-                                <th scope="col" style="width: 5%;" class="text-center">STT</th>
-                                <th scope="col" style="width: 15%;">Tên bài thi</th>
-                                <th scope="col" style="width: 15%;">Học sinh</th>
-                                <th scope="col" style="width: 10%;">Lớp</th>
-                                <th scope="col" style="width: 15%;">Thời gian nộp</th>
-                                <th scope="col" style="width: 10%;">Trạng thái</th>
-                                <th scope="col" style="width: 10%;" class="text-center">Điểm số</th>
-                                <th scope="col" style="width: 15%;" class="text-center">Hành động</th>
+                                <th scope="col" style="width: 3%;" class="text-center">STT</th>
+                                <th scope="col" style="width: 14%;">Tên bài thi</th>
+                                <th scope="col" style="width: 14%;">Học sinh</th>
+                                <th scope="col" style="width: 7%;">Lớp</th>
+                                <th scope="col" style="width: 11%;">Thời gian nộp</th>
+                                <th scope="col" style="width: 8%;">Trạng thái</th>
+                                <th scope="col" class="text-center" style="width: 5%;">TN</th>
+                                <th scope="col" class="text-center" style="width: 5%;">Đ/S</th>
+                                <th scope="col" class="text-center" style="width: 5%;">FILL</th>
+                                <th scope="col" class="text-center" style="width: 5%;">TL</th>
+                                <th scope="col" class="text-center" style="width: 5%;">DRW</th>
+                                <th scope="col" class="text-center" style="width: 5%;">Tổng</th>
+                                <th scope="col" style="width: 13%;" class="text-center">Hành động</th>
                             </tr>
                         </thead>
                         <tbody id="results-tbody">
@@ -1300,12 +1306,15 @@
                             <tr>
                                 <th scope="col" style="width: 5%;">STT</th>
                                 <th scope="col" style="width: 15%;">Môn học</th>
-                                <th scope="col" style="width: 25%;">Tên đề thi</th>
-                                <th scope="col" style="width: 8%;" class="text-center" title="Số câu Tự luận">TL</th>
-                                <th scope="col" style="width: 8%;" class="text-center" title="Số câu Trắc nghiệm">TN</th>
-                                <th scope="col" style="width: 10%;" class="text-center">Thời gian</th>
+                                <th scope="col" style="width: 20%;">Tên đề thi</th>
+                                <th scope="col" style="width: 6%;" class="text-center" title="Tự luận">TL</th>
+                                <th scope="col" style="width: 6%;" class="text-center" title="Trắc nghiệm">TN</th>
+                                <th scope="col" style="width: 6%;" class="text-center" title="Đúng/Sai">Đ/S</th>
+                                <th scope="col" style="width: 6%;" class="text-center" title="Điền từ">FILL</th>
+								<th scope="col" style="width: 6%;" class="text-center" title="Vẽ">DRW</th>
+                                <th scope="col" style="width: 8%;" class="text-center">Thời gian</th>
                                 <th scope="col" style="width: 14%;">Ngày giao</th>
-                                <th scope="col" style="width: 15%;" class="text-center">Hành động</th>
+                                <th scope="col" style="width: 20%;" class="text-center">Hành động</th>
                             </tr>
                         </thead>
                         <tbody id="assigned-tbody">
@@ -1391,10 +1400,14 @@
                         <tr>
                             <th>STT</th>
                             <th>Bài thi</th>
-                            <th>Môn</th>             <th>Thời gian nộp</th>
+                            <th>Môn</th>
+                            <th>Thời gian nộp</th>
                             <th class="text-center">Trạng thái chấm</th>
                             <th class="text-center">Điểm TN</th> 
+                            <th class="text-center">Điểm Đ/S</th> 
+                            <th class="text-center">Điểm FILL</th>
                             <th class="text-center">Điểm TL</th>
+                            <th class="text-center">Điểm DRW</th>
                             <th class="text-center">Điểm (Tổng)</th> 
                             <th class="text-center">Ngày chấm</th> 
                             <th class="text-center">Hành động</th>
@@ -1920,12 +1933,20 @@
           <div><strong>Học sinh:</strong> <span id="sum-studentName">-</span></div>
           <div><strong>Lớp:</strong> <span id="sum-className">-</span></div>
           <div><strong>Thời gian nộp:</strong> <span id="sum-submittedAt">-</span></div>
-          <div class="mt-2">
-            <strong>Điểm trắc nghiệm:</strong> <span id="sum-autoScore">0</span> |
-            <strong>Điểm tự luận:</strong> <span id="sum-essayScore">0</span> |
-            <strong>Tổng điểm:</strong> <span id="sum-totalScore">0</span>
+          
+          <div class="mt-2 pt-2 border-top">
+            <strong>Điểm TĐ:</strong> 
+            <span title="Trắc nghiệm">TN:</span> <strong id="sum-mcScore" class="text-primary">0.0</strong> | 
+            <span title="Đúng/Sai">Đ/S:</span> <strong id="sum-tfScore" class="text-primary">0.0</strong> | 
+            <span title="Điền từ">FILL:</span> <strong id="sum-fillScore" class="text-primary">0.0</strong>
           </div>
-        </div>
+          <div class="mt-1">
+            <strong>Điểm Tay:</strong> 
+            <span title="Tự luận">TL:</span> <strong id="sum-essayScore" class="text-danger">0.0</strong> | 
+            <span title="Vẽ">DRW:</span> <strong id="sum-drawScore" class="text-danger">0.0</strong> |
+            <strong class="ms-2">Tổng điểm:</strong> <strong id="sum-totalScore" class="fs-5 text-success">0.0</strong>
+          </div>
+          </div>
 
         <!-- Danh sách câu hỏi -->
         <div id="grading-questions-container"></div>
@@ -2316,6 +2337,7 @@ function formatQuestionTypeForPDF(type) {
     if (type === 'essay') return 'Tự luận';
     if (type === 'true_false') return 'Đ/S';
     if (type === 'fill_blank') return 'Điền từ'; 
+	if (type === 'draw') return 'Vẽ (DRAW)'; // <-- THÊM DÒNG NÀY
     return 'Khác';
 }
 
@@ -5299,7 +5321,8 @@ function normalizeAnswer(detailData, questionData = null, old = {}) {
         
         // ===== BẮT ĐẦU SỬA LỖI (Thêm 2 dòng bị thiếu) =====
         correctItems: detailData.correctItems, // Lấy từ data gốc
-        totalItems: detailData.totalItems      // Lấy từ data gốc
+        totalItems: detailData.totalItems  ,    // Lấy từ data gốc
+		teacherDrawing: detailData.teacherDrawing ?? old.teacherDrawing ?? null
         // ===== KẾT THÚC SỬA LỖI =====
     };
 }
@@ -5472,9 +5495,16 @@ async function renderResultDetailModal(data) {
     const sumStudent = document.getElementById('sum-studentName');
     const sumClass = document.getElementById('sum-className');
     const sumSubmitted = document.getElementById('sum-submittedAt');
-    const sumAuto = document.getElementById('sum-autoScore');
+    
+    // ▼▼▼ BẮT ĐẦU SỬA LỖI ▼▼▼
+    const sumMc = document.getElementById('sum-mcScore');
+    const sumTf = document.getElementById('sum-tfScore');
+    const sumFill = document.getElementById('sum-fillScore');
     const sumEssay = document.getElementById('sum-essayScore');
+    const sumDraw = document.getElementById('sum-drawScore');
     const sumTotal = document.getElementById('sum-totalScore');
+    // ▲▲▲ KẾT THÚC SỬA LỖI ▲▲▲
+
     const modalTitle = document.querySelector('#modalGrading .modal-title');
 
     if (modalTitle) modalTitle.innerText = `Chi tiết bài làm: ${data.testName || 'Bài làm'}`;
@@ -5482,14 +5512,39 @@ async function renderResultDetailModal(data) {
     if (sumStudent) sumStudent.innerText = data.studentName || 'N/A';
     if (sumClass) sumClass.innerText = data.className || 'N/A';
     if (sumSubmitted) sumSubmitted.innerText = data.submittedAt ? new Date(data.submittedAt).toLocaleString('vi-VN') : 'Chưa nộp';
-    if (sumAuto) sumAuto.innerText = (data.mcScore ?? 0).toFixed(1);
+
+    // ▼▼▼ BẮT ĐẦU SỬA LỖI ▼▼▼
+    if (sumMc) sumMc.innerText = (data.mcScore ?? 0).toFixed(1);
+    if (sumTf) sumTf.innerText = (data.tfScore ?? 0).toFixed(1);
+    if (sumFill) sumFill.innerText = (data.fillScore ?? 0).toFixed(1);
     if (sumEssay) sumEssay.innerText = (data.essayScore ?? 0).toFixed(1);
+    if (sumDraw) sumDraw.innerText = (data.drawScore ?? 0).toFixed(1);
     if (sumTotal) sumTotal.innerText = (data.totalScore ?? 0).toFixed(1);
+    // ▲▲▲ KẾT THÚC SỬA LỖI ▲▲▲
 
     if (!container) {
         console.error("renderResultDetailModal: Cannot find container #grading-questions-container");
         return;
     }
+	// ▼▼▼▼▼ BẮT ĐẦU SỬA LỖI (THÊM KHỐI NÀY) ▼▼▼▼▼
+    // BƯỚC 1: Dọn dẹp các Konva stage cũ TRƯỚC KHI render lại
+    // Lấy tất cả ID canvas CŨ từ bên trong container
+    const oldCanvasIds = Array.from(container.querySelectorAll('.drawing-canvas-container')).map(div => div.id);
+    
+    oldCanvasIds.forEach(canvasId => {
+        if (window.drawingPads && window.drawingPads[canvasId]) {
+            try {
+                // Hủy stage (gỡ bỏ listeners và canvas khỏi DOM ảo)
+                window.drawingPads[canvasId].stage.destroy(); 
+                // Xóa tham chiếu khỏi bộ đệm global
+                delete window.drawingPads[canvasId]; 
+                console.log(`[FIX] Đã dọn dẹp Konva stage cũ: ${canvasId}`);
+            } catch (e) {
+                console.error(`Lỗi dọn dẹp stage ${canvasId}:`, e);
+            }
+        }
+    });
+    // ▲▲▲▲▲ KẾT THÚC SỬA LỖI (THÊM KHỐI NÀY) ▲▲▲▲▲
 
     // Chuẩn hóa answers từ result object
     const answers = await buildAnswersFromResult(data);
@@ -5606,7 +5661,8 @@ async function renderResultDetailModal(data) {
                 const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
                 let blankIndex = 0;
                 const spanStyle = "border-radius:4px;border:1px solid;margin:0 4px;min-width:60px;text-align:center;font-size:0.9em;line-height:1.5;padding:0 0.25rem;";
-                answerDisplay = questionContent.replace(/\[BLANK\]/g, () => {
+                let formattedText = escapeHtml(questionContent).replace(/\n/g, '<br>');
+				answerDisplay = formattedText.replace(/\[BLANK\]|\.{5,}/g, () => {
                     const i = blankIndex++;
                     const studentAnsText = (typeof studentAnswers[i] !== 'undefined') ? studentAnswers[i] : null;
                     const studentAnsDisplay = studentAnsText ? escapeHtml(studentAnsText) : '[Bỏ trống]';
@@ -5792,7 +5848,7 @@ async function renderResultDetailModal(data) {
                     <div><strong>Câu ${i + 1}</strong> <span class="badge bg-secondary ms-2">${maxPoints} điểm</span> ${stickHtml} ${scoreBadgeHtml}</div>
                     <div class="mt-2 text-wrap">${questionContent}</div>
                     ${imageHtml || ''}
-                    <div class="mt-3 border-top pt-2">${studentAnswerLabelHtml || ''}<div class="mb-2">${answerDisplay}</div>${correctAnswerHtml || ''}</div>
+                    <div class="mt-3 border-top pt-2">${studentAnswerLabelHtml || ''}<div class="mb-2"><p style="line-height: 2.2; margin: 0;">${answerDisplay}</p></div>${correctAnswerHtml || ''}</div>
                     ${essayFields || ''}
                 </div>`;
         } catch (renderErr) {
@@ -5828,6 +5884,7 @@ async function renderResultDetailModal(data) {
 // HÀM SAVEGRADING (ĐÃ THÊM LOGIC "DRAW" VÀO BỘ LỌC)
 // (🔥 Cải tiến 11/6: Thêm logic serialize teacherDrawing)
 // =================================================================
+// DÁN THAY THẾ HÀM CŨ (khoảng dòng 8727)
 async function saveGrading() {
     const modal = document.getElementById('modalGrading');
     const resultId = modal?.dataset?.resultId || window.currentResultId;
@@ -5869,7 +5926,6 @@ async function saveGrading() {
                     if (!isNaN(parsed) && parsed >= 0) teacherScore = parsed;
                 }
                 
-                // 🔥 CẢI TIẾN (11/6): Lấy JSON bản vẽ của GV
                 const q_type = (a.question?.type || a.type || "").toLowerCase();
                 let teacherDrawingJson = null;
     
@@ -5880,34 +5936,48 @@ async function saveGrading() {
                             const pad = window.drawingPads[canvasId];
                             const teacherLayer = pad.teacherLayer; // Lấy layer của GV
                             
-                            // 🔥 SỬA LỖI TẠI ĐÂY: Lọc bỏ công cụ bằng TÊN
                             const shapes = teacherLayer.getChildren(node => {
                                 const className = node.getClassName();
                                 const shapeName = node.name();
                                 return className !== 'Transformer' && shapeName !== 'sel_rect_teacher';
                             });
     
+                            // =================================================
+                            // === [FE LOG 1] LOG KHI GIÁO VIÊN VẼ ===
+                            // =================================================
+                            console.log(`[FE LOG 1] Chấm ${canvasId}: Tìm thấy ${shapes.length} hình vẽ của GV.`);
+                            // =================================================
+
                             if (shapes.length > 0) {
-                                // 🔥 SỬA LỖI TẠI ĐÂY: Bỏ .toArray()
                                 teacherDrawingJson = JSON.stringify(shapes);
+
+                                // =================================================
+                                // === [FE LOG 2] LOG DỮ LIỆU JSON CỦA HÌNH VẼ ===
+                                // =================================================
+                                console.log(`[FE LOG 2] Chấm ${canvasId}: Dữ liệu JSON hình vẽ:`, teacherDrawingJson.substring(0, 100) + "...");
+                                // =================================================
                             }
                         } catch (e) {
                             console.error(`Lỗi serialize Konva (GV) cho ${canvasId}:`, e);
                         }
                     }
                 }
-                // 🔥 KẾT THÚC CẢI TIẾN
 
                 return {
                     questionId: qid, 
                     teacherScore, 
                     teacherNote: noteEl?.value?.trim() || "",
-                    teacherDrawing: teacherDrawingJson // <-- Gửi trường mới này
+                    teacherDrawing: teacherDrawingJson 
                 };
             }).filter(e => e !== null); 
 
         const payload = { essays };
-        console.log("📤 Payload gửi lên server:", payload);
+        
+        // =================================================
+        // === [FE LOG 3] LOG TOÀN BỘ PAYLOAD GỬI LÊN SERVER ===
+        // =================================================
+        console.log("📤 [FE LOG 3] Payload GỬI LÊN SERVER (Full):", JSON.stringify(payload));
+        // =================================================
 
         // ==== 3️⃣ Check số lần chấm ====
         const currentRegradeCount = window.currentResultData?.regradeCount || 0;
@@ -5923,32 +5993,42 @@ async function saveGrading() {
             body: JSON.stringify(payload)
         });
 
-        const data = await res.json();
+        // =================================================
+        // === 🔥 SỬA LỖI (LẦN 5) - BẮT ĐẦU ===
+        // =================================================
+        
+        // Dữ liệu 'data' trả về từ POST (đã sửa BE) chính là 'updated'
+        const updated = await res.json(); 
+
         if (!res.ok) {
-            console.error("❌ Lỗi khi chấm:", data);
-            alert(data.error || data.message || "Lỗi khi lưu chấm!");
+            console.error("❌ Lỗi khi chấm:", updated);
+            alert(updated.error || updated.message || "Lỗi khi lưu chấm!");
             return;
         }
 
-        alert(data.message || "✅ Đã lưu chấm thành công!");
+        // Hiển thị thông báo (có thể lấy từ BE nếu BE trả về message)
+        alert(updated.message || "✅ Đã lưu chấm thành công!");
 
         // ==== 5️⃣ Refresh bảng danh sách ====
         if (typeof loadResults === "function") {
             await loadResults(true); // force reload
         }
 
-        // ==== 6️⃣ Fetch lại result mới (QUAN TRỌNG) ====
-        const refreshedRes = await fetch(`${serverUrl}/api/results/${resultId}`);
-        if (!refreshedRes.ok) throw new Error("Không thể tải lại dữ liệu kết quả sau khi lưu.");
-        const updated = await refreshedRes.json();
-
+        // ==== 6️⃣ BỎ BLOCK FETCH LẠI ====
+        // const refreshedRes = await fetch... // <-- XÓA
+        
+        // Gán global state bằng dữ liệu 'updated' vừa nhận được
         window.currentResultData = updated;
-        console.log("Dữ liệu Updated TRƯỚC KHI render lại modal:", updated);
+        console.log("Dữ liệu Updated (từ POST) TRƯỚC KHI render lại modal:", updated);
 
         // ==== 8️⃣ Render lại modal với dữ liệu MỚI NHẤT ====
         if (typeof renderResultDetailModal === "function") {
             await renderResultDetailModal(updated); 
         }
+        
+        // =================================================
+        // === 🔥 SỬA LỖI (LẦN 5) - KẾT THÚC ===
+        // =================================================
 
         const c = document.getElementById('grading-questions-container');
         if (c) c.scroll({ top: 0, behavior: "smooth" });
@@ -6587,7 +6667,7 @@ function renderTests(items) {
      if (!tbody) return; 
      
      // SỬA LỖI: Cập nhật Colspan
-     const TOTAL_COLUMNS = 13; // 11 + 2 cột mới
+     const TOTAL_COLUMNS = 14; // 11 + 3 cột mới
      
      tbody.innerHTML = ''; 
      if (!items || items.length === 0) { 
@@ -6650,6 +6730,7 @@ function renderTests(items) {
             <td class="text-center">${mcCount}</td>
             <td class="text-center">${tfCount}</td>
             <td class="text-center">${fillCount}</td>
+			<td class="text-center">${t.drawCount || 0}</td>
             <td class="text-center">${timeDisplay}</td>
             <td class="text-center date-time-cell">${creationDate}</td>
             <td class="text-center">${testType}</td>
@@ -10083,8 +10164,8 @@ function renderResultsTable(pageItems) {
     let html = '';
 
     if (pageItems.length === 0) { 
-        // Cập nhật colspan = 9
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Không tìm thấy kết quả phù hợp.</td></tr>';
+        // Cập nhật colspan = 14
+        tbody.innerHTML = '<tr><td colspan="14" class="text-center text-muted">Không tìm thấy kết quả phù hợp.</td></tr>';
         return;
     }
 
@@ -10097,7 +10178,25 @@ function renderResultsTable(pageItems) {
         const className = r.className || 'N/A';
         const submittedAt = formatSubmittedAt(r.submittedAt); 
         const gradingStatus = r.gradingStatus || 'Đang Chấm';
-        const score = (r.totalScore !== undefined && r.totalScore !== null) ? Number(r.totalScore).toFixed(1) : 'N/A'; 
+        
+        // --- HÀM HELPER ĐỊNH DẠNG ĐIỂM ---
+        const formatScore = (scoreValue, isManual = false) => {
+            if (scoreValue !== undefined && scoreValue !== null) {
+                return (typeof scoreValue === 'number') ? scoreValue.toFixed(1) : scoreValue;
+            }
+            if (isManual && (gradingStatus === 'Hoàn tất' || gradingStatus === 'Đã Chấm')) {
+                return '0.0'; // Hiển thị 0.0 nếu đã chấm
+            }
+            return '—'; // Mặc định
+        };
+        // --- KẾT THÚC HELPER ---
+
+        const mcScore = formatScore(r.mcScore);
+        const tfScore = formatScore(r.tfScore);
+        const fillScore = formatScore(r.fillScore);
+        const essayScore = formatScore(r.essayScore, true);
+        const drawScore = formatScore(r.drawScore, true);
+        const totalScore = formatScore(r.totalScore); 
 
         let statusBadge = '';
         let buttonClass = 'btn-secondary';
@@ -10120,21 +10219,25 @@ function renderResultsTable(pageItems) {
             buttonText = 'Xem và Chấm';
         }
 
-        // ✅ XÓA DÒNG NÀY (Bỏ nút In lỗi)
-        // const printButtonHtml = `<button class="btn btn-sm btn-outline-info" title="In kết quả PDF" onclick="exportResultToPDF('${escapeHtml(resultId)}')">In</button>`;
-        
         html += `
             <tr>
-                <td class="text-center" style="width: 5%;">
+                <td class="text-center" style="width: 20px;">
                     <input type="checkbox" class="select-result-checkbox" data-resultid="${escapeHtml(resultId)}">
                 </td>
-                <td class="text-center" style="width: 5%;">${globalIndex}</td>
+                <td class="text-center">${globalIndex}</td>
                 <td>${escapeHtml(testName)}</td>
                 <td>${escapeHtml(studentName)}</td>
-                <td class="text-center">${escapeHtml(className)}</td>
+                <td classD="text-center">${escapeHtml(className)}</td>
                 <td class="text-center" style="white-space: nowrap;">${submittedAt}</td>
                 <td class="text-center">${statusBadge}</td>
-                <td class="text-center fw-bold">${score}</td>
+                
+                <td class="text-center">${mcScore}</td>
+                <td class="text-center">${tfScore}</td>
+                <td class="text-center">${fillScore}</td>
+                <td class="text-center">${essayScore}</td>
+                <td class="text-center">${drawScore}</td>
+                <td class="text-center fw-bold">${totalScore}</td>
+
                 <td class="text-center">
                     <div class="d-flex justify-content-center flex-wrap" style="gap: 1px;">
                         <button class="btn btn-sm ${buttonClass}"
@@ -10214,8 +10317,8 @@ async function loadAssignments(forceReload = false) {
     }
 
     // Spinner loading
-    if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="8" class="text-center spinner-row"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải đề được giao...</td></tr>';
-    if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="10" class="text-center spinner-row"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải bài đã làm...</td></tr>';
+    if (pendingTbody) pendingTbody.innerHTML = '<tr><td colspan="11" class="text-center spinner-row"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải đề được giao...</td></tr>';
+    if (doneTbody) doneTbody.innerHTML = '<tr><td colspan="11" class="text-center spinner-row"><div class="spinner-border text-success spinner-border-sm"></div> Đang tải bài đã làm...</td></tr>';
 
    try {
         const s = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
@@ -10255,8 +10358,8 @@ async function loadAssignments(forceReload = false) {
 
     } catch (e) {
         console.error('!!! loadAssignments: caught error:', e);
-        if (pendingTbody) pendingTbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Lỗi tải đề được giao: ${e.message}</td></tr>`;
-        if (doneTbody) doneTbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">Lỗi tải bài đã làm: ${e.message}</td></tr>`;
+        if (pendingTbody) pendingTbody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">Lỗi tải đề được giao: ${e.message}</td></tr>`;
+        if (doneTbody) doneTbody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">Lỗi tải bài đã làm: ${e.message}</td></tr>`;
     }
 }
 
@@ -10311,8 +10414,11 @@ function processAssignments(assigns, results) {
 
             // Lấy điểm
             a.totalScore = parseFloat(result.totalScore) || 0;
-            a.essayScore = result.essayScore;
             a.mcScore = result.mcScore;
+            a.tfScore = result.tfScore;         // <-- THÊM DÒNG NÀY
+            a.fillScore = result.fillScore;   // <-- THÊM DÒNG NÀY
+            a.essayScore = result.essayScore;
+            a.drawScore = result.drawScore;     // <-- THÊM DÒNG NÀY
 
             completed.push(a);
 
@@ -10338,8 +10444,11 @@ function processAssignments(assigns, results) {
                 submittedAt: r.submittedAt,
                 gradedAt: r.gradedAt,
                 gradingStatus: r.gradingStatus,
-                essayScore: r.essayScore,
                 mcScore: r.mcScore,
+                tfScore: r.tfScore,         // <-- THÊM DÒNG NÀY
+                fillScore: r.fillScore,   // <-- THÊM DÒNG NÀY
+                essayScore: r.essayScore,
+                drawScore: r.drawScore,     // <-- THÊM DÒNG NÀY
                 totalScore: parseFloat(r.totalScore) || 0,
                 assignedAt: r.submittedAt, // Dùng tạm submittedAt
                 mcCount: 0, // Cần tính lại nếu có detailedResults
@@ -10453,17 +10562,18 @@ function filterAndRenderAssignments(resetPage = true) {
 }
 
 
-// HÀM 2: CHỈ VẼ BẢNG "ĐỀ ĐƯỢC GIAO" (HÀM BỊ THIẾU)
+// HÀM 2: CHỈ VẼ BẢNG "ĐỀ ĐƯỢC GIAO"
 function renderPendingTable(items) {
     const tableBody = qs('#assigned-tbody');
     if (!tableBody) return; 
     
     if (items.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Không tìm thấy bài được giao nào.</td></tr>';
+        // Sửa Colspan thành 11
+        tableBody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">Không tìm thấy bài được giao nào.</td></tr>';
         return;
     }
     
-    // Tính STT dựa trên trang hiện tại (PAGE_SIZE = 20)
+    // Tính STT dựa trên trang hiện tại
     const currentPage = state.stuPending.page || 1;
     const startStt = (currentPage - 1) * PAGE_SIZE + 1;
 
@@ -10471,12 +10581,18 @@ function renderPendingTable(items) {
         const displayName = mapSubjectToDisplayName(a.subject);
         const actionButton = `<button class="btn btn-sm btn-primary" onclick="startQuiz('${a.testId}', '${a.assignmentId}', ${a.time})">Làm bài</button>`; 
         const formattedDate = formatDateTimeForTable(a.assignedAt); 
+        
+        // Đây là return hoàn chỉnh (11 cột)
         return `
             <tr>
                 <td class="text-center">${startStt + index}</td>
-                <td>${displayName || '—'}</td> <td>${a.testName || '—'}</td>
+                <td>${displayName || '—'}</td> 
+                <td>${a.testName || '—'}</td>
                 <td class="text-center">${a.essayCount || 0}</td>
                 <td class="text-center">${a.mcCount || 0}</td>
+                <td class="text-center">${a.tfCount || 0}</td>
+                <td class="text-center">${a.fillCount || 0}</td>
+				<td class="text-center">${a.drawCount || 0}</td>
                 <td class="text-center">${a.time || '—'}</td>
                 <td class="text-center">${formattedDate}</td>
                 <td class="text-center">${actionButton}</td> 
@@ -10497,7 +10613,7 @@ function renderDoneTable(items) {
     let htmlContent = "";
 
     if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Chưa có bài đã làm.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted">Chưa có bài đã làm.</td></tr>';
         return;
     }
 
@@ -10509,7 +10625,7 @@ function renderDoneTable(items) {
     const safeFormat = (dateStr) => { return dateStr ? dateStr.substring(0, 16).replace('T', ' ') : '—'; };
 
     items.forEach((a, index) => {
-        const globalIndex = startStt + index; // STT chính xác
+        const globalIndex = startStt + index;
         
         const resultIdForButton = a.resultId || '';
         const testName = a.testName;
@@ -10525,27 +10641,25 @@ function renderDoneTable(items) {
          else if (isGraded) { statusBadge = `<span class="badge bg-info text-dark">Đã Chấm</span>`; }
          else { statusBadge = `<span class="badge bg-warning text-dark">Đang Chấm</span>`; }
 
-        let formattedTotalScore = '—';
-        if (a.totalScore !== undefined && a.totalScore !== null) {
-            formattedTotalScore = (typeof a.totalScore === 'number') ? a.totalScore.toFixed(2) : a.totalScore;
-        }
-        const totalScore = formattedTotalScore; 
+        // --- HÀM HELPER ĐỊNH DẠNG ĐIỂM ---
+        const formatScore = (scoreValue, isManual = false) => {
+            if (scoreValue !== undefined && scoreValue !== null) {
+                return (typeof scoreValue === 'number') ? scoreValue.toFixed(2) : scoreValue;
+            }
+            // Nếu là điểm chấm tay (TL, DRW) VÀ đã chấm xong
+            if (isManual && (isCompletedOrRegraded || isGraded)) {
+                return '0.00'; // Hiển thị 0.00 nếu không có
+            }
+            return '—'; // Mặc định
+        };
+        // --- KẾT THÚC HELPER ---
 
-        let formattedMcScore = '—';
-        if (a.mcScore !== undefined && a.mcScore !== null) {
-            formattedMcScore = (typeof a.mcScore === 'number') ? a.mcScore.toFixed(2) : a.mcScore;
-        }
-        const mcScore = formattedMcScore; 
-
-        let displayEssayScore;
-         if (a.essayScore !== undefined && a.essayScore !== null) {
-            displayEssayScore = (typeof a.essayScore === 'number' ? a.essayScore.toFixed(2) : a.essayScore);
-        } else if (isCompletedOrRegraded || isGraded) {
-            displayEssayScore = 'N/A';
-        } else {
-            displayEssayScore = '—';
-        }
-        const essayScore = displayEssayScore;
+        const totalScore = formatScore(a.totalScore); 
+        const mcScore = formatScore(a.mcScore);
+        const tfScore = formatScore(a.tfScore);         // <-- MỚI
+        const fillScore = formatScore(a.fillScore);     // <-- MỚI
+        const essayScore = formatScore(a.essayScore, true); // <-- MỚI (isManual = true)
+        const drawScore = formatScore(a.drawScore, true);   // <-- MỚI (isManual = true)
 
         const buttonClass = 'btn-secondary';
         const buttonText = 'Xem';
@@ -10558,7 +10672,10 @@ function renderDoneTable(items) {
                 <td>${submittedAt}</td>
                 <td class="text-center">${statusBadge}</td>
                 <td class="text-center fw-bold">${mcScore}</td>
+                <td class="text-center fw-bold">${tfScore}</td>
+                <td class="text-center fw-bold">${fillScore}</td>
                 <td class="text-center fw-bold">${essayScore}</td>
+                <td class="text-center fw-bold">${drawScore}</td>
                 <td class="text-center fw-bold text-primary">${totalScore}</td>
                 <td class="text-center">${gradedAt}</td>
                 <td class="text-center">
@@ -11317,7 +11434,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     summaryContainer.innerHTML = `<div class="alert alert-info mt-3">
         <h4 class="text-primary mb-3">Tổng kết bài làm</h4>
         <p>Tổng số câu: <strong>${totalQuestions}</strong></p>
-        <p>Tự động chấm: <strong>${totalMc} câu</strong> | Tự luận (Chờ chấm): <strong>${totalEssay} câu</strong></p>
+        <p>Tự động chấm: <strong>${totalMc} câu</strong> | Tự luận (GV Chấm): <strong>${totalEssay} câu</strong></p>
         
         <p>Số câu đúng (Tự động chấm): <strong>${correctMcCount} / ${totalMc}</strong></p>
         
@@ -11377,7 +11494,7 @@ function generateTestPrintHTML(testName, questions, time, subject, level, create
 
         let answerSection = '';
         
-        // Logic Trắc nghiệm (Đã sửa lề)
+        // Logic Trắc nghiệm
         if (qType === 'mc' && q.options && q.options.length > 0) {
             answerSection = '<ol type="a" style="margin: 10px 0 0 0; padding-left: 40px; list-style-position: outside;">';
             q.options.forEach(opt => {
@@ -11385,7 +11502,7 @@ function generateTestPrintHTML(testName, questions, time, subject, level, create
             });
             answerSection += '</ol>';
 
-        // Logic Đúng/Sai (Đã sửa lề)
+        // Logic Đúng/Sai
         } else if (qType === 'true_false' && q.options && q.options.length > 0) {
             answerSection = '<ol type="a" style="margin: 10px 0 0 0; padding-left: 40px; list-style-position: outside;">'; 
             q.options.forEach((opt, i) => {
@@ -11401,20 +11518,23 @@ function generateTestPrintHTML(testName, questions, time, subject, level, create
             });
             answerSection += '</ol>';
             
-        // Logic Điền từ (Đã sửa)
+        // Logic Điền từ
         } else if (qType === 'fill_blank') {
-            
-            // ===== BẮT ĐẦU SỬA LỖI XUỐNG DÒNG (IN) =====
-            // 1. Chuyển \n thành <br>
             let formattedText = escapeHtml(questionText).replace(/\n/g, '<br>');
-            // 2. Thay thế [BLANK]
             questionText = formattedText.replace(/\[BLANK\]|\.{5,}/g, ' .................................... ');
-            // ===== KẾT THÚC SỬA LỖI =====
-            
             answerSection = ''; 
-
-        // Logic Tự luận (Đã sửa)
-        } else { // (qType === 'essay')
+        
+        // ▼▼▼ SỬA LỖI KHUNG VẼ (DRAW) ▼▼▼
+        } else if (qType === 'draw') {
+            answerSection = `
+                <div style="padding-top: 10px; padding-left: 15px; padding-right: 15px;">
+                    <div style="width: 100%; height: 250px; border: 1px solid #000; background: #fff; border-radius: 4px;">
+                        </div>
+                </div>
+            `;
+        
+        // ▼▼▼ KHỐI TỰ LUẬN (ESSAY) ▼▼▼
+        } else if (qType === 'essay') {
             answerSection = `
                 <div style="padding-top: 5px; padding-left: 15px;padding-right: 15px;">
                     ${'<p style="border-bottom: 1px dotted #333; margin: 0; height: 1.8em;"></p>'.repeat(6)}
@@ -11730,8 +11850,8 @@ async function runFullPdfExport() {
 
 
 /**
- * HÀM MỚI 3: XỬ LÝ VIỆC XUẤT PDF CHO KẾT QUẢ BÀI LÀM
- * Lấy nội dung trực tiếp từ modal 'modalGrading' và gọi html2pdf
+ * HÀM MỚI 3 (CẬP NHẬT): XUẤT PDF CHO KẾT QUẢ BÀI LÀM
+ * 🔥 SỬA LỖI: In trực tiếp nội dung modal-body để lấy canvas đã render.
  */
 async function exportResultToPDF() {
     // 1. Kiểm tra thư viện
@@ -11739,7 +11859,7 @@ async function exportResultToPDF() {
         alert("Lỗi: Không thể tải thư viện in PDF."); return;
     }
 
-    // 2. Lấy dữ liệu từ state (do đang ở trong modal)
+    // 2. Lấy dữ liệu từ state
     const resultData = window.currentResultData;
     if (!resultData) {
         alert("Lỗi: Không tìm thấy dữ liệu bài làm hiện tại để in."); return;
@@ -11755,43 +11875,88 @@ async function exportResultToPDF() {
         margin:       [15, 15, 15, 15], // Lề 15mm
         filename:     filename,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 3, useCORS: true },
+        html2canvas:  { scale: 3, useCORS: true, logging: false },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
+    // 5. 🔥 THAY ĐỔI LỚN: Lấy nội dung trực tiếp từ modal
     const modalBody = document.querySelector("#modalGrading .modal-body");
     const modalFooter = document.querySelector("#modalGrading .modal-footer");
+    
+    if (!modalBody) {
+        alert("Lỗi: Không tìm thấy nội dung modal body.");
+        return;
+    }
+
+    // Ẩn footer và hiển thị loading (trên nút)
     if (modalFooter) modalFooter.style.display = 'none';
-    if (modalBody) modalBody.innerHTML = `<div class="spinner-row"><div class="spinner-border text-success"></div><div>Đang chuẩn bị dữ liệu in...</div></div>`;
+    const printButton = modalFooter.querySelector('button[onclick="exportResultToPDF()"]');
+    if (printButton) {
+        printButton.disabled = true;
+        printButton.textContent = 'Đang xử lý PDF...';
+    }
+
+    // Thêm tiêu đề (H1) và thông tin tóm tắt (Header) vào bản in
+    const headerHtml = `
+        <div style="font-family: Arial, sans-serif; padding: 0; color: #000; font-size: 12pt;">
+            <h1 style="text-align: center; font-size: 1.3rem; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; font-weight: bold;">
+                PHIẾU KẾT QUẢ BÀI LÀM
+            </h1>
+            <div style="margin: 15px 0; font-size: 1.0rem; line-height: 1.6; border: 1px solid #ccc; padding: 10px; background: #f9f9f9; page-break-inside: avoid;">
+                <p><strong>Học sinh:</strong> ${escapeHtml(resultData.studentName)}</p>
+                <p><strong>Lớp:</strong> ${escapeHtml(resultData.className)}</p>
+                <p><strong>Đề thi:</strong> ${escapeHtml(resultData.testName)}</p>
+                <p><strong>Thời gian nộp:</strong> ${resultData.submittedAt ? new Date(resultData.submittedAt).toLocaleString('vi-VN') : '-'}</p>
+                <hr style="border: 0; border-top: 1px solid #ccc; margin: 5px 0;">
+                <p style="font-weight: bold; margin: 2px 0;">
+                    Điểm TN: ${resultData.mcScore ?? 0} | 
+                    Đ/S: ${resultData.tfScore ?? 0} | 
+                    FILL: ${resultData.fillScore ?? 0} | 
+                    TL: ${resultData.essayScore ?? 0} | 
+                    Vẽ: ${resultData.drawScore ?? 0}
+                </p>
+                <p style="font-weight: bold; font-size: 1.1rem; margin: 2px 0;">
+                    Tổng điểm: ${resultData.totalScore ?? 0}
+                </p>
+            </div>
+        </div>
+    `;
+
+    // 6. Tạo một element mới để in
+    const printElement = document.createElement('div');
+    printElement.style.width = '210mm';
+    printElement.style.padding = '15mm'; // Thêm padding (thay cho margin)
+    printElement.style.boxSizing = 'border-box';
+    printElement.style.fontFamily = 'Arial, sans-serif';
+    printElement.style.fontSize = '12pt';
+    
+    // Nối Tiêu đề + Nội dung (clone)
+    printElement.innerHTML = headerHtml;
+    // Clone toàn bộ nội dung trong container câu hỏi
+    const questionsContainer = modalBody.querySelector("#grading-questions-container");
+    if (questionsContainer) {
+        printElement.appendChild(questionsContainer.cloneNode(true));
+    }
+    
+    // Gắn vào body để render
+    document.body.appendChild(printElement);
+    
+    // Đợi 200ms để Konva (nếu có) render
+    await new Promise(r => setTimeout(r, 200));
 
     try {
-        // 5. ✅ GỌI HYDRATION (Lấy đầy đủ nội dung câu hỏi)
-        const hydratedAnswers = await buildAnswersFromResult(resultData);
-        
-        // 6. ✅ GỌI HÀM TẠO HTML (Hàm đã sửa ở Bước 1)
-        const htmlString = generateResultPrintHTML_Single(resultData, hydratedAnswers);
-
-        // 7. Tạo div ẩn để in
-        const printElement = document.createElement('div');
-        printElement.style.width = '210mm'; 
-        printElement.style.padding = '15mm'; // Thêm padding (thay cho margin)
-        printElement.style.boxSizing = 'border-box';
-        printElement.style.fontFamily = 'Arial, sans-serif'; // Đảm bảo font
-        printElement.style.fontSize = '12pt';
-        printElement.innerHTML = htmlString;
-        
-        // 8. Gọi in
+        // 7. Gọi in
         await html2pdf().from(printElement).set(opt).save();
-
     } catch (err) {
          console.error("Lỗi khi tạo PDF kết quả:", err);
          alert("Lỗi khi tạo PDF: " + err.message);
     } finally {
-        // 9. Khôi phục modal
+        // 8. Dọn dẹp và khôi phục modal
+        document.body.removeChild(printElement); // Xóa element in
         if (modalFooter) modalFooter.style.display = 'block';
-        if (modalBody) {
-            // Tải lại nội dung modal như ban đầu
-            await renderResultDetailModal(resultData);
+        if (printButton) {
+            printButton.disabled = false;
+            printButton.textContent = '🖨️ Xuất PDF';
         }
     }
 }
@@ -12275,8 +12440,6 @@ function getSelectedTests() {
 
 
 
-// THAY THẾ hàm cũ (khoảng dòng 6870) bằng hàm này
-
 async function preparePrintArea(selectedTests, mode = "preview") {
   if (!selectedTests || selectedTests.length === 0) {
     return;
@@ -12330,7 +12493,7 @@ async function preparePrintArea(selectedTests, mode = "preview") {
           let questionText = (q.q || "(Không có nội dung)"); 
           let answerSection = ''; 
 
-          // Logic Trắc nghiệm (Đã sửa lề)
+          // Logic Trắc nghiệm
           if (qType === "mc" && Array.isArray(q.options) && q.options.length) {
               answerSection = `<ol type="a" style="margin: 10px 0 0 0; padding-left: 40px; list-style-position: outside;">`; 
               answerSection += q.options.map(opt => {
@@ -12339,7 +12502,7 @@ async function preparePrintArea(selectedTests, mode = "preview") {
                 }).join("");
               answerSection += '</ol>';
 
-          // Logic Đúng/Sai (Đã sửa lề)
+          // Logic Đúng/Sai
           } else if (qType === "true_false" && Array.isArray(q.options) && q.options.length) {
               answerSection = '<ol type="a" style="margin: 10px 0 0 0; padding-left: 40px; list-style-position: outside;">'; 
               answerSection += q.options.map((opt, i_opt) => {
@@ -12355,19 +12518,22 @@ async function preparePrintArea(selectedTests, mode = "preview") {
                 }).join("");
               answerSection += '</ol>';
 
-          // Logic Điền từ (Đã sửa)
+          // Logic Điền từ
           } else if (qType === "fill_blank") {
-              
-              // ===== BẮT ĐẦU SỬA LỖI XUỐNG DÒNG (IN) =====
-              // 1. Chuyển \n thành <br>
               let formattedText = escapeHtml(questionText).replace(/\n/g, '<br>');
-              // 2. Thay thế [BLANK]
               questionText = formattedText.replace(/\[BLANK\]|\.{5,}/g, ' .................................... ');
-              // ===== KẾT THÚC SỬA LỖI =====
-              
               answerSection = ''; 
 
-          // Logic Tự luận
+          // ▼▼▼ SỬA LỖI KHUNG VẼ (DRAW) ▼▼▼
+          } else if (qType === 'draw') {
+              answerSection = `
+                  <div style="padding-top: 10px; padding-left: 15px; padding-right: 15px;">
+                      <div style="width: 100%; height: 250px; border: 1px solid #000; background: #fff; border-radius: 4px;">
+                          </div>
+                  </div>
+              `;
+
+          // ▼▼▼ KHỐI TỰ LUẬN (ESSAY) ▼▼▼
           } else if (qType === "essay") {
               answerSection = `
                   <div class="essay-space" style="margin-top:10px;">
@@ -12440,7 +12606,6 @@ async function preparePrintArea(selectedTests, mode = "preview") {
     await runFullPdfExport();
   }
 }
-
 
 
 
