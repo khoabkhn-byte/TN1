@@ -2095,100 +2095,117 @@ def debug_list_tests():
 
 @app.route("/api/assigns/bulk", methods=["POST"])
 def bulk_assign_tests():
+    data = request.get_json() or {}
+    
+    # 1. Lấy dữ liệu từ Payload mới
+    test_ids = data.get("testIds", [])
+    class_ids_to_assign = data.get("classIdsToAssign", [])
+    student_ids_to_assign_ind = data.get("studentIdsToAssign", [])
+    class_ids_to_remove = data.get("classIdsToRemove", [])
+    student_ids_to_remove_ind = data.get("studentIdsToRemove", [])
+    
+    teacher_id = data.get("teacherId")
+    deadline_iso = data.get("deadline")
+    
+    if not test_ids or not teacher_id:
+        return jsonify({"message": "Thiếu testIds hoặc teacherId."}), 400
+
+    # --- 2. Lấy danh sách HS từ LỚP ĐỂ GIAO ---
+    student_ids_from_classes_assign = []
+    if class_ids_to_assign:
+        class_students = list(db.users.find({"classId": {"$in": class_ids_to_assign}}, {"id": 1}))
+        student_ids_from_classes_assign = [s['id'] for s in class_students]
+    
+    # Gộp HS lẻ và HS từ lớp (ĐỂ GIAO)
+    final_student_ids_to_assign = list(set(student_ids_to_assign_ind + student_ids_from_classes_assign))
+    
+    # --- 3. Lấy danh sách HS từ LỚP ĐỂ HỦY ---
+    student_ids_from_classes_remove = []
+    if class_ids_to_remove:
+        class_students = list(db.users.find({"classId": {"$in": class_ids_to_remove}}, {"id": 1}))
+        student_ids_from_classes_remove = [s['id'] for s in class_students]
+        
+    # Gộp HS lẻ và HS từ lớp (ĐỂ HỦY)
+    final_student_ids_to_remove = list(set(student_ids_to_remove_ind + student_ids_from_classes_remove))
+
+    # --- 4. Lấy thông tin (Map) ---
+    students_to_process = list(set(final_student_ids_to_assign + final_student_ids_to_remove))
+    students_cursor = db.users.find({"id": {"$in": students_to_process}}, {"id": 1, "fullName": 1, "className": 1, "classId": 1})
+    student_map = {s['id']: s for s in students_cursor}
+    test_docs_cursor = db.tests.find({"id": {"$in": test_ids}}, {"_id": 0, "id": 1, "name": 1, "subject": 1})
+    test_map = {t['id']: t for t in test_docs_cursor}
+
+    assignments_to_insert = []
+    assigned_count = 0
+    updated_count = 0
+    removed_count = 0
+    has_assigned_items = False # Cờ để set trạng thái 'assigned'
+
     try:
-        data = request.get_json() or {}
-        test_ids = data.get("testIds", [])      
-        student_ids_individual = data.get("studentIds", []) # HS lẻ
-        class_ids = data.get("classIds", []) # Lớp học
-        
-        teacher_id = data.get("teacherId")
-        deadline_iso = data.get("deadline") 
-        
-        if not isinstance(test_ids, list) or not teacher_id:
-            return jsonify({"message": "Dữ liệu đầu vào thiếu (testIds, teacherId).", "count": 0}), 400
-
-        # === LOGIC MỚI: LẤY HỌC SINH TỪ LỚP HỌC ===
-        student_ids_from_classes = []
-        if class_ids and isinstance(class_ids, list):
-            class_students = list(db.users.find(
-                {"classId": {"$in": class_ids}},
-                {"id": 1} # Chỉ lấy trường 'id'
-            ))
-            student_ids_from_classes = [s['id'] for s in class_students]
-        
-        # Gộp 2 danh sách HS (HS lẻ + HS từ lớp) và loại bỏ trùng lặp
-        all_student_ids = list(set(student_ids_individual + student_ids_from_classes))
-        
-        if not test_ids or not all_student_ids:
-            return jsonify({"message": "Vui lòng chọn ít nhất một đề thi và một học sinh (hoặc lớp).", "count": 0}), 400
-        # === KẾT THÚC LOGIC MỚI ===
-        
-        students_cursor = db.users.find({"id": {"$in": all_student_ids}}, {"id": 1, "fullName": 1, "className": 1, "classId": 1})
-        student_map = {s['id']: s for s in students_cursor}
-        valid_student_ids = list(student_map.keys())
-        
-        if not valid_student_ids:
-            return jsonify({"message": "Không tìm thấy học sinh hợp lệ nào từ danh sách đã chọn.", "count": 0}), 200
-
-        test_docs_cursor = db.tests.find({"id": {"$in": test_ids}}, {"_id": 0, "id": 1, "name": 1, "subject": 1})
-        test_map = {t['id']: t for t in test_docs_cursor}
-        assignments_to_insert = []
-        
-        for t_id in test_ids:
-            test_info = test_map.get(t_id)
-            if not test_info: continue
-            for stu_id in valid_student_ids:
-                student = student_map.get(stu_id); 
-                if not student: continue 
-                existing_assignment = db.assignments.find_one({"testId": t_id, "studentId": stu_id})
-                
-                # Cập nhật thông tin tên lớp/ID lớp cho HS
-                student_class_id = student.get("classId")
-                student_class_name = student.get("className") # Lấy tên lớp cũ (nếu có)
-                
-                if student_class_id:
-                    # Nếu HS đã có classId, tìm tên lớp
-                    class_info = db.classes.find_one({"id": student_class_id}, {"name": 1})
-                    if class_info:
-                        student_class_name = class_info.get("name")
-                
-                if existing_assignment:
-                    update_set = {
-                        "teacherId": teacher_id, 
-                        "deadline": deadline_iso,
-                        "className": student_class_name, # Cập nhật tên lớp
-                        "classId": student_class_id # Cập nhật ID lớp
-                    }
-                    if "assignedAt" not in existing_assignment and "createdAt" not in existing_assignment:
-                         update_set["assignedAt"] = now_vn_iso()
-                    db.assignments.update_one({"id": existing_assignment["id"]}, {"$set": update_set})
-                else:
-                    new_assign = {
-                        "id": str(uuid4()), "testId": t_id,
-                        "testName": test_info.get("name"), "studentId": stu_id,
-                        "studentName": student.get("fullName"), 
-                        "className": student_class_name, # Dùng tên lớp đã tra cứu
-                        "classId": student_class_id, # Dùng ID lớp đã tra cứu
-                        "teacherId": teacher_id, "deadline": deadline_iso,
-                        "status": "pending", "assignedAt": now_vn_iso(),
-                    }
-                    assignments_to_insert.append(new_assign)
-        
-        if assignments_to_insert:
-            db.assignments.insert_many(assignments_to_insert)
+        # --- 5. Xử lý GIAO BÀI ---
+        if final_student_ids_to_assign:
+            has_assigned_items = True
+            for t_id in test_ids:
+                test_info = test_map.get(t_id)
+                if not test_info: continue
+                for stu_id in final_student_ids_to_assign:
+                    student = student_map.get(stu_id)
+                    if not student: continue
+                    
+                    existing_assignment = db.assignments.find_one({"testId": t_id, "studentId": stu_id})
+                    
+                    student_class_id = student.get("classId")
+                    student_class_name = student.get("className")
+                    if student_class_id:
+                        class_info = db.classes.find_one({"id": student_class_id}, {"name": 1})
+                        if class_info: student_class_name = class_info.get("name")
+                    
+                    if existing_assignment:
+                        # Đã tồn tại, chỉ cập nhật deadline
+                        db.assignments.update_one({"id": existing_assignment["id"]}, {"$set": {"deadline": deadline_iso, "teacherId": teacher_id}})
+                        updated_count += 1
+                    else:
+                        # Tạo mới
+                        new_assign = {
+                            "id": str(uuid4()), "testId": t_id, "testName": test_info.get("name"), 
+                            "studentId": stu_id, "studentName": student.get("fullName"), 
+                            "className": student_class_name, "classId": student_class_id, 
+                            "teacherId": teacher_id, "deadline": deadline_iso,
+                            "status": "pending", "assignedAt": now_vn_iso(),
+                        }
+                        assignments_to_insert.append(new_assign)
             
-        db.tests.update_many({"id": {"$in": test_ids}}, {"$set": {"assignmentStatus": "assigned"}})
-        total_processed_count = len(test_ids) * len(valid_student_ids) 
+            if assignments_to_insert:
+                db.assignments.insert_many(assignments_to_insert)
+            assigned_count = len(assignments_to_insert)
+        
+        # --- 6. Xử lý HỦY GIAO BÀI ---
+        if final_student_ids_to_remove:
+            # Chỉ hủy cho các testId được chọn VÀ các studentId được chọn
+            # Quan trọng: KHÔNG HỦY BÀI ĐÃ NỘP (status: 'done' or 'submitted')
+            query = {
+                "testId": {"$in": test_ids},
+                "studentId": {"$in": final_student_ids_to_remove},
+                "status": {"$nin": ["done", "submitted"]}
+            }
+            delete_result = db.assignments.delete_many(query)
+            removed_count = delete_result.deleted_count
+
+        # --- 7. Cập nhật trạng thái Đề thi ---
+        if has_assigned_items:
+            db.tests.update_many({"id": {"$in": test_ids}}, {"$set": {"assignmentStatus": "assigned"}})
+        
+        # (Bạn có thể thêm logic kiểm tra xem 1 đề thi có còn assignment nào không
+        # để set lại 'not_assigned' nếu cần, nhưng hiện tại chỉ set 'assigned')
         
         return jsonify({
-            "success": True, "count": len(test_ids),
-            "totalAssignmentsProcessed": total_processed_count,
-            "message": f"Đã giao thành công {len(test_ids)} đề thi cho {len(valid_student_ids)} học sinh."
+            "success": True, 
+            "message": f"Giao bài hoàn tất. Đã thêm mới {assigned_count}, cập nhật {updated_count}. Đã hủy {removed_count} lượt."
         }), 201
+    
     except Exception as e:
-        print(f"Lỗi khi thực hiện bulk_assign_tests: {e}")
         traceback.print_exc()
-        return jsonify({"message": "Lỗi máy chủ khi giao/cập nhật đề.", "count": 0}), 500
+        return jsonify({"message": f"Lỗi máy chủ khi giao/cập nhật đề: {str(e)}", "count": 0}), 500
 
 @app.route("/api/tests/<test_id>/assignments", methods=["GET"])
 def get_test_assignments(test_id):
