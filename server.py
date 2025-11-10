@@ -416,6 +416,105 @@ def export_tests_pdf():
     return send_file(buffer, as_attachment=True,
                      download_name="de_thi.pdf", mimetype="application/pdf")
 
+
+# ==================================================
+# API LỚP HỌC (CLASSES) - MỚI
+# ==================================================
+
+@app.route("/api/classes", methods=["POST"])
+def create_class():
+    """
+    Tạo một lớp học mới.
+    """
+    data = request.get_json() or {}
+    name = data.get("name")
+    level = data.get("level")
+    teacher_id = data.get("teacher_id") # (Tùy chọn)
+
+    if not name or not level:
+        return jsonify({"success": False, "message": "Thiếu Tên Lớp hoặc Khối"}), 400
+
+    if db.classes.find_one({"name": name, "level": level}):
+        return jsonify({"success": False, "message": "Lớp học này đã tồn tại"}), 409
+
+    new_class = {
+        "id": str(uuid4()),
+        "name": name,
+        "level": level,
+        "teacher_id": teacher_id,
+        "createdAt": now_vn_iso()
+    }
+    
+    try:
+        db.classes.insert_one(new_class)
+        new_class.pop("_id", None)
+        return jsonify({"success": True, "class": new_class}), 201
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
+@app.route("/api/classes", methods=["GET"])
+def get_classes():
+    """
+    Lấy danh sách các lớp học, có thể lọc theo Khối (level).
+    """
+    query = {}
+    level = request.args.get("level")
+    if level:
+        query["level"] = level
+        
+    try:
+        classes = list(db.classes.find(query).sort("name", 1))
+        for c in classes:
+            c["_id"] = str(c["_id"])
+        return jsonify({"success": True, "classes": classes}), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
+@app.route("/api/classes/<class_id>", methods=["PUT"])
+def update_class(class_id):
+    """
+    Cập nhật thông tin một lớp học.
+    """
+    data = request.get_json() or {}
+    update_fields = {}
+    if "name" in data:
+        update_fields["name"] = data["name"]
+    if "level" in data:
+        update_fields["level"] = data["level"]
+        
+    if not update_fields:
+        return jsonify({"message": "Không có gì để cập nhật"}), 400
+
+    res = db.classes.update_one({"id": class_id}, {"$set": update_fields})
+    if res.matched_count == 0:
+        return jsonify({"message": "Lớp học không tìm thấy."}), 404
+        
+    updated_class = db.classes.find_one({"id": class_id}, {"_id": 0})
+    return jsonify({"success": True, "class": updated_class}), 200
+
+@app.route("/api/classes/<class_id>", methods=["DELETE"])
+def delete_class(class_id):
+    """
+    Xóa một lớp học. (Cần kiểm tra xem còn HS không).
+    """
+    try:
+        # Kiểm tra xem còn học sinh nào trong lớp này không
+        if db.users.find_one({"classId": class_id}):
+            return jsonify({"success": False, "message": "Không thể xóa. Vẫn còn học sinh trong lớp này."}), 400
+            
+        result = db.classes.delete_one({"id": class_id})
+        
+        if result.deleted_count > 0:
+            return jsonify({"success": True, "message": "Đã xóa lớp học."}), 200
+        else:
+            return jsonify({"success": False, "message": "Không tìm thấy lớp học."}), 404
+            
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
 # THAY THẾ HÀM CŨ 'get_question_stats' (khoảng dòng 452) BẰNG HÀM NÀY
 @app.route("/api/questions/<question_id>/stats", methods=["GET"])
 def get_question_stats(question_id):
@@ -1995,17 +2094,35 @@ def bulk_assign_tests():
     try:
         data = request.get_json() or {}
         test_ids = data.get("testIds", [])      
-        student_ids = data.get("studentIds", [])
+        student_ids_individual = data.get("studentIds", []) # HS lẻ
+        class_ids = data.get("classIds", []) # Lớp học
+        
         teacher_id = data.get("teacherId")
         deadline_iso = data.get("deadline") 
-        if not isinstance(test_ids, list) or not isinstance(student_ids, list) or not teacher_id:
-            return jsonify({"message": "Dữ liệu đầu vào thiếu hoặc không đúng định dạng (testIds, studentIds, teacherId).", "count": 0}), 400
-        if not test_ids or not student_ids:
-            return jsonify({"message": "Vui lòng chọn ít nhất một đề thi và một học sinh.", "count": 0}), 400
         
-        students_cursor = db.users.find({"id": {"$in": student_ids}}, {"id": 1, "fullName": 1, "className": 1})
+        if not isinstance(test_ids, list) or not teacher_id:
+            return jsonify({"message": "Dữ liệu đầu vào thiếu (testIds, teacherId).", "count": 0}), 400
+
+        # === LOGIC MỚI: LẤY HỌC SINH TỪ LỚP HỌC ===
+        student_ids_from_classes = []
+        if class_ids and isinstance(class_ids, list):
+            class_students = list(db.users.find(
+                {"classId": {"$in": class_ids}},
+                {"id": 1} # Chỉ lấy trường 'id'
+            ))
+            student_ids_from_classes = [s['id'] for s in class_students]
+        
+        # Gộp 2 danh sách HS (HS lẻ + HS từ lớp) và loại bỏ trùng lặp
+        all_student_ids = list(set(student_ids_individual + student_ids_from_classes))
+        
+        if not test_ids or not all_student_ids:
+            return jsonify({"message": "Vui lòng chọn ít nhất một đề thi và một học sinh (hoặc lớp).", "count": 0}), 400
+        # === KẾT THÚC LOGIC MỚI ===
+        
+        students_cursor = db.users.find({"id": {"$in": all_student_ids}}, {"id": 1, "fullName": 1, "className": 1, "classId": 1})
         student_map = {s['id']: s for s in students_cursor}
         valid_student_ids = list(student_map.keys())
+        
         if not valid_student_ids:
             return jsonify({"message": "Không tìm thấy học sinh hợp lệ nào từ danh sách đã chọn.", "count": 0}), 200
 
@@ -2020,8 +2137,24 @@ def bulk_assign_tests():
                 student = student_map.get(stu_id); 
                 if not student: continue 
                 existing_assignment = db.assignments.find_one({"testId": t_id, "studentId": stu_id})
+                
+                # Cập nhật thông tin tên lớp/ID lớp cho HS
+                student_class_id = student.get("classId")
+                student_class_name = student.get("className") # Lấy tên lớp cũ (nếu có)
+                
+                if student_class_id:
+                    # Nếu HS đã có classId, tìm tên lớp
+                    class_info = db.classes.find_one({"id": student_class_id}, {"name": 1})
+                    if class_info:
+                        student_class_name = class_info.get("name")
+                
                 if existing_assignment:
-                    update_set = {"teacherId": teacher_id, "deadline": deadline_iso}
+                    update_set = {
+                        "teacherId": teacher_id, 
+                        "deadline": deadline_iso,
+                        "className": student_class_name, # Cập nhật tên lớp
+                        "classId": student_class_id # Cập nhật ID lớp
+                    }
                     if "assignedAt" not in existing_assignment and "createdAt" not in existing_assignment:
                          update_set["assignedAt"] = now_vn_iso()
                     db.assignments.update_one({"id": existing_assignment["id"]}, {"$set": update_set})
@@ -2029,7 +2162,9 @@ def bulk_assign_tests():
                     new_assign = {
                         "id": str(uuid4()), "testId": t_id,
                         "testName": test_info.get("name"), "studentId": stu_id,
-                        "studentName": student.get("fullName"), "className": student.get("className"), 
+                        "studentName": student.get("fullName"), 
+                        "className": student_class_name, # Dùng tên lớp đã tra cứu
+                        "classId": student_class_id, # Dùng ID lớp đã tra cứu
                         "teacherId": teacher_id, "deadline": deadline_iso,
                         "status": "pending", "assignedAt": now_vn_iso(),
                     }
@@ -2037,6 +2172,7 @@ def bulk_assign_tests():
         
         if assignments_to_insert:
             db.assignments.insert_many(assignments_to_insert)
+            
         db.tests.update_many({"id": {"$in": test_ids}}, {"$set": {"assignmentStatus": "assigned"}})
         total_processed_count = len(test_ids) * len(valid_student_ids) 
         
@@ -2047,6 +2183,7 @@ def bulk_assign_tests():
         }), 201
     except Exception as e:
         print(f"Lỗi khi thực hiện bulk_assign_tests: {e}")
+        traceback.print_exc()
         return jsonify({"message": "Lỗi máy chủ khi giao/cập nhật đề.", "count": 0}), 500
 
 @app.route("/api/tests/<test_id>/assignments", methods=["GET"])
