@@ -1520,6 +1520,96 @@ def create_test_auto_matrix():
     except Exception as e:
         return jsonify({"success": False, "message": f"Lỗi server khi lưu: {e}", "warnings": errors}), 500
 
+@app.route("/api/tests/preview-auto-matrix", methods=["POST"])
+def preview_auto_test_matrix():
+    data = request.get_json() or {}
+    
+    # 1. Lấy thông tin chung
+    subject = data.get("subject", "")
+    level = data.get("level", "")
+    groups = data.get("groups", [])
+    
+    if not groups:
+        return jsonify({"success": False, "message": "Yêu cầu thiếu 'groups' (ma trận đề)"}), 400
+    if not subject or not level:
+        return jsonify({"success": False, "message": "Vui lòng chọn Môn học và Khối lớp"}), 400
+
+    base_query = {"subject": subject, "level": level}
+    
+    all_questions_found = []
+    all_question_ids_found = set()
+    errors = []
+
+    # 2. Lặp qua từng "Nhóm" (Rule) trong ma trận
+    for i, group in enumerate(groups):
+        count = int(group.get("count", 0))
+        if count == 0:
+            continue
+        
+        filters = group.get("filters", {})
+        match_query = base_query.copy()
+        
+        if filters.get("difficulty"):
+            match_query["difficulty"] = filters["difficulty"]
+        if filters.get("type"):
+            match_query["type"] = filters["type"]
+        if filters.get("tags"):
+            match_query["tags"] = {"$in": [filters["tags"].strip()]}
+
+        # 3. Thêm logic loại bỏ các câu hỏi đã được chọn
+        if all_question_ids_found:
+            uuids_to_exclude = [qid for qid in all_question_ids_found if not ObjectId.is_valid(qid)]
+            oids_to_exclude = [ObjectId(qid) for qid in all_question_ids_found if ObjectId.is_valid(qid)]
+            
+            and_conditions = match_query.get("$and", [])
+            if uuids_to_exclude:
+                and_conditions.append({"id": {"$nin": uuids_to_exclude}})
+            if oids_to_exclude:
+                and_conditions.append({"_id": {"$nin": oids_to_exclude}})
+            
+            if and_conditions:
+                 match_query["$and"] = and_conditions
+
+        # 4. Xây dựng Pipeline (Match -> Sample)
+        # 🔥 THAY ĐỔI: Lấy đầy đủ nội dung câu hỏi (không $project)
+        pipeline = [
+            {"$match": match_query},
+            {"$sample": {"size": count}}
+            # Bỏ $project để lấy full câu hỏi
+        ]
+
+        try:
+            questions_in_group = list(db.questions.aggregate(pipeline))
+            
+            if len(questions_in_group) < count:
+                errors.append(f"Nhóm {i+1} (Filters: {filters}): Yêu cầu {count}, chỉ tìm thấy {len(questions_in_group)}.")
+
+            for q in questions_in_group:
+                q_id = q.get('id') or str(q.get('_id'))
+                if q_id not in all_question_ids_found:
+                    all_questions_found.append(q)
+                    all_question_ids_found.add(q_id)
+        except Exception as e:
+            errors.append(f"Nhóm {i+1} (Filters: {filters}): Lỗi DB - {str(e)}")
+
+    if not all_questions_found:
+        return jsonify({"success": False, "message": "Không tìm thấy bất kỳ câu hỏi nào phù hợp.", "errors": errors}), 404
+        
+    all_question_ids = [q.get('id') or str(q.get('_id')) for q in all_questions_found]
+
+    # 5. Tính điểm (dùng lại hàm cũ)
+    points_map = calculate_question_points(all_question_ids, db)
+
+    # 6. Gán điểm vào các câu hỏi và trả về
+    for q in all_questions_found:
+        q_id = q.get('id') or str(q.get('_id'))
+        q["points"] = points_map.get(q_id, 0)
+        q["_id"] = str(q.get("_id")) # Đảm bảo _id là string
+
+    # Trả về danh sách câu hỏi đã được gán điểm (và các cảnh báo)
+    return jsonify({"success": True, "questions": all_questions_found, "warnings": errors}), 200
+
+
 # ==================================================
 # ✅ THAY THẾ HÀM CẬP NHẬT ĐỀ THI (Dòng 629)
 # ==================================================
