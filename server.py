@@ -349,10 +349,14 @@ def update_user(user_id):
             role_to_update = "teacher"
         update_fields["role"] = role_to_update
     if "fullName" in data: update_fields["fullName"] = data["fullName"]
-    if "className" in data: update_fields["className"] = data["className"]
     if "dob" in data: update_fields["dob"] = data["dob"]
     if "gender" in data: update_fields["gender"] = data["gender"]
     if "level" in data: update_fields["level"] = data["level"]
+    
+    # === 🔥 FIX (MỚI): THÊM 2 DÒNG ĐỂ LƯU LỚP HỌC ===
+    if "className" in data: update_fields["className"] = data["className"]
+    if "classId" in data: update_fields["classId"] = data["classId"]
+    # === KẾT THÚC FIX ===
         
     if not update_fields:
         return jsonify({"message": "Không có trường nào được cung cấp để cập nhật."}), 400
