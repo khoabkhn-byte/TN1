@@ -666,7 +666,8 @@ def bulk_upload_questions():
         if file.filename.endswith('.xlsx'):
             df = pd.read_excel(file, engine='openpyxl')
         elif file.filename.endswith('.csv'):
-            df = pd.read_csv(file)
+            # Thêm encoding='utf-8-sig' để đọc CSV tiếng Việt có BOM
+            df = pd.read_csv(file, encoding='utf-8-sig') 
         else:
             return jsonify({"success": False, "message": "Định dạng file không hợp lệ. Chỉ chấp nhận .xlsx hoặc .csv"}), 400
         
@@ -700,10 +701,20 @@ def bulk_upload_questions():
                 difficulty = str(row.get('difficulty', 'medium')).lower()
                 q_type = str(row.get('type', 'mc')).lower()
                 
+                # === THÊM MỚI (1): Xử lý cột 'tags' ===
+                tags_raw = str(row.get('tags', '')) # Lấy cột 'tags', mặc định là rỗng
+                tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
+                tags_list = list(dict.fromkeys(tags_list)) # Xóa trùng lặp
+                # === KẾT THÚC THÊM MỚI (1) ===
+                
                 if difficulty not in ['easy', 'medium', 'hard']:
                     difficulty = 'medium'
-                if q_type not in ['mc', 'essay']:
-                    q_type = 'mc'
+                
+                # === SỬA ĐỔI (2): Hỗ trợ các loại câu hỏi mới ===
+                supported_types = ['mc', 'essay', 'true_false', 'fill_blank', 'draw']
+                if q_type not in supported_types:
+                    q_type = 'mc' # Vẫn default về mc nếu nhập sai
+                # === KẾT THÚC SỬA ĐỔI (2) ===
 
                 newq = {
                     "id": str(uuid4()),
@@ -716,7 +727,9 @@ def bulk_upload_questions():
                     "createdAt": now_vn_iso(),
                     "imageId": None,
                     "options": [],
-                    "answer": ""
+                    "answer": "", # Sẽ được ghi đè bên dưới nếu cần
+                    "tags": tags_list, # <-- THÊM MỚI (1b)
+                    "hint": str(row.get('hint', '')) # <-- THÊM MỚI: Hỗ trợ cột hint
                 }
 
                 # 3. Xử lý câu hỏi Trắc nghiệm (mc)
@@ -756,13 +769,67 @@ def bulk_upload_questions():
                         {"text": text, "correct": (i == answer_index)}
                         for i, text in enumerate(options)
                     ]
-                    # 'answer' của MC để trống (vì đã lưu trong 'options')
                     newq["answer"] = ""
 
-                # 4. Xử lý câu hỏi Tự luận (essay)
-                else:
+                # === SỬA ĐỔI (3): Thêm logic cho các loại câu hỏi mới ===
+
+                # 4. Xử lý Tự luận (essay) hoặc Vẽ (draw)
+                elif q_type == 'essay' or q_type == 'draw':
+                    # 'draw' và 'essay' dùng chung logic 'answer' (làm đáp án mẫu/gợi ý)
                     newq["options"] = []
                     newq["answer"] = str(row.get('answer', '')) # 'answer' là văn bản mẫu
+
+                # 5. Xử lý Đúng/Sai (true_false)
+                elif q_type == 'true_false':
+                    # Yêu cầu: option_1, option_2, ... là các mệnh đề
+                    # Yêu cầu: answer là 'true,false,true'
+                    options_texts = []
+                    option_cols = sorted([col for col in df.columns if col.startswith('option_')])
+                    for col_name in option_cols:
+                        option_text = row.get(col_name)
+                        if option_text and str(option_text).strip():
+                            options_texts.append(str(option_text).strip())
+                    
+                    if not options_texts:
+                        errors.append(f"Dòng {index + 2}: Câu Đúng/Sai nhưng không có cột 'option_...'.")
+                        continue
+                    
+                    # Xử lý đáp án: 'true, false, true'
+                    answer_val = str(row.get('answer', '')).strip()
+                    if not answer_val:
+                        errors.append(f"Dòng {index + 2}: Câu Đúng/Sai thiếu cột 'answer' (ví dụ: true,false,true).")
+                        continue
+                    
+                    answer_list_str = [a.strip().lower() for a in answer_val.split(',')]
+                    
+                    if len(answer_list_str) != len(options_texts):
+                        errors.append(f"Dòng {index + 2}: Số lượng đáp án ({len(answer_list_str)}) không khớp số lượng mệnh đề ({len(options_texts)}).")
+                        continue
+                    
+                    newq["options"] = []
+                    for i, text in enumerate(options_texts):
+                        is_correct = (answer_list_str[i] == 'true')
+                        newq["options"].append({"text": text, "correct": is_correct})
+                    newq["answer"] = "" # Dùng 'options'
+
+                # 6. Xử lý Điền từ (fill_blank)
+                elif q_type == 'fill_blank':
+                    # Yêu cầu: answer là 'từ 1, từ 2, từ 3'
+                    # (Không cần option_... cho fill_blank)
+                    answer_val = str(row.get('answer', '')).strip()
+                    if not answer_val:
+                        errors.append(f"Dòng {index + 2}: Câu Điền từ thiếu cột 'answer' (ví dụ: con,tròn,nhỏ).")
+                        continue
+                    
+                    correct_answers = [a.strip() for a in answer_val.split(',')]
+                    
+                    newq["options"] = []
+                    for ans_text in correct_answers:
+                        if ans_text: # Chỉ thêm nếu từ đó không rỗng
+                            newq["options"].append({"text": ans_text})
+                    newq["answer"] = "" # Dùng 'options'
+                
+                # === KẾT THÚC SỬA ĐỔI (3) ===
 
                 questions_to_insert.append(newq)
 
@@ -780,6 +847,9 @@ def bulk_upload_questions():
             "error_count": len(errors)
         }), 201
 
+    except pd.errors.ParserError as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi đọc file CSV: {str(e)}. Vui lòng kiểm tra file và đảm bảo file được lưu dưới dạng CSV (UTF-8)."}), 500
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Lỗi nghiêm trọng khi đọc file: {str(e)}"}), 500
