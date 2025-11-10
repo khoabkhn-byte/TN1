@@ -754,6 +754,9 @@
         <li class="nav-item"><button class="nav-link active" id="q-tab" data-bs-toggle="tab" data-bs-target="#tab-questions">Câu hỏi</button></li>
         <li class="nav-item"><button class="nav-link" id="t-tab" data-bs-toggle="tab" data-bs-target="#tab-tests">Bài thi</button></li>
         <li class="nav-item"><button class="nav-link" id="s-tab" data-bs-toggle="tab" data-bs-target="#tab-students">Học sinh</button></li>
+        
+        <li class="nav-item"><button class="nav-link" id="c-tab" data-bs-toggle="tab" data-bs-target="#tab-classes">Hệ thống Lớp</button></li>
+        
         <li class="nav-item"><button class="nav-link" id="r-tab" data-bs-toggle="tab" data-bs-target="#tab-results">Kết quả</button></li>
       </ul>
 
@@ -1085,14 +1088,23 @@
 
                     <div class="row">
                         <div class="col-md-4 mb-3">
-                            <label for="student-class" class="form-label">Lớp</label>
-                            <input type="text" class="form-control" id="student-class" placeholder="Ví dụ: 10A1">
-                        </div>
-                        <div class="col-md-3 mb-3">
                             <label for="student-level" class="form-label">Khối lớp</label>
-                            <input type="text" class="form-control" id="student-level" placeholder="Ví dụ: 10">
+                            <select id="student-level" class="form-select" onchange="populateStudentClassDropdown()">
+                                <option value="">-- Chọn Khối --</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
                         </div>
-                        <div class="col-md-5 mb-3">
+                        <div class="col-md-4 mb-3">
+                            <label for="student-class-id" class="form-label">Lớp</label>
+                            <select id="student-class-id" class="form-select">
+                                <option value="">-- Chọn Lớp --</option>
+                                </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
                             <label for="student-role" class="form-label">Vai trò</label>
                             <select id="student-role" class="form-select" required>
                                 <option value="student">Học sinh</option>
@@ -1234,8 +1246,97 @@
                 </div>
             </div>
         </div>
+		
+<!--MODAL QUẢN LÝ LỚP HỌC-->
+ <div class="tab-pane fade" id="tab-classes">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5>Quản lý Lớp học</h5>
+            </div>
+            
+            <div class="card p-3 mb-3">
+                 <div class="row g-2 align-items-end">
+                    <div class="col-lg-3">
+                        <label for="filter-class-level" class="form-label small mb-1">Lọc theo Khối</label>
+                        <select id="filter-class-level" class="form-select form-select-sm" onchange="loadClasses(false)">
+                            <option value="">-- Tất cả Khối --</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                    <div class="col text-end">
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadClasses(true)">Tải lại</button>
+                        <button class="btn btn-sm btn-primary" onclick="openClassModal()">➕ Thêm Lớp mới</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-3">
+                <div class="table-wrap">
+                    <table class="table table-sm table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%;">STT</th>
+                                <th style="width: 30%;">Tên Lớp</th>
+                                <th style="width: 15%;">Khối</th>
+                                <th style="width: 30%;">Ngày tạo</th>
+                                <th style="width: 20%;" class="text-center">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="classes-tbody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal fade" id="modalClassEdit" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title" id="class-modal-title">➕ Thêm Lớp mới</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form id="class-form" onsubmit="event.preventDefault(); saveClass();">
+                        <div class="modal-body">
+                            <input type="hidden" id="class-id">
+                            
+                            <div class="mb-3">
+                                <label for="class-name" class="form-label">Tên Lớp (Ví dụ: 4A, 5C)</label>
+                                <input type="text" class="form-control" id="class-name" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="class-level" class="form-label">Khối lớp</label>
+                                <select id="class-level" class="form-select" required>
+                                    <option value="">-- Chọn Khối --</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                            <button type="submit" class="btn btn-primary">💾 Lưu</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>		
+		
  </div>
  </div>
+ 
+ 
+ 
+ 
+ 
+ 
     <!-- STUDENT APP -->
  <div id="student-app">
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1770,78 +1871,125 @@
       </div>
 
       <div class="modal-body">
-        <div class="row mb-2">
-          <div class="col-md-6">
-            <label class="form-label">Tên bài kiểm tra</label>
-            <input id="a-test-name" class="form-control" placeholder="Nhập tên bài kiểm tra">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Thời gian (phút)</label>
-            <input id="a-test-time" type="number" class="form-control" value="45">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Số câu hỏi</label>
-            <input id="a-test-count" type="number" class="form-control" value="10">
-          </div>
-        </div>
+    <div class="row mb-2">
+      <div class="col-md-8">
+        <label class="form-label">Tên bài kiểm tra</label>
+        <input id="a-test-name" class="form-control" placeholder="Nhập tên bài kiểm tra">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Thời gian (phút)</label>
+        <input id="a-test-time" type="number" class="form-control" value="45">
+      </div>
+    </div>
 
-        <div class="row mb-2">
-          <div class="col-md-6">
-            <label class="form-label">Môn học</label>
-            <select id="a-test-subject" class="form-select">
-              <option value="">-- Tất cả --</option>
-              <option value="math">Toán</option>
-              <option value="literature">Văn</option>
-              <option value="english">Tiếng Anh</option>
-              <option value="physics">Vật lý</option>
-              <option value="chemistry">Hóa học</option>
-              <option value="biology">Sinh học</option>
-              <option value="history">Lịch sử</option>
-              <option value="geography">Địa lý</option>
-              <option value="civic">GDCD</option>
-              <option value="it">Tin học</option>
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Khối</label>
-            <select id="a-test-level" class="form-select">
-              <option value="">-- Tất cả --</option>
-              <option value="1">1</option><option value="2">2</option>
-              <option value="3">3</option><option value="4">4</option>
-              <option value="5">5</option>
-            </select>
-          </div>
-        </div>
+    <div class="row mb-2">
+      <div class="col-md-6">
+        <label class="form-label">Môn học (Bắt buộc)</label>
+        <select id="a-test-subject" class="form-select">
+          <option value="">-- Chọn Môn học --</option>
+          <option value="math">Toán</option>
+          <option value="literature">Văn</option>
+          <option value="english">Tiếng Anh</option>
+          <option value="physics">Vật lý</option>
+          <option value="chemistry">Hóa học</option>
+          <option value="biology">Sinh học</option>
+          <option value="history">Lịch sử</option>
+          <option value="geography">Địa lý</option>
+          <option value="civic">GDCD</option>
+          <option value="it">Tin học</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Khối (Bắt buộc)</label>
+        <select id="a-test-level" class="form-select">
+          <option value="">-- Chọn Khối --</option>
+          <option value="1">1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+      </div>
+    </div>
 
-        <div class="alert alert-light border">
-          <strong>📊 Phân bổ độ khó:</strong>
-          <div class="row mt-2">
-            <div class="col"><input id="dist-easy" type="number" class="form-control" value="5"> <small>Dễ</small></div>
-            <div class="col"><input id="dist-medium" type="number" class="form-control" value="3"> <small>Trung bình</small></div>
-            <div class="col"><input id="dist-hard" type="number" class="form-control" value="2"> <small>Khó</small></div>
-          </div>
+    <div class="alert alert-light border mt-3">
+      
+      <div class="d-flex justify-content-between align-items-center">
+        <strong>📊 Ma Trận Đề (Thêm các nhóm câu hỏi):</strong>
+        <span id="matrix-total-count" class="text-muted fst-italic" style="font-size: 0.9rem;">
+          Tổng số câu đã chọn là: 0
+        </span>
+      </div>
+      
+      <div id="matrix-rules-container" class="mt-2" style="display: flex; flex-direction: column; gap: 8px;">
         </div>
-
-        <div class="alert alert-info small">
-          Hệ thống sẽ tự động <strong>cân bằng điểm tổng = 10.0</strong> dựa trên số lượng câu hỏi.<br>
-          Bạn có thể xem trước danh sách câu hỏi được chọn bên dưới trước khi lưu.
-        </div>
-
-        <div id="preview-container" class="border rounded p-2" style="max-height:240px; overflow:auto; background:#f8f9fa">
-          <em class="text-muted">Chưa có xem trước nào.</em>
-        </div>
+      
+      <div class="mt-2 pt-2 border-top">
+          <button type="button" class="btn btn-sm btn-outline-primary" id="add-matrix-rule-btn">
+            ➕ Thêm Nhóm
+          </button>
       </div>
 
+    </div>
+    <div id="preview-warnings-container" class="mb-2">
+      </div>
+
+    <div class="alert alert-info small">
+      Hệ thống sẽ tự động <strong>cân bằng điểm tổng = 10.0</strong> dựa trên ma trận.
+    </div>
+    <div id="preview-container" class="border rounded p-2" style="max-height:240px; overflow:auto; background:#f8f9fa">
+      <em class="text-muted">Chưa có xem trước nào.</em>
+    </div>
+</div>
+
       <div class="modal-footer">
+        <button class="btn btn-outline-info me-auto" onclick="openLoadTemplateModal()">📂 Tải Cấu hình</button>
+        
         <button class="btn btn-outline-secondary" onclick="previewAutoTest()">🔍 Xem trước</button>
-        <button class="btn btn-success" onclick="saveTestAuto()">💾 Lưu bài kiểm tra</button>
-        <button class="btn btn-primary" onclick="saveAutoTemplate()">💾 Lưu cấu hình</button>
+        <button class="btn btn-success" onclick="saveTestAuto()">💾 Tạo & Lưu Đề</button>
+        
+        <button class="btn btn-primary" onclick="saveMatrixTemplate()">💾 Lưu Cấu hình</button>
+        
         <button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
       </div>
     </div>
   </div>
 </div>
 
+
+<!-- Modal tải cấu hình matrix -->
+<div class="modal fade" id="modalLoadTemplate" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-dark">
+        <h5 class="modal-title">📂 Tải Cấu hình Ma trận đã lưu</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="alert alert-light small">
+          Chọn một cấu hình để tự động điền vào ma trận. (Danh sách này được lọc dựa trên Môn và Khối bạn đã chọn ở màn hình trước).
+        </div>
+        
+        <div class="table-responsive" style="max-height: 400px;">
+          <table class="table table-sm table-hover table-bordered">
+            <thead class="table-light" style="position: sticky; top: 0;">
+              <tr>
+                <th scope="col" style="width: 35%;">Tên Cấu hình</th>
+                <th scope="col" style="width: 45%;">Chi tiết Ma trận</th>
+                <th scope="col" class="text-center" style="width: 20%;">Hành động</th>
+              </tr>
+            </thead>
+            <tbody id="template-list-tbody">
+              </tbody>
+          </table>
+        </div>
+        
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Modal làm bài -->
 <div class="modal fade" id="modalQuiz" tabindex="-1" aria-labelledby="modalQuizLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -1975,8 +2123,9 @@
             </div>
             
             <div class="modal-body">
-    <input type="hidden" id="current-test-id" value=""> 
-    <input type="hidden" id="assign-test-ids" value=""> 
+    <input type="hidden" id="current-test-id" value=""> 
+    <input type="hidden" id="assign-test-ids" value=""> 
+    
     <div id="bulk-info" class="alert alert-info d-none mb-3">
         Bạn đang giao <span id="bulk-count" class="font-weight-bold"></span> đề thi đã chọn.
     </div>
@@ -1986,13 +2135,24 @@
         <input type="datetime-local" class="form-control" id="assign-deadline">
     </div>
     
-    <label class="form-label mt-2 fw-bold text-success">Đã được giao (<span id="count-assigned">0</span>):</label>
-    <div id="current-assigned-list" class="mb-4 p-2 border rounded bg-light" style="max-height: 250px; overflow-y: auto;">
+    <div class="row">
+        <div class="col-md-5">
+            <label class="form-label fw-bold text-primary">1. Chọn Lớp:</label>
+            <div id="available-classes-list" class="mb-2 p-2 border rounded bg-light" style="max-height: 250px; overflow-y: auto;">
+                </div>
         </div>
+        
+        <div class="col-md-7">
+            <label class="form-label fw-bold">2. Chọn Học sinh:</label>
+            <div id="available-students-list" class="p-2 border rounded" style="max-height: 250px; overflow-y: auto;">
+                </div>
+        </div>
+    </div>
     
-    <label class="form-label mt-2">Học sinh có sẵn (<span id="count-available">0</span>):</label>
-    <div id="available-students-list" class="p-2 border rounded" style="max-height: 250px; overflow-y: auto;">
+    <label class="form-label mt-2 fw-bold text-success">Danh sách sẽ Giao / Đã Giao:</label>
+    <div id="assignment-tree-container" class="mb-2 p-2 border rounded bg-light-gray" style="max-height: 200px; overflow-y: auto;">
         </div>
+</div>
             
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -2411,7 +2571,9 @@ const state = {
     students: { list: [], page:1, total:0 }, 
     results: { list: [], page:1, total:0 },
     
-    // ✅ ĐẢM BẢO 2 DÒNG NÀY CÓ Ở ĐÂY
+    // 🔥 DÒNG MỚI BẠN CẦN THÊM
+    classes: { list: [], allList: [] }, 
+    
     stuPending: { list: [], page: 1, total: 0 },
     stuDone: { list: [], page: 1, total: 0 }
 };
@@ -4332,6 +4494,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try { confirmDeleteModalInstance = new bootstrap.Modal(confirmDeleteModalEl); } catch(e) {}
     }
 
+	// ==================================================================
+    // === 🔥 DÁN DÒNG MỚI CỦA BẠN VÀO ĐÂY (NGAY SAU KHỐI Ở TRÊN) ===
+    // ==================================================================
+    const modalLoadTemplateEl = document.getElementById("modalLoadTemplate");
+    if (modalLoadTemplateEl) { 
+        try { window.modalLoadTemplateInstance = new bootstrap.Modal(modalLoadTemplateEl); } catch(e) {}
+    }
+    // ==================================================================
+
     // C. (MỚI) Gắn listener dọn dẹp cho Modal Chấm bài (Giáo viên)
     const modalGradingEl = document.getElementById('modalGrading');
     if (modalGradingEl) {
@@ -5463,7 +5634,10 @@ window.openResultDetail = openResultDetail;
 
 
 
-// DÁN TOÀN BỘ HÀM NÀY THAY THẾ HÀM CŨ (khoảng dòng 8431)
+/**
+ * HÀM 1 (CẬP NHẬT): Render Modal Chấm bài (GV)
+ * 🔥 FIX: Giảm chiều cao canvas (DRAW) từ 320px xuống 280px.
+ */
 async function renderResultDetailModal(data) {
     if (!data || !data.id) {
         console.error("renderResultDetailModal: Invalid input data.");
@@ -5496,14 +5670,12 @@ async function renderResultDetailModal(data) {
     const sumClass = document.getElementById('sum-className');
     const sumSubmitted = document.getElementById('sum-submittedAt');
     
-    // ▼▼▼ BẮT ĐẦU SỬA LỖI ▼▼▼
     const sumMc = document.getElementById('sum-mcScore');
     const sumTf = document.getElementById('sum-tfScore');
     const sumFill = document.getElementById('sum-fillScore');
     const sumEssay = document.getElementById('sum-essayScore');
     const sumDraw = document.getElementById('sum-drawScore');
     const sumTotal = document.getElementById('sum-totalScore');
-    // ▲▲▲ KẾT THÚC SỬA LỖI ▲▲▲
 
     const modalTitle = document.querySelector('#modalGrading .modal-title');
 
@@ -5513,30 +5685,24 @@ async function renderResultDetailModal(data) {
     if (sumClass) sumClass.innerText = data.className || 'N/A';
     if (sumSubmitted) sumSubmitted.innerText = data.submittedAt ? new Date(data.submittedAt).toLocaleString('vi-VN') : 'Chưa nộp';
 
-    // ▼▼▼ BẮT ĐẦU SỬA LỖI ▼▼▼
     if (sumMc) sumMc.innerText = (data.mcScore ?? 0).toFixed(1);
     if (sumTf) sumTf.innerText = (data.tfScore ?? 0).toFixed(1);
     if (sumFill) sumFill.innerText = (data.fillScore ?? 0).toFixed(1);
     if (sumEssay) sumEssay.innerText = (data.essayScore ?? 0).toFixed(1);
     if (sumDraw) sumDraw.innerText = (data.drawScore ?? 0).toFixed(1);
     if (sumTotal) sumTotal.innerText = (data.totalScore ?? 0).toFixed(1);
-    // ▲▲▲ KẾT THÚC SỬA LỖI ▲▲▲
 
     if (!container) {
         console.error("renderResultDetailModal: Cannot find container #grading-questions-container");
         return;
     }
-	// ▼▼▼▼▼ BẮT ĐẦU SỬA LỖI (THÊM KHỐI NÀY) ▼▼▼▼▼
-    // BƯỚC 1: Dọn dẹp các Konva stage cũ TRƯỚC KHI render lại
-    // Lấy tất cả ID canvas CŨ từ bên trong container
+    // Dọn dẹp các Konva stage cũ TRƯỚC KHI render lại
     const oldCanvasIds = Array.from(container.querySelectorAll('.drawing-canvas-container')).map(div => div.id);
     
     oldCanvasIds.forEach(canvasId => {
         if (window.drawingPads && window.drawingPads[canvasId]) {
             try {
-                // Hủy stage (gỡ bỏ listeners và canvas khỏi DOM ảo)
                 window.drawingPads[canvasId].stage.destroy(); 
-                // Xóa tham chiếu khỏi bộ đệm global
                 delete window.drawingPads[canvasId]; 
                 console.log(`[FIX] Đã dọn dẹp Konva stage cũ: ${canvasId}`);
             } catch (e) {
@@ -5544,7 +5710,6 @@ async function renderResultDetailModal(data) {
             }
         }
     });
-    // ▲▲▲▲▲ KẾT THÚC SỬA LỖI (THÊM KHỐI NÀY) ▲▲▲▲▲
 
     // Chuẩn hóa answers từ result object
     const answers = await buildAnswersFromResult(data);
@@ -5554,11 +5719,13 @@ async function renderResultDetailModal(data) {
         container.innerHTML = `<div class="alert alert-warning text-center"><h5 class="mb-0">Không tìm thấy chi tiết câu hỏi và đáp án!</h5></div>`;
         return;
     }
+	
+	
 
-    // Helper: safely parse stored studentAnswer (string or already-object)
+   // Helper: safely parse stored studentAnswer
     function parseStudentAnswer(raw) {
         if (raw === null || raw === undefined) return null;
-        if (typeof raw === 'object') return raw; // Đã là object, trả về
+        if (typeof raw === 'object') return raw; 
         if (typeof raw === 'string') {
             const s = raw.trim();
             if (!s) return null;
@@ -5675,14 +5842,7 @@ async function renderResultDetailModal(data) {
                 correctAnswerHtml = `<p class="small text-muted mt-2 mb-0">Đáp án đúng: <strong>${(correctAnswers||[]).map(escapeHtml).join(', ')}</strong></p>`;
             }
 
-            // TÌM HÀM 'renderResultDetailModal' (khoảng dòng 8431)
-// BÊN TRONG VÒNG LẶP 'answers.forEach((ans, i) => { ... })'
-// THAY THẾ KHỐI 'else if (q_type === 'draw')' (khoảng dòng 8617) BẰNG KHỐI SAU:
-
-            // =======================================================
-            // === KHỐI THAY THẾ: DRAW (Logic GV Chấm bài) ===
-            // (🔥 Sửa lỗi 12/6 - Lọc bằng TÊN)
-            // =======================================================
+            // === DRAW (Hình vẽ) ===
             else if (q_type === 'draw') {
                 const canvasId = `review_${qId}`;
                 studentAnswerLabelHtml = '<p class="mb-1 fw-medium text-primary">Câu trả lời của Học sinh (Đã khóa):</p>';
@@ -5723,14 +5883,15 @@ async function renderResultDetailModal(data) {
                     </div>
                 `;
                 
+                // 🔥 FIX 1 (Mới): Giảm chiều cao từ 320px xuống 280px
                 answerDisplay = `
                     <div class="drawing-pad-container">
                         ${toolbarHtml}
-                        <div id="${canvasId}" class="drawing-canvas-container" style="width: 100%; height:320px;border:1px solid #ccc;background:#fff;"></div>
+                        <div id="${canvasId}" class="drawing-canvas-container" style="width: 100%; height:280px;border:1px solid #ccc;background:#fff;"></div>
                     </div>
                 `;
 
-               // 🔥 CẢI TIẾN: Logic callback để tải 2 Layer (HS và GV)
+               // Logic callback để tải 2 Layer (HS và GV)
                 canvasLoadCallbacks.push(() => {
                     const canvasEl = document.getElementById(canvasId);
                     if (!canvasEl) return;
@@ -5758,14 +5919,13 @@ async function renderResultDetailModal(data) {
                             }
 
                             shapesToLoad_HS.forEach(shapeData => {
-                                // 🔥 SỬA LỖI: Lọc bỏ công cụ bằng TÊN
                                 const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
                                 const className = shapeData.className;
                                 if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
                                     const shape = Konva.Node.create(shapeData);
                                     if (shape) {
                                         pad.studentLayer.add(shape);
-                                        hsShapesCount++; // <-- Đếm hình thật
+                                        hsShapesCount++;
                                     }
                                 }
                             });
@@ -5787,14 +5947,13 @@ async function renderResultDetailModal(data) {
                             }
                             
                             shapesToLoad_GV.forEach(shapeData => {
-                                // 🔥 SỬA LỖI: Lọc bỏ công cụ bằng TÊN
                                 const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
                                 const className = shapeData.className;
                                 if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
                                     const shape = Konva.Node.create(shapeData);
                                     if (shape) {
                                         pad.teacherLayer.add(shape);
-                                        gvShapesCount++; // <-- Đếm hình thật
+                                        gvShapesCount++;
                                     }
                                 }
                             });
@@ -5819,9 +5978,6 @@ async function renderResultDetailModal(data) {
                         <input type="number" class="form-control w-50 w-md-25" id="score-${qId}" min="0" max="${maxPoints}" step="0.5" value="${teacherScore ?? ''}" placeholder="chưa chấm">
                     </div>`;
             }
-            // =======================================================
-            // === KẾT THÚC KHỐI THAY THẾ: DRAW ===
-            // =======================================================
 
             // === ESSAY (Văn bản) ===
             else if (q_type === 'essay' || q_type === 'tu_luan') {
@@ -7741,6 +7897,61 @@ function toggleSelectEditQuestion(qId) {
 }
 
 
+
+/**
+ * Hàm mới: Thêm một dòng quy tắc (rule) vào modal Ma Trận Đề
+ */
+function addMatrixRuleRow() {
+    const container = qs('#matrix-rules-container');
+    if (!container) return;
+
+    const newRow = document.createElement('div');
+    newRow.className = 'd-flex align-items-center gap-2 matrix-rule-row';
+
+    // HTML cho dòng mới
+    newRow.innerHTML = `
+        <input type="number" class="form-control rule-count" value="1" style="width: 70px;" title="Số lượng" min="1" oninput="updateMatrixTotalCount()">
+        
+        <select class="form-select form-select-sm rule-type" title="Loại câu hỏi">
+            <option value="">-- Tất cả Loại --</option>
+            <option value="mc">Trắc nghiệm</option>
+            <option value="essay">Tự luận</option>
+            <option value="true_false">Đúng/Sai</option>
+            <option value="fill_blank">Điền từ</option>
+            <option value="draw">Vẽ</option>
+        </select>
+        
+        <select class="form-select form-select-sm rule-difficulty" title="Độ khó">
+            <option value="">-- Mọi Độ khó --</option>
+            <option value="easy">Dễ</option>
+            <option value="medium">Trung bình</option>
+            <option value="hard">Khó</option>
+        </select>
+        
+        <input type="text" class="form-control form-control-sm rule-tags" placeholder="Nhập 1 tag (nếu có)">
+        
+        <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.matrix-rule-row').remove(); updateMatrixTotalCount();" title="Xóa nhóm này">X</button>
+    `;
+
+    container.appendChild(newRow);
+    updateMatrixTotalCount(); // Cập nhật tổng khi thêm
+}
+
+
+function updateMatrixTotalCount() {
+    let total = 0;
+    const countInputs = document.querySelectorAll('#matrix-rules-container .rule-count');
+    countInputs.forEach(input => {
+        total += Number(input.value) || 0;
+    });
+    const totalEl = qs('#matrix-total-count');
+    if (totalEl) {
+        // Cập nhật text theo yêu cầu của bạn
+        totalEl.textContent = `Tổng số câu đã chọn là: ${total}`;
+    }
+}
+
+
 async function saveEditedTest() {
   const modalEl = qs('modalTestEdit'); 
   const testIdInput = qs('edit-test-id');
@@ -8112,83 +8323,400 @@ function resetTestFilters() {
 
 // Lưu bài kiểm tra sau khi xem trước
 async function saveTestAuto() {
-  // 1. Lấy các tham số cấu hình từ modal (GIỮ NGUYÊN)
-  const name = qs('a-test-name').value.trim() || 'Bài kiểm tra ngẫu nhiên';
-  const time = Number(qs('a-test-time').value) || 45;
-  const subject = qs('a-test-subject').value || ''; // Gửi '' nếu không chọn
-  const level = qs('a-test-level').value || '';   // Gửi '' nếu không chọn
-  const total = Number(qs('a-test-count').value) || 10; // Tổng số câu hỏi mong muốn
-  const dist = {
-    easy: Number(qs('dist-easy').value) || 0,
-    medium: Number(qs('dist-medium').value) || 0,
-    hard: Number(qs('dist-hard').value) || 0
-  };
+    // 1. Lấy thông tin chung
+    const name = qs('a-test-name').value.trim() || 'Bài kiểm tra ma trận';
+    const time = Number(qs('a-test-time').value) || 45;
+    const subject = qs('a-test-subject').value;
+    const level = qs('a-test-level').value;
 
-  // Lấy teacherId (nếu cần)
-  const teacherId = currentUser ? currentUser.id : null;
+    if (!subject || !level) {
+        alert("Vui lòng chọn Môn học và Khối lớp.");
+        return;
+    }
 
-  // 2. TẠO PAYLOAD CHO ENDPOINT /api/tests/auto (ĐÃ SỬA)
-  const payload = {
-    name: name,
-    time: time,
-    subject: subject,
-    level: level,
-    total: total, // Gửi tổng số câu
-    dist: dist,   // Gửi phân bổ độ khó
-    teacherId: teacherId
-    // KHÔNG gửi mảng 'questions' nữa, backend sẽ tự chọn
-  };
+    // 2. Xây dựng mảng "groups" từ UI
+    const groups = [];
+    // Giả sử bạn có 1 container chứa các rule, và mỗi rule có class 'matrix-rule-row'
+    const ruleRows = document.querySelectorAll('#matrix-rules-container .matrix-rule-row'); 
 
-  try {
-    // 3. GỌI ĐÚNG ENDPOINT /api/tests/auto (ĐÃ SỬA)
-    await fetchJson(`${serverUrl}/api/tests/auto`, { // <--- Sửa endpoint ở đây
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
+    if (ruleRows.length === 0) {
+        alert("Bạn phải thêm ít nhất một nhóm câu hỏi.");
+        return;
+    }
+
+    let totalCount = 0;
+    for (const row of ruleRows) {
+        const count = Number(row.querySelector('.rule-count').value);
+        if (count > 0) {
+            totalCount += count;
+            const type = row.querySelector('.rule-type').value;
+            const difficulty = row.querySelector('.rule-difficulty').value;
+            const tags = row.querySelector('.rule-tags').value;
+
+            const filters = {};
+            if (type) filters.type = type;
+            if (difficulty) filters.difficulty = difficulty;
+            if (tags) filters.tags = tags; // BE sẽ xử lý tag này
+
+            groups.push({
+                count: count,
+                filters: filters
+            });
+        }
+    }
+
+    if (totalCount === 0) {
+        alert("Tổng số câu hỏi phải lớn hơn 0.");
+        return;
+    }
+
+    // 3. Tạo payload
+    const payload = {
+        name: name,
+        time: time,
+        subject: subject,
+        level: level,
+        groups: groups
+    };
+
+    try {
+        // 4. GỌI ENDPOINT MỚI
+        const response = await fetch(`${serverUrl}/api/tests/auto-matrix`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || "Lỗi không xác định từ server");
+        }
+
+        // 5. Xử lý kết quả
+        bootstrap.Modal.getInstance(qs('modalTestAuto')).hide();
+        await loadTests(true); 
+        
+        let alertMessage = `✅ Đã tạo bài thi thành công! (${result.test.count} câu)`;
+        if (result.warnings && result.warnings.length > 0) {
+            alertMessage += "\n\nCảnh báo:\n" + result.warnings.join("\n");
+        }
+        alert(alertMessage);
+
+    } catch (e) {
+        console.error("Lỗi lưu bài kiểm tra ma trận:", e);
+        alert('❌ Lỗi khi lưu bài kiểm tra: ' + (e.message || 'Lỗi không xác định'));
+    }
+}
+
+/**
+ * HÀM MỚI: Lưu Cấu hình Ma trận (Template)
+ * (Thay thế hàm saveAutoTemplate cũ)
+ */
+async function saveMatrixTemplate() {
+    // 1. Hỏi tên cấu hình
+    const templateName = prompt("Nhập tên cho cấu hình ma trận này:", "");
+    if (!templateName || templateName.trim() === "") {
+        showToast("Đã hủy lưu cấu hình.", "info");
+        return;
+    }
+
+    // 2. Lấy thông tin chung
+    const subject = qs('a-test-subject').value;
+    const level = qs('a-test-level').value;
+
+    if (!subject || !level) {
+        alert("Vui lòng chọn Môn học và Khối lớp trước khi lưu.");
+        return;
+    }
+
+    // 3. Xây dựng mảng "groups" từ UI (Giống hệt saveTestAuto)
+    const groups = [];
+    const ruleRows = document.querySelectorAll('#matrix-rules-container .matrix-rule-row');
+    
+    for (const row of ruleRows) {
+        const countInput = row.querySelector('.rule-count');
+        const typeInput = row.querySelector('.rule-type');
+        const difficultyInput = row.querySelector('.rule-difficulty');
+        const tagsInput = row.querySelector('.rule-tags');
+        
+        if (!countInput || !typeInput || !difficultyInput || !tagsInput) continue;
+
+        const count = Number(countInput.value);
+        if (count > 0) {
+            const filters = {};
+            if (typeInput.value) filters.type = typeInput.value;
+            if (difficultyInput.value) filters.difficulty = difficultyInput.value;
+            if (tagsInput.value) filters.tags = tagsInput.value;
+            groups.push({ count: count, filters: filters });
+        }
+    }
+
+    if (groups.length === 0) {
+        alert("Ma trận đề đang rỗng, không thể lưu.");
+        return;
+    }
+
+    // 4. Tạo payload
+    const payload = {
+        name: templateName,
+        subject: subject,
+        level: level,
+        groups: groups
+    };
+
+    try {
+        // 5. GỌI API MỚI (POST /api/test-templates)
+        const result = await fetchJson(`${serverUrl}/api/test-templates`, {
+            method: 'POST',
+            body: payload // fetchJson sẽ tự stringify
+        });
+
+        if (result.success) {
+            showToast(`Đã lưu cấu hình "${templateName}"!`, "success");
+        } else {
+            throw new Error(result.message || "Lỗi không xác định từ server");
+        }
+
+    } catch (e) {
+        console.error("Lỗi lưu cấu hình:", e);
+        showToast(`Lỗi khi lưu cấu hình: ${e.message}`, "danger");
+    }
+}
+
+
+/**
+ * Mở Modal Tải Cấu hình Ma trận
+ */
+async function openLoadTemplateModal() {
+    if (!window.modalLoadTemplateInstance) {
+        alert("Lỗi: Modal Tải Cấu hình chưa được khởi tạo.");
+        return;
+    }
+    
+    // Lấy Môn và Khối từ modal tạo đề
+    const subject = qs('a-test-subject').value;
+    const level = qs('a-test-level').value;
+    
+    if (!subject || !level) {
+        alert("Vui lòng chọn Môn học và Khối lớp trước khi tải cấu hình.");
+        return;
+    }
+
+    // Hiển thị modal và tải dữ liệu
+    window.modalLoadTemplateInstance.show();
+    await loadTemplateList(subject, level);
+}
+
+/**
+ * Tải và Hiển thị danh sách Cấu hình đã lưu
+ */
+async function loadTemplateList(subject, level) {
+    const tbody = qs('#template-list-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center spinner-row"><div class="spinner-border spinner-border-sm"></div> Đang tải...</td></tr>';
+    
+    try {
+        const url = new URL(`${serverUrl}/api/test-templates`);
+        url.searchParams.append('subject', subject);
+        url.searchParams.append('level', level);
+        
+        const result = await fetchJson(url.toString());
+        
+        if (!result.success || !Array.isArray(result.templates)) {
+            throw new Error(result.message || "Không thể tải danh sách.");
+        }
+        
+        if (result.templates.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Không có cấu hình nào được lưu cho Môn và Khối này.</td></tr>';
+            return;
+        }
+        
+        // Render bảng
+        renderTemplateList(result.templates);
+        
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="3" class="text-center text-danger">Lỗi: ${e.message}</td></tr>`;
+    }
+}
+
+/**
+ * Hàm trợ giúp: Dịch Tiếng Việt cho bộ lọc (để hiển thị)
+ */
+function formatMatrixGroup(group) {
+    const translations = {
+        mc: "Trắc nghiệm", essay: "Tự luận", true_false: "Đúng/Sai", fill_blank: "Điền từ", draw: "Vẽ",
+        easy: "Dễ", medium: "Trung bình", hard: "Khó"
+    };
+    
+    const count = group.count || 0;
+    const filters = group.filters || {};
+    
+    let parts = [`${count} câu`];
+    if (filters.type) parts.push(translations[filters.type] || filters.type);
+    if (filters.difficulty) parts.push(translations[filters.difficulty] || filters.difficulty);
+    if (filters.tags) parts.push(`Tag: ${filters.tags}`);
+    
+    if (parts.length === 1) return `${count} câu (Bất kỳ)`;
+    return parts.join(' - ');
+}
+
+/**
+ * Render danh sách Cấu hình ra bảng
+ */
+function renderTemplateList(templates) {
+    const tbody = qs('#template-list-tbody');
+    tbody.innerHTML = '';
+    
+    templates.forEach(template => {
+        const tr = document.createElement('tr');
+        
+        // Tạo mô tả chi tiết từ ma trận 'groups'
+        const detailsHtml = (template.groups || [])
+            .map(group => `<li>${formatMatrixGroup(group)}</li>`)
+            .join('');
+
+        // Lấy ID (ưu tiên 'id' (UUID) hoặc '_id')
+        const templateId = template.id || template._id;
+
+        tr.innerHTML = `
+            <td>
+                <strong>${escapeHtml(template.name)}</strong>
+                <div class="small text-muted">Tạo lúc: ${formatDateTimeForTable(template.createdAt)}</div>
+            </td>
+            <td>
+                <ul class="list-unstyled mb-0" style="font-size: 0.85rem;">${detailsHtml}</ul>
+                <strong class="d-block border-top mt-1 pt-1">Tổng: ${template.totalCount} câu</strong>
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-success mb-1 w-100" onclick='loadTemplateIntoMatrix(${JSON.stringify(template)})'>
+                    Chọn
+                </button>
+                <button class="btn btn-sm btn-outline-danger w-100" onclick="deleteTemplate('${templateId}')">
+                    Xóa
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
     });
-
-    // 4. Xử lý sau khi thành công (GIỮ NGUYÊN)
-    bootstrap.Modal.getInstance(qs('modalTestAuto')).hide();
-    await loadTests(true); // Gọi loadTests(true) để làm mới ngay lập tức
-    alert('✅ Đã tạo bài kiểm tra ngẫu nhiên thành công!');
-
-  } catch (e) {
-    console.error("Lỗi lưu bài kiểm tra tự động:", e);
-    alert('❌ Lỗi khi lưu bài kiểm tra tự động: ' + (e.message || 'Lỗi không xác định'));
-  }
 }
 
-// Lưu mẫu cấu hình (localStorage)
-function saveAutoTemplate() {
-  const template = {
-    subject: qs('a-test-subject').value,
-    level: qs('a-test-level').value,
-    count: qs('a-test-count').value,
-    dist: {
-      easy: qs('dist-easy').value,
-      medium: qs('dist-medium').value,
-      hard: qs('dist-hard').value
+/**
+ * Nạp (Load) một cấu hình đã chọn vào Modal Tạo Đề
+ */
+function loadTemplateIntoMatrix(template) {
+    if (!template || !Array.isArray(template.groups)) {
+        alert("Cấu hình này bị lỗi, không có ma trận.");
+        return;
     }
-  };
-  localStorage.setItem('auto_test_template', JSON.stringify(template));
-  alert('💾 Cấu hình tạo đề ngẫu nhiên đã được lưu.');
+    
+    const container = qs('#matrix-rules-container');
+    if (!container) return;
+    
+    // 1. Xóa các dòng cũ
+    container.innerHTML = '';
+    
+    // 2. Lặp qua 'groups' và tạo lại các dòng
+    template.groups.forEach(group => {
+        // Gọi hàm addMatrixRuleRow để tạo 1 dòng trống
+        addMatrixRuleRow(); 
+        
+        // Lấy dòng vừa tạo (dòng cuối cùng)
+        const newRow = container.lastElementChild;
+        if (newRow) {
+            // Điền dữ liệu từ template vào
+            const filters = group.filters || {};
+            newRow.querySelector('.rule-count').value = group.count || 1;
+            newRow.querySelector('.rule-type').value = filters.type || '';
+            newRow.querySelector('.rule-difficulty').value = filters.difficulty || '';
+            newRow.querySelector('.rule-tags').value = filters.tags || '';
+        }
+    });
+    
+    // 3. Cập nhật lại tổng số câu
+    updateMatrixTotalCount();
+    
+    // 4. Đóng modal Tải Cấu hình
+    if (window.modalLoadTemplateInstance) {
+        window.modalLoadTemplateInstance.hide();
+    }
+    showToast(`Đã tải cấu hình "${template.name}"`, "success");
 }
 
-// Tự động nạp cấu hình mẫu khi mở modal
+/**
+ * Xóa một cấu hình
+ */
+async function deleteTemplate(templateId) {
+    if (!templateId) return;
+    
+    const confirmed = await confirmBoxAsync(
+        "Xác nhận Xóa",
+        "Bạn có chắc chắn muốn xóa cấu hình ma trận này không? Hành động này không thể hoàn tác.",
+        "Xóa",
+        "btn-danger"
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const result = await fetchJson(`${serverUrl}/api/test-templates/${templateId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!result.success) throw new Error(result.message);
+        
+        showToast("Đã xóa cấu hình.", "success");
+        
+        // Tải lại danh sách (chỉ cần lấy subject/level từ modal tạo đề)
+        const subject = qs('a-test-subject').value;
+        const level = qs('a-test-level').value;
+        await loadTemplateList(subject, level);
+
+    } catch (e) {
+        showToast(`Lỗi khi xóa: ${e.message}`, "danger");
+    }
+}
+
+
+// Tự động nạp cấu hình mẫu VÀ gán sự kiện cho ma trận
 document.getElementById('modalTestAuto').addEventListener('show.bs.modal', () => {
-  const saved = localStorage.getItem('auto_test_template');
-  if (!saved) return;
-  try {
-    const t = JSON.parse(saved);
-    if (t.subject) qs('a-test-subject').value = t.subject;
-    if (t.level) qs('a-test-level').value = t.level;
-    if (t.count) qs('a-test-count').value = t.count;
-    if (t.dist) {
-      qs('dist-easy').value = t.dist.easy || 0;
-      qs('dist-medium').value = t.dist.medium || 0;
-      qs('dist-hard').value = t.dist.hard || 0;
+    
+    // 1. Logic load template (giữ nguyên)
+    const saved = localStorage.getItem('auto_test_template');
+    if (saved) {
+        try {
+            const t = JSON.parse(saved);
+            if (t.subject) qs('a-test-subject').value = t.subject;
+            if (t.level) qs('a-test-level').value = t.level;
+        } catch(e) {}
     }
-  } catch(e) {}
+
+    // 2. Logic gán sự kiện cho nút "Thêm Nhóm"
+    const addRuleBtn = qs('#add-matrix-rule-btn');
+    if (addRuleBtn) {
+        const newBtn = addRuleBtn.cloneNode(true);
+        addRuleBtn.parentNode.replaceChild(newBtn, addRuleBtn);
+        newBtn.addEventListener('click', addMatrixRuleRow);
+    }
+
+    // 3. Logic tự động thêm 1 dòng và cập nhật tổng
+    const container = qs('#matrix-rules-container');
+    if (container) {
+        container.innerHTML = '';
+        addMatrixRuleRow(); // Hàm này giờ đã tự gọi updateMatrixTotalCount()
+    } else {
+        updateMatrixTotalCount(); // Gọi để reset về 0
+    }
+    
+    // 4. Reset preview và cảnh báo (MỚI)
+    const previewContainer = qs('preview-container');
+    if (previewContainer) {
+        previewContainer.innerHTML = '<em class="text-muted">Chưa có xem trước nào.</em>';
+    }
+    const warningsContainer = qs('#preview-warnings-container');
+    if (warningsContainer) {
+        warningsContainer.innerHTML = '';
+    }
 });
 
 
@@ -8315,40 +8843,44 @@ async function openStudentModal(studentId = null) {
     const modalEl = qs('modalStudentEdit'); // Dùng # cho ID
     const modal = new bootstrap.Modal(modalEl);
     
-    // Lấy input mật khẩu và Khối lớp
     const inputPass = qs('student-password'); 
     const inputLevel = qs('student-level');
+    const inputClass = qs('student-class-id');
 
     // 1. Đặt lại tiêu đề và form
     qs('student-modal-title').textContent = studentId ? '✏️ Sửa thông tin Học sinh' : '➕ Thêm Học sinh mới';
     qs('student-form').reset();
-    qs('student-id').value = ''; // Reset ID
+    qs('student-id').value = ''; 
     
-    // Đặt lại giá trị cho trường Khối lớp (để tránh lấy dữ liệu cũ)
     if (inputLevel) inputLevel.value = ''; 
+    if (inputClass) inputClass.innerHTML = '<option value="">-- Chọn Khối trước --</option>';
     
-    // Khắc phục lỗi hiển thị mật khẩu khi Thêm mới
-    inputPass.removeAttribute('required'); // Mặc định không required
+    inputPass.removeAttribute('required'); 
     inputPass.placeholder = "Nhập mật khẩu mới (Để trống nếu không đổi)";
 
+    // 🔥 FIX: Tải danh sách lớp (forceReload = true)
+    // Luôn tải lại để đảm bảo cache mới nhất khi mở modal
+    await fetchAllClasses(true);
+
     if (studentId) {
-        // --- CHẾ ĐỘ SỬA (Mật khẩu KHÔNG required) ---
+        // --- CHẾ ĐỘ SỬA ---
         try {
-            // ✅ THÊM LOGIC FETCH DỮ LIỆU THỰC TẾ
             const student = await fetchJson(`${serverUrl}/api/users/${studentId}`);
             
             qs('student-id').value = student.id || student._id; 
             qs('student-username').value = student.user || '';
 			qs('student-fullname').value = student.fullName || '';
-            qs('student-class').value = student.className || '';
             
-            // <<< LẤY DỮ LIỆU KHỐI LỚP VÀO FORM >>>
-            if (inputLevel) inputLevel.value = student.level || ''; // Đảm bảo level được set khi Sửa
+            const studentLevel = student.level || '';
+            const studentClassId = student.classId || '';
+            
+            if (inputLevel) inputLevel.value = studentLevel;
+            
+            // Gọi hàm điền dropdown lớp (giờ đã có cache)
+            populateStudentClassDropdown(studentClassId);
             
             qs('student-gender').value = student.gender || '';
             qs('student-role').value = student.role || 'student';
-            
-            // Mật khẩu vẫn giữ placeholder "Để trống nếu không đổi"
             
         } catch (error) {
             console.error("Lỗi khi tải dữ liệu học sinh:", error);
@@ -8356,14 +8888,71 @@ async function openStudentModal(studentId = null) {
             return;
         }
     } else {
-        // --- CHẾ ĐỘ THÊM MỚI (Mật khẩu BẮT BUỘC) ---
+        // --- CHẾ ĐỘ THÊM MỚI ---
         inputPass.setAttribute('required', true);
-        inputPass.placeholder = "Nhập mật khẩu"; // Xóa placeholder (Để trống nếu không đổi)
+        inputPass.placeholder = "Nhập mật khẩu"; 
+        
+        // Chỉ cần gọi hàm populate (vì cache đã được tải)
+        populateStudentClassDropdown();
     }
     
     modal.show();
 }
 
+
+
+// Biến global để cache danh sách lớp
+let allClassListCache = [];
+
+/**
+ * Tải danh sách lớp (và cache lại)
+ */
+async function fetchAllClasses(forceReload = false) {
+    // Chỉ tải lại nếu cache rỗng hoặc bị bắt buộc
+    if (!forceReload && state.classes.allList.length > 0) {
+        return state.classes.allList; // Dùng cache
+    }
+    
+    try {
+        const result = await fetchJson(`${serverUrl}/api/classes`);
+        if (result.success && Array.isArray(result.classes)) {
+            state.classes.allList = result.classes; // Lưu vào cache CHUẨN
+            return result.classes;
+        }
+    } catch (e) {
+        console.error("Lỗi tải danh sách lớp:", e);
+    }
+    return [];
+}
+
+/**
+ * Điền danh sách Lớp vào Dropdown (dựa trên Khối đã chọn)
+ * 🔥 FIX: Đọc từ state.classes.allList và so sánh bằng String()
+ */
+function populateStudentClassDropdown(selectedClassId = null) {
+    const levelSelect = qs('#student-level');
+    const classSelect = qs('#student-class-id');
+    if (!levelSelect || !classSelect) return;
+
+    const selectedLevel = levelSelect.value; // Đây là String (ví dụ: "4")
+    classSelect.innerHTML = '<option value="">-- Chọn Lớp --</option>'; // Reset
+
+    // Lọc danh sách lớp từ cache CHUẨN
+    // Dùng String() để đảm bảo so sánh "4" === "4"
+    const filteredClasses = state.classes.allList.filter(c => String(c.level) === String(selectedLevel));
+    
+    filteredClasses.forEach(c => {
+        const option = document.createElement('option');
+        option.value = c.id; // Value là ID
+        option.textContent = c.name; // Text là Tên lớp
+        classSelect.appendChild(option);
+    });
+
+    // Tự động chọn lớp (khi ở chế độ Sửa)
+    if (selectedClassId) {
+        classSelect.value = selectedClassId;
+    }
+}
 
 	
     // Biến lưu trữ debounce timer
@@ -8709,18 +9298,25 @@ async function saveStudent() {
     const pass = qs('student-password').value;
     const role = qs('student-role').value;
     const fullName = qs('student-fullname').value;
-    const className = qs('student-class').value;
     const gender = qs('student-gender').value; 
-    const level = qs('student-level').value; // <<< LẤY GIÁ TRỊ KHỐI LỚP
+    
+    // 🔥 SỬA: Lấy từ Dropdown
+    const level = qs('student-level').value;
+    const classId = qs('student-class-id').value;
+    
+    // Lấy Tên Lớp (để hiển thị tạm thời, BE sẽ cập nhật sau)
+    const classSelect = qs('student-class-id');
+    const className = classId ? classSelect.options[classSelect.selectedIndex].text : '';
 
     // Chuẩn bị dữ liệu gửi đi
     const dataToSend = {
         user: user,
         role: role,
         fullName: fullName,
-        className: className,
+        className: className, // Gửi tên lớp (để tương thích)
+        classId: classId,     // Gửi ID lớp (quan trọng)
         gender: gender,
-        level: level, // <<< THÊM TRƯỜNG LEVEL VÀO PAYLOAD
+        level: level, 
     };
     if (pass) dataToSend.pass = pass; // Chỉ gửi pass nếu có giá trị (thêm mới hoặc sửa)
 
@@ -8736,7 +9332,6 @@ async function saveStudent() {
 
         alert(`Đã ${id ? 'cập nhật' : 'thêm'} học sinh thành công!`);
 
-        // Đóng Modal
         const modalEl = document.getElementById('modalStudentEdit'); 
         if (modalEl) {
             const modalInstance = bootstrap.Modal.getInstance(modalEl); 
@@ -8750,8 +9345,6 @@ async function saveStudent() {
 
     } catch (error) {
         let errorMessage = `Lỗi khi lưu học sinh: ${error.message || 'Lỗi không xác định.'}`;
-        
-        // ✅ XỬ LÝ LỖI 409 (Conflict) TỪ BACKEND
         if (error.status === 409) {
             errorMessage = "Lỗi: Tên đăng nhập (Username) này đã tồn tại. Vui lòng chọn một tên khác.";
         }
@@ -8760,6 +9353,7 @@ async function saveStudent() {
         alert(errorMessage);
     }
 }
+
 	
 async function performDeleteStudent(id) {
     try {
@@ -8805,6 +9399,176 @@ function deleteStudent(id) {
     );
 }
 
+/**
+ * Mở tab Lớp học (gắn vào listener)
+ */
+document.addEventListener('DOMContentLoaded', () => {
+    const classTabButton = qs('#c-tab');
+    if (classTabButton) {
+        classTabButton.addEventListener('shown.bs.tab', (event) => {
+            loadClasses(true); // Tải lần đầu khi mở tab
+        });
+    }
+    // ... (các code khác trong DOMContentLoaded giữ nguyên) ...
+});
+
+/**
+ * Tải danh sách Lớp (từ API)
+ */
+async function loadClasses(forceReload = false) {
+    const tbody = qs('#classes-tbody');
+    if (!tbody) return;
+
+    if (forceReload || state.classes.allList.length === 0) {
+        setTableLoading('classes-tbody', 'Đang tải danh sách lớp...');
+        try {
+            const data = await fetchJson(`${serverUrl}/api/classes`); 
+            state.classes.allList = (data.success && data.classes) ? data.classes : [];
+        } catch (e) {
+            setTableError('classes-tbody', 'Không thể tải danh sách lớp');
+            state.classes.allList = [];
+            return; 
+        }
+    }
+
+    // Lọc Client-side
+    const levelFilter = qs('#filter-class-level')?.value || '';
+    let filteredData = state.classes.allList;
+    if (levelFilter) {
+        filteredData = filteredData.filter(c => c.level === levelFilter);
+    }
+    
+    state.classes.list = filteredData;
+    renderClasses(filteredData);
+}
+
+/**
+ * Hiển thị Lớp ra bảng
+ */
+function renderClasses(items) {
+    const tbody = qs('classes-tbody'); 
+    tbody.innerHTML = ''; 
+
+    if (!items || items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không tìm thấy lớp học nào.</td></tr>';
+        return; 
+    }
+    
+    const frag = document.createDocumentFragment(); 
+    items.forEach((c, index) => { 
+        const classId = c.id || c._id || '';
+        const tr = document.createElement('tr'); 
+        
+        tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${escapeHtml(c.name || '')}</td>
+            <td>${escapeHtml(c.level || 'N/A')}</td>
+            <td>${formatDateTimeForTable(c.createdAt || '')}</td>
+            <td class="text-center">
+                <div class="d-flex justify-content-center gap-1">
+                    <button class="btn btn-sm btn-outline-primary" 
+                            onclick='openClassModal(${JSON.stringify(c)})'>Sửa</button>
+                    <button class="btn btn-sm btn-outline-danger" 
+                            onclick='deleteClass("${classId}")'>Xóa</button>
+                </div>
+            </td>`; 
+        frag.appendChild(tr); 
+    }); 
+    tbody.appendChild(frag); 
+}
+
+/**
+ * Mở Modal Thêm/Sửa Lớp
+ */
+function openClassModal(classObj = null) {
+    const modalEl = qs('modalClassEdit'); 
+    const modal = new bootstrap.Modal(modalEl);
+    
+    // Reset form
+    qs('class-form').reset();
+    qs('class-id').value = '';
+    
+    if (classObj) {
+        // Chế độ Sửa
+        qs('class-modal-title').textContent = '✏️ Sửa Lớp học';
+        qs('class-id').value = classObj.id || classObj._id;
+        qs('class-name').value = classObj.name;
+        qs('class-level').value = classObj.level;
+    } else {
+        // Chế độ Thêm mới
+        qs('class-modal-title').textContent = '➕ Thêm Lớp mới';
+    }
+    
+    modal.show();
+}
+
+/**
+ * Lưu (Tạo/Cập nhật) Lớp
+ */
+async function saveClass() {
+    const id = qs('class-id').value;
+    const name = qs('class-name').value;
+    const level = qs('class-level').value;
+
+    const dataToSend = {
+        name: name,
+        level: level
+    };
+
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `${serverUrl}/api/classes/${id}` : `${serverUrl}/api/classes`;
+
+    try {
+        const result = await fetchJson(url, {
+            method: method,
+            body: dataToSend // fetchJson sẽ tự stringify
+        });
+
+        if (!result.success) throw new Error(result.message);
+
+        alert(`Đã ${id ? 'cập nhật' : 'thêm'} lớp học thành công!`);
+        bootstrap.Modal.getInstance(qs('modalClassEdit')).hide();
+        
+        // Tải lại cả danh sách Lớp và Học sinh (để cập nhật cache)
+        await loadClasses(true); 
+        await fetchAllClasses(); // Cập nhật cache cho modal học sinh
+
+    } catch (error) {
+        alert(`Lỗi khi lưu lớp học: ${error.message}`);
+    }
+}
+
+/**
+ * Xóa Lớp
+ */
+async function deleteClass(classId) {
+    if (!classId) return;
+    
+    const confirmed = await confirmBoxAsync(
+        "Xác nhận Xóa",
+        "Bạn có chắc chắn muốn xóa lớp học này? (Chỉ xóa được khi lớp không còn học sinh)",
+        "Xóa", "btn-danger"
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const result = await fetchJson(`${serverUrl}/api/classes/${classId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!result.success) throw new Error(result.message);
+
+        alert("Đã xóa lớp học thành công!");
+        await loadClasses(true); // Tải lại danh sách lớp
+        await fetchAllClasses(); // Cập nhật cache
+
+    } catch (e) {
+        alert(`Lỗi khi xóa lớp: ${e.message}`);
+    }
+}
+
+
 
     // ASSIGN
     // ====== GIAO ĐỀ ======
@@ -8818,153 +9582,367 @@ let allStudents = []; // Lưu trữ tất cả học sinh (chỉ cần tải 1 l
 let currentAssignments = []; // Lưu trữ danh sách assignment hiện tại của đề thi đang mở
 
 async function loadStudentsForModal() {
-    // Chọn container phù hợp (tương thích với modal hiện tại)
-    const checkboxBox = qs('#assign-students-list') || qs('#available-students-list');
+    // Chọn container
+    const classesContainer = qs('#available-classes-list');
+    const studentsContainer = qs('#available-students-list');
     const assignedContainer = qs('#current-assigned-list');
     const confirmBtn = qs('#confirm-assign-btn');
 
-    if (!checkboxBox || !assignedContainer) {
-        console.error("Modal Assign: thiếu container hiển thị (expected #available-students-list và #current-assigned-list).");
+    if (!classesContainer || !studentsContainer || !assignedContainer) {
+        console.error("Modal Assign: thiếu container.");
         return;
     }
 
     if (confirmBtn) confirmBtn.disabled = true;
 
     try {
-        // 1) Tải toàn bộ học sinh (chỉ 1 lần)
-        if (!allStudents || allStudents.length === 0) {
-            const resp = await fetchJson(`${serverUrl}/api/users?limit=9999`);
-            const studentsData = resp.users || resp.data || resp;
-            allStudents = Array.isArray(studentsData) ? studentsData.filter(u => (u.role || '').toLowerCase() !== 'teacher') : [];
-        }
-
-        // 2) Kiểm tra xem modal đang GIAO HÀNG LOẠT hay giao 1 đề:
+        // 1. Lấy ID các đề thi đã chọn
         let testIdsRaw = qs('#assign-test-ids').value || '';
-        let testIds = [];
-        try {
-            const parsed = JSON.parse(testIdsRaw);
-            if (Array.isArray(parsed)) testIds = parsed;
-            else if (typeof parsed === 'string' && parsed) testIds = [parsed];
-        } catch (e) {
-            // không phải JSON array -> có thể là single id
-            if (typeof testIdsRaw === 'string' && testIdsRaw.trim()) testIds = [testIdsRaw.trim()];
-        }
+        let testIds = JSON.parse(testIdsRaw);
+        
+        // 2. Tải tất cả Lớp và Học sinh (không lọc theo khối)
+        //    VÀ Tải tất cả assignments cho các đề thi đã chọn (API MỚI)
+        const [allClasses, allUsers, assignmentsResponse] = await Promise.all([
+            fetchJson(`${serverUrl}/api/classes`), // Lấy TẤT CẢ lớp
+            fetchJson(`${serverUrl}/api/users`),   // Lấy TẤT CẢ user
+            // 🔥 FIX: Gọi đúng API (GET) mà chúng ta vừa thêm vào Backend
+            fetchJson(`${serverUrl}/api/tests/assignments/bulk?testIds=${encodeURIComponent(testIds.join(','))}`)
+        ]);
 
-        // 3) Lấy assignments hiện tại
-        currentAssignments = [];
-        if (testIds.length === 1) {
-            // giống openAssignModal: lấy assignments cho 1 test
-            const t = testIds[0];
-            currentAssignments = await fetchJson(`${serverUrl}/api/tests/${encodeURIComponent(t)}/assignments`);
-        } else if (testIds.length > 1) {
-            // bulk: gọi nhiều endpoint để gom assignments (parallels)
-            const promises = testIds.map(t => fetchJson(`${serverUrl}/api/tests/${encodeURIComponent(t)}/assignments`).catch(e => {
-                console.warn('Không lấy được assignments cho test', t, e);
-                return [];
-            }));
-            const arrays = await Promise.all(promises);
-            // gộp unique theo studentId (giữ trạng thái nếu có 'done')
-            const map = new Map();
-            arrays.flat().forEach(a => {
-                const sid = a.studentId;
-                if (!sid) return;
-                // nếu student xuất hiện nhiều lần, giữ trạng thái 'done' nếu có bất kỳ là done
-                const prev = map.get(sid);
-                if (!prev) map.set(sid, a);
-                else {
-                    // merge: nếu bất kỳ done giữ done and keep earliest assignment id? keep one.
-                    if ((a.status || '').toLowerCase() === 'done') map.set(sid, a);
-                }
-            });
-            currentAssignments = Array.from(map.values());
-        } else {
-            // không có test id: coi như không có assignment
-            currentAssignments = [];
-        }
+        const classes = (allClasses.success ? allClasses.classes : []);
+        const students = (Array.isArray(allUsers) ? allUsers : []).filter(u => (u.role || 'student') !== 'teacher' && (u.role || 'student') !== 'admin');
+        const currentAssignments = (assignmentsResponse.success ? assignmentsResponse.assignments : []);
 
-        // 4) Render lists: reuse existing renderAssignmentLists (expects allStudents & currentAssignments)
-        // Nếu không có hàm renderAssignmentLists, fallback: build simple lists
-        if (typeof renderAssignmentLists === 'function') {
-            renderAssignmentLists(allStudents, currentAssignments);
-        } else {
-            // fallback minimal: render checkboxes into checkboxBox
-            checkboxBox.innerHTML = allStudents.map(u => {
-                const sid = u.id || u._id || '';
-                const label = (u.fullName || u.name || u.user || 'Học sinh') + (u.className ? (' | ' + u.className) : '');
-                return `<div class="form-check"><input class="form-check-input" type="checkbox" id="as-${sid}" value="${sid}"><label class="form-check-label" for="as-${sid}">${escapeHtml(label)}</label></div>`;
-            }).join('');
-        }
+        // 3. Gọi hàm renderAssignmentLists (đã được cập nhật)
+        renderAssignmentLists(students, classes, currentAssignments);
 
         if (confirmBtn) confirmBtn.disabled = false;
         studentsForModalLoaded = true;
     } catch (e) {
         console.error('Lỗi loadStudentsForModal:', e);
-        checkboxBox.innerHTML = '<div class="text-danger text-center py-2">Không thể tải danh sách học sinh.</div>';
+        classesContainer.innerHTML = '<div class="text-danger text-center py-2">Lỗi tải danh sách Lớp.</div>';
+        studentsContainer.innerHTML = '<div class="text-danger text-center py-2">Lỗi tải danh sách Học sinh.</div>';
     }
 }
 
-// Hàm Mở Modal cho giao 1 đề (Được gọi từ bảng bài thi)
-async function openAssignModal(testId, testName) {
-    // Giả định modalAssignInstance đã được khởi tạo
+// =============================================================
+// === NÂNG CẤP TOÀN DIỆN MODAL GIAO BÀI (ASSIGN) ===
+// =============================================================
+
+// State (trạng thái) riêng cho Modal Giao bài
+let assignModalState = {
+    allClasses: [],     // Tất cả lớp (đã lọc theo khối)
+    allStudents: [],    // Tất cả HS (đã lọc theo khối)
+    existingAssignments: [], // Những HS đã được giao (từ DB)
+    
+    // Những thay đổi người dùng chọn
+    classesToAssign: new Set(),
+    studentsToAssign: new Set(),
+    classesToRemove: new Set(),
+    studentsToRemove: new Set(),
+    
+    // ID của Lớp đang được chọn (để lọc Cột 2)
+    selectedClassIdForFilter: null,
+};
+
+/**
+ * MỞ MODAL GIAO BÀI (ĐÃ VIẾT LẠI HOÀN TOÀN)
+ * Hỗ trợ cả giao 1 đề và nhiều đề (bulk)
+ */
+async function openAssignModal(testIdOrIds, testName) {
     if (!modalAssignInstance) return;
 
-    // 1. Setup UI cơ bản
-    qs('#test-name-display').textContent = testName;
-    qs('#assign-deadline').value = ''; // Reset deadline trước khi tải
-    qs('#current-test-id').value = testId; 
-    qs('#assign-test-ids').value = testId; 
-    qs('#bulk-info').classList.add('d-none'); // Tạm thời chỉ xử lý đơn lẻ
+    // 1. Xác định Test IDs và Levels
+    const selectedIds = Array.isArray(testIdOrIds) ? testIdOrIds : [testIdOrIds];
+    const selectedTests = selectedIds.map(id => state.tests.allList.find(t => String(t.id || t._id) === String(id))).filter(Boolean);
+    const levels = [...new Set(selectedTests.map(t => t.level).filter(Boolean))]; // [ "3", "5" ]
 
-    const assignedContainer = qs('#current-assigned-list');
-    const availableContainer = qs('#available-students-list');
-    assignedContainer.innerHTML = '<p class="text-info small m-0">Đang tải...</p>';
-    availableContainer.innerHTML = '';
+    // 2. Setup UI
+    if (selectedIds.length > 1) {
+        qs('#test-name-display').textContent = `[Giao hàng loạt: ${selectedIds.length} đề]`;
+        qs('#bulk-info').classList.remove('d-none');
+        qs('#bulk-count').textContent = selectedIds.length;
+        qs('#assign-test-ids').value = JSON.stringify(selectedIds);
+    } else {
+        qs('#test-name-display').textContent = testName || "Giao bài";
+        qs('#bulk-info').classList.add('d-none');
+        qs('#assign-test-ids').value = JSON.stringify(selectedIds);
+    }
     
-    qs('#count-assigned').textContent = '0';
-    qs('#count-available').textContent = '0';
+    qs('#assign-deadline').value = '';
+    const classesContainer = qs('#available-classes-list');
+    const studentsContainer = qs('#available-students-list');
+    const treeContainer = qs('#assignment-tree-container');
+    classesContainer.innerHTML = '<p class="text-info small m-0">Đang tải Lớp...</p>';
+    studentsContainer.innerHTML = '<p class="text-muted small m-0">Chọn một lớp ở Cột 1 để xem học sinh...</p>';
+    treeContainer.innerHTML = '<p class="text-info small m-0">Đang tải danh sách đã giao...</p>';
 
+    // 3. Reset State
+    assignModalState = {
+        allClasses: [], allStudents: [], existingAssignments: [],
+        classesToAssign: new Set(), studentsToAssign: new Set(),
+        classesToRemove: new Set(), studentsToRemove: new Set(),
+        selectedClassIdForFilter: null,
+    };
+    
     try {
-        // 2. Tải tất cả học sinh (nếu chưa tải)
-        if (allStudents.length === 0) {
-            allStudents = await fetchJson(`${serverUrl}/api/users`);
-			console.log("Danh sách học sinh sau khi tải:", allStudents);
+        // 4. Tải song song 3 nguồn dữ liệu
+        const levelsQuery = (levels && levels.length > 0) ? `levels=${encodeURIComponent(levels.join(','))}` : '';
+        const testIdsQuery = `testIds=${encodeURIComponent(selectedIds.join(','))}`;
+
+        const [allClasses, allUsers, assignmentsResponse] = await Promise.all([
+            fetchJson(`${serverUrl}/api/classes?${levelsQuery}`),
+            fetchJson(`${serverUrl}/api/users?${levelsQuery}`),
+            fetchJson(`${serverUrl}/api/tests/assignments/bulk?${testIdsQuery}`) 
+        ]);
+
+        assignModalState.allClasses = (allClasses.success ? allClasses.classes : []);
+        assignModalState.allStudents = (Array.isArray(allUsers) ? allUsers : []).filter(u => (u.role || 'student') !== 'teacher' && (u.role || 'student') !== 'admin');
+        assignModalState.existingAssignments = (assignmentsResponse.success ? assignmentsResponse.assignments : []);
+
+        // 5. Khôi phục Deadline (nếu có)
+        const existingAssignment = assignModalState.existingAssignments.find(a => a.deadline);
+        if (existingAssignment && existingAssignment.deadline) {
+            qs('#assign-deadline').value = existingAssignment.deadline.substring(0, 16);
         }
 
-        // 3. Tải assignments hiện tại (API mới)
-        currentAssignments = await fetchJson(`${serverUrl}/api/tests/${testId}/assignments`);
-        
-        // 4. Phân loại và Render
-        renderAssignmentLists(allStudents, currentAssignments);
-
-        // ------------------------------------------------------------------
-        // 🔥 FIX: KHÔI PHỤC DEADLINE VÀO INPUT DATETIME-LOCAL
-        // ------------------------------------------------------------------
-        const deadlineInput = qs('#assign-deadline');
-        
-        // Tìm deadline đã lưu đầu tiên (hoặc gần nhất) trong các bài đã giao
-        const existingAssignment = currentAssignments.find(a => a.deadline);
-        const deadlineISO = existingAssignment ? existingAssignment.deadline : null;
-        
-        if (deadlineISO) {
-            // Định dạng ISO (ví dụ: 2025-10-25T17:00:00.000Z) cần được chuyển về YYYY-MM-DDThh:mm
-            
-            // Cắt chuỗi để giữ lại 16 ký tự đầu: YYYY-MM-DDTHH:mm
-            // Input datetime-local sẽ tự động áp dụng múi giờ local của trình duyệt.
-            const localDateTime = deadlineISO.substring(0, 16); 
-            
-            deadlineInput.value = localDateTime;
-        } else {
-            deadlineInput.value = '';
-        }
-        // ------------------------------------------------------------------
+        // 6. Render Modal
+        renderAssignModal();
 
     } catch (e) {
         console.error("Lỗi tải dữ liệu assignment:", e);
-        assignedContainer.innerHTML = '<p class="text-danger small m-0">Lỗi tải dữ liệu.</p>';
-        availableContainer.innerHTML = '';
+        treeContainer.innerHTML = `<p class="text-danger small m-0">Lỗi tải dữ liệu: ${e.message}</p>`;
     }
 
     modalAssignInstance.show();
+}
+
+/**
+ * (HÀM MỚI) - Hàm Render tổng, gọi 3 hàm render con
+ */
+function renderAssignModal() {
+    renderAssignClassesList();
+    renderAssignStudentsList();
+    renderAssignmentTree();
+}
+
+/**
+ * (HÀM MỚI) - Render Cột 1: Danh sách Lớp
+ */
+function renderAssignClassesList() {
+    const container = qs('#available-classes-list');
+    let html = '';
+    let count = 0;
+    
+    assignModalState.allClasses.forEach(c => {
+        // Chỉ hiển thị lớp CHƯA được chọn
+        if (!assignModalState.classesToAssign.has(c.id) && !assignModalState.classesToRemove.has(c.id)) {
+            count++;
+            const isSelected = c.id === assignModalState.selectedClassIdForFilter;
+            html += `
+                <div class="form-check p-0">
+                    <label class="d-flex justify-content-between align-items-center p-1 border-bottom assign-item-hover ${isSelected ? 'bg-primary text-white' : ''}" 
+                           style="cursor: pointer;"
+                           onclick="handleClassClick('${c.id}')">
+                        
+                        <span>
+                            <input class="form-check-input ms-2 me-1 class-assign-check" type="checkbox"
+                                   onclick="toggleAssignItem('class', '${c.id}', true)">
+                            <strong>${escapeHtml(c.name)}</strong>
+                        </span>
+                        <span class="small me-1 fst-italic">${isSelected ? 'Đang xem' : 'Nhấn xem DS'}</span>
+                    </label>
+                </div>`;
+        }
+    });
+    
+    container.innerHTML = html || '<p class="text-muted small m-0">Không có lớp nào (hoặc đã chọn hết).</p>';
+}
+
+/**
+ * (HÀM MỚI) - Render Cột 2: Danh sách Học sinh
+ */
+function renderAssignStudentsList() {
+    const container = qs('#available-students-list');
+    const classId = assignModalState.selectedClassIdForFilter;
+
+    if (!classId) {
+        container.innerHTML = '<p class="text-muted small m-0">Chọn một lớp ở Cột 1 để xem học sinh.</p>';
+        return;
+    }
+
+    let html = '';
+    let count = 0;
+    
+    // Lọc HS thuộc lớp đã chọn
+    const studentsInClass = assignModalState.allStudents.filter(s => s.classId === classId);
+    
+    studentsInClass.forEach(s => {
+        // Chỉ hiển thị HS CHƯA được chọn
+        if (!assignModalState.studentsToAssign.has(s.id) && !assignModalState.studentsToRemove.has(s.id)) {
+            count++;
+            html += `
+                <div class="form-check p-0">
+                    <label class="d-flex justify-content-between align-items-center p-1 border-bottom assign-item-hover" style="cursor: pointer;">
+                        <span class="small">
+                            <input class="form-check-input ms-2 me-1 student-assign-check" type="checkbox"
+                                   onclick="toggleAssignItem('student', '${s.id}', true)">
+                            ${escapeHtml(s.fullName || s.user)}
+                        </span>
+                    </label>
+                </div>`;
+        }
+    });
+    
+    container.innerHTML = html || '<p class="text-muted small m-0">Lớp này không có học sinh (hoặc đã chọn hết).</p>';
+}
+
+/**
+ * (HÀM MỚI) - Render Cột 3: Cây Đã Giao
+ */
+function renderAssignmentTree() {
+    const container = qs('#assignment-tree-container');
+    let html = '';
+    
+    // 1. Nhóm các học sinh đã/sẽ giao theo Lớp
+    const classMap = new Map(); // { classId: { name: "4A", students: [...] } }
+    
+    // A. Lấy học sinh từ DB (existing)
+    assignModalState.existingAssignments.forEach(a => {
+        const studentId = a.studentId;
+        // Bỏ qua nếu HS này đã bị đánh dấu "Hủy"
+        if (assignModalState.studentsToRemove.has(studentId)) return;
+        
+        const classId = a.classId || ' lẻ';
+        if (!classMap.has(classId)) classMap.set(classId, { name: a.className || 'Học sinh lẻ', students: new Map() });
+        
+        // Chỉ thêm nếu HS chưa có
+        if (!classMap.get(classId).students.has(studentId)) {
+            classMap.get(classId).students.set(studentId, {
+                id: studentId,
+                name: a.studentName,
+                isNew: false, // Đã có từ DB
+                isDone: a.status === 'done' || a.status === 'submitted'
+            });
+        }
+    });
+
+    // B. Lấy học sinh MỚI (đang chọn)
+    assignModalState.studentsToAssign.forEach(studentId => {
+        const student = assignModalState.allStudents.find(s => s.id === studentId);
+        if (!student) return;
+        
+        const classId = student.classId || ' lẻ';
+        if (!classMap.has(classId)) classMap.set(classId, { name: student.className || 'Học sinh lẻ', students: new Map() });
+        
+        // Thêm HS (nếu chưa có)
+        if (!classMap.get(classId).students.has(studentId)) {
+            classMap.get(classId).students.set(studentId, {
+                id: studentId,
+                name: student.fullName,
+                isNew: true, // Mới thêm
+                isDone: false
+            });
+        }
+    });
+    
+    // C. Lấy các LỚP MỚI (đang chọn)
+    assignModalState.classesToAssign.forEach(classId => {
+        if (!classMap.has(classId)) {
+            // Lấy thông tin Lớp
+            const classInfo = assignModalState.allClasses.find(c => c.id === classId);
+            classMap.set(classId, { 
+                name: classInfo ? classInfo.name : 'Lớp Mới', 
+                students: new Map(), // Sẽ lấy HS từ BE
+                isNew: true, // Lớp mới
+                isClass: true
+            });
+        }
+    });
+
+    // 2. Render Cây
+    if (classMap.size === 0) {
+        container.innerHTML = '<p class="text-muted small m-0">Chưa có học sinh hay lớp nào được giao.</p>';
+        return;
+    }
+
+    classMap.forEach((classData, classId) => {
+        const isClassEntry = classData.isClass === true;
+        
+        // Render dòng Lớp (ví dụ: Lớp 4A)
+        html += `
+            <div class="d-flex justify-content-between align-items-center p-1 border-bottom bg-white">
+                <span class="fw-bold">
+                    ${isClassEntry ? '➕' : '•'} ${escapeHtml(classData.name)} 
+                    ${isClassEntry ? '<span class="badge bg-primary ms-1">MỚI</span>' : ''}
+                </span>
+                ${isClassEntry ? `
+                    <button class="btn btn-sm btn-outline-danger" title="Hủy giao cho cả Lớp"
+                            onclick="toggleAssignItem('class', '${classId}', false)">
+                        X
+                    </button>
+                ` : ''}
+            </div>
+        `;
+        
+        // Render các học sinh trong lớp đó
+        classData.students.forEach(student => {
+            html += `
+                <div class="d-flex justify-content-between align-items-center p-1 ps-4 border-bottom">
+                    <span class="small ${student.isDone ? 'text-muted fst-italic' : 'text-success'}">
+                        ${escapeHtml(student.name)}
+                        ${student.isNew ? '<span class="badge bg-primary ms-1">MỚI</span>' : ''}
+                        ${student.isDone ? '(Đã làm)' : ''}
+                    </span>
+                    ${!student.isDone ? `
+                        <button class="btn btn-sm btn-outline-danger" title="Hủy giao"
+                                onclick="toggleAssignItem('student', '${student.id}', false)">
+                            x
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        });
+    });
+    
+    container.innerHTML = html;
+}
+
+/**
+ * (HÀM MỚI) - Xử lý khi click vào 1 Lớp ở Cột 1
+ */
+function handleClassClick(classId) {
+    assignModalState.selectedClassIdForFilter = classId;
+    renderAssignClassesList(); // Render lại Cột 1 (để highlight)
+    renderAssignStudentsList(); // Render lại Cột 2 (lọc HS)
+}
+
+/**
+ * (HÀM MỚI) - Xử lý khi Checkbox (Thêm) hoặc Bấm X (Hủy)
+ */
+function toggleAssignItem(type, id, isAssigning) {
+    if (type === 'class') {
+        if (isAssigning) {
+            assignModalState.classesToAssign.add(id);
+            assignModalState.classesToRemove.delete(id);
+        } else {
+            assignModalState.classesToAssign.delete(id);
+            // Chỉ thêm vào "Remove" nếu nó đã tồn tại từ DB (nhưng logic này phức tạp)
+            // Cách đơn giản: Cứ thêm vào, BE sẽ tự lọc
+            assignModalState.classesToRemove.add(id);
+        }
+    } else if (type === 'student') {
+        if (isAssigning) {
+            assignModalState.studentsToAssign.add(id);
+            assignModalState.studentsToRemove.delete(id);
+        } else {
+            assignModalState.studentsToAssign.delete(id);
+            assignModalState.studentsToRemove.add(id);
+        }
+    }
+    
+    // Render lại toàn bộ modal
+    renderAssignModal();
 }
 
 
@@ -9022,72 +10000,88 @@ function clearPendingFilters() {
 }
 
 
-function renderAssignmentLists(students, assignments) {
+function renderAssignmentLists(students, classes, assignments) {
+    const assignedContainer = qs('#current-assigned-list');
+    const classesContainer = qs('#available-classes-list');
+    const studentsContainer = qs('#available-students-list');
     
-    // 🔥 1. LỌC: Loại bỏ Admin và Teacher trước khi xử lý
-    const assignableStudents = filterAssignableUsers(students);
+    const assignedStudentIds = new Set(assignments.map(a => a.studentId));
     
-    const assignedIds = new Set(assignments.map(a => a.studentId));
-    
-    // Hàm kiểm tra học sinh đã làm bài (status = 'done')
-    const isStudentDone = (sId) => assignments.find(a => a.studentId === sId && a.status === 'done');
-    
-    let assignedHtml = '';
-    let availableHtml = '';
-    let assignedCount = 0;
-    let availableCount = 0;
-
-    assignableStudents.forEach(s => { // 🔥 Lặp qua danh sách đã lọc
-        const studentName = s.fullName;         // 🔥 Đã sửa: dùng fullName
-        const studentId = s.id;
-        const studentClass = s.className || 'N/A'; // 🔥 Đã sửa: dùng className
-        const studentRole = getRoleLabel(s.role || 'student'); // 🔥 Lấy Role Label
-        const displayInfo = `${studentName} | ${studentClass} | ${studentRole}`; // Format hiển thị mới
-        const done = isStudentDone(studentId);
-
-        if (assignedIds.has(studentId)) {
-            // KHUNG TRÊN: Đã được giao
-            assignedCount++;
-            const canToggle = !done;
-            
-            assignedHtml += `
-                <div class="d-flex justify-content-between align-items-center p-1 border-bottom ${done ? 'bg-warning-subtle' : ''}" id="current-assign-${studentId}">
-                    <span class="small ${done ? 'text-danger fst-italic' : 'text-success'}">
-                        ${displayInfo}${done ? ' (Đã làm bài)' : ''}
-                    </span>
-                    <button 
-                        class="btn btn-sm btn-outline-danger ${done ? 'disabled' : ''}" 
-                        onclick="if(${canToggle}){ toggleAssignmentStatus('${studentId}', '${studentName}', false); }"
-                        title="${done ? 'Đã làm bài, không thể hủy' : 'Hủy giao bài'}"
-                    >
-                        <i class="fas fa-times small"></i>
-                    </button>
-                </div>
-            `;
-        } else {
-            // KHUNG DƯỚI: Có sẵn để giao
-            availableCount++;
-            availableHtml += `
-                <div class="d-flex justify-content-between align-items-center p-1 border-bottom" id="available-assign-${studentId}">
-                    <label class="form-check-label w-100 d-flex justify-content-between">
-                        <span class="small">${displayInfo}</span>
-                        <input class="form-check-input" type="checkbox" 
-                            onclick="toggleAssignmentStatus('${studentId}', '${studentName}', true);" 
-                        >
+    // 1. Render Danh sách Lớp (Cột 1)
+    let classesHtml = '';
+    let classCount = 0;
+    if (classes.length > 0) {
+        classes.forEach(c => {
+            classCount++;
+            classesHtml += `
+                <div class="form-check">
+                    <input class="form-check-input class-assign-check" type="checkbox" value="${c.id}" id="class-${c.id}">
+                    <label class="form-check-label" for="class-${c.id}">
+                        <strong>${escapeHtml(c.name)}</strong> (Khối ${c.level})
                     </label>
-                </div>
-            `;
+                </div>`;
+        });
+    }
+    classesContainer.innerHTML = classesHtml || '<p class="text-muted small m-0">Không có lớp học nào.</p>';
+    qs('#count-available-classes').textContent = classCount;
+
+    // 2. Render Danh sách HS Lẻ (Cột 2)
+    let studentsHtml = '';
+    let studentCount = 0;
+    const individualStudents = students.filter(s => !s.classId);
+    
+    if (individualStudents.length > 0) {
+        individualStudents.forEach(s => {
+            const studentId = s.id || s._id;
+            // Chỉ hiển thị HS lẻ nếu HỌ CHƯA ĐƯỢC GIAO (hoặc chưa được chọn)
+            if (!assignedStudentIds.has(studentId)) {
+                studentCount++;
+                studentsHtml += `
+                    <div class="form-check">
+                        <input class="form-check-input student-assign-check" type="checkbox" value="${studentId}" id="stu-${studentId}">
+                        <label class="form-check-label small" for="stu-${studentId}">
+                            ${escapeHtml(s.fullName || s.user)} (Khối ${s.level || 'N/A'})
+                        </label>
+                    </div>`;
+            }
+        });
+    }
+    studentsContainer.innerHTML = studentsHtml || '<p class="text-muted small m-0">Không có HS lẻ (hoặc tất cả đã được giao).</p>';
+    qs('#count-available-students').textContent = studentCount;
+
+    // 3. Render Danh sách Đã Giao (Khung dưới)
+    let assignedHtml = '';
+    let assignedCount = 0;
+    // Nhóm các học sinh đã giao
+    const assignedMap = new Map();
+    assignments.forEach(a => {
+        const studentId = a.studentId;
+        if (!assignedMap.has(studentId)) {
+            assignedMap.set(studentId, {
+                name: a.studentName || 'N/A',
+                class: a.className || 'N/A',
+                isDone: a.status === 'done'
+            });
+        } else if (a.status === 'done') {
+            assignedMap.get(studentId).isDone = true; // Nếu làm 1 bài, coi như đã làm
         }
     });
 
-    // Cập nhật DOM
-    qs('#current-assigned-list').innerHTML = assignedHtml || '<p class="text-success small m-0">Chưa có học sinh nào được giao.</p>';
-    qs('#available-students-list').innerHTML = availableHtml || '<p class="text-muted small m-0">Tất cả học sinh đã được giao.</p>';
+    assignedMap.forEach((info, studentId) => {
+        assignedCount++;
+        const status = info.isDone ? '(Đã làm)' : '';
+        assignedHtml += `
+            <div class="d-flex justify-content-between align-items-center p-1 border-bottom ${info.isDone ? 'text-muted fst-italic' : 'text-success'}">
+                <span class="small">
+                    ${escapeHtml(info.name)} | ${escapeHtml(info.class)} ${status}
+                </span>
+            </div>`;
+    });
     
-    // Cập nhật số lượng
+    assignedContainer.innerHTML = assignedHtml || '<p class="text-muted small m-0">Chưa giao cho học sinh nào.</p>';
     qs('#count-assigned').textContent = assignedCount;
-    qs('#count-available').textContent = availableCount;
 }
+
 
 function toggleAssignmentStatus(studentId, studentName, shouldAssign) {
     const student = allStudents.find(s => s.id === studentId);
@@ -9255,7 +10249,6 @@ function showInfoModal(title, message, isError = false) {
 
 // THAY THẾ TOÀN BỘ HÀM NÀY (khoảng dòng 7578)
 async function confirmAssign() {
-    // ✅ SỬA LỖI: Di chuyển khai báo 'confirmBtn' lên đầu hàm
     const confirmBtn = qs('#confirm-assign-btn'); 
     
     const deadlineValue = qs('#assign-deadline').value;
@@ -9266,17 +10259,9 @@ async function confirmAssign() {
     const testIdsRaw = qs('#assign-test-ids').value;
     try {
         const parsedIds = JSON.parse(testIdsRaw);
-        if (Array.isArray(parsedIds) && parsedIds.length > 0) {
-            testIds = parsedIds;
-        } else if (typeof parsedIds === 'string' && parsedIds.trim()) {
-            testIds = [parsedIds.trim()];
-        } else {
-            const singleId = qs('#current-test-id').value;
-            if (singleId) testIds = [singleId];
-        }
+        testIds = Array.isArray(parsedIds) ? parsedIds : [parsedIds];
     } catch (e) {
-        const singleId = qs('#current-test-id').value;
-        if (singleId) testIds = [singleId];
+        testIds = [qs('#current-test-id').value];
     }
     
     if (testIds.length === 0) {
@@ -9284,111 +10269,44 @@ async function confirmAssign() {
         return;
     }
 
-    // 2. Lấy danh sách ID học sinh đang được hiển thị ở KHUNG TRÊN (Final list)
-    const studentsToReassign = Array.from(qs('#current-assigned-list').querySelectorAll('div'))
-                                 .map(div => div.id.replace('current-assign-', ''));
-
-    // 3. Lấy className (nếu có)
-    let className = null;
-    if (studentsToReassign.length > 0) {
-        const firstStudentId = studentsToReassign[0];
-        const firstStudent = allStudents.find(s => s.id === firstStudentId);
-        className = firstStudent ? (firstStudent.className || 'N/A') : null;
-    }
-    
-    // 4. Lấy thông tin Giáo viên
+    // 2. Lấy thông tin Giáo viên
     const teacher = currentUser || JSON.parse(sessionStorage.getItem('quiz_user') || 'null');
     const teacherId = teacher?.id;
     if (!teacherId) { alert("Lỗi: Không tìm thấy thông tin giáo viên."); return; }
+    
+    // 3. Xây dựng payload từ State (đã xử lý ở toggleAssignItem)
+    const payload = {
+        testIds: testIds,
+        teacherId: teacherId,
+        deadline: deadlineISO,
+        
+        // Chuyển Set thành Array
+        classIdsToAssign: Array.from(assignModalState.classesToAssign),
+        studentIdsToAssign: Array.from(assignModalState.studentsToAssign),
+        classIdsToRemove: Array.from(assignModalState.classesToRemove),
+        studentIdsToRemove: Array.from(assignModalState.studentsToRemove)
+    };
+    
+    if (payload.classIdsToAssign.length === 0 && payload.studentIdsToAssign.length === 0 &&
+        payload.classIdsToRemove.length === 0 && payload.studentIdsToRemove.length === 0) {
+        alert("Bạn chưa thay đổi (thêm mới hoặc hủy) bất kỳ lớp hay học sinh nào.");
+        return;
+    }
 
     if(confirmBtn) confirmBtn.disabled = true;
 
-    // 5. Tính toán thay đổi cho trường hợp **Giao Đơn Lẻ**
-    let assignmentsToCancel = [];
-    let testIdToUpdate = null; // <-- SỬA LỖI: Lưu ID đề thi để cập nhật status
-
-    if (testIds.length === 1) {
-        testIdToUpdate = testIds[0]; // <-- SỬA LỖI: Đây là testId ta cần update
-        const assignedInModal = studentsToReassign; 
-        assignmentsToCancel = currentAssignments.filter(a => 
-            !assignedInModal.includes(a.studentId) && a.status !== 'done'
-        );
-    }
-    
-    let assignedOrUpdatedCount = 0;
-    let cancelledCount = 0;
-    let statusUpdated = false; // <-- SỬA LỖI: Thêm cờ báo đã cập nhật status
-
-    const bulkPayload = {
-        testIds: testIds,
-        studentIds: studentsToReassign, 
-        className: className, 
-        teacherId: teacherId,
-        deadline: deadlineISO
-    };
-
     try {
-        // A. GIAO MỚI HOẶC CẬP NHẬT DEADLINE
-        if (studentsToReassign.length > 0) {
-            const response = await fetchJson(`${serverUrl}/api/assigns/bulk`, { 
-                method: 'POST', 
-                body: bulkPayload 
-            });
-            assignedOrUpdatedCount = response.count || 0;
-        }
-
-        // B. HỦY GIAO (CHỈ XỬ LÝ KHI LÀ SINGLE ASSIGN)
-        if (assignmentsToCancel.length > 0) {
-            const assignmentIds = assignmentsToCancel.map(a => a.id);
-            const deletePayload = { assignmentIds: assignmentIds };
-            
-            const response = await fetchJson(`${serverUrl}/api/assignments/bulk-delete`, { 
-                method: 'POST', 
-                body: deletePayload 
-            });
-            cancelledCount = response.deletedCount || 0;
-        }
+        // 4. GỌI API MỚI (API Backend đã được nâng cấp)
+        const response = await fetchJson(`${serverUrl}/api/assigns/bulk`, { 
+            method: 'POST', 
+            body: payload 
+        });
         
-        // C. <-- SỬA LỖI: CẬP NHẬT TRẠNG THÁI TEST
-        // (Kiểm tra xem danh sách "Đã được giao" (studentsToReassign) có rỗng không)
-        if (testIdToUpdate && studentsToReassign.length === 0) {
-            
-            console.log(`Đang cập nhật trạng thái cho Test ID: ${testIdToUpdate} về "not_assigned"`);
-            
-            // Gọi API mới để set status
-            await fetchJson(`${serverUrl}/api/tests/${testIdToUpdate}/status`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: "not_assigned" }) // <-- Gửi status mới
-            });
-            statusUpdated = true; // <-- Set cờ
-        }
-        
-        const doneAssignmentsToKeep = currentAssignments.filter(a => a.status === 'done' && studentsToReassign.includes(a.studentId));
-
-        // Báo cáo
-        let message = `Hoàn tất thao tác cho ${testIds.length} đề thi:`;
-        if (assignedOrUpdatedCount > 0) {
-             message += `\n✅ Đã giao mới và/hoặc cập nhật deadline cho ${studentsToReassign.length} học sinh.`;
-        }
-        if (cancelledCount > 0) message += `\n❌ Đã hủy ${cancelledCount} bài giao.`;
-        
-        // <-- SỬA LỖI: Thêm thông báo cập nhật status
-        if (statusUpdated) {
-            message += `\nℹ️ Trạng thái đề thi đã được cập nhật thành "Chưa giao".`;
-        }
-
-        if (doneAssignmentsToKeep.length > 0) message += `\n⚠️ Giữ lại ${doneAssignmentsToKeep.length} bài đã làm (Không thể hủy).`;
-        
-        if (assignedOrUpdatedCount === 0 && cancelledCount === 0 && !statusUpdated) {
-            message = "Không có thay đổi nào được ghi nhận.";
-        }
-        
-        alert(message);
+        alert(response.message || "Giao/Hủy bài thành công!");
             
     } catch (e) {
-        console.error("Lỗi thực thi giao/hủy:", e.message);
-        alert(`❌ Lỗi xảy ra trong quá trình thực hiện giao/hủy bài: ${e.message}`);
+        console.error("Lỗi thực thi giao bài:", e.message);
+        alert(`❌ Lỗi xảy ra trong quá trình giao bài: ${e.message}`);
     } finally {
         if(confirmBtn) confirmBtn.disabled = false;
         modalAssignInstance.hide();
@@ -9928,62 +10846,150 @@ function generateResultPrintHTML_Single(resultHeader, hydratedAnswers) {
 
     hydratedAnswers.forEach((ans, i) => { 
         const q = ans.question || {};
-        const questionContent = q.q || '(Không có nội dung)';
+        let questionContent = q.q || '(Nội dung câu hỏi)';
         const q_type = (ans.type || q.type || '').toLowerCase();
-        const isEssay = q_type === 'essay';
         
-        const studentAnswerText = String(ans.studentAnswer || '');
-        const correctAns = String(ans.correctAnswer || '').trim().toLowerCase();
+        const studentAnsRaw = ans.studentAnswer;
+        const correctAnsRaw = ans.correctAnswer;
         const maxPoints = ans.maxPoints ?? q.points ?? 1;
         const gainedPoints = ans.gainedScore ?? 0;
         const isCorrect = ans.isCorrect;
         const teacherNote = ans.teacherNote || '';
+        const isEssayType = q_type === 'essay' || q_type === 'draw';
 
         const optionStyle = `border: 1px solid #ccc; border-radius: 4px; padding: 3px 5px; margin-bottom: 3px; ${baseFontSizeStyle}`;
         
         let answerDisplay = '';
-        if (!isEssay) {
-            // Trắc nghiệm
-            const studentAnswerTrimmedLower = studentAnswerText.trim().toLowerCase();
+
+        // --- LOGIC MC (Không đổi) ---
+        if (q_type === 'mc') {
+            const correctAns = String(correctAnsRaw || '').trim().toLowerCase();
+            const studentAnswerTrimmedLower = String(studentAnsRaw || '').trim().toLowerCase();
             answerDisplay = (q.options || []).map(opt => {
                 const optionText = String(opt.text || opt.value || '').trim();
                 const optionTextLower = optionText.toLowerCase();
                 let style = optionStyle;
-                
                 const isThisCorrect = (correctAns && optionTextLower === correctAns);
-                const isThisChosen = (studentAnswerText && optionTextLower === studentAnswerTrimmedLower);
-
+                const isThisChosen = (studentAnswerTrimmedLower && optionTextLower === studentAnswerTrimmedLower);
                 if (isThisCorrect) { 
                     style = `background-color: #d1e7dd; border: 1px solid #28a745; font-weight: bold; border-radius: 4px; padding: 3px 5px; margin-bottom: 3px; ${baseFontSizeStyle}`;
                 } else if (isThisChosen) { 
                     style = `background-color: #fff3cd; border: 1px solid #dc3545; border-radius: 4px; padding: 3px 5px; margin-bottom: 3px; ${baseFontSizeStyle}`;
                 }
-                
                 return `<div style="${style}">${escapeHtml(optionText)}</div>`;
             }).join('');
-        } else {
-            // Tự luận
+        
+        // --- FIX LOGIC T/F (ĐÚNG/SAI) - Dùng dấu tích ✓ ---
+        } else if (q_type === 'true_false') {
+            const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
+            
+            answerDisplay = '<ol type="a" style="margin: 10px 0 0 0; padding-left: 40px; list-style-position: outside;">';
+            answerDisplay += (q.options || []).map((opt, idx) => {
+                const studentChoice = studentAnswers[idx]; // true, false, or null
+                const correctChoice = correctAnswers[idx]; // true or false
+                const isCorrect = (studentChoice === correctChoice);
+
+                // 🔥 FIX 3 (Mới): Dùng dấu tích (✓) thay vì chữ Đ/S
+                const checkmark = '&#10003;'; // Dấu tích
+                const boxD = `<span style="display: inline-block; width: 16px; height: 16px; border: 1px solid #000; margin: 0 5px; vertical-align: middle; text-align: center; font-weight: bold; line-height: 16px; color: ${studentChoice === true ? (isCorrect ? 'green' : 'red') : '#777'};">${studentChoice === true ? checkmark : '&nbsp;'}</span>`;
+                const boxS = `<span style="display: inline-block; width: 16px; height: 16px; border: 1px solid #000; margin: 0 5px; vertical-align: middle; text-align: center; font-weight: bold; line-height: 16px; color: ${studentChoice === false ? (isCorrect ? 'green' : 'red') : '#777'};">${studentChoice === false ? checkmark : '&nbsp;'}</span>`;
+                // --- Hết FIX 3 ---
+
+                // Đánh giá
+                let feedback = '';
+                if (studentChoice === null) {
+                    feedback = `<span style="color: red; font-weight: bold;">(S - Đáp án: ${correctChoice ? 'Đ' : 'S'})</span>`;
+                } else if (isCorrect) {
+                    feedback = `<span style="color: green; font-weight: bold;">(Đ)</span>`;
+                } else {
+                    feedback = `<span style="color: red; font-weight: bold;">(S - Đáp án: ${correctChoice ? 'Đ' : 'S'})</span>`;
+                }
+
+                return `
+                    <li style="margin-bottom: 12px; line-height: 1.5; ${baseFontSizeStyle}">
+                        ${escapeHtml(opt.text || '')}
+                        <span style="margin-left: 20px; margin-right: 15px;">${boxD} Đ</span>
+                        <span style="margin-right: 15px;">${boxS} S</span>
+                        ${feedback}
+                    </li>
+                `;
+            }).join('');
+            answerDisplay += '</ol>';
+
+        // --- FIX LOGIC FILL (ĐIỀN TỪ) ---
+        } else if (q_type === 'fill_blank') {
+            const studentAnswers = Array.isArray(studentAnsRaw) ? studentAnsRaw : [];
+            const correctAnswers = Array.isArray(correctAnsRaw) ? correctAnsRaw : [];
+            let blankIndex = 0;
+            let formattedText = escapeHtml(questionContent).replace(/\n/g, '<br>');
+            
+            const answerStyle = `font-weight: bold; border-bottom: 1px solid #000; padding: 0 4px; margin: 0 4px;`;
+            
+            // Thay thế [BLANK] bằng câu trả lời
+            answerDisplay = formattedText.replace(/\[BLANK\]|\.{5,}/g, () => {
+                const idx = blankIndex++;
+                const studentAns = studentAnswers[idx] || '[Trống]';
+                const correctAns = correctAnswers[idx] || '';
+                const isCorrect = norm_str(studentAns) === norm_str(correctAns);
+                
+                let feedback = '';
+                if (isCorrect) {
+                    feedback = `<span style="color: green; font-weight: bold;">(Đ)</span>`;
+                } else {
+                    feedback = `<span style="color: red; font-weight: bold;">(S - ${escapeHtml(correctAns)})</span>`;
+                }
+                
+                return `<span style="${answerStyle} color: ${isCorrect ? 'green' : 'red'};">${escapeHtml(studentAns)}</span> ${feedback}`;
+            });
+            // Vì câu hỏi đã nằm trong answerDisplay, ta xóa nội dung gốc
+            questionContent = ''; 
+
+        // --- FIX LOGIC DRAW (HÌNH VẼ) - Căn giữa ---
+        } else if (q_type === 'draw') {
+            // Lấy ảnh đã render từ hàm 'prepareResultPrintArea'
+            const renderedUrl = hydratedAnswers[i].renderedDrawingUrl;
+            
+            if (renderedUrl) {
+                // 🔥 FIX 2 (Mới): Thêm wrapper để căn giữa và thu nhỏ ảnh
+                answerDisplay = `
+                    <div style="text-align: center; padding: 10px 0;">
+                        <img src="${renderedUrl}" style="max-width: 90%; height: auto; border: 1px solid #ccc; background: #fff; margin: 0 auto;">
+                    </div>
+                `;
+            } else {
+                answerDisplay = `<div style="border: 1px solid #ccc; border-radius: 4px; padding: 20px; min-height: 50px; background: #f8f9fa; text-align: center; ${baseFontSizeStyle}">[Không có hình vẽ]</div>`;
+            }
+            // Thêm nhận xét của GV (nếu có)
+            if (teacherNote) {
+                answerDisplay += `<p style="font-weight: bold; margin: 5px 0 2px 0; ${baseFontSizeStyle}">Nhận xét của GV:</p>
+                                 <div style="border: 1px solid #0dcaf0; border-radius: 4px; padding: 5px; min-height: 20px; background: #cff4fc; ${baseFontSizeStyle}">
+                                     ${escapeHtml(teacherNote)}
+                                 </div>`;
+            }
+
+        // --- LOGIC ESSAY (TỰ LUẬN) (Không đổi) ---
+        } else if (q_type === 'essay') {
             answerDisplay = `<p style="font-weight: bold; margin: 3px 0 2px 0;">Câu trả lời của Học sinh:</p>
                              <div style="border: 1px solid #ccc; border-radius: 4px; padding: 5px; min-height: 30px; background: #f8f9fa; ${baseFontSizeStyle}">
-                                 ${escapeHtml(studentAnswerText)}
+                                 ${escapeHtml(String(studentAnsRaw || ''))}
                              </div>`;
-            
-            // ✅ ĐÃ SỬA: KHÔI PHỤC VÀ NÉN PHẦN NHẬN XÉT GV
             if (teacherNote) {
-                answerDisplay += `<p style="font-weight: bold; margin: 3px 0 2px 0;">Nhận xét của GV:</p>
+                answerDisplay += `<p style="font-weight: bold; margin: 5px 0 2px 0; ${baseFontSizeStyle}">Nhận xét của GV:</p>
                                  <div style="border: 1px solid #0dcaf0; border-radius: 4px; padding: 5px; min-height: 20px; background: #cff4fc; ${baseFontSizeStyle}">
                                      ${escapeHtml(teacherNote)}
                                  </div>`;
             }
         }
         
-        const scoreBox = isEssay 
+        // --- KHUNG ĐIỂM (Không đổi) ---
+        const scoreBox = isEssayType 
             ? `Điểm GV: ${ans.teacherScore ?? 0} / ${maxPoints}`
             : `Điểm: ${gainedPoints.toFixed(1)} / ${maxPoints}`;
         
-        const statusText = isCorrect ? 'Đúng' : (isEssay ? (ans.teacherScore !== null ? 'Sai' : 'Chờ chấm') : 'Sai');
+        const statusText = isCorrect ? 'Đúng' : (isEssayType ? (ans.teacherScore !== null ? 'Sai' : 'Chờ chấm') : 'Sai');
 
-        // ✅ ĐÃ SỬA: KHÔI PHỤC VÀ NÉN PHẦN NỘI DUNG CÂU HỎI
+        // --- Ghép HTML (Không đổi) ---
         qHtml += `
             <div class="question-block" style="margin-bottom: 8px; page-break-inside: avoid !important; border: 1px solid #ddd; padding: 8px; border-radius: 5px;">
                 <p style="font-weight: bold; margin-bottom: 3px;">
@@ -10000,7 +11006,7 @@ function generateResultPrintHTML_Single(resultHeader, hydratedAnswers) {
         `;
     });
 
-    // Tạo HTML đầy đủ cho MỘT kết quả (Phần Header giữ nguyên)
+    // --- TEMPLATE CHUNG (Không đổi) ---
     return `
         <div class="result-print-block">
             <h1 style="text-align: center; font-size: 1.2rem; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px;">
@@ -10014,7 +11020,12 @@ function generateResultPrintHTML_Single(resultHeader, hydratedAnswers) {
                 <hr style="border: 0; border-top: 1px solid #ccc; margin: 4px 0;">
                 <p style="font-weight: bold; margin: 2px 0;">
                     Điểm TN: ${resultHeader.mcScore ?? 0} | 
-                    Điểm TL: ${resultHeader.essayScore ?? 0} | 
+                    Đ/S: ${resultHeader.tfScore ?? 0} | 
+                    FILL: ${resultHeader.fillScore ?? 0} | 
+                    TL: ${resultHeader.essayScore ?? 0} | 
+                    Vẽ: ${resultHeader.drawScore ?? 0}
+                </p>
+                <p style="font-weight: bold; font-size: 1.1rem; margin: 2px 0;">
                     Tổng điểm: ${resultHeader.totalScore ?? 0}
                 </p>
             </div>
@@ -10022,6 +11033,7 @@ function generateResultPrintHTML_Single(resultHeader, hydratedAnswers) {
         </div>
     `;
 }
+
 /**
  * HÀM MỚI: Gọi API bulk, tạo HTML và gọi In/PDF
  */
@@ -10045,6 +11057,20 @@ async function prepareResultPrintArea(isPreview = true) {
         </div>
     `;
     const loadingMessage = document.getElementById("print-loading-message");
+
+    // Helper: Parse JSON an toàn (cho hình vẽ)
+    const parseDrawingJson = (raw) => {
+        if (raw === null || raw === undefined) return [];
+        if (typeof raw === 'object') return (Array.isArray(raw.children) ? raw.children : (Array.isArray(raw) ? raw : []));
+        if (typeof raw === 'string') {
+            try {
+                let parsed = JSON.parse(raw);
+                if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                return (Array.isArray(parsed.children) ? parsed.children : (Array.isArray(parsed) ? parsed : []));
+            } catch (e) { return []; }
+        }
+        return [];
+    };
 
     try {
         // 1. Gọi API bulk
@@ -10071,11 +11097,80 @@ async function prepareResultPrintArea(isPreview = true) {
                 loadingMessage.textContent = `Đang xử lý kết quả ${i + 1} / ${results.length} (HS: ${result.studentName})...`;
             }
             
-            // ✅ GỌI HYDRATION (Đây là N+1 query, sẽ chậm, nhưng là cách duy nhất)
-            // Hàm này sẽ tự fetch /api/quizzes/:testId để lấy câu hỏi
+            // Lấy câu hỏi gốc
             const hydratedAnswers = await buildAnswersFromResult(result);
             
-            // Tạo HTML bằng hàm đã sửa ở Bước 1
+            // =============================================
+            // === FIX LỖI IN HÌNH VẼ (DRAW) HÀNG LOẠT =====
+            // =============================================
+            // Render JSON hình vẽ ra ảnh (nếu có)
+            for (const ans of hydratedAnswers) {
+                if (ans.type === 'draw') {
+                    const hs_json = ans.studentAnswer;
+                    const gv_json = ans.teacherDrawing;
+                    
+                    // Chỉ render nếu có 1 trong 2
+                    if (hs_json || gv_json) {
+                        // Tạo container tạm thời
+                        const tempContainer = document.createElement('div');
+                        tempContainer.id = `temp-konva-${ans.questionId}`;
+                        tempContainer.style.position = 'absolute';
+                        tempContainer.style.left = '-9999px';
+                        tempContainer.style.width = '700px'; // Chiều rộng cố định
+                        tempContainer.style.height = '400px'; // Chiều cao cố định
+                        document.body.appendChild(tempContainer);
+                        
+                        const pad = initKonvaCanvas(tempContainer.id, 'teacher');
+                        
+                        if (!pad || !pad.stage) {
+                             document.body.removeChild(tempContainer);
+                             continue;
+                        }
+
+                        try {
+                            // Tải hình HS
+                            const hs_shapes = parseDrawingJson(hs_json);
+                            hs_shapes.forEach(shapeData => {
+                                const shape = Konva.Node.create(shapeData);
+                                if (shape && shape.getClassName() !== 'Transformer' && (shape.name() || '').indexOf('sel_rect') === -1) {
+                                    pad.studentLayer.add(shape);
+                                }
+                            });
+                            pad.studentLayer.listening(false);
+
+                            // Tải hình GV
+                            const gv_shapes = parseDrawingJson(gv_json);
+                            gv_shapes.forEach(shapeData => {
+                                const shape = Konva.Node.create(shapeData);
+                                if (shape && shape.getClassName() !== 'Transformer' && (shape.name() || '').indexOf('sel_rect') === -1) {
+                                    pad.teacherLayer.add(shape);
+                                }
+                            });
+
+                            pad.stage.batchDraw();
+                            
+                            // Chụp ảnh
+                            const dataURL = pad.stage.toDataURL({ pixelRatio: 2 });
+                            // Lưu ảnh vào object answer
+                            ans.renderedDrawingUrl = dataURL;
+
+                        } catch (e) {
+                            console.error("Lỗi render DRAW hàng loạt:", e);
+                            ans.renderedDrawingUrl = null;
+                        } finally {
+                            // Dọn dẹp
+                            pad.stage.destroy();
+                            document.body.removeChild(tempContainer);
+                            delete window.drawingPads[tempContainer.id];
+                        }
+                    }
+                }
+            }
+            // =============================================
+            // === KẾT THÚC FIX LỖI IN HÌNH VẼ (DRAW) =====
+            // =============================================
+
+            // Tạo HTML bằng hàm đã sửa (generateResultPrintHTML_Single)
             fullHtml += generateResultPrintHTML_Single(result, hydratedAnswers);
         }
         
@@ -11093,11 +12188,10 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     const escapeHtml = (str) => { return str ? String(str).replace(/[&<>"']/g, s => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s])) : ''; };
     const safeFormat = (dateStr) => { return dateStr ? dateStr.substring(0, 16).replace('T', ' ') : '—'; };
 
-    // ▼▼▼ BẮT ĐẦU SỬA LỖI: Thêm helper parseStudentAnswer ▼▼▼
-    // Helper: safely parse stored studentAnswer (string or already-object)
+    // Helper: safely parse stored studentAnswer
     function parseStudentAnswer(raw) {
         if (raw === null || raw === undefined) return null;
-        if (typeof raw === 'object') return raw; // Đã là object, trả về
+        if (typeof raw === 'object') return raw; 
         if (typeof raw === 'string') {
             const s = raw.trim();
             if (!s) return null;
@@ -11122,7 +12216,6 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         }
         return null;
     }
-    // ▲▲▲ KẾT THÚC SỬA LỖI ▲▲▲
 
     const container = document.getElementById("review-questions-container");
     const titleEl = document.getElementById("review-quiz-title");
@@ -11269,19 +12362,16 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
             });
             mainQuestionTextHtml = '';
 
-        // =======================================================
-        // === KHỐI THAY THẾ: DRAW (Logic HS Xem lại) ===
-        // (🔥 Sửa lỗi 12/6 - Lọc bằng TÊN)
-        // =======================================================
+        // === DRAW (Hình vẽ) ===
         } else if (qTypeCheck === 'draw') {
             const canvasId = `review_${resultQid}`;
             answerHtml = `<div class="form-group"><label class="form-label fw-bold">Hình vẽ của bạn (và sửa lỗi của GV):</label>`;
             
-            // ẨN thanh công cụ
             const toolbarHtml = ''; 
-            
             answerHtml += toolbarHtml;
-            answerHtml += `<div id="${canvasId}" class="drawing-canvas-container" style="width: 100%; height: 300px; border: 1px solid #ccc; background: #fff;"></div>`;
+            
+            // 🔥 FIX 1 (Mới): Giảm chiều cao từ 300px xuống 250px
+            answerHtml += `<div id="${canvasId}" class="drawing-canvas-container" style="width: 100%; height: 250px; border: 1px solid #ccc; background: #fff;"></div>`;
 
             // Lấy cả 2 bản vẽ
             const teacherDrawingRaw = res.teacherDrawing; 
@@ -11313,14 +12403,13 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
                                 shapesToLoad_HS = parsedData_HS;
                             }
                             shapesToLoad_HS.forEach(shapeData => {
-                                // 🔥 SỬA LỖI: Lọc bỏ công cụ bằng TÊN
                                 const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
                                 const className = shapeData.className;
                                 if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
                                     const shape = Konva.Node.create(shapeData);
                                     if (shape) {
                                         pad.studentLayer.add(shape);
-                                        hsShapesCount++; // <-- Đếm hình thật
+                                        hsShapesCount++; 
                                     }
                                 }
                             });
@@ -11336,20 +12425,19 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
                                 shapesToLoad_GV = parsedData_GV;
                             }
                             shapesToLoad_GV.forEach(shapeData => {
-                                // 🔥 SỬA LỖI: Lọc bỏ công cụ bằng TÊN
                                 const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
                                 const className = shapeData.className;
                                 if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
                                     const shape = Konva.Node.create(shapeData);
                                     if (shape) {
                                         pad.teacherLayer.add(shape);
-                                        gvShapesCount++; // <-- Đếm hình thật
+                                        gvShapesCount++; 
                                     }
                                 }
                             });
                         }
 
-                        // 4. 🔥 KHÓA TOÀN BỘ STAGE
+                        // 4. KHÓA TOÀN BỘ STAGE
                         pad.stage.listening(false);
                         pad.stage.batchDraw();
                         console.log(`HS Konva: Đã tải ${hsShapesCount} hình HS, ${gvShapesCount} hình GV (Đã khóa).`);
@@ -11364,16 +12452,11 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
                  // Không có hình vẽ, chỉ khởi tạo canvas rỗng
                  canvasLoadCallbacks.push(() => initKonvaCanvas(canvasId, 'teacher'));
                  unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa trả lời</p>';
-                 // 🔥 SỬA LỖI: Hiển thị placeholder nếu không có cả 2 bản vẽ
                  if (!studentAnsRaw && !teacherDrawingRaw) {
                     answerHtml += `<div class="border rounded p-3 text-muted bg-light">[Chưa có hình vẽ]</div>`;
                  }
             }
         
-        // =======================================================
-        // === KẾT THÚC KHỐI THAY THẾ: DRAW ===
-        // =======================================================
-
         } else { // Tự luận (essay)
              let essayText = escapeHtml(String(studentAnsRaw || ''));
              let placeholderText = '';
@@ -11446,7 +12529,6 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         ${gradedAtHtml}
     </div>`;
 }
-
 
 
 
@@ -11524,14 +12606,30 @@ function generateTestPrintHTML(testName, questions, time, subject, level, create
             questionText = formattedText.replace(/\[BLANK\]|\.{5,}/g, ' .................................... ');
             answerSection = ''; 
         
-        // ▼▼▼ SỬA LỖI KHUNG VẼ (DRAW) ▼▼▼
+        // ▼▼▼ FIX 3 (Mới): THÊM LƯỚI CHO KHUNG VẼ (DRAW) ▼▼▼
         } else if (qType === 'draw') {
+            // Tạo một SVG Grid
+            const gridSize = 20; // 20px (có thể đổi thành 10px)
+            const gridColor = '#cccccc'; // Màu xám nhạt
+            
+            // SVG an toàn để nhúng trực tiếp
+            const svgGrid = `
+                <svg width="100%" height="250px" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #000; background: #fff; border-radius: 4px;">
+                    <defs>
+                        <pattern id="smallGrid_${index}" width="${gridSize}" height="${gridSize}" patternUnits="userSpaceOnUse">
+                            <path d="M ${gridSize} 0 L 0 0 0 ${gridSize}" fill="none" stroke="${gridColor}" stroke-width="0.5"/>
+                        </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#smallGrid_${index})" />
+                </svg>
+            `;
+
             answerSection = `
                 <div style="padding-top: 10px; padding-left: 15px; padding-right: 15px;">
-                    <div style="width: 100%; height: 250px; border: 1px solid #000; background: #fff; border-radius: 4px;">
-                        </div>
+                    ${svgGrid}
                 </div>
             `;
+        // --- Hết FIX 3 ---
         
         // ▼▼▼ KHỐI TỰ LUẬN (ESSAY) ▼▼▼
         } else if (qType === 'essay') {
@@ -11879,7 +12977,7 @@ async function exportResultToPDF() {
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // 5. 🔥 THAY ĐỔI LỚN: Lấy nội dung trực tiếp từ modal
+    // 5. Lấy nội dung từ modal
     const modalBody = document.querySelector("#modalGrading .modal-body");
     const modalFooter = document.querySelector("#modalGrading .modal-footer");
     
@@ -11930,18 +13028,63 @@ async function exportResultToPDF() {
     printElement.style.fontFamily = 'Arial, sans-serif';
     printElement.style.fontSize = '12pt';
     
-    // Nối Tiêu đề + Nội dung (clone)
+    // Nối Tiêu đề
     printElement.innerHTML = headerHtml;
+    
     // Clone toàn bộ nội dung trong container câu hỏi
     const questionsContainer = modalBody.querySelector("#grading-questions-container");
     if (questionsContainer) {
-        printElement.appendChild(questionsContainer.cloneNode(true));
+        const clonedContainer = questionsContainer.cloneNode(true);
+        
+        // =============================================
+        // === FIX LỖI IN HÌNH VẼ (DRAW) TỪ MODAL =====
+        // =============================================
+        // Tìm tất cả các khung vẽ *đang hiển thị* trong modal
+        const liveCanvases = questionsContainer.querySelectorAll('.drawing-canvas-container');
+        // Tìm tất cả các khung vẽ *đã clone*
+        const clonedCanvases = clonedContainer.querySelectorAll('.drawing-canvas-container');
+
+        liveCanvases.forEach((liveCanvasDiv, index) => {
+            const canvasId = liveCanvasDiv.id; // Lấy ID (ví dụ: "review_q-uuid")
+            const clonedCanvasDiv = clonedCanvases[index]; // Lấy div tương ứng
+            
+            // Nếu tìm thấy canvas, pad Konva, và div clone
+            if (canvasId && window.drawingPads && window.drawingPads[canvasId] && clonedCanvasDiv) {
+                try {
+                    const pad = window.drawingPads[canvasId];
+                    // Chụp ảnh (DataURL) từ stage Konva đang hoạt động
+                    const dataURL = pad.stage.toDataURL({ pixelRatio: 2 });
+                    
+                    // 🔥 FIX 2 (Mới): Thêm div wrapper để căn giữa và thu nhỏ ảnh
+                    clonedCanvasDiv.innerHTML = `
+                        <div style="text-align: center; padding: 10px 0;">
+                            <img src="${dataURL}" style="max-width: 90%; height: auto; border: 1px solid #ccc; background: #fff; margin: 0 auto;">
+                        </div>
+                    `;
+                    
+                    // Ẩn thanh công cụ (toolbar) trong bản in
+                    const toolbar = clonedCanvasDiv.closest('.drawing-pad-container').querySelector('.btn-toolbar');
+                    if (toolbar) {
+                        toolbar.style.display = 'none';
+                    }
+                    
+                } catch (e) {
+                    console.error("Lỗi khi chụp ảnh Konva:", canvasId, e);
+                    clonedCanvasDiv.innerHTML = `<div style="border: 1px dashed red; padding: 10px;">[Lỗi render hình vẽ]</div>`;
+                }
+            }
+        });
+        // =============================================
+        // === KẾT THÚC FIX LỖI IN HÌNH VẼ ==========
+        // =============================================
+
+        printElement.appendChild(clonedContainer);
     }
     
     // Gắn vào body để render
     document.body.appendChild(printElement);
     
-    // Đợi 200ms để Konva (nếu có) render
+    // Đợi 200ms
     await new Promise(r => setTimeout(r, 200));
 
     try {
@@ -11953,7 +13096,7 @@ async function exportResultToPDF() {
     } finally {
         // 8. Dọn dẹp và khôi phục modal
         document.body.removeChild(printElement); // Xóa element in
-        if (modalFooter) modalFooter.style.display = 'block';
+        if (modalFooter) modalFooter.style.display = 'flex'; // Hiển thị lại footer
         if (printButton) {
             printButton.disabled = false;
             printButton.textContent = '🖨️ Xuất PDF';
@@ -12134,32 +13277,90 @@ let previewedQuestions = [];
 
 async function previewAutoTest() {
     const previewContainer = qs('preview-container');
+    const warningsContainer = qs('preview-warnings-container'); // 🔥 Lấy div cảnh báo mới
+    
     previewContainer.innerHTML = '<div class="spinner-row"><div class="spinner-border text-success spinner-border-sm"></div> Đang chọn câu hỏi...</div>';
+    warningsContainer.innerHTML = ''; // 🔥 Xóa cảnh báo cũ
 
-    // 1. Lấy cấu hình
-    const payload = {
-        subject: qs('a-test-subject').value,
-        level: qs('a-test-level').value,
-        dist: {
-            easy: Number(qs('dist-easy').value) || 0,
-            medium: Number(qs('dist-medium').value) || 0,
-            hard: Number(qs('dist-hard').value) || 0
+    // 1. Lấy thông tin chung
+    const subject = qs('a-test-subject').value;
+    const level = qs('a-test-level').value;
+
+    if (!subject || !level) {
+        previewContainer.innerHTML = '<div class="text-danger">Vui lòng chọn Môn học và Khối lớp.</div>';
+        return;
+    }
+
+    // 2. Xây dựng mảng "groups" từ UI Ma Trận
+    const groups = [];
+    const ruleRows = document.querySelectorAll('#matrix-rules-container .matrix-rule-row'); 
+    
+    let totalCount = 0;
+    for (const row of ruleRows) {
+        const countInput = row.querySelector('.rule-count');
+        const typeInput = row.querySelector('.rule-type');
+        const difficultyInput = row.querySelector('.rule-difficulty');
+        const tagsInput = row.querySelector('.rule-tags');
+        
+        if (!countInput || !typeInput || !difficultyInput || !tagsInput) {
+             console.error("Lỗi: Một dòng quy tắc ma trận bị thiếu element.");
+             continue;
         }
+
+        const count = Number(countInput.value);
+        if (count > 0) {
+            totalCount += count;
+            const type = typeInput.value;
+            const difficulty = difficultyInput.value;
+            const tags = tagsInput.value;
+
+            const filters = {};
+            if (type) filters.type = type;
+            if (difficulty) filters.difficulty = difficulty;
+            if (tags) filters.tags = tags; 
+
+            groups.push({
+                count: count,
+                filters: filters
+            });
+        }
+    }
+
+    if (totalCount === 0) {
+        previewContainer.innerHTML = '<div class="text-danger">Vui lòng nhập số lượng câu hỏi.</div>';
+        return;
+    }
+
+    // 3. Tạo payload
+    const payload = {
+        subject: subject,
+        level: level,
+        groups: groups
     };
 
     try {
-        // 2. ✅ GỌI API MỚI ĐỂ LẤY ĐIỂM
-        const questionsWithPoints = await fetchJson(`${serverUrl}/api/tests/preview-auto`, {
+        // 4. GỌI API MỚI ĐỂ LẤY ĐIỂM
+        const result = await fetchJson(`${serverUrl}/api/tests/preview-auto-matrix`, {
             method: 'POST',
             body: payload
         });
 
-        if (!Array.isArray(questionsWithPoints) || questionsWithPoints.length === 0) {
-            previewContainer.innerHTML = '<div class="text-danger">Không có câu hỏi nào phù hợp.</div>';
+        // Xử lý lỗi từ API
+        if (!result.success || !Array.isArray(result.questions) || result.questions.length === 0) {
+            const errorMsg = result.message || "Không có câu hỏi nào phù hợp.";
+            // 🔥 FIX: Hiển thị cảnh báo lên trên
+            if (result.warnings && result.warnings.length > 0) {
+                 warningsContainer.innerHTML = `<div class="alert alert-danger small p-2 mb-2">${errorMsg}<br><small>${result.warnings.join('<br>')}</small></div>`;
+                 previewContainer.innerHTML = ''; // Xóa spinner
+            } else {
+                 previewContainer.innerHTML = `<div class="text-danger">${errorMsg}</div>`;
+            }
             return;
         }
         
-        // 3. ✅ RENDER BẢNG VỚI ĐIỂM CHÍNH XÁC (TỪ 5 QUY TẮC)
+        const questionsWithPoints = result.questions;
+
+        // 5. RENDER BẢNG VỚI ĐIỂM CHÍNH XÁC
         let html = `<table class="table table-sm table-hover table-bordered"><thead><tr><th>#</th><th>Câu hỏi</th><th>Mức độ</th><th>Điểm</th></tr></thead><tbody>`;
         let totalPoints = 0;
         
@@ -12175,6 +13376,11 @@ async function previewAutoTest() {
         
         html += `</tbody></table>`;
         html += `<div class="text-end text-muted small">Tổng điểm: ${totalPoints.toFixed(2)} (${questionsWithPoints.length} câu)</div>`;
+        
+        // 🔥 FIX: Hiển thị cảnh báo (nếu có) lên trên
+        if (result.warnings && result.warnings.length > 0) {
+            warningsContainer.innerHTML = `<div class="alert alert-warning small p-2 mt-2"><strong>Cảnh báo (không đủ câu):</strong><br>${result.warnings.join('<br>')}</div>`;
+        }
 
         previewContainer.innerHTML = html;
         
@@ -12183,7 +13389,6 @@ async function previewAutoTest() {
         previewContainer.innerHTML = `<div class="text-danger">Lỗi tải dữ liệu xem trước: ${e.message}</div>`;
     }
 }
-
 
 
 	let draggedPreviewId = null;
@@ -12524,14 +13729,30 @@ async function preparePrintArea(selectedTests, mode = "preview") {
               questionText = formattedText.replace(/\[BLANK\]|\.{5,}/g, ' .................................... ');
               answerSection = ''; 
 
-          // ▼▼▼ SỬA LỖI KHUNG VẼ (DRAW) ▼▼▼
+          // ▼▼▼ FIX 2 (Mới): THÊM LƯỚI CHO KHUNG VẼ (DRAW) ▼▼▼
           } else if (qType === 'draw') {
+              const gridSize = 20; 
+              const gridColor = '#cccccc';
+              // Tạo ID pattern duy nhất cho mỗi câu hỏi
+              const patternId = `smallGrid_bulk_${test.id}_${i}`;
+              
+              const svgGrid = `
+                  <svg width="100%" height="250px" xmlns="http://www.w3.org/2000/svg" style="border: 1px solid #000; background: #fff; border-radius: 4px;">
+                      <defs>
+                          <pattern id="${patternId}" width="${gridSize}" height="${gridSize}" patternUnits="userSpaceOnUse">
+                              <path d="M ${gridSize} 0 L 0 0 0 ${gridSize}" fill="none" stroke="${gridColor}" stroke-width="0.5"/>
+                          </pattern>
+                      </defs>
+                      <rect width="100%" height="100%" fill="url(#${patternId})" />
+                  </svg>
+              `;
+
               answerSection = `
                   <div style="padding-top: 10px; padding-left: 15px; padding-right: 15px;">
-                      <div style="width: 100%; height: 250px; border: 1px solid #000; background: #fff; border-radius: 4px;">
-                          </div>
+                      ${svgGrid}
                   </div>
               `;
+          // --- Hết FIX 2 ---
 
           // ▼▼▼ KHỐI TỰ LUẬN (ESSAY) ▼▼▼
           } else if (qType === "essay") {
@@ -12606,7 +13827,6 @@ async function preparePrintArea(selectedTests, mode = "preview") {
     await runFullPdfExport();
   }
 }
-
 
 
 // 🖼️ Chờ ảnh tải xong
