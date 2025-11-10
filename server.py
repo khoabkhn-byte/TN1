@@ -1678,6 +1678,97 @@ def preview_auto_test_matrix():
 
     return jsonify({"success": True, "questions": all_questions_found, "warnings": errors}), 200
 
+
+@app.route("/api/test-templates", methods=["POST"])
+def save_test_template():
+    """
+    Lưu một cấu hình Ma Trận Đề (Template) mới.
+    """
+    data = request.get_json() or {}
+    
+    template_name = data.get("name")
+    subject = data.get("subject")
+    level = data.get("level")
+    groups = data.get("groups") # Mảng ma trận
+
+    if not template_name or not subject or not level or not groups:
+        return jsonify({"success": False, "message": "Thiếu Tên, Môn học, Khối, hoặc Groups"}), 400
+
+    # Tính tổng số câu
+    total_count = 0
+    for group in groups:
+        total_count += int(group.get("count", 0))
+
+    new_template = {
+        "id": str(uuid4()),
+        "name": template_name,
+        "subject": subject,
+        "level": level,
+        "groups": groups,
+        "totalCount": total_count,
+        "createdAt": now_vn_iso()
+    }
+    
+    try:
+        db.test_templates.insert_one(new_template)
+        new_template.pop("_id", None)
+        return jsonify({"success": True, "template": new_template}), 201
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server khi lưu: {str(e)}"}), 500
+
+@app.route("/api/test-templates", methods=["GET"])
+def get_test_templates():
+    """
+    Lấy danh sách các cấu hình Ma Trận Đề đã lưu.
+    """
+    query = {}
+    subject = request.args.get("subject")
+    level = request.args.get("level")
+    
+    if subject:
+        query["subject"] = subject
+    if level:
+        query["level"] = level
+        
+    try:
+        templates = list(db.test_templates.find(query).sort("createdAt", DESCENDING))
+        # Chuyển _id thành string
+        for t in templates:
+            t["_id"] = str(t["_id"])
+            
+        return jsonify({"success": True, "templates": templates}), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server khi tải: {str(e)}"}), 500
+
+@app.route("/api/test-templates/<template_id>", methods=["DELETE"])
+def delete_test_template(template_id):
+    """
+    Xóa một cấu hình Ma Trận Đề.
+    """
+    try:
+        # Thử xóa bằng 'id' (UUID)
+        result = db.test_templates.delete_one({"id": template_id})
+        
+        if result.deleted_count == 0:
+            # Nếu không tìm thấy, thử xóa bằng '_id' (cho các bản ghi cũ)
+            try:
+                result = db.test_templates.delete_one({"_id": ObjectId(template_id)})
+            except Exception:
+                pass # Bỏ qua nếu _id không hợp lệ
+
+        if result.deleted_count > 0:
+            return jsonify({"success": True, "message": "Đã xóa cấu hình."}), 200
+        else:
+            return jsonify({"success": False, "message": "Không tìm thấy cấu hình để xóa."}), 404
+            
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server khi xóa: {str(e)}"}), 500
+
+
+
 # ==================================================
 # ✅ THAY THẾ HÀM CẬP NHẬT ĐỀ THI (Dòng 629)
 # ==================================================
