@@ -2214,6 +2214,47 @@ def get_test_assignments(test_id):
         print(f"Lỗi khi lấy assignment cho test {test_id}: {e}")
         return jsonify({"message": "Lỗi máy chủ."}), 500
 
+@app.route("/api/tests/assignments/bulk", methods=["GET"])
+def get_bulk_test_assignments():
+    """
+    API MỚI: Lấy tất cả assignments cho một danh sách các testId.
+    Dùng cho modal Giao Hàng Loạt.
+    """
+    try:
+        test_ids_param = request.args.get("testIds", "")
+        test_ids = [tid.strip() for tid in test_ids_param.split(",") if tid.strip()]
+        
+        if not test_ids:
+            return jsonify({"success": True, "assignments": []}), 200
+
+        # Tìm tất cả assignments thuộc các testId này
+        assignments = list(db.assignments.find({"testId": {"$in": test_ids}}, {"_id": 0}))
+        
+        # Lấy thông tin học sinh (tương tự hàm get_test_assignments)
+        student_ids = [a.get("studentId") for a in assignments if a.get("studentId")]
+        students_cursor = db.users.find(
+            {"id": {"$in": student_ids}}, 
+            {"_id": 0, "id": 1, "fullName": 1, "className": 1, "role": 1}
+        )
+        student_map = {s["id"]: s for s in students_cursor}
+        
+        results = []
+        for a in assignments:
+            student_info = student_map.get(a.get("studentId"), {
+                "fullName": "Không rõ", "className": "N/A", "role": "student"
+            })
+            a['studentName'] = student_info.get('fullName', 'Không rõ') 
+            a['studentClass'] = student_info.get('className', 'N/A')
+            a['studentRole'] = student_info.get('role', 'student')
+            results.append(a)
+            
+        return jsonify({"success": True, "assignments": results}), 200
+        
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
+
 @app.route("/api/assignments/bulk-delete", methods=["POST"])
 def bulk_delete_assignments():
     data = request.get_json() or {}
