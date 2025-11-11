@@ -2192,11 +2192,24 @@ def bulk_assign_tests():
             removed_count = delete_result.deleted_count
 
         # --- 7. Cập nhật trạng thái Đề thi ---
-        if has_assigned_items:
-            db.tests.update_many({"id": {"$in": test_ids}}, {"$set": {"assignmentStatus": "assigned"}})
-        
-        # (Bạn có thể thêm logic kiểm tra xem 1 đề thi có còn assignment nào không
-        # để set lại 'not_assigned' nếu cần, nhưng hiện tại chỉ set 'assigned')
+        if test_ids:
+            # Lặp qua từng ID đề thi đã bị ảnh hưởng
+            for t_id in test_ids:
+                # Đếm xem đề thi này còn *bất kỳ* assignment nào không
+                remaining_assignments = db.assignments.count_documents({"testId": t_id})
+                
+                if remaining_assignments > 0:
+                    # Nếu còn, đặt là "assigned"
+                    db.tests.update_one(
+                        {"id": t_id},
+                        {"$set": {"assignmentStatus": "assigned"}}
+                    )
+                else:
+                    # Nếu không còn (count = 0), đặt lại là "not_assigned"
+                    db.tests.update_one(
+                        {"id": t_id},
+                        {"$set": {"assignmentStatus": "not_assigned"}} # Hoặc dùng $unset
+                    )
         
         return jsonify({
             "success": True, 
