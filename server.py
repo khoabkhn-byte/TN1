@@ -2697,6 +2697,7 @@ def create_result():
             "studentName": user_info.get("fullName", user_info.get("user")),
             "className": user_info.get("className"),
             "testName": test_doc.get("name"),
+            "subject": test_doc.get("subject"),
             "studentAnswers": student_answers_payload, 
             "detailedResults": detailed_results,
             "gradingStatus": grading_status, 
