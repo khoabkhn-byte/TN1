@@ -2918,9 +2918,8 @@ from collections import defaultdict # (Đảm bảo đã import ở đầu file)
 @app.route("/api/reports/progress_summary", methods=["GET"])
 def get_progress_summary():
     """
-    API Phân tích Tiến độ (Class/Student-centric).
-    Lấy tất cả kết quả cho một Lớp hoặc một Học sinh, 
-    VÀ hỗ trợ lọc theo Môn, Ngày bắt đầu, Ngày kết thúc.
+    API Phân tích Tiến độ NÂNG CAO (Class/Student-centric).
+    Tính toán phân tích Tag, Câu hỏi Khó/Dễ, và trả về dữ liệu thô.
     """
     try:
         class_name = request.args.get("className")
@@ -2932,7 +2931,7 @@ def get_progress_summary():
         if not class_name and not student_id:
             return jsonify({"success": False, "message": "Cần cung cấp Lớp (className) hoặc Học sinh (studentId)"}), 400
 
-        # === XÂY DỰNG QUERY ===
+        # === 1. XÂY DỰNG QUERY ===
         query = {}
         if student_id:
             query["studentId"] = student_id
@@ -2942,7 +2941,6 @@ def get_progress_summary():
         if subject:
             query["subject"] = subject # Lọc theo môn
             
-        # Lọc theo khoảng thời gian (submittedAt)
         date_query = {}
         if start_date:
             date_query["$gte"] = f"{start_date}T00:00:00.000Z"
@@ -2950,28 +2948,122 @@ def get_progress_summary():
             date_query["$lte"] = f"{end_date}T23:59:59.999Z"
         if date_query:
             query["submittedAt"] = date_query
-        # === KẾT THÚC QUERY ===
-
-
-        # Lấy tất cả kết quả, sắp xếp theo ngày nộp
+        
+        # === 2. LẤY KẾT QUẢ THÔ (BAO GỒM detailedResults) ===
         results = list(db.results.find(query, {
-            "_id": 0,
-            "testName": 1,
-            "subject": 1,
-            "totalScore": 1,
-            "submittedAt": 1,
-            "studentName": 1, 
-            "studentId": 1
-        }).sort("submittedAt", 1)) # Sắp xếp TĂNG DẦN (cũ trước, mới sau)
+            "testName": 1, "subject": 1, "totalScore": 1, "submittedAt": 1,
+            "studentName": 1, "studentId": 1, "detailedResults": 1 
+        }).sort("submittedAt", 1))
 
         if not results:
             return jsonify({"success": False, "message": "Không tìm thấy dữ liệu báo cáo nào phù hợp."}), 404
 
-        # === CHỈ TRẢ VỀ DỮ LIỆU THÔ ===
-        # JavaScript (Frontend) sẽ xử lý việc tạo báo cáo
+        # === 3. KHỞI TẠO BIẾN PHÂN TÍCH ===
+        tag_performance = defaultdict(lambda: {"gained_points": 0.0, "max_points": 0.0, "count": 0})
+        question_performance = defaultdict(lambda: {"correct": 0, "incorrect": 0, "total": 0, "question_text": "..."})
+        all_q_ids = set()
+
+        # === 4. LẶP LẦN 1: TỔNG HỢP TẤT CẢ ID CÂU HỎI ===
+        for res in results:
+            for detail in res.get("detailedResults", []):
+                if detail.get("questionId"):
+                    all_q_ids.add(detail.get("questionId"))
+
+        if not all_q_ids:
+             return jsonify({"success": True, "data": results, "tagAnalysis": [], "hardestQuestions": [], "easiestQuestions": []})
+
+        # === 5. TRUY VẤN DB LẦN 2: LẤY THÔNG TIN (TAGS, TEXT) CỦA CÁC CÂU HỎI ĐÓ ===
+        object_ids = []
+        uuid_strings = []
+        for qid_str in all_q_ids:
+            try:
+                object_ids.append(ObjectId(qid_str))
+            except Exception:
+                uuid_strings.append(qid_str)
+
+        or_clauses = []
+        if object_ids:
+            or_clauses.append({"_id": {"$in": object_ids}})
+        if uuid_strings:
+            or_clauses.append({"id": {"$in": uuid_strings}})
+
+        questions_db_cursor = db.questions.find(
+            {"$or": or_clauses}, 
+            {"id": 1, "_id": 1, "tags": 1, "q": 1}
+        )
+
+        q_map = {}
+        for q in questions_db_cursor:
+            key = q.get("id") or str(q.get("_id"))
+            q_map[key] = {"tags": q.get("tags", []), "q_text": q.get("q", "...")}
+
+        # === 6. LẶP LẦN 2: TÍNH TOÁN, TỔNG HỢP ===
+        for res in results:
+            for detail in res.get("detailedResults", []):
+                qid = detail.get("questionId")
+                if not qid in q_map: 
+                    continue # Bỏ qua nếu câu hỏi không còn trong DB
+                
+                q_info = q_map[qid]
+                is_correct = detail.get("isCorrect")
+                max_p = float(detail.get("maxPoints", 1.0))
+                gained_p = float(detail.get("pointsGained", 0.0))
+                
+                # a. Tính hiệu suất Câu hỏi (Item Analysis)
+                q_perf = question_performance[qid]
+                q_perf["total"] += 1
+                if is_correct is True:
+                    q_perf["correct"] += 1
+                else: # isCorrect là False hoặc None (partial)
+                    q_perf["incorrect"] += 1
+                q_perf["question_text"] = q_info["q_text"]
+                
+                # b. Tính hiệu suất Tag (Concept Analysis)
+                for tag in q_info.get("tags", []):
+                    tag_perf = tag_performance[tag]
+                    tag_perf["count"] += 1
+                    tag_perf["max_points"] += max_p
+                    tag_perf["gained_points"] += gained_p
+
+        # === 7. HOÀN THIỆN DANH SÁCH PHÂN TÍCH ===
+        
+        # a. Phân tích Tag
+        tag_analysis_list = []
+        for tag, stats in tag_performance.items():
+            avg_percent = (stats["gained_points"] / stats["max_points"] * 100) if stats["max_points"] > 0 else 0
+            tag_analysis_list.append({
+                "tag": tag, 
+                "avgPercent": round(avg_percent, 1), 
+                "gained": stats["gained_points"], 
+                "max": stats["max_points"], 
+                "count": stats["count"]
+            })
+        tag_analysis_list.sort(key=lambda x: x["avgPercent"]) # Sắp xếp: Yếu nhất lên đầu
+
+        # b. Phân tích Câu hỏi
+        item_analysis_list = []
+        for qid, stats in question_performance.items():
+            correct_percent = (stats["correct"] / stats["total"] * 100) if stats["total"] > 0 else 0
+            item_analysis_list.append({
+                "questionId": qid,
+                "questionText": stats["question_text"],
+                "correctCount": stats["correct"],
+                "incorrectCount": stats["incorrect"],
+                "total": stats["total"],
+                "correctPercent": round(correct_percent, 1)
+            })
+        item_analysis_list.sort(key=lambda x: x["correctPercent"]) # Sắp xếp: Khó nhất (ít đúng nhất) lên đầu
+        
+        hardest = item_analysis_list[:5] # 5 câu khó nhất
+        easiest = sorted(item_analysis_list, key=lambda x: x["correctPercent"], reverse=True)[:5] # 5 câu dễ nhất
+
+        # === 8. TRẢ VỀ PAYLOAD HOÀN CHỈNH ===
         return jsonify({
             "success": True,
-            "data": results # Trả về mảng kết quả thô
+            "data": results, # Dữ liệu thô cho biểu đồ
+            "tagAnalysis": tag_analysis_list,
+            "hardestQuestions": hardest,
+            "easiestQuestions": easiest
         }), 200
 
     except Exception as e:
