@@ -2910,8 +2910,9 @@ def grade_result(result_id):
         return jsonify({"error": str(e), "message": "Internal Server Error"}), 500
 
 # ==================================================
-# ✅ DÁN HÀM MỚI NÀY VÀO server (98).py
+# ✅ THAY THẾ HÀM get_progress_summary BẰNG HÀM NÀY
 # ==================================================
+from collections import defaultdict # (Đảm bảo đã import ở đầu file)
 
 @app.route("/api/reports/progress_summary", methods=["GET"])
 def get_progress_summary():
@@ -2941,34 +2942,42 @@ def get_progress_summary():
             "subject": 1,
             "totalScore": 1,
             "submittedAt": 1,
-            "studentName": 1, # Dùng cho báo cáo lớp
+            "studentName": 1, 
             "studentId": 1
-        }).sort("submittedAt", 1)) # Sắp xếp TĂNG DẦN (cũ trước, mới sau)
+        }).sort("submittedAt", 1)) 
 
         if not results:
             return jsonify({"success": False, "message": "Không tìm thấy dữ liệu báo cáo."}), 404
 
-        # Nếu lọc theo LỚP, chúng ta cần tính trung bình theo MÔN HỌC
+        # === LOGIC MỚI: BÁO CÁO CHO CẢ LỚP ===
+        # Nếu lọc theo LỚP (và không lọc HS), BÁO CÁO ĐIỂM TB CỦA CẢ LỚP
         if class_name and not student_id:
-            # { "Toán": {"total": 18, "count": 2, "avg": 9.0}, "Văn": ... }
-            subject_stats = defaultdict(lambda: {"total": 0, "count": 0})
+            # { "student_id_1": {"total": 50, "count": 5, "name": "Lê Văn Khoa"}, ... }
+            student_stats = defaultdict(lambda: {"total": 0, "count": 0, "name": "Học sinh lạ"})
             for res in results:
-                subj = res.get("subject", "Khác")
-                subject_stats[subj]["total"] += res.get("totalScore", 0)
-                subject_stats[subj]["count"] += 1
+                s_id = res.get("studentId")
+                student_stats[s_id]["total"] += res.get("totalScore", 0)
+                student_stats[s_id]["count"] += 1
+                student_stats[s_id]["name"] = res.get("studentName", "Học sinh lạ") # Lấy tên từ kết quả
             
             # Xử lý kết quả cho biểu đồ cột
             report_data = []
-            for subj, data in subject_stats.items():
-                report_data.append({
-                    "subject": subj,
-                    "averageScore": round(data["total"] / data["count"], 2),
-                    "submissionCount": data["count"]
-                })
-            report_type = "class_by_subject"
+            for s_id, data in student_stats.items():
+                if data["count"] > 0:
+                    report_data.append({
+                        "studentId": s_id,
+                        "studentName": data["name"],
+                        "averageScore": round(data["total"] / data["count"], 2),
+                        "submissionCount": data["count"]
+                    })
+            
+            # Sắp xếp theo điểm trung bình, cao nhất trước
+            report_data.sort(key=lambda x: x["averageScore"], reverse=True)
+            report_type = "class_roster" # Đổi tên report (Bảng điểm lớp)
 
         else:
-            # Nếu lọc theo HỌC SINH, chúng ta trả về danh sách theo thời gian
+            # === LOGIC CŨ: BÁO CÁO CHO HỌC SINH ===
+            # Nếu lọc theo HỌC SINH (student_id có tồn tại), trả về danh sách theo thời gian
             report_data = results
             report_type = "student_over_time"
 
