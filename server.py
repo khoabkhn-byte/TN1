@@ -2918,22 +2918,39 @@ from collections import defaultdict # (Đảm bảo đã import ở đầu file)
 def get_progress_summary():
     """
     API Phân tích Tiến độ (Class/Student-centric).
-    Lấy tất cả kết quả cho một Lớp hoặc một Học sinh.
+    Lấy tất cả kết quả cho một Lớp hoặc một Học sinh, 
+    VÀ hỗ trợ lọc theo Môn, Ngày bắt đầu, Ngày kết thúc.
     """
     try:
         class_name = request.args.get("className")
         student_id = request.args.get("studentId")
+        subject = request.args.get("subject")
+        start_date = request.args.get("startDate")
+        end_date = request.args.get("endDate")
 
         if not class_name and not student_id:
             return jsonify({"success": False, "message": "Cần cung cấp Lớp (className) hoặc Học sinh (studentId)"}), 400
 
+        # === XÂY DỰNG QUERY ===
         query = {}
         if student_id:
-            # Ưu tiên lọc theo ID học sinh
             query["studentId"] = student_id
         elif class_name:
-            # Nếu không có HS, lọc theo lớp
             query["className"] = class_name
+            
+        if subject:
+            query["subject"] = subject # Lọc theo môn
+            
+        # Lọc theo khoảng thời gian (submittedAt)
+        date_query = {}
+        if start_date:
+            date_query["$gte"] = f"{start_date}T00:00:00.000Z"
+        if end_date:
+            date_query["$lte"] = f"{end_date}T23:59:59.999Z"
+        if date_query:
+            query["submittedAt"] = date_query
+        # === KẾT THÚC QUERY ===
+
 
         # Lấy tất cả kết quả, sắp xếp theo ngày nộp
         results = list(db.results.find(query, {
@@ -2944,47 +2961,16 @@ def get_progress_summary():
             "submittedAt": 1,
             "studentName": 1, 
             "studentId": 1
-        }).sort("submittedAt", 1)) 
+        }).sort("submittedAt", 1)) # Sắp xếp TĂNG DẦN (cũ trước, mới sau)
 
         if not results:
-            return jsonify({"success": False, "message": "Không tìm thấy dữ liệu báo cáo."}), 404
+            return jsonify({"success": False, "message": "Không tìm thấy dữ liệu báo cáo nào phù hợp."}), 404
 
-        # === LOGIC MỚI: BÁO CÁO CHO CẢ LỚP ===
-        # Nếu lọc theo LỚP (và không lọc HS), BÁO CÁO ĐIỂM TB CỦA CẢ LỚP
-        if class_name and not student_id:
-            # { "student_id_1": {"total": 50, "count": 5, "name": "Lê Văn Khoa"}, ... }
-            student_stats = defaultdict(lambda: {"total": 0, "count": 0, "name": "Học sinh lạ"})
-            for res in results:
-                s_id = res.get("studentId")
-                student_stats[s_id]["total"] += res.get("totalScore", 0)
-                student_stats[s_id]["count"] += 1
-                student_stats[s_id]["name"] = res.get("studentName", "Học sinh lạ") # Lấy tên từ kết quả
-            
-            # Xử lý kết quả cho biểu đồ cột
-            report_data = []
-            for s_id, data in student_stats.items():
-                if data["count"] > 0:
-                    report_data.append({
-                        "studentId": s_id,
-                        "studentName": data["name"],
-                        "averageScore": round(data["total"] / data["count"], 2),
-                        "submissionCount": data["count"]
-                    })
-            
-            # Sắp xếp theo điểm trung bình, cao nhất trước
-            report_data.sort(key=lambda x: x["averageScore"], reverse=True)
-            report_type = "class_roster" # Đổi tên report (Bảng điểm lớp)
-
-        else:
-            # === LOGIC CŨ: BÁO CÁO CHO HỌC SINH ===
-            # Nếu lọc theo HỌC SINH (student_id có tồn tại), trả về danh sách theo thời gian
-            report_data = results
-            report_type = "student_over_time"
-
+        # === CHỈ TRẢ VỀ DỮ LIỆU THÔ ===
+        # JavaScript (Frontend) sẽ xử lý việc tạo báo cáo
         return jsonify({
             "success": True,
-            "reportType": report_type,
-            "data": report_data
+            "data": results # Trả về mảng kết quả thô
         }), 200
 
     except Exception as e:
