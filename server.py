@@ -703,17 +703,21 @@ def get_test_stats_for_class(test_id):
         return jsonify({"message": f"Lỗi server: {str(e)}"}), 500
 
 # ==================================================
-# ✅ DÁN HÀM MỚI NÀY VÀO TRƯỚC HÀM "if __name__ == '__main__':"
+# ✅ THAY THẾ HÀM get_test_report CỦA BẠN BẰNG HÀM NÀY
 # ==================================================
+from collections import defaultdict
+
 @app.route("/api/reports/test/<test_id>", methods=["GET"])
 def get_test_report(test_id):
     """
     API Phân tích Bài thi Toàn diện.
     Tính toán phân phối điểm và phân tích độ khó từng câu (item analysis).
+    CHO PHÉP LỌC THEO: className hoặc studentId
     """
     try:
-        # Lấy tùy chọn lọc theo lớp (nếu có)
-        class_id_filter = request.args.get("classId")
+        # --- SỬA LỖI 1: Đọc đúng tham số từ URL ---
+        class_name_filter = request.args.get("className")
+        student_id_filter = request.args.get("studentId") # <-- THÊM MỚI
         
         # 1. Lấy thông tin cơ bản của bài thi
         test = db.tests.find_one({"id": test_id}, {"_id": 0, "questions": 1, "name": 1})
@@ -725,17 +729,25 @@ def get_test_report(test_id):
         question_map = {q.get("id"): q.get("points", 1) for q in test.get("questions", [])}
         question_ids = list(question_map.keys())
 
-        # 2. Lấy tất cả 'results' cho bài thi này
+        # 2. Lấy tất cả 'results' cho bài thi này (ÁP DỤNG BỘ LỌC MỚI)
         query = {"testId": test_id}
-        if class_id_filter:
-            # (Chúng ta cần thêm 'classId' vào 'results' khi nộp bài)
-            # Tạm thời, chúng ta sẽ lấy 'className' từ 'results'
-            query["className"] = class_id_filter 
+        
+        # --- SỬA LỖI 2: Áp dụng đúng bộ lọc ---
+        if class_name_filter:
+            query["className"] = class_name_filter 
+        if student_id_filter:
+            query["studentId"] = student_id_filter # <-- THÊM MỚI
             
         all_results = list(db.results.find(query))
         
         if not all_results:
-            return jsonify({"success": False, "message": "Chưa có học sinh nào nộp bài cho bài thi này."}), 404
+            # Sửa thông báo lỗi để thân thiện hơn
+            message = "Chưa có học sinh nào nộp bài cho bài thi này."
+            if class_name_filter:
+                message = f"Không tìm thấy bài nộp nào cho Lớp '{class_name_filter}'."
+            if student_id_filter:
+                message = "Học sinh này chưa nộp bài."
+            return jsonify({"success": False, "message": message}), 404
 
         # 3. Khởi tạo các biến thống kê
         total_submissions = len(all_results)
@@ -744,8 +756,6 @@ def get_test_report(test_id):
         min_score = 10
         max_score = 0
         
-        # Cấu trúc cho Phân tích Câu hỏi (Item Analysis)
-        # { "q_id_1": {"correct": 0, "incorrect": 0, "unanswered": 0}, ... }
         item_stats = defaultdict(lambda: {"correct": 0, "incorrect": 0, "unanswered": 0})
 
         # 4. Lặp qua từng bài làm (result) để tổng hợp
@@ -766,7 +776,6 @@ def get_test_report(test_id):
             for detail in result.get("detailedResults", []):
                 q_id = detail.get("questionId")
                 if q_id in question_ids:
-                    # isCorrect (True, False, hoặc None cho Tự luận)
                     is_correct = detail.get("isCorrect") 
                     
                     if is_correct is True:
@@ -774,8 +783,6 @@ def get_test_report(test_id):
                     elif is_correct is False:
                         item_stats[q_id]["incorrect"] += 1
                     else:
-                        # (Tự luận chưa chấm hoặc câu hỏi điền từ/ĐS 1 phần)
-                        # Tạm thời coi là không chính xác để phân tích
                         item_stats[q_id]["incorrect"] += 1 
 
         # 5. Lấy nội dung câu hỏi (text)
@@ -798,10 +805,9 @@ def get_test_report(test_id):
                 "correctPercent": round(correct_percent, 1)
             })
 
-        # Sắp xếp để lấy câu khó/dễ
         item_analysis.sort(key=lambda x: x["correctPercent"])
-        hardest_questions = item_analysis[:5] # 5 câu khó nhất
-        easiest_questions = sorted(item_analysis, key=lambda x: x["correctPercent"], reverse=True)[:5] # 5 câu dễ nhất
+        hardest_questions = item_analysis[:5] 
+        easiest_questions = sorted(item_analysis, key=lambda x: x["correctPercent"], reverse=True)[:5]
 
         # 7. Trả về payload hoàn chỉnh
         report = {
