@@ -23,6 +23,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from flask import send_file
+from collections import defaultdict
 
 # Load .env in local; Render provides env vars automatically
 load_dotenv()
@@ -700,6 +701,127 @@ def get_test_stats_for_class(test_id):
     except Exception as e:
         traceback.print_exc()
         return jsonify({"message": f"Lỗi server: {str(e)}"}), 500
+
+# ==================================================
+# ✅ DÁN HÀM MỚI NÀY VÀO TRƯỚC HÀM "if __name__ == '__main__':"
+# ==================================================
+@app.route("/api/reports/test/<test_id>", methods=["GET"])
+def get_test_report(test_id):
+    """
+    API Phân tích Bài thi Toàn diện.
+    Tính toán phân phối điểm và phân tích độ khó từng câu (item analysis).
+    """
+    try:
+        # Lấy tùy chọn lọc theo lớp (nếu có)
+        class_id_filter = request.args.get("classId")
+        
+        # 1. Lấy thông tin cơ bản của bài thi
+        test = db.tests.find_one({"id": test_id}, {"_id": 0, "questions": 1, "name": 1})
+        if not test:
+            return jsonify({"success": False, "message": "Không tìm thấy bài thi"}), 404
+            
+        test_name = test.get("name", "Bài thi")
+        # Lấy Map điểm và ID câu hỏi
+        question_map = {q.get("id"): q.get("points", 1) for q in test.get("questions", [])}
+        question_ids = list(question_map.keys())
+
+        # 2. Lấy tất cả 'results' cho bài thi này
+        query = {"testId": test_id}
+        if class_id_filter:
+            # (Chúng ta cần thêm 'classId' vào 'results' khi nộp bài)
+            # Tạm thời, chúng ta sẽ lấy 'className' từ 'results'
+            query["className"] = class_id_filter 
+            
+        all_results = list(db.results.find(query))
+        
+        if not all_results:
+            return jsonify({"success": False, "message": "Chưa có học sinh nào nộp bài cho bài thi này."}), 404
+
+        # 3. Khởi tạo các biến thống kê
+        total_submissions = len(all_results)
+        score_distribution = {"0-2": 0, "3-4": 0, "5-6": 0, "7-8": 0, "9-10": 0}
+        total_score_sum = 0
+        min_score = 10
+        max_score = 0
+        
+        # Cấu trúc cho Phân tích Câu hỏi (Item Analysis)
+        # { "q_id_1": {"correct": 0, "incorrect": 0, "unanswered": 0}, ... }
+        item_stats = defaultdict(lambda: {"correct": 0, "incorrect": 0, "unanswered": 0})
+
+        # 4. Lặp qua từng bài làm (result) để tổng hợp
+        for result in all_results:
+            score = result.get("totalScore", 0)
+            total_score_sum += score
+            if score < min_score: min_score = score
+            if score > max_score: max_score = score
+            
+            # Phân loại điểm vào biểu đồ
+            if score <= 2: score_distribution["0-2"] += 1
+            elif score <= 4: score_distribution["3-4"] += 1
+            elif score <= 6: score_distribution["5-6"] += 1
+            elif score <= 8: score_distribution["7-8"] += 1
+            else: score_distribution["9-10"] += 1
+            
+            # Phân tích từng câu
+            for detail in result.get("detailedResults", []):
+                q_id = detail.get("questionId")
+                if q_id in question_ids:
+                    # isCorrect (True, False, hoặc None cho Tự luận)
+                    is_correct = detail.get("isCorrect") 
+                    
+                    if is_correct is True:
+                        item_stats[q_id]["correct"] += 1
+                    elif is_correct is False:
+                        item_stats[q_id]["incorrect"] += 1
+                    else:
+                        # (Tự luận chưa chấm hoặc câu hỏi điền từ/ĐS 1 phần)
+                        # Tạm thời coi là không chính xác để phân tích
+                        item_stats[q_id]["incorrect"] += 1 
+
+        # 5. Lấy nội dung câu hỏi (text)
+        q_texts = {}
+        q_db = list(db.questions.find({"id": {"$in": question_ids}}, {"id": 1, "q": 1, "_id": 0}))
+        for q in q_db:
+            q_texts[q.get("id")] = q.get("q", "...")
+
+        # 6. Xử lý Phân tích Câu hỏi
+        item_analysis = []
+        for q_id, stats in item_stats.items():
+            total_answers = stats["correct"] + stats["incorrect"]
+            correct_percent = (stats["correct"] / total_answers * 100) if total_answers > 0 else 0
+            item_analysis.append({
+                "questionId": q_id,
+                "questionText": q_texts.get(q_id, "Câu hỏi đã bị xóa"),
+                "correctCount": stats["correct"],
+                "incorrectCount": stats["incorrect"],
+                "total": total_answers,
+                "correctPercent": round(correct_percent, 1)
+            })
+
+        # Sắp xếp để lấy câu khó/dễ
+        item_analysis.sort(key=lambda x: x["correctPercent"])
+        hardest_questions = item_analysis[:5] # 5 câu khó nhất
+        easiest_questions = sorted(item_analysis, key=lambda x: x["correctPercent"], reverse=True)[:5] # 5 câu dễ nhất
+
+        # 7. Trả về payload hoàn chỉnh
+        report = {
+            "success": True,
+            "testName": test_name,
+            "summary": {
+                "submissionCount": total_submissions,
+                "averageScore": round(total_score_sum / total_submissions, 2),
+                "maxScore": max_score,
+                "minScore": min_score,
+            },
+            "scoreDistribution": score_distribution,
+            "hardestQuestions": hardest_questions,
+            "easiestQuestions": easiest_questions
+        }
+        return jsonify(report), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
 
 @app.route("/questions", methods=["GET"])
