@@ -2951,6 +2951,7 @@ def get_progress_summary():
         
         # === 2. LẤY KẾT QUẢ THÔ (BAO GỒM detailedResults) ===
         results = list(db.results.find(query, {
+            "_id": 0, # <--- 🔥 THÊM DÒNG NÀY ĐỂ SỬA LỖI
             "testName": 1, "subject": 1, "totalScore": 1, "submittedAt": 1,
             "studentName": 1, "studentId": 1, "detailedResults": 1 
         }).sort("submittedAt", 1))
