@@ -2908,6 +2908,80 @@ def grade_result(result_id):
     except Exception as e:
         traceback.print_exc()
         return jsonify({"error": str(e), "message": "Internal Server Error"}), 500
+
+# ==================================================
+# ✅ DÁN HÀM MỚI NÀY VÀO server (98).py
+# ==================================================
+
+@app.route("/api/reports/progress_summary", methods=["GET"])
+def get_progress_summary():
+    """
+    API Phân tích Tiến độ (Class/Student-centric).
+    Lấy tất cả kết quả cho một Lớp hoặc một Học sinh.
+    """
+    try:
+        class_name = request.args.get("className")
+        student_id = request.args.get("studentId")
+
+        if not class_name and not student_id:
+            return jsonify({"success": False, "message": "Cần cung cấp Lớp (className) hoặc Học sinh (studentId)"}), 400
+
+        query = {}
+        if student_id:
+            # Ưu tiên lọc theo ID học sinh
+            query["studentId"] = student_id
+        elif class_name:
+            # Nếu không có HS, lọc theo lớp
+            query["className"] = class_name
+
+        # Lấy tất cả kết quả, sắp xếp theo ngày nộp
+        results = list(db.results.find(query, {
+            "_id": 0,
+            "testName": 1,
+            "subject": 1,
+            "totalScore": 1,
+            "submittedAt": 1,
+            "studentName": 1, # Dùng cho báo cáo lớp
+            "studentId": 1
+        }).sort("submittedAt", 1)) # Sắp xếp TĂNG DẦN (cũ trước, mới sau)
+
+        if not results:
+            return jsonify({"success": False, "message": "Không tìm thấy dữ liệu báo cáo."}), 404
+
+        # Nếu lọc theo LỚP, chúng ta cần tính trung bình theo MÔN HỌC
+        if class_name and not student_id:
+            # { "Toán": {"total": 18, "count": 2, "avg": 9.0}, "Văn": ... }
+            subject_stats = defaultdict(lambda: {"total": 0, "count": 0})
+            for res in results:
+                subj = res.get("subject", "Khác")
+                subject_stats[subj]["total"] += res.get("totalScore", 0)
+                subject_stats[subj]["count"] += 1
+            
+            # Xử lý kết quả cho biểu đồ cột
+            report_data = []
+            for subj, data in subject_stats.items():
+                report_data.append({
+                    "subject": subj,
+                    "averageScore": round(data["total"] / data["count"], 2),
+                    "submissionCount": data["count"]
+                })
+            report_type = "class_by_subject"
+
+        else:
+            # Nếu lọc theo HỌC SINH, chúng ta trả về danh sách theo thời gian
+            report_data = results
+            report_type = "student_over_time"
+
+        return jsonify({
+            "success": True,
+            "reportType": report_type,
+            "data": report_data
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
         
 # ... (Các hàm /results_summary, /results/<id> (GET), /assignment_stats, /results (GET) giữ nguyên) ...
 @app.route("/api/results_summary", methods=["GET"])
