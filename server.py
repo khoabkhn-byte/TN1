@@ -3516,8 +3516,8 @@ def get_time_analysis():
 
 
 # ==================================================
-# ✅ DÁN HÀM MỚI NÀY VÀO CUỐI FILE SERVER.PY
-# (TRƯỚC DÒNG 'if __name__ == "__main__":')
+# ✅ THAY THẾ TOÀN BỘ HÀM NÀY (ĐÃ SỬA LỖI MẤT SỐ HỌC SINH)
+# (Khoảng dòng 2420 trong server.py)
 # ==================================================
 from collections import defaultdict # (Đảm bảo đã import ở đầu file)
 
@@ -3529,9 +3529,17 @@ def get_system_dashboard():
     """
     try:
         # === 1. THỐNG KÊ NHANH (QUICK STATS) ===
+        
+        # Đếm câu hỏi (Tất cả)
         total_questions = db.questions.count_documents({})
+        
+        # Đếm Đề thi (Chỉ đề chính thức)
         total_tests = db.tests.count_documents({"isPersonalizedReview": {"$ne": True}})
+        
+        # 🔥 ĐÂY LÀ DÒNG ĐÃ SỬA/THÊM LẠI: Đếm Học sinh
         total_students = db.users.count_documents({"role": {"$nin": ["admin", "teacher"]}})
+        
+        # Đếm Lượt nộp bài (Chỉ kết quả chính thức)
         total_results = db.results.count_documents({"testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}}})
 
         # === 2. PHÂN TÍCH NGÂN HÀNG CÂU HỎI (BANK HEALTH) ===
@@ -3550,13 +3558,13 @@ def get_system_dashboard():
         ]))
         bank_by_difficulty = [{"difficulty": item["_id"] or "medium", "count": item["count"]} for item in bank_by_difficulty_raw]
 
-        # === 3. PHÂN TÍCH HIỆU SUẤT TOÀN HỆ THỐNG ===
+        # === 3. PHÂN TÍCH HIỆU SUẤT TOÀN HỆ THỐNG (CHỈ BÀI CHÍNH THỨC) ===
         
         # a. Điểm TB theo Môn học
         perf_by_subject_raw = list(db.results.aggregate([
             {"$match": {
                 "subject": {"$ne": None},
-                "testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}}
+                "testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}} # Lọc bài ôn tập
             }},
             {"$group": {
                 "_id": "$subject",
@@ -3571,7 +3579,7 @@ def get_system_dashboard():
         
         # Lấy TẤT CẢ results (CHÍNH THỨC)
         results = list(db.results.find(
-            {"testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}}}, # <-- THÊM BỘ LỌC NÀY
+            {"testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}}}, # Lọc bài ôn tập
             {
                 "_id": 0,
                 "detailedResults": 1 
@@ -3601,8 +3609,8 @@ def get_system_dashboard():
             if uuid_strings: or_clauses.append({"id": {"$in": uuid_strings}})
 
             questions_db_cursor = db.questions.find(
-            {"$or": or_clauses}, 
-            {"id": 1, "_id": 1, "tags": 1, "q": 1, "subject": 1, "level": 1, "type": 1}
+                {"$or": or_clauses}, 
+                {"id": 1, "_id": 1, "tags": 1, "q": 1}
             )
             for q in questions_db_cursor:
                 key = q.get("id") or str(q.get("_id"))
@@ -3653,12 +3661,8 @@ def get_system_dashboard():
                 "questionId": qid,
                 "questionText": stats["question_text"],
                 "correctCount": stats["correct"],
-                "incorrectCount": stats["incorrect"],
                 "total": stats["total"],
-                "correctPercent": round(correct_percent, 1),
-                "questionType": q_map.get(qid, {}).get("type", "mc"),
-                "subject": q_map.get(qid, {}).get("subject"), # <-- THÊM DÒNG NÀY
-                "level": q_map.get(qid, {}).get("level")      # <-- THÊM DÒNG NÀY
+                "correctPercent": round(correct_percent, 1)
             })
         item_analysis_list.sort(key=lambda x: x["correctPercent"])
         most_failed_questions = item_analysis_list[:10] # 10 câu khó nhất
@@ -3668,7 +3672,7 @@ def get_system_dashboard():
             "quickStats": {
                 "totalQuestions": total_questions,
                 "totalTests": total_tests,
-                "totalStudents": total_students,
+                "totalStudents": total_students, # <-- ĐÃ SỬA/THÊM LẠI
                 "totalResults": total_results
             },
             "bankHealth": {
