@@ -3530,9 +3530,9 @@ def get_system_dashboard():
     try:
         # === 1. THỐNG KÊ NHANH (QUICK STATS) ===
         total_questions = db.questions.count_documents({})
-        total_tests = db.tests.count_documents({})
+        total_tests = db.tests.count_documents({"isPersonalizedReview": {"$ne": True}})
         total_students = db.users.count_documents({"role": {"$nin": ["admin", "teacher"]}})
-        total_results = db.results.count_documents({})
+        total_results = db.results.count_documents({"testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}}})
 
         # === 2. PHÂN TÍCH NGÂN HÀNG CÂU HỎI (BANK HEALTH) ===
         
@@ -3554,7 +3554,10 @@ def get_system_dashboard():
         
         # a. Điểm TB theo Môn học
         perf_by_subject_raw = list(db.results.aggregate([
-            {"$match": {"subject": {"$ne": None}}},
+            {"$match": {
+                "subject": {"$ne": None},
+                "testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}}
+            }},
             {"$group": {
                 "_id": "$subject",
                 "averageScore": {"$avg": "$totalScore"},
@@ -3566,11 +3569,14 @@ def get_system_dashboard():
 
         # b. Phân tích Tag và Câu hỏi (Lấy logic từ 'get_progress_summary' nhưng áp dụng cho TOÀN BỘ)
         
-        # Lấy TẤT CẢ results
-        results = list(db.results.find({}, {
-            "_id": 0, # <-- Sửa lỗi ObjectId
-            "detailedResults": 1 
-        }))
+        # Lấy TẤT CẢ results (CHÍNH THỨC)
+        results = list(db.results.find(
+            {"testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}}}, # <-- THÊM BỘ LỌC NÀY
+            {
+                "_id": 0,
+                "detailedResults": 1 
+            }
+        ))
 
         tag_performance = defaultdict(lambda: {"gained_points": 0.0, "max_points": 0.0, "count": 0})
         question_performance = defaultdict(lambda: {"correct": 0, "incorrect": 0, "total": 0, "question_text": "..."})
