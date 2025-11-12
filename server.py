@@ -3088,7 +3088,7 @@ def request_review_test():
         # --- 1. Lấy thông tin Học sinh ---
             student = db.users.find_one({"id": student_id})
             if not student:
-            
+                return jsonify({"success": False, "message": "Không tìm thấy học sinh"}), 404 # <--- 🔥 THÊM DÒNG NÀY VÀ THỤT VÀO
             # ===== DÁN KHỐI CODE MỚI VÀO ĐÂY =====
             # --- 1B. KIỂM TRA "KHÓA" (CHỐNG SPAM) ---
             existing_review = db.assignments.find_one({
