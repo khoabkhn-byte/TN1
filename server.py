@@ -2977,7 +2977,13 @@ def _get_student_progress_analysis(student_id, class_name, subject, start_date, 
     q_map = {}
     for q in questions_db_cursor:
         key = q.get("id") or str(q.get("_id"))
-        q_map[key] = {"tags": q.get("tags", []), "q_text": q.get("q", "..."), "subject": q.get("subject")} # Lấy cả subject
+        q_map[key] = {
+                "tags": q.get("tags", []), 
+                "q_text": q.get("q", "..."), 
+                "subject": q.get("subject"), 
+                "level": q.get("level"),
+                "type": q.get("type", "mc")
+            }
 
     for res in results:
         for detail in res.get("detailedResults", []):
@@ -3064,14 +3070,14 @@ def get_progress_summary():
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
 # ==================================================
-# ✅ DÁN API MỚI NÀY VÀO SERVER.PY
-# (SAU HÀM 'get_progress_summary')
+# ✅ THAY THẾ TOÀN BỘ HÀM NÀY
+# (API TẠO BÀI ÔN TẬP CÁ NHÂN)
 # ==================================================
 @app.route("/api/student/request-review-test", methods=["POST"])
 def request_review_test():
     """
     API MỚI (Học sinh gọi):
-    Tự động phân tích điểm yếu và tạo + gán một bài ôn tập cá nhân.
+    Tự động phân tích các CÂU HỎI SAI NHIỀU NHẤT và tạo + gán một bài ôn tập.
     """
     try:
         data = request.get_json() or {}
@@ -3083,113 +3089,73 @@ def request_review_test():
         student = db.users.find_one({"id": student_id})
         if not student:
             return jsonify({"success": False, "message": "Không tìm thấy học sinh"}), 404
-
+        
         student_name = student.get("fullName", "Học sinh")
-        student_level = student.get("level")
+        student_level = student.get("level") # Lấy khối của học sinh
 
         # --- 2. Phân tích điểm yếu (Tái sử dụng helper) ---
+        # Hàm này đã được sửa để trả về subject/level trong hardest_q
         raw_data, tag_analysis, hardest_q, easiest_q = _get_student_progress_analysis(
             student_id, None, None, None, None # Phân tích TOÀN BỘ lịch sử
         )
-
-        if not tag_analysis and not hardest_q:
+        
+        if not hardest_q:
             return jsonify({"success": True, "messageType": "no_data", "message": "Bạn chưa làm bài nào, chưa thể tạo gói ôn tập."})
 
-        # Lấy 2 tag yếu nhất (dưới 70%)
-        weak_tags = [t for t in tag_analysis if t["avgPercent"] < 70]
-        if not weak_tags:
-            return jsonify({"success": True, "messageType": "all_good", "message": "Tuyệt vời! Bạn không có điểm yếu nào (<70%)."})
+        # --- 3. Xây dựng Ma trận đề ôn tập (Từ các câu sai nhiều nhất) ---
+        
+        # Lấy tối đa 10 câu hỏi mà học sinh làm đúng dưới 50%
+        questions_for_review = [q for q in hardest_q if q["correctPercent"] < 50][:10]
+        
+        if not questions_for_review:
+            return jsonify({"success": True, "messageType": "all_good", "message": "Tuyệt vời! Bạn không có câu hỏi nào sai (hoặc sai dưới 50%)."})
 
-        # Sắp xếp lại (dù đã sắp xếp)
-        weak_tags.sort(key=lambda x: x["avgPercent"])
-
-        # --- 3. Xây dựng Ma trận đề ôn tập ---
-        groups = []
-        test_name_parts = []
-
-        # Lấy 5 câu từ tag yếu nhất
-        tag1 = weak_tags[0]
-        groups.append({"count": 5, "filters": {"tags": tag1["tag"]}})
-        test_name_parts.append(tag1["tag"])
-
-        # Lấy 5 câu từ tag yếu thứ hai (nếu có)
-        if len(weak_tags) > 1:
-            tag2 = weak_tags[1]
-            groups.append({"count": 5, "filters": {"tags": tag2["tag"]}})
-            test_name_parts.append(tag2["tag"])
-
-        # Lấy Môn học (từ bài thi đầu tiên trong danh sách)
-        default_subject = raw_data[0].get("subject") if raw_data else "khac"
+        # Lấy ID của các câu hỏi này
+        all_question_ids = [q["questionId"] for q in questions_for_review]
+        
+        # Lấy Môn học và Khối (ưu tiên khối của HS, fallback về khối của câu hỏi)
+        default_subject = questions_for_review[0].get("subject", "khac")
+        default_level = student_level or questions_for_review[0].get("level")
 
         # --- 4. Tạo Đề thi (Tái sử dụng logic từ create_test_auto_matrix) ---
-
-        # (Phần logic này được copy và sửa đổi từ create_test_auto_matrix)
-        all_questions_found = []
-        all_question_ids_found = set()
-        base_query = {"subject": default_subject, "level": student_level}
-
-        for group in groups:
-            count = int(group.get("count", 0))
-            if count == 0: continue
-            filters = group.get("filters", {})
-            match_query = base_query.copy()
-            if filters.get("tags"):
-                match_query["tags"] = {"$in": [filters["tags"].strip()]}
-
-            # Loại bỏ câu đã chọn
-            if all_question_ids_found:
-                uuids_to_exclude = [qid for qid in all_question_ids_found if not ObjectId.is_valid(qid)]
-                oids_to_exclude = [ObjectId(qid) for qid in all_question_ids_found if ObjectId.is_valid(qid)]
-
-                and_conditions = match_query.get("$and", [])
-                if uuids_to_exclude: and_conditions.append({"id": {"$nin": uuids_to_exclude}})
-                if oids_to_exclude: and_conditions.append({"_id": {"$nin": oids_to_exclude}})
-                if len(and_conditions) > 0: match_query["$and"] = and_conditions
-
-            pipeline = [{"$match": match_query}, {"$sample": {"size": count}}, {"$project": {"id": 1, "_id": 1, "type": 1}}]
-            questions_in_group = list(db.questions.aggregate(pipeline))
-
-            for q in questions_in_group:
-                q_id = q.get('id') or str(q.get('_id'))
-                if q_id not in all_question_ids_found:
-                    all_questions_found.append(q)
-                    all_question_ids_found.add(q_id)
-
-        if not all_questions_found:
-            return jsonify({"success": False, "message": "Không tìm thấy câu hỏi ôn tập phù hợp."})
-
-        all_question_ids = [q.get('id') or str(q.get('_id')) for q in all_questions_found]
+        
         points_map = calculate_question_points(all_question_ids, db)
-
+        
         formatted_questions = []
         mc_count, essay_count, tf_count, fill_count, draw_count = 0, 0, 0, 0, 0
-        for q in all_questions_found:
-            q_id = q.get('id') or str(q.get('_id'))
+        
+        for q_id in all_question_ids:
+            # Lấy lại thông tin đầy đủ từ list `questions_for_review`
+            q_info = next((q for q in questions_for_review if q["questionId"] == q_id), None)
+            
             formatted_questions.append({"id": q_id, "points": points_map.get(q_id, 0)})
-            q_type = q.get('type')
+            
+            q_type = q_info.get('questionType') if q_info else 'mc'
             if q_type == 'essay': essay_count += 1
             elif q_type == 'draw': draw_count += 1
             elif q_type == 'true_false': tf_count += 1
             elif q_type == 'fill_blank': fill_count += 1
             else: mc_count += 1
-
+            
+        new_test_name = f"[Ôn tập] Các câu hay sai - {student_name}"
+            
         new_test = {
             "id": str(uuid4()),
-            "name": f"[Ôn tập] {', '.join(test_name_parts)}",
-            "time": 30, "subject": default_subject, "level": student_level,
+            "name": new_test_name,
+            "time": 30, "subject": default_subject, "level": default_level,
             "questions": formatted_questions, "isAutoGenerated": True,
             "createdAt": now_vn_iso(), "mcCount": mc_count, "essayCount": essay_count,
             "tfCount": tf_count, "fillCount": fill_count, "drawCount": draw_count,
             "count": len(formatted_questions)
         }
         db.tests.insert_one(new_test)
-
+        
         # --- 5. Gán bài thi cho học sinh ---
-
+        
         # Tìm giáo viên (lấy 1 GV bất kỳ làm người gán)
         teacher = db.users.find_one({"role": "teacher"})
         teacher_id = teacher.get("id") if teacher else "SYSTEM"
-
+        
         new_assign = {
             "id": str(uuid4()), "testId": new_test["id"], "testName": new_test["name"], 
             "studentId": student_id, "studentName": student_name, 
@@ -3199,7 +3165,12 @@ def request_review_test():
         }
         db.assignments.insert_one(new_assign)
 
-        return jsonify({"success": True, "messageType": "created", "message": f"Đã tạo bài ôn tập '{new_test['name']}'!"})
+        # Trả về thông báo thành công chi tiết
+        return jsonify({
+            "success": True, 
+            "messageType": "created", 
+            "message": f"Đã tạo bài ôn tập '{new_test_name}' gồm {len(all_question_ids)} câu bạn hay làm sai."
+        })
 
     except Exception as e:
         traceback.print_exc()
@@ -3503,8 +3474,8 @@ def get_system_dashboard():
             if uuid_strings: or_clauses.append({"id": {"$in": uuid_strings}})
 
             questions_db_cursor = db.questions.find(
-                {"$or": or_clauses}, 
-                {"id": 1, "_id": 1, "tags": 1, "q": 1}
+            {"$or": or_clauses}, 
+            {"id": 1, "_id": 1, "tags": 1, "q": 1, "subject": 1, "level": 1, "type": 1}
             )
             for q in questions_db_cursor:
                 key = q.get("id") or str(q.get("_id"))
@@ -3555,8 +3526,12 @@ def get_system_dashboard():
                 "questionId": qid,
                 "questionText": stats["question_text"],
                 "correctCount": stats["correct"],
+                "incorrectCount": stats["incorrect"],
                 "total": stats["total"],
-                "correctPercent": round(correct_percent, 1)
+                "correctPercent": round(correct_percent, 1),
+                "questionType": q_map.get(qid, {}).get("type", "mc"),
+                "subject": q_map.get(qid, {}).get("subject"), # <-- THÊM DÒNG NÀY
+                "level": q_map.get(qid, {}).get("level")      # <-- THÊM DÒNG NÀY
             })
         item_analysis_list.sort(key=lambda x: x["correctPercent"])
         most_failed_questions = item_analysis_list[:10] # 10 câu khó nhất
