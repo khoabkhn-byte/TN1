@@ -1258,7 +1258,8 @@ def list_tests():
 
     # === NÂNG CẤP: SỬ DỤNG AGGREGATE ĐỂ KIỂM TRA ASSIGNMENT ===
     pipeline = [
-        {"$match": query},
+        # SỬA DÒNG NÀY: Thêm điều kiện isPersonalizedReview != True
+        {"$match": {**query, "isPersonalizedReview": {"$ne": True}}},
         
         # 1. Tra cứu trong collection 'assignments'
         # (Tìm bất kỳ 'assignment' nào có 'testId' khớp với 'id' của đề thi này)
@@ -1290,6 +1291,69 @@ def list_tests():
     
     docs = list(db.tests.aggregate(pipeline))
     return jsonify(docs)
+
+# ==================================================
+# ✅ DÁN API MỚI NÀY VÀO SERVER.PY
+# (API CHỈ LẤY BÀI ÔN TẬP CỦA HỌC SINH)
+# ==================================================
+@app.route("/api/tests/reviews", methods=["GET"])
+def get_review_tests():
+    """
+    API mới: Lấy danh sách các bài thi Ôn tập Cá nhân.
+    """
+    try:
+        pipeline = [
+            # 1. Chỉ lấy các bài ôn tập
+            {"$match": {"isPersonalizedReview": True}},
+            
+            # 2. Tra cứu 'assignments' (để biết đã nộp chưa)
+            {"$lookup": {
+                "from": "assignments",
+                "localField": "id",
+                "foreignField": "testId",
+                "as": "assignment_data"
+            }},
+            
+            # 3. Tra cứu 'results' (để lấy trạng thái chấm)
+            {"$lookup": {
+                "from": "results",
+                "localField": "id",
+                "foreignField": "testId",
+                "as": "result_data"
+            }},
+            
+            # 4. Chỉ giữ lại 1 kết quả (nếu có)
+            {"$addFields": {
+                "assignment": {"$arrayElemAt": ["$assignment_data", 0]},
+                "result": {"$arrayElemAt": ["$result_data", 0]}
+            }},
+            
+            # 5. Thêm các trường tùy chỉnh
+            {"$addFields": {
+                "studentName": "$assignment.studentName",
+                "studentId": "$assignment.studentId",
+                "className": "$assignment.className",
+                "submittedAt": "$result.submittedAt",
+                "gradingStatus": "$result.gradingStatus",
+                "totalScore": "$result.totalScore",
+                "resultId": "$result.id"
+            }},
+            
+            # 6. Loại bỏ các trường không cần thiết
+            {"$project": {
+                "_id": 0, "assignment_data": 0, "result_data": 0, "assignment": 0, "result": 0
+            }},
+            
+            {"$sort": {"createdAt": -1}}
+        ]
+        
+        docs = list(db.tests.aggregate(pipeline))
+        return jsonify({"success": True, "tests": docs}), 200
+        
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
 
 # ... (Hàm /tests/<test_id> (GET) giữ nguyên, nó đã rất tốt) ...
 @app.route("/quizzes/<test_id>", methods=["GET"])
@@ -3233,6 +3297,11 @@ def request_review_test():
 @app.route("/api/results_summary", methods=["GET"])
 def get_results_summary():
     pipeline = [
+        # SỬA ĐỔI: Thêm $match để LỌC BỎ các bài ôn tập
+        {"$match": {
+            "testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}}
+        }},
+        
         {"$lookup": {
             "from": "users", "let": { "sid": "$studentId" }, 
             "pipeline": [
