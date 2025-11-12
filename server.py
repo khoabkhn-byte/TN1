@@ -1255,7 +1255,40 @@ def list_tests():
     if level: query["level"] = level
     if createdAtGte:
         query["createdAt"] = {"$gte": createdAtGte}
-    docs = list(db.tests.find(query, {"_id": 0}))
+
+    # === NÂNG CẤP: SỬ DỤNG AGGREGATE ĐỂ KIỂM TRA ASSIGNMENT ===
+    pipeline = [
+        {"$match": query},
+        
+        # 1. Tra cứu trong collection 'assignments'
+        # (Tìm bất kỳ 'assignment' nào có 'testId' khớp với 'id' của đề thi này)
+        {"$lookup": {
+            "from": "assignments",
+            "localField": "id",
+            "foreignField": "testId",
+            "as": "assignment_data"
+        }},
+        
+        # 2. Thêm trường 'assignmentStatus'
+        {"$addFields": {
+            "assignmentStatus": {
+                # Nếu mảng 'assignment_data' có ít nhất 1 phần tử (size > 0)
+                "$cond": {
+                    "if": {"$gt": [{"$size": "$assignment_data"}, 0]},
+                    "then": "assigned",
+                    "else": "not_assigned"
+                }
+            }
+        }},
+        
+        # 3. Xóa các trường không cần thiết (mảng 'assignment_data') và _id
+        {"$project": {
+            "_id": 0,
+            "assignment_data": 0 # Xóa mảng tra cứu
+        }}
+    ]
+    
+    docs = list(db.tests.aggregate(pipeline))
     return jsonify(docs)
 
 # ... (Hàm /tests/<test_id> (GET) giữ nguyên, nó đã rất tốt) ...
