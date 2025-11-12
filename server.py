@@ -3264,10 +3264,15 @@ def get_time_analysis():
         pipeline_correct = [
             {"$match": query},
             {"$unwind": "$detailedResults"},
-            {"$match": {"detailedResults.isCorrect": {"$in": [True, False]}}}, # Chỉ lấy câu đã chấm
+            # Chỉ lấy các câu có dữ liệu thời gian
+            {"$match": {"detailedResults.durationSeconds": {"$gt": 0}}}, 
             {"$group": {
-                "_id": "$detailedResults.isCorrect",
-                "avgTime": {"$avg": "$detailedResults.duration"},
+                # SỬA LỖI: Nếu isCorrect là True -> nhóm True,
+                # Ngược lại (False hoặc None) -> nhóm False
+                "_id": {
+                    "$cond": [ { "$eq": [ "$detailedResults.isCorrect", True ] }, True, False ]
+                },
+                "avgTime": {"$avg": "$detailedResults.durationSeconds"},
                 "count": {"$sum": 1}
             }},
             {"$project": {
