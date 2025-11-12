@@ -2534,13 +2534,13 @@ def create_result():
             if q_id_uuid: full_question_map[q_id_uuid] = q
             if q_id_obj_str: full_question_map[q_id_obj_str] = q
 
-        # 4. Tạo map câu trả lời của học sinh
+        # 4. Tạo map câu trả lời của học sinh (LƯU TOÀN BỘ OBJECT)
         student_ans_map = {}
-        for ans in student_answers_payload: 
-            if not isinstance(ans, dict): continue
-            qkey = ans.get("questionId") 
+        for ans_payload in student_answers_payload: 
+            if not isinstance(ans_payload, dict): continue
+            qkey = ans_payload.get("questionId") 
             if qkey:
-                student_ans_map[str(qkey)] = ans.get("answer") 
+                student_ans_map[str(qkey)] = ans_payload # Lưu toàn bộ {questionId, answer, durationSeconds}
 
         # ▼▼▼ KHỐI TÍNH ĐIỂM MỚI ▼▼▼
         mc_score = 0.0
@@ -2558,13 +2558,18 @@ def create_result():
         # 5. LẶP VÀ TÍNH ĐIỂM
         for q_id in question_ids_in_test: 
             question_obj = full_question_map.get(q_id)
+            # --- LẤY DỮ LIỆU PAYLOAD (MỚI) ---
+            student_ans_payload = student_ans_map.get(q_id, {}) # Lấy object {answer, durationSeconds}
+            student_ans_value = student_ans_payload.get("answer", None)
+            duration_seconds = student_ans_payload.get("durationSeconds", 0) # Lấy thời gian
+            # --- KẾT THÚC ---
             if not question_obj:
                 print(f"Cảnh báo: Không tìm thấy question_obj cho q_id {q_id}")
                 continue 
 
             q_type = question_obj.get("type", "mc")
             max_points = float(points_map.get(q_id, 1)) 
-            student_ans_value = student_ans_map.get(q_id, None) 
+            # student_ans_value = student_ans_map.get(q_id, None) # <-- XÓA DÒNG NÀY (Đã làm ở trên) 
 
             is_correct = None
             points_gained = 0.0
@@ -2677,7 +2682,8 @@ def create_result():
                 "teacherScore": None,
                 "teacherNote": "",
                 "correctItems": correct_items_count_for_storage,
-                "totalItems": total_items_for_storage
+                "totalItems": total_items_for_storage,
+                "durationSeconds": duration_seconds # <--- 🔥 THÊM DÒNG NÀY VÀO ĐÂY
             })
 
         # 6. Xác định trạng thái chấm
@@ -3185,6 +3191,104 @@ def get_assignment_stats():
         return jsonify({
              "totalTestsCreated": 0, "totalAssignments": 0, "uniqueStudentsAssigned": 0, "totalResultsSubmitted": 0, "totalStudents": 0, "error": str(e)
         }), 500
+
+
+# ==================================================
+# ✅ DÁN HÀM MỚI NÀY VÀO SERVER.PY
+# (TRƯỚC HÀM 'get_system_dashboard')
+# ==================================================
+@app.route("/api/reports/time_analysis", methods=["GET"])
+def get_time_analysis():
+    """
+    API Phân tích Thời gian làm bài (Time Analysis).
+    """
+    try:
+        # 1. Lấy bộ lọc (giống hệt get_progress_summary)
+        class_name = request.args.get("className")
+        student_id = request.args.get("studentId")
+        subject = request.args.get("subject")
+        start_date = request.args.get("startDate")
+        end_date = request.args.get("endDate")
+
+        if not class_name and not student_id:
+            return jsonify({"success": False, "message": "Cần cung cấp Lớp (className) hoặc Học sinh (studentId)"}), 400
+
+        query = {}
+        if student_id: query["studentId"] = student_id
+        elif class_name: query["className"] = class_name
+        if subject: query["subject"] = subject
+        date_query = {}
+        if start_date: date_query["$gte"] = f"{start_date}T00:00:00.000Z"
+        if end_date: date_query["$lte"] = f"{end_date}T23:59:59.999Z"
+        if date_query: query["submittedAt"] = date_query
+
+        # 2. Pipeline phức tạp để lấy dữ liệu
+        pipeline = [
+            # Lọc các bài làm
+            {"$match": query},
+            # Tách các câu hỏi trong mỗi bài làm
+            {"$unwind": "$detailedResults"},
+            # Chỉ giữ lại các trường cần thiết
+            {"$project": {
+                "qId": "$detailedResults.questionId",
+                "isCorrect": "$detailedResults.isCorrect",
+                "duration": "$detailedResults.durationSeconds",
+                "_id": 0
+            }},
+            # Lấy thông tin (tags, difficulty) từ collection 'questions'
+            {"$lookup": {
+                "from": "questions",
+                "localField": "qId",
+                "foreignField": "id", # Khớp bằng UUID
+                "as": "qInfo"
+            }},
+            {"$unwind": {"path": "$qInfo", "preserveNullAndEmptyArrays": True}},
+            # Nhóm lại để tính toán
+            {"$group": {
+                "_id": "$qInfo.difficulty", # Nhóm theo độ khó
+                "avgTime": {"$avg": "$duration"},
+                "count": {"$sum": 1}
+            }},
+            {"$project": {
+                "difficulty": "$_id",
+                "avgTime": "$avgTime",
+                "count": "$count",
+                "_id": 0
+            }}
+        ]
+        
+        # Chạy query 1: Thời gian theo Độ khó
+        time_by_difficulty = list(db.results.aggregate(pipeline))
+
+        # Query 2: Thời gian Đúng vs. Sai
+        pipeline_correct = [
+            {"$match": query},
+            {"$unwind": "$detailedResults"},
+            {"$match": {"detailedResults.isCorrect": {"$in": [True, False]}}}, # Chỉ lấy câu đã chấm
+            {"$group": {
+                "_id": "$detailedResults.isCorrect",
+                "avgTime": {"$avg": "$detailedResults.duration"},
+                "count": {"$sum": 1}
+            }},
+            {"$project": {
+                "isCorrect": "$_id",
+                "avgTime": "$avgTime",
+                "count": "$count",
+                "_id": 0
+            }}
+        ]
+        time_by_correctness = list(db.results.aggregate(pipeline_correct))
+
+        return jsonify({
+            "success": True,
+            "byDifficulty": time_by_difficulty,
+            "byCorrectness": time_by_correctness
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
 
 # ==================================================
 # ✅ DÁN HÀM MỚI NÀY VÀO CUỐI FILE SERVER.PY
