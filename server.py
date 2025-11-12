@@ -3186,6 +3186,169 @@ def get_assignment_stats():
              "totalTestsCreated": 0, "totalAssignments": 0, "uniqueStudentsAssigned": 0, "totalResultsSubmitted": 0, "totalStudents": 0, "error": str(e)
         }), 500
 
+# ==================================================
+# ✅ DÁN HÀM MỚI NÀY VÀO CUỐI FILE SERVER.PY
+# (TRƯỚC DÒNG 'if __name__ == "__main__":')
+# ==================================================
+from collections import defaultdict # (Đảm bảo đã import ở đầu file)
+
+@app.route("/api/reports/system_dashboard", methods=["GET"])
+def get_system_dashboard():
+    """
+    API Bảng điều khiển Tổng quan (Admin Dashboard).
+    Thực hiện phân tích vĩ mô trên toàn bộ hệ thống.
+    """
+    try:
+        # === 1. THỐNG KÊ NHANH (QUICK STATS) ===
+        total_questions = db.questions.count_documents({})
+        total_tests = db.tests.count_documents({})
+        total_students = db.users.count_documents({"role": {"$nin": ["admin", "teacher"]}})
+        total_results = db.results.count_documents({})
+
+        # === 2. PHÂN TÍCH NGÂN HÀNG CÂU HỎI (BANK HEALTH) ===
+        
+        # Group theo Môn học
+        bank_by_subject_raw = list(db.questions.aggregate([
+            {"$group": {"_id": "$subject", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]))
+        bank_by_subject = [{"subject": item["_id"] or "khac", "count": item["count"]} for item in bank_by_subject_raw]
+
+        # Group theo Độ khó
+        bank_by_difficulty_raw = list(db.questions.aggregate([
+            {"$group": {"_id": "$difficulty", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]))
+        bank_by_difficulty = [{"difficulty": item["_id"] or "medium", "count": item["count"]} for item in bank_by_difficulty_raw]
+
+        # === 3. PHÂN TÍCH HIỆU SUẤT TOÀN HỆ THỐNG ===
+        
+        # a. Điểm TB theo Môn học
+        perf_by_subject_raw = list(db.results.aggregate([
+            {"$match": {"subject": {"$ne": None}}},
+            {"$group": {
+                "_id": "$subject",
+                "averageScore": {"$avg": "$totalScore"},
+                "count": {"$sum": 1}
+            }},
+            {"$sort": {"averageScore": -1}}
+        ]))
+        perf_by_subject = [{"subject": item["_id"], "averageScore": item["averageScore"], "count": item["count"]} for item in perf_by_subject_raw]
+
+        # b. Phân tích Tag và Câu hỏi (Lấy logic từ 'get_progress_summary' nhưng áp dụng cho TOÀN BỘ)
+        
+        # Lấy TẤT CẢ results
+        results = list(db.results.find({}, {
+            "_id": 0, # <-- Sửa lỗi ObjectId
+            "detailedResults": 1 
+        }))
+
+        tag_performance = defaultdict(lambda: {"gained_points": 0.0, "max_points": 0.0, "count": 0})
+        question_performance = defaultdict(lambda: {"correct": 0, "incorrect": 0, "total": 0, "question_text": "..."})
+        all_q_ids = set()
+
+        for res in results:
+            for detail in res.get("detailedResults", []):
+                if detail.get("questionId"):
+                    all_q_ids.add(detail.get("questionId"))
+        
+        # Lấy thông tin (Tags, Text) của các câu hỏi đã từng được làm
+        q_map = {}
+        if all_q_ids:
+            object_ids = []
+            uuid_strings = []
+            for qid_str in all_q_ids:
+                try: object_ids.append(ObjectId(qid_str))
+                except Exception: uuid_strings.append(qid_str)
+
+            or_clauses = []
+            if object_ids: or_clauses.append({"_id": {"$in": object_ids}})
+            if uuid_strings: or_clauses.append({"id": {"$in": uuid_strings}})
+
+            questions_db_cursor = db.questions.find(
+                {"$or": or_clauses}, 
+                {"id": 1, "_id": 1, "tags": 1, "q": 1}
+            )
+            for q in questions_db_cursor:
+                key = q.get("id") or str(q.get("_id"))
+                q_map[key] = {"tags": q.get("tags", []), "q_text": q.get("q", "...")}
+
+        # Lặp lại lần 2 để tính toán
+        for res in results:
+            for detail in res.get("detailedResults", []):
+                qid = detail.get("questionId")
+                if not qid in q_map: continue 
+                
+                q_info = q_map[qid]
+                is_correct = detail.get("isCorrect")
+                max_p = float(detail.get("maxPoints", 1.0))
+                gained_p = float(detail.get("pointsGained", 0.0))
+                
+                # Tính Câu hỏi
+                q_perf = question_performance[qid]
+                q_perf["total"] += 1
+                if is_correct is True: q_perf["correct"] += 1
+                else: q_perf["incorrect"] += 1
+                q_perf["question_text"] = q_info["q_text"]
+                
+                # Tính Tag
+                for tag in q_info.get("tags", []):
+                    tag_perf = tag_performance[tag]
+                    tag_perf["count"] += 1
+                    tag_perf["max_points"] += max_p
+                    tag_perf["gained_points"] += gained_p
+
+        # Hoàn thiện Phân tích Tag (Top 10 yếu nhất)
+        tag_analysis_list = []
+        for tag, stats in tag_performance.items():
+            avg_percent = (stats["gained_points"] / stats["max_points"] * 100) if stats["max_points"] > 0 else 0
+            tag_analysis_list.append({
+                "tag": tag, 
+                "avgPercent": round(avg_percent, 1), 
+                "count": stats["count"]
+            })
+        tag_analysis_list.sort(key=lambda x: x["avgPercent"])
+        weakest_tags = tag_analysis_list[:10] # Lấy 10 tag yếu nhất
+
+        # Hoàn thiện Phân tích Câu hỏi (Top 10 sai nhiều nhất)
+        item_analysis_list = []
+        for qid, stats in question_performance.items():
+            correct_percent = (stats["correct"] / stats["total"] * 100) if stats["total"] > 0 else 0
+            item_analysis_list.append({
+                "questionId": qid,
+                "questionText": stats["question_text"],
+                "correctCount": stats["correct"],
+                "total": stats["total"],
+                "correctPercent": round(correct_percent, 1)
+            })
+        item_analysis_list.sort(key=lambda x: x["correctPercent"])
+        most_failed_questions = item_analysis_list[:10] # 10 câu khó nhất
+
+        # === 4. TRẢ VỀ DỮ LIỆU ===
+        dashboard_data = {
+            "quickStats": {
+                "totalQuestions": total_questions,
+                "totalTests": total_tests,
+                "totalStudents": total_students,
+                "totalResults": total_results
+            },
+            "bankHealth": {
+                "bySubject": bank_by_subject,
+                "byDifficulty": bank_by_difficulty
+            },
+            "systemPerformance": {
+                "avgBySubject": perf_by_subject,
+                "weakestTags": weakest_tags,
+                "mostFailedQuestions": most_failed_questions
+            }
+        }
+        
+        return jsonify({"success": True, "data": dashboard_data}), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server khi tạo dashboard: {str(e)}"}), 500
+
 @app.route("/api/results", methods=["GET"])
 def get_results_for_student():
     student_id = request.args.get("studentId")
