@@ -843,6 +843,82 @@ def get_test_report(test_id):
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
+@app.route("/api/test/<test_id>/all-gradable-answers", methods=["GET"])
+def get_all_gradable_answers(test_id):
+    """
+    API MỚI: Lấy tất cả các câu trả lời cần chấm (Essay/Draw) cho 1 BÀI THI,
+    nhóm theo TỪNG CÂU HỎI.
+    """
+    try:
+        # 1. Lấy thông tin bài thi
+        test = db.tests.find_one({"id": test_id}, {"_id": 0, "questions": 1, "name": 1})
+        if not test:
+            return jsonify({"success": False, "message": "Không tìm thấy bài thi"}), 404
+
+        # 2. Lấy danh sách các câu hỏi cần chấm (Essay/Draw) và Map điểm
+        gradable_q_ids = set()
+        question_map = {} # { qId: { text, maxPoints } }
+        
+        # Lấy ID câu hỏi gốc (UUID)
+        q_uuids_in_test = [q.get("id") for q in test.get("questions", [])]
+        if not q_uuids_in_test:
+             return jsonify({"success": False, "message": "Bài thi không có câu hỏi."}), 400
+
+        # Truy vấn DB để lấy nội dung và loại câu hỏi
+        questions_from_db = list(db.questions.find({"id": {"$in": q_uuids_in_test}}, {"id": 1, "q": 1, "type": 1}))
+        points_map = {q.get("id"): q.get("points", 1) for q in test.get("questions", [])}
+
+        for q_db in questions_from_db:
+            q_id = q_db.get("id")
+            q_type = q_db.get("type", "mc").lower()
+            if q_type == "essay" or q_type == "draw":
+                gradable_q_ids.add(q_id)
+                question_map[q_id] = {
+                    "id": q_id,
+                    "text": q_db.get("q", "..."),
+                    "maxPoints": points_map.get(q_id, 1)
+                }
+        
+        if not gradable_q_ids:
+             return jsonify({"success": False, "message": "Bài thi này không có câu Tự luận/Vẽ nào."}), 400
+
+        # 3. Lấy tất cả kết quả (results) của bài thi này
+        results = list(db.results.find(
+            {"testId": test_id, "gradingStatus": {"$ne": "Hoàn tất"}}, 
+            {"id": 1, "studentName": 1, "detailedResults": 1}
+        ))
+        
+        # 4. Nhóm các câu trả lời theo ID câu hỏi
+        answers_by_question = defaultdict(list)
+        
+        for res in results:
+            result_id = res.get("id")
+            student_name = res.get("studentName", "N/A")
+            
+            for detail in res.get("detailedResults", []):
+                q_id = detail.get("questionId")
+                # Chỉ lấy nếu câu này là câu cần chấm
+                if q_id in gradable_q_ids:
+                    answers_by_question[q_id].append({
+                        "resultId": result_id,
+                        "studentName": student_name,
+                        "studentAnswer": detail.get("studentAnswer"),
+                        "teacherScore": detail.get("teacherScore"),
+                        "teacherNote": detail.get("teacherNote"),
+                        "teacherDrawing": detail.get("teacherDrawing")
+                    })
+
+        return jsonify({
+            "success": True,
+            "testName": test.get("name"),
+            "questions": list(question_map.values()), # Danh sách câu hỏi cần chấm [ {id, text, maxPoints}, ... ]
+            "answersByQuestion": answers_by_question # Dữ liệu { "q-id-1": [ {resultId, studentName, answer}, ... ] }
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
 
 @app.route("/questions", methods=["GET"])
 @app.route("/api/questions", methods=["GET"])
