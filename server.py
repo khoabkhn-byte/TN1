@@ -3118,6 +3118,7 @@ def _get_student_progress_analysis(student_id, class_name, subject, start_date, 
     """
     HÀM HELPER NỘI BỘ (MỚI): Chạy phân tích tiến độ cho 1 HS hoặc 1 Lớp.
     Trả về (data_thô, phân_tích_tag, câu_khó, câu_dễ)
+    (ĐÃ NÂNG CẤP: Trả về cả 'difficulty' và 'level')
     """
     query = {}
     if student_id:
@@ -3134,7 +3135,7 @@ def _get_student_progress_analysis(student_id, class_name, subject, start_date, 
     if date_query: query["submittedAt"] = date_query
     
     # Lọc bỏ các bài ôn tập khỏi phân tích
-    query["testName"] = {"$not": {"$regex": "^\\[Ôn tập\\]"}}
+    query["testName"] = {"$not": {"$regex": "^\\[Ôn tập", "$options": "i"}} # <-- Sửa lỗi regex
     
     results = list(db.results.find(query, {
         "_id": 0, "testId": 1, "testName": 1, "subject": 1, "totalScore": 1, "submittedAt": 1,
@@ -3166,22 +3167,23 @@ def _get_student_progress_analysis(student_id, class_name, subject, start_date, 
     if object_ids: or_clauses.append({"_id": {"$in": object_ids}})
     if uuid_strings: or_clauses.append({"id": {"$in": uuid_strings}})
 
+    # === 🔥 THAY ĐỔI 1: Lấy thêm "difficulty" và "level" ===
     questions_db_cursor = db.questions.find(
         {"$or": or_clauses}, 
-        # SỬA LỖI: Lấy thêm level và type
-        {"id": 1, "_id": 1, "tags": 1, "q": 1, "subject": 1, "level": 1, "type": 1}
+        {"id": 1, "_id": 1, "tags": 1, "q": 1, "subject": 1, "level": 1, "type": 1, "difficulty": 1}
     )
 
     q_map = {}
     for q in questions_db_cursor:
         key = q.get("id") or str(q.get("_id"))
-        # SỬA LỖI: Gán tất cả các trường
+        # === 🔥 THAY ĐỔI 2: Thêm "difficulty" vào map ===
         q_map[key] = {
             "tags": q.get("tags", []), 
             "q_text": q.get("q", "..."), 
             "subject": q.get("subject"), 
             "level": q.get("level"),
-            "type": q.get("type", "mc")
+            "type": q.get("type", "mc"),
+            "difficulty": q.get("difficulty", "medium") # <-- Thêm dòng này
         }
 
     for res in results:
@@ -3213,25 +3215,26 @@ def _get_student_progress_analysis(student_id, class_name, subject, start_date, 
             "tag": tag, "avgPercent": round(avg_percent, 1), 
             "gained": stats["gained_points"], "max": stats["max_points"], "count": stats["count"]
         })
-    tag_analysis_list.sort(key=lambda x: x["avgPercent"])
+    tag_analysis_list.sort(key=lambda x: x["avgPercent"]) # Yếu nhất lên đầu
 
     item_analysis_list = []
     for qid, stats in question_performance.items():
         correct_percent = (stats["correct"] / stats["total"] * 100) if stats["total"] > 0 else 0
         
-        # SỬA LỖI SYNTAXERROR (Thiếu dấu phẩy) & LỖI "KHAC"
+        # === 🔥 THAY ĐỔI 3: Thêm "difficulty" vào kết quả ===
         item_analysis_list.append({
             "questionId": qid, "questionText": stats["question_text"],
             "correctCount": stats["correct"], "incorrectCount": stats["incorrect"],
             "total": stats["total"],
-            "correctPercent": round(correct_percent, 1), # <-- Lỗi SyntaxError là ở đây (do thiếu dấu phẩy)
+            "correctPercent": round(correct_percent, 1),
             "questionType": q_map.get(qid, {}).get("type", "mc"),
-            "subject": q_map.get(qid, {}).get("subject"), # <-- Sửa lỗi "Khac"
-            "level": q_map.get(qid, {}).get("level")      # <-- Sửa lỗi "Khac"
+            "subject": q_map.get(qid, {}).get("subject"), 
+            "level": q_map.get(qid, {}).get("level"),
+            "difficulty": q_map.get(qid, {}).get("difficulty") # <-- Thêm dòng này
         })
-    item_analysis_list.sort(key=lambda x: x["correctPercent"])
+    item_analysis_list.sort(key=lambda x: x["correctPercent"]) # Yếu nhất lên đầu
     
-    hardest = item_analysis_list[:5]
+    hardest = item_analysis_list
     easiest = sorted(item_analysis_list, key=lambda x: x["correctPercent"], reverse=True)[:5]
 
     return (results, tag_analysis_list, hardest, easiest)
@@ -3345,7 +3348,8 @@ def get_student_dashboard_analytics():
 def request_review_test():
     """
     API MỚI (Học sinh gọi):
-    Tự động phân tích, kiểm tra điểm ôn tập cũ, và tạo bài ôn tập TÁCH RIÊNG THEO MÔN.
+    Tự động phân tích và tạo bài ôn tập TÁCH RIÊNG THEO MÔN
+    VÀ LEO THANG ĐỘ KHÓ (EASY -> MEDIUM/HARD)
     """
     try:
         data = request.get_json() or {}
@@ -3376,28 +3380,30 @@ def request_review_test():
                 "message": "Bạn đã có một bài ôn tập đang chờ. Vui lòng hoàn thành bài tập đó trước khi tạo bài mới."
             }), 200
 
-        # --- 1C. BƯỚC KIỂM TRA MỚI (TÍNH NĂNG GHI NHẬN) ---
+        # --- 1C. BƯỚC KIỂM TRA ĐIỂM SỐ (Mastery Check) ---
+        avg_review_score = 0.0 # Mặc định
+        
+        past_review_results = list(db.results.find({
+            "studentId": student_id,
+            "testName": {"$regex": "^\\[Ôn tập", "$options": "i"}, # <-- Sửa regex
+            "gradingStatus": {"$in": ["Hoàn tất", "Đã Chấm"]} 
+        }))
+        
+        if past_review_results:
+            total_score = sum(r.get("totalScore", 0) for r in past_review_results)
+            avg_review_score = total_score / len(past_review_results)
+        
         if not force_create:
-            past_review_results = list(db.results.find({
-                "studentId": student_id,
-                "testName": {"$regex": "^\\[Ôn tập\\]"},
-                "gradingStatus": {"$in": ["Hoàn tất", "Đã Chấm"]} 
-            }))
-            
-            if past_review_results:
-                total_score = sum(r.get("totalScore", 0) for r in past_review_results)
-                avg_review_score = total_score / len(past_review_results)
-                
-                REVIEW_THRESHOLD = 8.0 
-                if avg_review_score >= REVIEW_THRESHOLD:
-                    return jsonify({
-                        "success": True,
-                        "messageType": "confirm_continue", 
-                        "message": f"Kết quả ôn tập của bạn đã rất tốt (Điểm TB: {avg_review_score:.1f}/10). Bạn có muốn tiếp tục tạo bài ôn tập mới không?"
-                    }), 200
+            REVIEW_THRESHOLD = 8.0 
+            if avg_review_score >= REVIEW_THRESHOLD:
+                return jsonify({
+                    "success": True,
+                    "messageType": "confirm_continue", 
+                    "message": f"Kết quả ôn tập của bạn đã rất tốt (Điểm TB: {avg_review_score:.1f}/10). Bạn có muốn tiếp tục tạo bài ôn tập mới không?"
+                }), 200
 
         # --- 2. PHÂN TÍCH ĐIỂM YẾU ---
-        # (Hàm này đã được sửa ở Bước 1 để trả về 'subject' và 'level')
+        # (Hàm này giờ đã trả về 'difficulty' trong 'hardest_q')
         raw_data, tag_analysis, hardest_q, easiest_q = _get_student_progress_analysis(
             student_id, None, None, None, None
         )
@@ -3405,12 +3411,36 @@ def request_review_test():
         if not hardest_q and not tag_analysis:
             return jsonify({"success": True, "messageType": "no_data", "message": "Bạn chưa làm bài nào (hoặc các bài đã làm không có điểm yếu) nên chưa thể tạo gói ôn tập."})
 
-        questions_for_review = [q for q in hardest_q if q["correctPercent"] < 50]
+        # --- 3. 🔥 LOGIC "LEO THANG" (SCAFFOLDING) MỚI ---
+        # Quyết định ma trận độ khó dựa trên điểm ôn tập
+        matrix = []
+        level_name = ""
+        
+        # Mức 1: Nền tảng (chưa ôn hoặc điểm < 5)
+        if avg_review_score < 5.0:
+            allowed_difficulties = ["easy", "medium"]
+            level_name = "Nền tảng"
+        # Mức 2: Nâng cao (điểm từ 5 đến 7.9)
+        else:
+            allowed_difficulties = ["medium", "hard"]
+            level_name = "Nâng cao"
+
+        # Lọc danh sách câu hỏi yếu nhất dựa trên độ khó cho phép
+        questions_for_review = [
+            q for q in hardest_q 
+            if q["correctPercent"] < 70 and q.get("difficulty", "medium") in allowed_difficulties
+        ]
         
         if not questions_for_review:
-            return jsonify({"success": True, "messageType": "all_good", "message": "Tuyệt vời! Bạn không có câu hỏi nào sai (hoặc sai dưới 50%)."})
-
-        # --- 3. 🔥 TÍNH NĂNG MỚI: TÁCH RIÊNG THEO MÔN ---
+            # Nếu không có câu Dễ/TB nào sai, nhưng vẫn muốn ôn, thì lấy câu Khó
+            if avg_review_score < 5.0 and not force_create:
+                 questions_for_review = [q for q in hardest_q if q["correctPercent"] < 70]
+                 level_name = "Nâng cao" # Buộc lên Nâng cao
+            
+            if not questions_for_review:
+                return jsonify({"success": True, "messageType": "all_good", "message": "Tuyệt vời! Bạn không còn câu hỏi Dễ/Trung bình nào làm sai dưới 70%."})
+        
+        # --- 4. TÁCH THEO MÔN (Logic cũ, giữ nguyên) ---
         questions_by_subject = defaultdict(list)
         for q in questions_for_review:
             subject = q.get("subject", "khac")
@@ -3418,23 +3448,23 @@ def request_review_test():
 
         created_tests_count = 0
         created_subjects = []
-        # 🔥 SỬA LỖI TRÙNG TÊN: Thêm Giờ và Phút
         time_str = datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m %H:%M")
 
         for subject, q_list in questions_by_subject.items():
             if not q_list:
                 continue
                 
-            # Lấy 10 câu hỏi yếu nhất của môn này
-            q_list_sorted = sorted(q_list, key=lambda x: x["correctPercent"])[:10]
+            # Lấy 10 câu hỏi yếu nhất của môn này (đã được lọc theo độ khó)
+            q_list_sorted = q_list[:10]
             all_question_ids = [q["questionId"] for q in q_list_sorted]
             
             default_subject = q_list_sorted[0].get("subject", "khac")
             default_level = student_level or q_list_sorted[0].get("level")
 
-            # --- 4. Tạo Đề thi (cho từng môn) ---
+            # --- 5. Tạo Đề thi (cho từng môn) ---
             points_map = calculate_question_points(all_question_ids, db)
             
+            # (Phần này giữ nguyên, chỉ sửa lại tên đề thi)
             formatted_questions = []
             mc_count, essay_count, tf_count, fill_count, draw_count = 0, 0, 0, 0, 0
             
@@ -3451,8 +3481,9 @@ def request_review_test():
                 else: mc_count += 1
                 
             subject_name_vn = dict(SUBJECT_NAMES).get(default_subject, default_subject.capitalize())
-            # 🔥 SỬA LỖI TRÙNG TÊN: Sử dụng time_str
-            new_test_name = f"[Ôn tập {time_str}] Môn {subject_name_vn} - {student_name}"
+            
+            # === 🔥 THAY ĐỔI 5: CẬP NHẬT TÊN ĐỀ THI ===
+            new_test_name = f"[Ôn tập {time_str}] {level_name} {subject_name_vn} - {student_name}"
                 
             new_test = {
                 "id": str(uuid4()), "name": new_test_name,
@@ -3465,7 +3496,7 @@ def request_review_test():
             }
             db.tests.insert_one(new_test)
             
-            # --- 5. Gán bài thi (cho từng môn) ---
+            # --- 6. Gán bài thi (cho từng môn) ---
             teacher = db.users.find_one({"role": "teacher"})
             teacher_id = teacher.get("id") if teacher else "SYSTEM"
             
@@ -3482,14 +3513,14 @@ def request_review_test():
             created_tests_count += 1
             created_subjects.append(subject_name_vn)
         
-        # --- 6. Trả về thông báo tổng hợp ---
+        # --- 7. Trả về thông báo tổng hợp ---
         if created_tests_count == 0:
-             return jsonify({"success": True, "messageType": "all_good", "message": "Tuyệt vời! Bạn không có câu hỏi nào sai (hoặc sai dưới 50%)."})
+             return jsonify({"success": True, "messageType": "all_good", "message": f"Tuyệt vời! Bạn không còn câu hỏi nào ở cấp độ '{level_name}' cần ôn tập."})
         else:
             return jsonify({
                 "success": True, 
                 "messageType": "created", 
-                "message": f"Đã tạo {created_tests_count} bài ôn tập ({', '.join(created_subjects)}). Vui lòng kiểm tra tab 'Ôn tập cá nhân'."
+                "message": f"Đã tạo {created_tests_count} bài ôn tập cấp độ '{level_name}' ({', '.join(created_subjects)}). Vui lòng kiểm tra tab 'Ôn tập cá nhân'."
             })
 
     except Exception as e:
