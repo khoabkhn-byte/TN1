@@ -2553,6 +2553,7 @@ def get_assignments_for_student():
             "deadline": a.get("deadline"),
             "assignedAt": assigned_date,
             "status": a.get("status", "pending"),
+            "isPersonalizedReview": a.get("isPersonalizedReview", False)
         })
     return jsonify({"success": True, "assignments": result_list})
 
