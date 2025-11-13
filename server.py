@@ -25,6 +25,20 @@ from reportlab.lib.utils import ImageReader
 from flask import send_file
 from collections import defaultdict
 
+SUBJECT_NAMES = {
+    "math": "Toán",
+    "literature": "Văn",
+    "english": "Tiếng Anh",
+    "physics": "Vật lý",
+    "chemistry": "Hóa học",
+    "biology": "Sinh học",
+    "history": "Lịch sử",
+    "geography": "Địa lý",
+    "civic": "GDCD",
+    "it": "Tin học",
+    "khac": "Khác"
+}
+
 # Load .env in local; Render provides env vars automatically
 load_dotenv()
 
@@ -705,7 +719,7 @@ def get_test_stats_for_class(test_id):
 # ==================================================
 # ✅ THAY THẾ HÀM get_test_report CỦA BẠN BẰNG HÀM NÀY
 # ==================================================
-from collections import defaultdict
+#==from collections import defaultdict
 
 @app.route("/api/reports/test/<test_id>", methods=["GET"])
 def get_test_report(test_id):
