@@ -3273,6 +3273,71 @@ def get_progress_summary():
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
+
+def _get_student_review_data(student_id, subject, start_date, end_date):
+    """
+    HÀM HELPER MỚI: Chỉ lấy dữ liệu từ các bài Ôn tập.
+    """
+    query = {"studentId": student_id}
+    if subject: query["subject"] = subject
+    date_query = {}
+    if start_date: date_query["$gte"] = f"{start_date}T00:00:00.000Z"
+    if end_date: date_query["$lte"] = f"{end_date}T23:59:59.999Z"
+    if date_query: query["submittedAt"] = date_query
+    
+    # Chỉ lấy các bài ôn tập
+    query["$or"] = [
+        {"testName": {"$regex": "^\\[Ôn tập", "$options": "i"}},
+        {"isPersonalizedReview": True} # (Mặc dù testName đã lọc, cờ này để cho chắc)
+    ]
+    
+    results = list(db.results.find(query, {
+        "_id": 0, "testId": 1, "testName": 1, "subject": 1, "totalScore": 1, "submittedAt": 1
+    }).sort("submittedAt", 1))
+    
+    return results
+
+@app.route("/api/student/dashboard-analytics", methods=["GET"])
+def get_student_dashboard_analytics():
+    """
+    API MỚI CHO TAB THỐNG KÊ (HỌC SINH)
+    """
+    try:
+        student_id = request.args.get("studentId")
+        subject = request.args.get("subject")
+        start_date = request.args.get("startDate")
+        end_date = request.args.get("endDate")
+
+        if not student_id:
+            return jsonify({"success": False, "message": "Cần cung cấp studentId"}), 400
+
+        # 1. Lấy dữ liệu chính thức (Tái sử dụng hàm helper cũ)
+        # (Hàm này đã tự lọc bỏ bài ôn tập)
+        official_raw, tag_analysis, hardest_q, easiest_q = _get_student_progress_analysis(
+            student_id, None, subject, start_date, end_date
+        )
+        
+        # 2. Lấy dữ liệu ôn tập (Dùng hàm helper mới)
+        review_raw = _get_student_review_data(
+            student_id, subject, start_date, end_date
+        )
+
+        return jsonify({
+            "success": True,
+            "officialData": {
+                "data": official_raw,
+                "tagAnalysis": tag_analysis,
+                "hardestQuestions": hardest_q,
+                "easiestQuestions": easiest_q
+            },
+            "reviewData": review_raw # Đây là một mảng
+        }), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
+
 # ==================================================
 # ✅ THAY THẾ HÀM NÀY (SỬA LỖI TÁCH MÔN, TRÙNG TÊN)
 # ==================================================
