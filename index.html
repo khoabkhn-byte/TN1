@@ -1233,9 +1233,15 @@
                         
                         <button class="btn btn-sm btn-outline-secondary" onclick="clearResultFilters()">Xóa Lọc</button>
 						<button id="refresh-results-btn" class="btn btn-sm btn-outline-primary" onclick="loadResults(true)" title="Tải lại danh sách kết quả">Tải lại</button>
+                        <button id="grade-by-question-btn" class="btn btn-sm btn-info text-dark" style="display:none;" onclick="openGradeByQuestionModal()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check2-square" viewBox="0 0 16 16" style="margin-top: -2px;">
+       <path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h8a.5.5 0 0 1 0 1H3a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 1 0v5a1.5 1.5 0 0 1-1.5 1.5H3z"/>
+       <path d="M8.354 10.354a.5.5 0 0 0-.708-.708L6 11.293 4.854 10.146a.5.5 0 1 0-.708.708l1.5 1.5a.5.5 0 0 0 .708 0l3-3z"/>
+   </svg>
+   Chấm theo câu</button>
                         <button id="bulk-print-results-btn" class="btn btn-sm btn-outline-primary" onclick="prepareResultPrintArea(true)" title="Xem trước khi in hàng loạt">
                           🖨️ Xem trước (<span id="selected-results-count-display">0</span>)
                         </button>
+
                         
                         <button id="bulk-pdf-results-btn" class="btn btn-sm btn-success" onclick="prepareResultPrintArea(false)" title="Xuất PDF hàng loạt">
                           📄 Xuất PDF (<span id="selected-results-count-display-pdf">0</span>)
@@ -1546,7 +1552,7 @@
             <div class="col-md-3">
                 <div class="card bg-light shadow-sm">
                     <div class="card-body text-center">
-                        <h3 class="text-info mb-0" id="stat-total-students">--</h3>
+                        <h3 class="text-info mb-0" id="stat-dashboard-students">--</h3>
                         <p class="text-muted mb-0">Học sinh</p>
                     </div>
                 </div>
@@ -1709,7 +1715,7 @@
       </div>
 
       <div class="mb-2">
-        <label class="form-label">Gợi ý (Tùy chọn)</label>
+        <label class="form-label">Gợi ý (Tùy chọn)💡</label>
         <input type="text" id="m-q-hint-field" class="form-control" placeholder="Ví dụ: Chọn trong các từ sau: ... hoặc Xem SGK trang...">
         <small class="form-text text-muted">Gợi ý này sẽ hiển thị cho học sinh khi làm bài và khi in đề.</small>
       </div>
@@ -2257,7 +2263,7 @@
             
             <div id="review-tab-content" style="display: none;">
                 
-                <div class="card p-3 mb-4 bg-light">
+                <div class="card p-3 mb-4 bg-light mt-4">
                     <div class="row g-2 align-items-end">
                         
                         <div class="col-md-3">
@@ -2282,6 +2288,7 @@
                                     <h4 class="text-danger mb-0" id="review-stat-pending">0</h4>
                                     <small class="text-muted">Cần chấm</small>
                                 </div>
+								
                                 <div>
                                     <h4 class="text-success mb-0" id="review-stat-graded">0</h4>
                                     <small class="text-muted">Đã chấm</small>
@@ -2293,69 +2300,87 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                
-                <h6 class="text-danger">
-                    <span class="badge bg-danger">!</span> Các bài ôn tập Cần chấm (Tự luận/Vẽ)
-                </h6>
-                <div class="table-responsive mb-4" style="max-height: 300px; overflow-y: auto;">
-                    <table class="table table-sm table-hover table-bordered">
-                        <thead>
-                            <tr class="table-warning">
-                                <th>Bài ôn tập</th>
-                                <th>Học sinh</th>
-                                <th>Lớp</th>
-                                <th>Ngày nộp</th>
-                                <th class="text-center">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody id="review-results-grading-tbody">
-                            </tbody>
-                    </table>
-                </div>
+                </div> <h6 class="text-danger mt-4">
+                <span class="badge bg-danger">!</span> Các bài ôn tập Cần chấm (Tự luận/Vẽ)
+            </h6>
+            <div class="card shadow-sm mb-3">
+                <div class="card-body p-3">
+                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                        <table class="table table-sm table-hover table-bordered">
+                            <thead>
+                                <tr class="table-warning">
+                                   <th style="width: 5%;" class="text-center">STT</th>
+                                    <th>Bài ôn tập</th>
+                                    <th>Học sinh</th>
+                                    <th>Lớp</th>
+                                    <th>Ngày nộp</th>
+                                    <th class="text-center">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="review-results-grading-tbody">
+                                </tbody>
+                        </table>
+                    </div> <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
+                      <div class="muted-small me-auto" id="reviewGrading-info">Hiển thị 0 - 0 trên 0</div>
+                      <button id="reviewGrading-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('reviewGrading', -1)">Trang trước</button>
+                      <button id="reviewGrading-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('reviewGrading', 1)">Trang sau</button>
+                    </div>
+                </div> </div> <hr class="my-4">
 
-                <h6 class="text-success">Các bài ôn tập Đã chấm (Hoàn tất)</h6>
-                <div class="table-responsive mb-4" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-sm table-hover table-bordered">
-                        <thead>
-                            <tr class="table-light">
-                                <th>Tên bài ôn tập</th>
-                                <th>Học sinh</th>
-                                <th>Lớp</th>
-                                <th>Trạng thái</th>
-                                <th class="text-center">Điểm</th>
-                                <th class="text-center">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody id="review-tests-graded-tbody">
-                            </tbody>
-                    </table>
-                </div>
-                
-                <h6 class="text-muted">Các bài ôn tập Chưa làm</h6>
-                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-sm table-hover table-bordered">
-                        <thead>
-                            <tr class="table-light">
-                                <th>Tên bài ôn tập</th>
-                                <th>Học sinh</th>
-                                <th>Lớp</th>
-                                <th>Trạng thái</th>
-                                <th class="text-center">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody id="review-tests-pending-tbody">
-                            </tbody>
-                    </table>
-                </div>
 
-            </div>
-            
-        </div>
-    </div>
-</div>
+            <h6 class="text-success">Các bài ôn tập Đã chấm (Hoàn tất)</h6>
+            <div class="card shadow-sm mb-3">
+                <div class="card-body p-3">
+                    <div class="table-responsive mb-0" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover table-bordered">
+                            <thead>
+                                <tr class="table-light">
+                                   <th style="width: 5%;" class="text-center">STT</th>
+                                    <th>Tên bài ôn tập</th>
+                                    <th>Học sinh</th>
+                                    <th>Lớp</th>
+                                    <th>Trạng thái</th>
+                                    <th class="text-center">Điểm</th>
+                                    <th class="text-center">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="review-tests-graded-tbody">
+                                </tbody>
+                        </table>
+                    </div> <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
+                      <div class="muted-small me-auto" id="reviewGraded-info">Hiển thị 0 - 0 trên 0</div>
+                      <button id="reviewGraded-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('reviewGraded', -1)">Trang trước</button>
+                      <button id="reviewGraded-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('reviewGraded', 1)">Trang sau</button>
+                    </div>
+                </div> </div> <hr class="my-4">
+
+
+            <h6 class="text-muted">Các bài ôn tập Chưa làm</h6>
+            <div class="card shadow-sm">
+                <div class="card-body p-3">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover table-bordered">
+                            <thead>
+                                <tr class="table-light">
+                                   <th style="width: 5%;" class="text-center">STT</th>
+                                    <th>Tên bài ôn tập</th>
+                                    <th>Học sinh</th>
+                                    <th>Lớp</th>
+                                    <th>Trạng thái</th>
+                                    <th class="text-center">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="review-tests-pending-tbody">
+                                </tbody>
+                        </table>
+                    </div> <div class="pagination-controls d-flex justify-content-end align-items-center mt-2 gap-2">
+                      <div class="muted-small me-auto" id="reviewPending-info">Hiển thị 0 - 0 trên 0</div>
+                      <button id="reviewPending-prev" class="btn btn-sm btn-outline-secondary" onclick="changePage('reviewPending', -1)">Trang trước</button>
+                      <button id="reviewPending-next" class="btn btn-sm btn-outline-secondary" onclick="changePage('reviewPending', 1)">Trang sau</button>
+                    </div>
+                </div> </div> </div> </div>
  </div>
-  </div>
+  </div></div></div>
   
  <!-- STUDENT APP -->
  <div id="student-app">
@@ -2371,7 +2396,12 @@
     <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#stu-assigned">Đề được giao</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#stu-review">🚀 Ôn tập cá nhân</button></li>
     <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#stu-done">Bài đã làm</button></li>
-  </ul>
+  <li class="nav-item">
+            <button class="nav-link" id="stu-analytics-tab" data-bs-toggle="tab" data-bs-target="#stu-analytics">
+                📈 Thống kê
+            </button>
+        </li>
+        </ul>
 
   <div class="tab-content mt-3">
     
@@ -2558,7 +2588,7 @@
                     </table>
                 </div>
             </div> </div>
-			<div class="card p-3 mb-3 bg-light">
+			<div class="card p-3 mb-3 bg-light mt-4">
             <div class="row g-2">
                 <div class="col-md-5">
                     <label class="form-label small fw-bold">Lọc kết quả ôn tập</label>
@@ -2614,7 +2644,89 @@
                 </div>
             </div>
         </div>
+        </div> 
+		
+		<div class="tab-pane fade" id="stu-analytics">
+            <div class="card p-3 mb-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label for="stu-analytics-subject" class="form-label small">Lọc theo Môn</label>
+                        <select id="stu-analytics-subject" class="form-select form-select-sm" onchange="loadStudentAnalyticsTab(false)">
+                            <option value="">-- Tất cả Môn học --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="stu-analytics-chart-type" class="form-label small">Xem biểu đồ</label>
+                        <select id="stu-analytics-chart-type" class="form-select form-select-sm" onchange="loadStudentAnalyticsTab(false)">
+                            <option value="time">Tiến độ (Theo Thời gian)</option>
+                            <option value="subject">Điểm TB (Theo Môn)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        </div>
+                    <div class="col-md-2 text-end">
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadStudentAnalyticsTab(true)">Tải lại</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="stu-analytics-loading" class="text-center p-5" style="display: none;">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2">Đang tải và phân tích dữ liệu...</p>
+            </div>
+
+            <div id="stu-analytics-content" style="display: none;">
+                <div class="row g-3">
+                    
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header" id="stu-analytics-chart-title-official">
+                                Biểu đồ Bài thi Chính thức
+                            </div>
+                            <div class="card-body" style="min-height: 300px;">
+                                <canvas id="stu-analytics-chart-official"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header" id="stu-analytics-chart-title-review">
+                                Biểu đồ Bài Ôn tập
+                            </div>
+                            <div class="card-body" style="min-height: 300px;">
+                                <canvas id="stu-analytics-chart-review"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                <div class="row g-3 mt-3">
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-warning">Các khái niệm (Tag) bạn cần ôn tập nhất (Từ bài chính thức)</div>
+                            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                                <table class="table table-sm table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Khái niệm (Tag)</th>
+                                            <th class="text-center">Hiệu suất (TB)</th>
+                                            <th class="text-center">Số câu</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="stu-analytics-tags-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="stu-analytics-error" class="alert alert-warning" style="display: none;"></div>
+            
         </div>
+        
 	
 	</div> </div> 
 	
@@ -2750,6 +2862,49 @@
         </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Đã hiểu</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  <!--Modal chấm theo câu -->
+<div class="modal fade" id="modalGradeByQuestion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-fullscreen-lg-down modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-dark">
+        <h5 class="modal-title" id="gbq-modal-title">Chấm bài theo câu</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-0" style="background-color: #f8f9fa;">
+        <div class="container-fluid h-100">
+            <div class="row h-100">
+                <div class="col-lg-4 col-xl-3 border-end bg-white h-100 p-0" style="overflow-y: auto;">
+                    <div class="p-2 border-bottom">
+                        <strong id="gbq-test-name">Đang tải tên bài thi...</strong>
+                    </div>
+                    <div id="gbq-sidebar" class="list-group list-group-flush">
+                        <div class="p-3 text-center spinner-row">
+                            <div class="spinner-border spinner-border-sm"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-8 col-xl-9 h-100 p-3" style="overflow-y: auto;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 id="gbq-question-text" class="text-primary">Vui lòng chọn một câu hỏi...</h5>
+                        <button id="gbq-save-btn" class="btn btn-success" onclick="saveGradesForCurrentQuestion()" disabled>
+                            💾 Lưu điểm cho câu này
+                        </button>
+                    </div>
+                    
+                    <div id="gbq-content">
+                        <div class="alert alert-info">Chọn một câu hỏi từ danh sách bên trái để bắt đầu chấm.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3161,9 +3316,16 @@ const state = {
     classes: { list: [], allList: [] }, 
     stuPending: { list: [], page: 1, total: 0 },
     stuDone: { list: [], page: 1, total: 0 },
+	
+	// ===== DÁN DÒNG NÀY VÀO =====
+    classMgmtStudents: { list: [], page: 1, total: 0 },
+
+    // === DỮ LIỆU MỚI CHO TAB ÔN TẬP ===
+    reviewGrading: { list: [], page: 1, total: 0 },
+    reviewGraded: { list: [], page: 1, total: 0 },
+    reviewPending: { list: [], page: 1, total: 0 }
     
-    // ===== DÁN DÒNG NÀY VÀO =====
-    classMgmtStudents: { list: [], page: 1, total: 0 }
+ 
 };
     
 	//const qs = id => document.getElementById(id);
@@ -3348,6 +3510,8 @@ function formatSubmittedAt(ts) {
 }
 
 
+
+
     // ---------- Resource loading for teacher (kept similar to original) ----------
         function setTableLoading(tbodyId, message='Đang tải...'){
       const tbody = qs(tbodyId);
@@ -3527,16 +3691,21 @@ function updateQuestionLevelFilter(questions) {
     }
 }
 		
- // Thay thế hàm (khoảng dòng 2911)
+ // (Gốc: khoảng dòng 3514)
 function renderPaged(resource){
     const s = state[resource];
     if (!s) {
         console.error(`Lỗi: Không tìm thấy state cho resource '${resource}'`);
         return;
     }
+
+    // === SỬA LỖI: ĐẶT PAGE_SIZE THEO YÊU CẦU CỦA BẠN ===
+    // Các tab "Ôn tập" (review) sẽ có 10 dòng/trang, các tab khác giữ nguyên 15.
+    const pageSize = (resource.startsWith('review')) ? 10 : 15;
+    
     const listToPage = s.list || []; 
-    const start = (s.page - 1) * PAGE_SIZE; 
-    const pageItems = listToPage.slice(start, start + PAGE_SIZE);
+    const start = (s.page - 1) * pageSize; // Dùng pageSize đã tính
+    const pageItems = listToPage.slice(start, start + pageSize);
 
     // Render nội dung bảng tương ứng
     if (resource === 'questions') renderQuestions(pageItems);
@@ -3547,7 +3716,6 @@ function renderPaged(resource){
         }
     }
     
-    // ===== PHẦN QUAN TRỌNG NHẤT (SỬA LỖI BẢNG TRỐNG) =====
     if (resource === 'classMgmtStudents') drawClassMgmtTable(pageItems);
     
     if (resource === 'results') {
@@ -3558,10 +3726,33 @@ function renderPaged(resource){
     if (resource === 'stuPending') renderPendingTable(pageItems);
     if (resource === 'stuDone') renderDoneTable(pageItems);
 
-    updatePaginationUI(resource);
+    // === DỮ LIỆU MỚI CHO TAB ÔN TẬP ===
+    if (resource === 'reviewGrading') renderReviewResultsGradingTable(pageItems);
+    if (resource === 'reviewGraded') renderReviewTestsGradedTable(pageItems);
+    if (resource === 'reviewPending') renderReviewTestsPendingTable(pageItems);
+    
+    // === SỬA LỖI: CẬP NHẬT UI PHÂN TRANG (TRUYỀN pageSize) ===
+    updatePaginationUI(resource, pageSize);
 }
 	
-    function updatePaginationUI(resource){ const s = state[resource]; const totalPages = Math.max(1, Math.ceil(s.total / PAGE_SIZE)); const infoId = resource+'-info'; const prevId = resource.charAt(0)+'-prev'; const nextId = resource.charAt(0)+'-next'; if(qs(infoId)) qs(infoId).textContent = `Trang ${s.page} / ${totalPages} — Tổng: ${s.total}`; if(qs(prevId)) qs(prevId).disabled = s.page <= 1; if(qs(nextId)) qs(nextId).disabled = s.page >= totalPages; }
+    // (Gốc: khoảng dòng 3535)
+function updatePaginationUI(resource, customPageSize = PAGE_SIZE){ 
+    const s = state[resource]; 
+    const totalPages = Math.max(1, Math.ceil(s.total / customPageSize)); // <-- SỬ DỤNG customPageSize
+    
+    // === SỬA LỖI: TÌM ID NÚT BẤM CHÍNH XÁC ===
+    const infoId = resource + '-info';          // e.g., 'reviewGrading-info'
+    const prevId = resource + '-prev';        // e.g., 'reviewGrading-prev'
+    const nextId = resource + '-next';        // e.g., 'reviewGrading-next'
+
+    const infoEl = qs(infoId);
+    const prevEl = qs(prevId); 
+    const nextEl = qs(nextId); 
+
+    if(infoEl) infoEl.textContent = `Trang ${s.page} / ${totalPages} — Tổng: ${s.total}`; 
+    if(prevEl) prevEl.disabled = s.page <= 1; 
+    if(nextEl) nextEl.disabled = s.page >= totalPages; 
+}
     function changePage(resource, delta){ const s = state[resource]; const totalPages = Math.max(1, Math.ceil(s.total / PAGE_SIZE)); s.page = Math.min(totalPages, Math.max(1, s.page + delta)); renderPaged(resource); }
 
 function renderTestStats(allTests) {
@@ -5147,6 +5338,21 @@ document.addEventListener('DOMContentLoaded', () => {
         try { window.modalLoadTemplateInstance = new bootstrap.Modal(modalLoadTemplateEl); } catch(e) {}
     }
     // ==================================================================
+	
+	
+	// ==========================================================
+    // === 🔥 DÁN KHỐI NÀY VÀO (SỬA LỖI TỰ ĐỘNG TẢI) ===
+    // ==========================================================
+    const studentAnalyticsTab = qs('#stu-analytics-tab'); // ID của nút tab mới
+    if (studentAnalyticsTab) {
+        studentAnalyticsTab.addEventListener('shown.bs.tab', (event) => {
+            // Gọi hàm tải thống kê (false = dùng cache nếu có)
+            loadStudentAnalyticsTab(false); 
+        });
+    }
+    // ==========================================================
+	
+	
 
     // C. (MỚI) Gắn listener dọn dẹp cho Modal Chấm bài (Giáo viên)
     const modalGradingEl = document.getElementById('modalGrading');
@@ -5159,6 +5365,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+// ==========================================================
+        // === 🔥 DÁN KHỐI NÀY VÀO (SỬA LỖI CANVAS TRẮNG XÓA) ===
+        // ==========================================================
+        // D. Gắn listener dọn dẹp cho Modal "Chấm theo câu"
+        const modalGradeByQuestionEl = document.getElementById('modalGradeByQuestion');
+        if (modalGradeByQuestionEl) {
+            modalGradeByQuestionEl.addEventListener('hide.bs.modal', function () {
+                console.log("GradeByQuestion modal (Teacher) is closing, destroying canvases...");
+                if (typeof destroyAllQuizCanvases === 'function') {
+                    // Gọi CÙNG MỘT HÀM dọn dẹp chung
+                    destroyAllQuizCanvases();
+                }
+            });
+        }
+        // ==========================================================
 
 
 // =============================================
@@ -5390,9 +5612,9 @@ function confirmExitQuiz() {
 }
 
 // =============================================
-// ===== HÀM TẠO ÔN TẬP (ĐÃ SỬA THÔNG BÁO LỖI) =====
+// ===== HÀM TẠO ÔN TẬP (ĐÃ THÊM BƯỚC XÁC NHẬN) =====
 // =============================================
-async function generatePersonalizedReview() {
+async function generatePersonalizedReview(forceCreate = false) {
     const btn = qs('#btn-generate-review');
     if (!btn) return;
 
@@ -5407,40 +5629,54 @@ async function generatePersonalizedReview() {
     
     try {
         const payload = {
-            studentId: currentUser.id
+            studentId: currentUser.id,
+            forceCreate: forceCreate // Gửi cờ "ép buộc"
         };
 
         const result = await fetchJson(`${serverUrl}/api/student/request-review-test`, {
             method: 'POST',
-            body: payload // fetchJson sẽ tự stringify
+            body: payload
         });
 
         // Xử lý LỖI API (ví dụ: 500)
         if (!result.success) {
-            // Đây là thông báo lỗi mà bạn gợi ý (nếu BE không tìm thấy câu hỏi)
-            // Ví dụ: "Không tìm thấy câu hỏi ôn tập phù hợp."
-            showToast(result.message, "danger"); // Hiển thị lỗi này
-            
+            throw new Error(result.message);
+        
         // Xử lý THÀNH CÔNG (API trả về 200)
         } else {
-            // Xử lý các loại thông báo thành công
-            if (result.messageType === 'already_exists') {
-                // Ví dụ: "Bạn đã có bài ôn tập đang chờ..."
-                showToast(result.message, "warning"); // Dùng màu Vàng
-            } 
-            else if (result.messageType === 'all_good') {
-                // Ví dụ: "Tuyệt vời! Bạn không có câu hỏi nào sai..."
+            
+            // ===== LOGIC MỚI: Xử lý Xác nhận =====
+            if (result.messageType === 'confirm_continue') {
+                const confirmed = await confirmBoxAsync(
+                    "Xác nhận Ôn tập",
+                    result.message, // "Kết quả ôn tập của bạn đã rất tốt..."
+                    "Vẫn tạo", // Nút OK
+                    "btn-primary" // Màu nút OK
+                );
+                
+                if (confirmed) {
+                    // Nếu học sinh nhấn "Vẫn tạo",
+                    // gọi lại chính hàm này với cờ forceCreate = true
+                    await generatePersonalizedReview(true);
+                }
+                // Nếu nhấn "Hủy", không làm gì cả (finally sẽ bật lại nút)
+
+            // ===== LOGIC CŨ (Hiển thị Toast) =====
+            } else if (result.messageType === 'already_exists') {
+                showToast(result.message, "warning"); 
+            } else if (result.messageType === 'all_good') {
                 showToast(result.message, "success");
             } else if (result.messageType === 'no_data') {
-                // Ví dụ: "Bạn chưa làm bài nào..."
                 showToast(result.message, "info");
             } else if (result.messageType === 'created') {
-                // Ví dụ: "Đã tạo bài ôn tập..."
-                showToast(result.message + " Vui lòng kiểm tra tab 'Đề được giao'.", "success");
+                showToast(result.message + " Vui lòng kiểm tra tab 'Ôn tập cá nhân'.", "success");
+                
                 await loadAssignments(true); 
-                const pendingTab = qs('button[data-bs-target="#stu-assigned"]');
-                if (pendingTab) {
-                    new bootstrap.Tab(pendingTab).show();
+                
+                // Tự động chuyển tab
+                const reviewTab = qs('button[data-bs-target="#stu-review"]');
+                if (reviewTab) {
+                    new bootstrap.Tab(reviewTab).show();
                 }
             } else {
                 showToast(result.message, "info");
@@ -5449,14 +5685,13 @@ async function generatePersonalizedReview() {
 
     } catch (e) {
         console.error("Lỗi tạo bài ôn tập:", e);
-        // Đây là lỗi mạng hoặc lỗi .json()
         showToast(`Lỗi: ${e.message}`, "danger");
     } finally {
         // Kích hoạt lại nút
         btn.disabled = false;
         btn.textContent = '🚀 Tạo bài ôn tập';
     }
-} // <--- HÃY ĐẢM BẢO DẤU } NÀY TỒN TẠI
+}
 
 
 // =================================================================
@@ -6069,39 +6304,41 @@ function updateStudentSubjectFilter(data) {
     });
 }
 
-// Thêm hàm này
-function updateResultStatusFilter(results) {
+/**
+ * Điền dữ liệu vào dropdown lọc theo Trạng thái
+ * (ĐÃ NÂNG CẤP: Chấp nhận `results` và `currentStatusValue`)
+ */
+function updateResultStatusFilter(results, currentStatusValue) {
     const statusSelect = qs('#filter-result-status');
     if (!statusSelect) return;
 
-    const currentStatusValue = statusSelect.value;
     statusSelect.innerHTML = '<option value="">-- Tất cả Trạng thái --</option>'; // Reset
 
-    // Lấy trạng thái duy nhất từ kết quả (mặc định là 'Đang Chấm')
     const uniqueStatuses = [...new Set(results.map(r => r.gradingStatus || 'Đang Chấm'))].sort();
 
     uniqueStatuses.forEach(status => {
         const option = document.createElement('option');
-        option.value = status; // Value là chính trạng thái đó
-        option.textContent = status; // Text cũng vậy
+        option.value = status;
+        option.textContent = status;
         statusSelect.appendChild(option);
     });
 
-    // Khôi phục
-    if (statusSelect.querySelector(`option[value="${currentStatusValue}"]`)) {
+    // Khôi phục giá trị đang được chọn
+    if (currentStatusValue && statusSelect.querySelector(`option[value="${currentStatusValue}"]`)) {
         statusSelect.value = currentStatusValue;
     }
 }
 
-// Thêm hàm này
-function updateResultClassFilter(results) {
+/**
+ * Điền dữ liệu vào dropdown lọc theo Lớp
+ * (ĐÃ NÂNG CẤP: Chấp nhận `results` và `currentClassValue`)
+ */
+function updateResultClassFilter(results, currentClassValue) {
     const classSelect = qs('#filter-result-class');
     if (!classSelect) return;
 
-    const currentClassValue = classSelect.value;
     classSelect.innerHTML = '<option value="">-- Tất cả Lớp --</option>'; // Reset
 
-    // Lấy lớp duy nhất, lọc bỏ rỗng/null, sắp xếp
     const uniqueClasses = [...new Set(results.map(r => r.className).filter(c => c && c !== 'N/A'))].sort();
 
     uniqueClasses.forEach(className => {
@@ -6111,8 +6348,8 @@ function updateResultClassFilter(results) {
         classSelect.appendChild(option);
     });
 
-    // Khôi phục
-    if (classSelect.querySelector(`option[value="${currentClassValue}"]`)) {
+    // Khôi phục giá trị đang được chọn
+    if (currentClassValue && classSelect.querySelector(`option[value="${currentClassValue}"]`)) {
         classSelect.value = currentClassValue;
     }
 }
@@ -6930,6 +7167,12 @@ async function saveGrading() {
         if (typeof loadResults === "function") {
             await loadResults(true); // force reload
         }
+		
+		// ===== DÁN KHỐI NÀY VÀO =====
+		if (typeof loadReviewTab === "function") {
+		await loadReviewTab(true); // Tải lại tab Ôn tập
+		}
+		// ===== KẾT THÚC =====
 
         // ==== 6️⃣ BỎ BLOCK FETCH LẠI ====
         // const refreshedRes = await fetch... // <-- XÓA
@@ -7012,6 +7255,7 @@ function updateResultButtonStatus(resultId, status) {
 
 // Xóa lọc
 function clearResultFilters() {
+	qs('#filter-result-test').value = ''; // <-- THÊM DÒNG NÀY
     qs('#filter-result-test').value = ''; // ✅ MỚI: Reset bộ lọc bài thi
     qs('#filter-result-status').value = '';
     qs('#filter-result-class').value = '';
@@ -7394,6 +7638,7 @@ let toastModalInstance = null;
 
 /**
  * Hiển thị thông báo (toast) tùy chỉnh bằng Bootstrap Modal.
+ * (ĐÃ SỬA LỖI: Luôn tạo instance mới để fix z-index stacking)
  * @param {string} message - Nội dung thông báo.
  * @param {string} type - Loại thông báo ('success', 'danger', 'warning', 'info').
  */
@@ -7401,7 +7646,6 @@ function showToast(message, type = 'success') {
     try {
         const modalEl = qs('#modalToast');
         if (!modalEl) {
-            // Fallback nếu HTML ở Bước 1 chưa được thêm
             console.error("Lỗi: Không tìm thấy #modalToast. Quay về alert().");
             alert(message);
             return;
@@ -7413,12 +7657,11 @@ function showToast(message, type = 'success') {
         const body = qs('#toast-modal-body');
         const closeButton = header.querySelector('.btn-close');
 
-        // 2. Cập nhật nội dung
-        if (body) body.innerHTML = message; // Dùng innerHTML để cho phép <br>
+        // 2. Cập nhật nội dung (Giữ nguyên)
+        if (body) body.innerHTML = message; 
 
-        // 3. Cập nhật màu sắc và tiêu đề
+        // 3. Cập nhật màu sắc (Giữ nguyên)
         if (header && label) {
-            // Xóa các lớp màu cũ
             header.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-primary');
             closeButton.classList.remove('btn-close-white', 'text-dark');
             
@@ -7432,7 +7675,7 @@ function showToast(message, type = 'success') {
                 closeButton.classList.add('btn-close-white');
             } else if (type === 'warning') {
                 label.textContent = '⚠️ Cảnh báo';
-                header.classList.add('bg-warning', 'text-dark'); // Màu vàng cần text-dark
+                header.classList.add('bg-warning', 'text-dark'); 
                 closeButton.classList.add('text-dark');
             } else { // info
                 label.textContent = 'ℹ️ Thông báo';
@@ -7441,22 +7684,29 @@ function showToast(message, type = 'success') {
             }
         }
 
-        // 4. Lấy/Tạo instance và Hiển thị
-        // Khởi tạo instance 1 lần duy nhất
-        if (!toastModalInstance) {
-            toastModalInstance = new bootstrap.Modal(modalEl);
-        }
+        // 4. === SỬA LỖI Z-INDEX ===
+        // Luôn tạo một instance MỚI và tự hủy sau khi đóng
         
-        // Hiển thị modal
-        toastModalInstance.show();
+        const currentToastInstance = new bootstrap.Modal(modalEl);
+        
+        // Gắn listener để TỰ HỦY (destroy) sau khi ẩn
+        // 'hidden.bs.modal' là sự kiện sau khi modal đã đóng hoàn toàn
+        modalEl.addEventListener('hidden.bs.modal', (event) => {
+            // Đảm bảo chúng ta không Hủy một modal khác nếu có lỗi
+            if (event.target === modalEl) {
+                 currentToastInstance.dispose(); // Hủy instance
+            }
+        }, { once: true }); // Chỉ chạy 1 lần cho instance này
+
+        // Hiển thị
+        currentToastInstance.show();
+        // === KẾT THÚC SỬA LỖI Z-INDEX ===
 
     } catch (e) {
-        // Fallback cuối cùng nếu có lỗi JS
         console.error("Lỗi khi hiển thị toast modal:", e);
         alert(message);
     }
     
-    // Vẫn giữ log console
     console.log(`[Toast ${type.toUpperCase()}]: ${message}`);
 }
 	
@@ -10830,7 +11080,7 @@ function populateReviewStudentFilter(selectedClass) {
 /**
  * HÀM MỚI: (Hàm Render chính) Đọc bộ lọc và vẽ lại 3 bảng + thống kê
  */
-function renderReviewTabContent() {
+function renderReviewTabContent(resetPage = false) {
     let filteredData = reviewTabState.allData;
 
     // 1. Đọc giá trị bộ lọc
@@ -10856,6 +11106,7 @@ function renderReviewTabContent() {
         } else if (status === 'Đã Chấm' || status === 'Hoàn tất') {
             graded.push(t);
         } else {
+            // Bao gồm 'pending' (chưa làm) và các trạng thái null/undefined
             pending.push(t);
         }
     });
@@ -10865,10 +11116,29 @@ function renderReviewTabContent() {
     qs('#review-stat-graded').textContent = graded.length;
     qs('#review-stat-waiting').textContent = pending.length;
 
-    // 4. Render 3 bảng
-    renderReviewResultsGradingTable(needsGrading);
-    renderReviewTestsGradedTable(graded);
-    renderReviewTestsPendingTable(pending);
+    // 4. === THAY ĐỔI LOGIC: LƯU VÀO STATE, GỌI renderPaged ===
+
+    // Nếu người dùng vừa lọc (thay đổi Lớp/HS), reset tất cả về trang 1
+    if (resetPage) {
+        state.reviewGrading.page = 1;
+        state.reviewGraded.page = 1;
+        state.reviewPending.page = 1;
+    }
+
+    // Cập nhật danh sách đầy đủ và tổng số vào state
+    state.reviewGrading.list = needsGrading;
+    state.reviewGrading.total = needsGrading.length;
+    
+    state.reviewGraded.list = graded;
+    state.reviewGraded.total = graded.length;
+    
+    state.reviewPending.list = pending;
+    state.reviewPending.total = pending.length;
+
+    // 5. Gọi renderPaged cho từng bảng
+    renderPaged('reviewGrading');
+    renderPaged('reviewGraded');
+    renderPaged('reviewPending');
 }
 
 /**
@@ -10895,9 +11165,15 @@ function renderReviewResultsGradingTable(items) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không có bài ôn tập nào cần chấm.</td></tr>';
         return;
     }
+
+    // === TÍNH TOÁN STT DỰA TRÊN TRANG ===
+    const currentPage = state.reviewGrading.page || 1;
+    const pageSize = 10; // Đã thống nhất 10 dòng/trang
+    const startStt = (currentPage - 1) * pageSize + 1;
     
-    tbody.innerHTML = items.map(t => `
+    tbody.innerHTML = items.map((t, index) => `
         <tr>
+            <td class="text-center">${startStt + index}</td> 
             <td>${escapeHtml(t.name)}</td>
             <td>${escapeHtml(t.studentName)}</td>
             <td>${escapeHtml(t.className)}</td>
@@ -10916,21 +11192,24 @@ function renderReviewResultsGradingTable(items) {
  * (Đã đổi tên từ renderReviewTestsAllTable)
  */
 function renderReviewTestsGradedTable(items) {
-    const tbody = qs('#review-tests-graded-tbody'); // <-- SỬA ID Ở ĐÂY
+    const tbody = qs('#review-tests-graded-tbody');
     tbody.innerHTML = '';
     if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Không có bài ôn tập nào đã hoàn thành.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Không có bài ôn tập nào đã hoàn thành.</td></tr>';
         return;
     }
+
+    // === TÍNH TOÁN STT DỰA TRÊN TRANG ===
+    const currentPage = state.reviewGraded.page || 1;
+    const pageSize = 10;
+    const startStt = (currentPage - 1) * pageSize + 1;
     
-    tbody.innerHTML = items.map(t => {
+    tbody.innerHTML = items.map((t, index) => {
         let statusHtml = '';
         let scoreHtml = '—';
         let actionButton = '';
 
-        // Logic của hàm này đã đúng cho "Đã Chấm"
         if (t.gradingStatus === 'Đang Chấm') {
-             // (Trường hợp này không nên xảy ra, nhưng để dự phòng)
             statusHtml = '<span class="badge bg-warning text-dark">Đang Chấm</span>';
             actionButton = `<button class="btn btn-sm btn-warning" onclick="openResultDetail('${t.resultId}')">Chấm</button>`;
         } else if (t.gradingStatus === 'Đã Chấm' || t.gradingStatus === 'Hoàn tất') {
@@ -10950,6 +11229,7 @@ function renderReviewTestsGradedTable(items) {
 
         return `
             <tr>
+                <td class="text-center">${startStt + index}</td> 
                 <td>${escapeHtml(t.name)}</td>
                 <td>${escapeHtml(t.studentName)}</td>
                 <td>${escapeHtml(t.className)}</td>
@@ -10968,14 +11248,18 @@ function renderReviewTestsPendingTable(items) {
     const tbody = qs('#review-tests-pending-tbody');
     tbody.innerHTML = '';
     if (items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Không có bài ôn tập nào đang chờ học sinh làm.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Không có bài ôn tập nào đang chờ học sinh làm.</td></tr>';
         return;
     }
+
+    // === TÍNH TOÁN STT DỰA TRÊN TRANG ===
+    const currentPage = state.reviewPending.page || 1;
+    const pageSize = 10;
+    const startStt = (currentPage - 1) * pageSize + 1;
     
-    tbody.innerHTML = items.map(t => {
+    tbody.innerHTML = items.map((t, index) => {
         const statusHtml = '<span class="badge bg-light text-dark border">Chưa làm</span>';
         
-        // Nút hành động chỉ có "Xóa"
         const actionButton = `
             <button class="btn btn-sm btn-outline-danger ms-1" 
                     onclick="openConfirmDeleteModal('${t.id}', 'bài ôn tập ${escapeHtml(t.name)}', performDeleteTest)">
@@ -10985,6 +11269,7 @@ function renderReviewTestsPendingTable(items) {
 
         return `
             <tr>
+                <td class="text-center">${startStt + index}</td> 
                 <td>${escapeHtml(t.name)}</td>
                 <td>${escapeHtml(t.studentName)}</td>
                 <td>${escapeHtml(t.className)}</td>
@@ -12338,12 +12623,12 @@ function renderAnalysisTable_FILL(container, stats) {
 
 /**
  * Điền dữ liệu vào dropdown lọc theo Bài thi (ở tab Kết quả)
+ * (ĐÃ NÂNG CẤP: Chấp nhận `results` và `currentTestValue`)
  */
-function updateResultTestFilter(results) {
+function updateResultTestFilter(results, currentTestValue) {
     const testSelect = qs('#filter-result-test');
     if (!testSelect) return;
 
-    const currentTestValue = testSelect.value;
     testSelect.innerHTML = '<option value="">-- Tất cả Bài thi --</option>'; // Reset
 
     // Tạo một Map để lấy tên bài thi duy nhất (testId -> testName)
@@ -12354,7 +12639,6 @@ function updateResultTestFilter(results) {
         }
     });
 
-    // Chuyển Map thành mảng và sắp xếp theo tên
     const sortedTests = [...uniqueTests.entries()].sort((a, b) => a[1].localeCompare(b[1]));
 
     sortedTests.forEach(([testId, testName]) => {
@@ -12364,15 +12648,15 @@ function updateResultTestFilter(results) {
         testSelect.appendChild(option);
     });
 
-    // Khôi phục
-    if (testSelect.querySelector(`option[value="${currentTestValue}"]`)) {
+    // Khôi phục giá trị đang được chọn
+    if (currentTestValue && testSelect.querySelector(`option[value="${currentTestValue}"]`)) {
         testSelect.value = currentTestValue;
     }
 }
 
 
 // ==================================================
-// === TOÀN BỘ HÀM loadResults (ĐÃ CẬP NHẬT) ===
+// === TOÀN BỘ HÀM loadResults (ĐÃ SỬA LỖI: HIỂN THỊ LẠI NÚT CHẤM THEO CÂU) ===
 // ==================================================
 async function loadResults(isReload = false, resetPage = true) {
     const tbody = qs('#results-tbody');
@@ -12383,11 +12667,10 @@ async function loadResults(isReload = false, resetPage = true) {
     
     let statsApiData = null; 
 
-    // --- TẢI DỮ LIỆU GỐC VÀ STATS ---
+    // --- 1. TẢI DỮ LIỆU GỐC (Chỉ tải 1 lần hoặc khi 'isReload') ---
     if (isReload || allResultsData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="14" class="text-center spinner-row"><div class="spinner-border spinner-border-sm"></div> Đang tải kết quả...</td></tr>';
         try {
-            // Gọi song song API kết quả và API stats
             const [data, stats] = await Promise.all([
                 fetchJson(`${serverUrl}/api/results_summary`),
                 fetchJson(`${serverUrl}/api/assignment_stats`) 
@@ -12396,47 +12679,83 @@ async function loadResults(isReload = false, resetPage = true) {
             statsApiData = stats; 
             allResultsData = Array.isArray(data) ? data : [];
 
-            // Cập nhật các bộ lọc động
-            if (typeof updateResultStatusFilter === 'function') {
-                updateResultStatusFilter(allResultsData);
-            }
-            if (typeof updateResultClassFilter === 'function') {
-                updateResultClassFilter(allResultsData);
-            }
-            if (typeof updateResultTestFilter === 'function') {
-                updateResultTestFilter(allResultsData);
-            }
-
         } catch(e) {
              tbody.innerHTML = '<tr><td colspan="14" class="text-danger text-center">Lỗi tải dữ liệu kết quả.</td></tr>';
              console.error("Lỗi tải kết quả:", e);
              allResultsData = []; 
-             if (typeof updateResultStatusFilter === 'function') updateResultStatusFilter([]);
-             if (typeof updateResultClassFilter === 'function') updateResultClassFilter([]);
-             if (typeof updateResultTestFilter === 'function') updateResultTestFilter([]);
+             if (typeof updateResultStatusFilter === 'function') updateResultStatusFilter([], '');
+             if (typeof updateResultClassFilter === 'function') updateResultClassFilter([], '');
+             if (typeof updateResultTestFilter === 'function') updateResultTestFilter([], '');
              if (typeof renderResultsStats === 'function') renderResultsStats({}, []);
              return; 
         }
     } else {
-        // Lấy stats từ cache nếu không reload
         statsApiData = window.lastResultsStatsApiData || {};
     }
     window.lastResultsStatsApiData = statsApiData;
     // --- KẾT THÚC TẢI GỐC ---
 
 
-    // --- LỌC VÀ SẮP XẾP ---
-    let filteredResults = allResultsData; 
+    // ========================================================
+    // === BẮT ĐẦU LOGIC CASCADING FILTER (LỌC PHỤ THUỘC) ===
+    // ========================================================
 
-    // Lấy giá trị các bộ lọc
+    // 1. Lấy giá trị HIỆN TẠI của tất cả bộ lọc
     const testFilter = qs('#filter-result-test')?.value || '';
     const statusFilter = qs('#filter-result-status')?.value || '';
     const classFilter = qs('#filter-result-class')?.value || ''; 
     const studentSearch = qs('#search-result-student')?.value.toLowerCase().trim() || '';
-    // Lấy giá trị từ checkbox "Ẩn kết quả ôn tập"
-    //const hideReviews = qs('#filter-hide-reviews-results').checked;
+    const sortValue = qs('#sort-result-time')?.value || 'submittedAt_desc';
 
-    // Áp dụng bộ lọc
+    // 2. Lọc dữ liệu GỐC (allResultsData) bằng BỘ LỌC TÊN (nếu có)
+    let baseData = allResultsData;
+    if (studentSearch) {
+        baseData = baseData.filter(r => (r.studentName || '').toLowerCase().includes(studentSearch));
+    }
+    
+    // Luôn lọc bỏ bài ôn tập (Bộ lọc kép chúng ta đã làm)
+    baseData = baseData.filter(r => 
+        r.isPersonalizedReview !== true &&
+        !(r.testName && r.testName.toLowerCase().startsWith('[ôn tập'))
+    );
+
+    // 3. Tạo các danh sách con để điền vào dropdown
+    // Dữ liệu cho dropdown "Bài thi" = lọc theo Status VÀ Class (từ baseData)
+    const dataForTestDropdown = baseData.filter(r => 
+        (classFilter ? (r.className || '') === classFilter : true) &&
+        (statusFilter ? (r.gradingStatus || 'Đang Chấm') === statusFilter : true)
+    );
+    // Dữ liệu cho dropdown "Trạng thái" = lọc theo Test VÀ Class (từ baseData)
+    const dataForStatusDropdown = baseData.filter(r =>
+        (classFilter ? (r.className || '') === classFilter : true) &&
+        (testFilter ? r.testId === testFilter : true)
+    );
+    // Dữ liệu cho dropdown "Lớp" = lọc theo Test VÀ Status (từ baseData)
+    const dataForClassDropdown = baseData.filter(r =>
+        (statusFilter ? (r.gradingStatus || 'Đang Chấm') === statusFilter : true) &&
+        (testFilter ? r.testId === testFilter : true)
+    );
+
+    // 4. GỌI CÁC HÀM UPDATE FILTER (Truyền danh sách con và giá trị đang chọn)
+    if (typeof updateResultTestFilter === 'function') {
+        updateResultTestFilter(dataForTestDropdown, testFilter);
+    }
+    if (typeof updateResultStatusFilter === 'function') {
+        updateResultStatusFilter(dataForStatusDropdown, statusFilter);
+    }
+    if (typeof updateResultClassFilter === 'function') {
+        updateResultClassFilter(dataForClassDropdown, classFilter);
+    }
+    
+    // ========================================================
+    // === KẾT THÚC LOGIC CASCADING FILTER ===
+    // ========================================================
+    
+    
+    // --- LỌC VÀ SẮP XẾP (ĐỂ VẼ BẢNG) ---
+    // Bắt đầu lại từ `baseData` và áp dụng TẤT CẢ bộ lọc
+    let filteredResults = baseData; 
+    
     if (testFilter) {
         filteredResults = filteredResults.filter(r => r.testId === testFilter);
     }
@@ -12446,20 +12765,8 @@ async function loadResults(isReload = false, resetPage = true) {
     if (classFilter) {
         filteredResults = filteredResults.filter(r => (r.className || '') === classFilter);
     }
-    if (studentSearch) {
-        filteredResults = filteredResults.filter(r => (r.studentName || '').toLowerCase().includes(studentSearch));
-    }
-    
-    // 🔥 LOGIC LỌC KẾT QUẢ ÔN TẬP MỚI
-    //if (hideReviews) {
-        // Lọc dựa trên tên bài thi (vì 'results' không có cờ 'isPersonalizedReview')
-        filteredResults = filteredResults.filter(r => 
-            !(r.testName && r.testName.startsWith('[Ôn tập]'))
-        );
-   // }
     
     // Áp dụng Sắp xếp
-    const sortValue = qs('#sort-result-time')?.value || 'submittedAt_desc';
     const sort = sortValue.split('_');
     const sortField = sort[0];
     const sortDirection = sort[1] === 'desc' ? -1 : 1;
@@ -12478,6 +12785,32 @@ async function loadResults(isReload = false, resetPage = true) {
         return 0;
     });
     // --- KẾT THÚC LỌC VÀ SẮP XẾP ---
+
+
+    // ========================================================
+    // === 🔥 KHỐI CODE BỊ MẤT ĐÃ ĐƯỢC THÊM LẠI VÀO ĐÂY ===
+    // ========================================================
+    const gradeByQBtn = qs('#grade-by-question-btn');
+    if (gradeByQBtn) {
+        if (testFilter && filteredResults.length > 0) {
+            // Chỉ hiển thị nút nếu có bài thi được lọc và có kết quả
+            gradeByQBtn.style.display = 'inline-block';
+            try {
+                // Lấy tên từ dropdown (đã được điền ở trên)
+                const testName = qs('#filter-result-test').options[qs('#filter-result-test').selectedIndex].text;
+                // Cập nhật tooltip (thuộc tính title)
+                gradeByQBtn.title = `Chấm theo câu cho bài thi: ${testName}`;
+            } catch (e) {
+                gradeByQBtn.title = 'Chấm theo câu cho bài thi đã chọn';
+            }
+            gradeByQBtn.dataset.testId = testFilter;
+        } else {
+            gradeByQBtn.style.display = 'none';
+        }
+    }
+    // ========================================================
+    // === KẾT THÚC KHỐI CODE BỊ MẤT ===
+    // ========================================================
 
 
     // --- GỌI RENDER STATS VỚI DỮ LIỆU ĐÃ LỌC ---
@@ -13081,6 +13414,8 @@ async function runFullPdfExport_Results() {
 
 // Biến lưu trữ instance của biểu đồ
 let analyticsScoreChartInstance = null;
+let analyticsScoreChartInstance_Student_Official = null;
+let analyticsScoreChartInstance_Student_Review = null;
 // Biến cache
 let analyticsResultsCache = []; 
 let analyticsStudentCache = []; 
@@ -13764,6 +14099,242 @@ function renderTagAnalysis(tagData) {
     tbody.innerHTML = html;
 }
 
+
+// =======================================================
+// === JAVASCRIPT CHO TAB THỐNG KÊ (HỌC SINH) MỚI ===
+// =======================================================
+
+// Biến cache
+let studentAnalyticsCache = null;
+
+/**
+ * (Hàm MỚI) - Hàm Master, tải dữ liệu cho tab Thống kê của HS
+ * (ĐÃ SỬA: Gọi API mới, xử lý 2 bộ dữ liệu)
+ */
+async function loadStudentAnalyticsTab(forceReload = false) {
+    const loadingEl = qs('#stu-analytics-loading');
+    const contentEl = qs('#stu-analytics-content');
+    const errorEl = qs('#stu-analytics-error');
+
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    errorEl.style.display = 'none';
+    
+    try {
+        if (!currentUser || !currentUser.id) {
+            throw new Error("Không thể xác định thông tin học sinh.");
+        }
+        
+        // 1. Lấy dữ liệu (API hoặc Cache)
+        if (forceReload || !studentAnalyticsCache) {
+            // === GỌI API MỚI ===
+            const url = `${serverUrl}/api/student/dashboard-analytics?studentId=${currentUser.id}`;
+            const response = await fetchJson(url);
+            if (!response.success) throw new Error(response.message);
+            
+            studentAnalyticsCache = response; // Lưu vào cache
+            
+            // Lần đầu tải, điền bộ lọc Môn học (dùng cả 2 bộ data)
+            const allData = (response.officialData.data || []).concat(response.reviewData || []);
+            populateStudentAnalyticsFilters(allData);
+        }
+
+        const data = studentAnalyticsCache;
+        const officialData = data.officialData;
+        const reviewData = data.reviewData || [];
+        
+        // 2. Áp dụng bộ lọc Môn (nếu có)
+        const subjectFilter = qs('#stu-analytics-subject').value;
+        let filteredOfficialData = officialData.data || [];
+        let filteredReviewData = reviewData;
+        let filteredTagAnalysis = officialData.tagAnalysis || [];
+
+        if (subjectFilter) {
+            filteredOfficialData = officialData.data.filter(r => r.subject === subjectFilter);
+            filteredReviewData = reviewData.filter(r => r.subject === subjectFilter);
+            
+            // Lọc tag (logic đơn giản)
+            filteredTagAnalysis = officialData.tagAnalysis.filter(t => t.tag.toLowerCase().includes(subjectFilter));
+        }
+
+        // 3. Render
+        const chartType = qs('#stu-analytics-chart-type').value;
+        renderStudentAnalyticsCharts_Dual(filteredOfficialData, filteredReviewData, chartType);
+        renderStudentTagAnalysis_Student(filteredTagAnalysis);
+
+        contentEl.style.display = 'block';
+        
+    } catch (e) {
+        console.error("Lỗi tải Thống kê HS:", e);
+        errorEl.textContent = `Lỗi: ${e.message}`;
+        errorEl.style.display = 'block';
+    } finally {
+        loadingEl.style.display = 'none';
+    }
+}
+
+/**
+ * (Hàm MỚI) - Điền bộ lọc Môn học cho tab Thống kê HS
+ */
+function populateStudentAnalyticsFilters(data) {
+    const subjectSelect = qs('#stu-analytics-subject');
+    if (!subjectSelect || subjectSelect.options.length > 1) return; // Chỉ chạy 1 lần
+
+    const uniqueSubjects = new Map();
+    data.forEach(r => {
+        if (r.subject) uniqueSubjects.set(r.subject, SUBJECT_NAMES[r.subject] || r.subject);
+    });
+
+    [...uniqueSubjects.entries()].sort((a, b) => a[1].localeCompare(b[1])).forEach(([code, name]) => {
+        subjectSelect.innerHTML += `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`;
+    });
+}
+
+/**
+ * (Hàm MỚI) - Vẽ 2 loại biểu đồ cho HS (Tách biệt)
+ */
+function renderStudentAnalyticsCharts_Dual(officialData, reviewData, chartType) {
+    const ctxOfficial = qs('#stu-analytics-chart-official').getContext('2d');
+    const ctxReview = qs('#stu-analytics-chart-review').getContext('2d');
+    
+    if (analyticsScoreChartInstance_Student_Official) {
+        analyticsScoreChartInstance_Student_Official.destroy();
+    }
+    if (analyticsScoreChartInstance_Student_Review) {
+        analyticsScoreChartInstance_Student_Review.destroy();
+    }
+    
+    const chartTitleEl_Official = qs('#stu-analytics-chart-title-official');
+    const chartTitleEl_Review = qs('#stu-analytics-chart-title-review');
+
+    if (chartType === 'time') {
+        // --- 1. BIỂU ĐỒ TIẾN ĐỘ (THEO THỜI GIAN) ---
+        chartTitleEl_Official.textContent = 'Tiến độ Bài thi Chính thức';
+        chartTitleEl_Review.textContent = 'Tiến độ Bài Ôn tập';
+        
+        // --- Chart 1 (Official) ---
+        const labels1 = officialData.map(d => d.submittedAt ? new Date(d.submittedAt).toLocaleDateString('vi-VN') : 'N/A');
+        const scores1 = officialData.map(d => d.totalScore);
+        analyticsScoreChartInstance_Student_Official = new Chart(ctxOfficial, {
+            type: 'line',
+            data: {
+                labels: labels1,
+                datasets: [{
+                    label: 'Điểm chính thức', data: scores1,
+                    backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                    borderColor: 'rgba(0, 123, 255, 1)',
+                    borderWidth: 3, pointRadius: 5, fill: true, tension: 0.1 
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 10 } }, plugins: { legend: { display: false } } }
+        });
+
+        // --- Chart 2 (Review) ---
+        const labels2 = reviewData.map(d => d.submittedAt ? new Date(d.submittedAt).toLocaleDateString('vi-VN') : 'N/A');
+        const scores2 = reviewData.map(d => d.totalScore);
+        analyticsScoreChartInstance_Student_Review = new Chart(ctxReview, {
+            type: 'line',
+            data: {
+                labels: labels2,
+                datasets: [{
+                    label: 'Điểm ôn tập', data: scores2,
+                    backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 3, pointRadius: 5, fill: true, tension: 0.1 
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 10 } }, plugins: { legend: { display: false } } }
+        });
+
+    } else {
+        // --- 2. BIỂU ĐỒ ĐIỂM TB (THEO MÔN) ---
+        chartTitleEl_Official.textContent = 'Điểm TB Bài thi Chính thức (Theo Môn)';
+        chartTitleEl_Review.textContent = 'Điểm TB Bài Ôn tập (Theo Môn)';
+        
+        // --- Chart 1 (Official) ---
+        const stats1 = {};
+        officialData.forEach(r => {
+            const subj = r.subject || 'khac';
+            if (!stats1[subj]) stats1[subj] = { total: 0, count: 0 };
+            stats1[subj].total += r.totalScore || 0;
+            stats1[subj].count += 1;
+        });
+        const labels1 = []; const scores1 = []; const colors1 = [];
+        Object.keys(stats1).sort().forEach(subjKey => {
+            const avg = stats1[subjKey].total / stats1[subjKey].count;
+            labels1.push(SUBJECT_NAMES[subjKey] || subjKey);
+            scores1.push(avg.toFixed(2));
+            colors1.push(avg < 5 ? 'rgba(220, 53, 69, 0.7)' : (avg < 7 ? 'rgba(255, 193, 7, 0.7)' : 'rgba(0, 123, 255, 0.7)'));
+        });
+        analyticsScoreChartInstance_Student_Official = new Chart(ctxOfficial, {
+            type: 'bar',
+            data: { labels: labels1, datasets: [{ label: 'Điểm TB', data: scores1, backgroundColor: colors1 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 10 } }, plugins: { legend: { display: false } } }
+        });
+
+        // --- Chart 2 (Review) ---
+        const stats2 = {};
+        reviewData.forEach(r => {
+            const subj = r.subject || 'khac';
+            if (!stats2[subj]) stats2[subj] = { total: 0, count: 0 };
+            stats2[subj].total += r.totalScore || 0;
+            stats2[subj].count += 1;
+        });
+        const labels2 = []; const scores2 = []; const colors2 = [];
+        Object.keys(stats2).sort().forEach(subjKey => {
+            const avg = stats2[subjKey].total / stats2[subjKey].count;
+            labels2.push(SUBJECT_NAMES[subjKey] || subjKey);
+            scores2.push(avg.toFixed(2));
+            colors2.push(avg < 7 ? 'rgba(255, 193, 7, 0.7)' : 'rgba(40, 167, 69, 0.7)'); // Màu ôn tập (xanh/vàng)
+        });
+        analyticsScoreChartInstance_Student_Review = new Chart(ctxReview, {
+            type: 'bar',
+            data: { labels: labels2, datasets: [{ label: 'Điểm TB', data: scores2, backgroundColor: colors2 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 10 } }, plugins: { legend: { display: false } } }
+        });
+    }
+}
+
+/**
+ * (Hàm MỚI) - Render bảng Tag (Tái sử dụng logic của GV)
+ */
+function renderStudentTagAnalysis_Student(tagData) {
+    const tbody = qs('#stu-analytics-tags-tbody');
+    if (!tbody) return;
+
+    if (!tagData || tagData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Không có dữ liệu (Tag) để phân tích.</td></tr>';
+        return;
+    }
+    
+    // Chỉ hiển thị Top 10
+    const topWeakest = tagData.sort((a, b) => a.avgPercent - b.avgPercent).slice(0, 10);
+
+    let html = '';
+    topWeakest.forEach(tag => {
+        const percent = tag.avgPercent;
+        let colorClass = 'text-success';
+        if (percent < 50) colorClass = 'text-danger';
+        else if (percent < 70) colorClass = 'text-warning';
+
+        html += `
+            <tr>
+                <td class="ps-3">${escapeHtml(tag.tag)}</td>
+                <td class="text-center">
+                    <strong class="${colorClass}">${percent}%</strong>
+                </td>
+                <td class="text-center">${tag.count}</td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+//===Kết thúc màn thống kê của học sinh====
+
+
+
+
 /**
  * HÀM MỚI (ĐÃ SỬA LỖI): Render các biểu đồ Phân tích Thời gian
  */
@@ -14250,6 +14821,7 @@ function generatePastelColor() {
 
 /**
  * Hàm chính: Tải và hiển thị Bảng điều khiển Tổng quan
+ * (ĐÃ SỬA LỖI: Thêm dòng gán giá trị cho stat-total-students)
  */
 async function loadSystemDashboard(forceReload = false) {
     const loadingEl = qs('#dashboard-loading');
@@ -14273,10 +14845,10 @@ async function loadSystemDashboard(forceReload = false) {
         data = systemDashboardCache;
 
         // 2. Render Thống kê nhanh
-        qs('#stat-total-questions').textContent = data.quickStats.totalQuestions;
-        qs('#stat-total-tests').textContent = data.quickStats.totalTests;
-        qs('#stat-total-students').textContent = data.quickStats.totalStudents;
-        qs('#stat-total-results').textContent = data.quickStats.totalResults;
+	qs('#stat-total-questions').textContent = data.quickStats.totalQuestions;
+	qs('#stat-total-tests').textContent = data.quickStats.totalTests;
+	qs('#stat-dashboard-students').textContent = data.quickStats.totalStudents;
+	qs('#stat-total-results').textContent = data.quickStats.totalResults;
 
         // 3. Render Biểu đồ Ngân hàng Câu hỏi
         
@@ -15538,7 +16110,8 @@ async function viewResult(resultId) {
 
 
 
-// DÁN TOÀN BỘ HÀM NÀY THAY THẾ HÀM CŨ (khoảng dòng 9007)
+// (File: index13.1.html, thay thế hàm gốc khoảng dòng 9007)
+
 function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     const escapeHtml = (str) => { return str ? String(str).replace(/[&<>"']/g, s => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[s])) : ''; };
     const safeFormat = (dateStr) => { return dateStr ? dateStr.substring(0, 16).replace('T', ' ') : '—'; };
@@ -15600,39 +16173,56 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         const max = res?.maxPoints ?? 1;
         const questionText = escapeHtml(res?.questionText || q?.q || '(Nội dung câu hỏi bị thiếu)');
         let mainQuestionTextHtml = `<p class="card-text">${questionText}</p>`;
+        
+        // ==========================================================
+        // === KHỐI LOGIC GỢI Ý VÀ HÌNH ẢNH (ĐÃ THÊM LẠI) ===
+        // ==========================================================
         const imageId = q?.imageId;
+        const hintText = q?.hint; 
+        let hintAndImageHtml = ''; 
+        
+        if (imageId) {
+            hintAndImageHtml += `<img src="${serverUrl}/images/${imageId}" class="img-fluid mb-2 rounded border" style="max-height: 200px; object-fit: contain;">`;
+        }
+
+        if (hintText) {
+            const hintCollapseId = `hint_collapse_${resultQid}_${idx}`;
+            hintAndImageHtml += `
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#${hintCollapseId}" aria-expanded="false">
+                        💡 Gợi ý / Giải thích
+                    </button>
+                    <div class="collapse mt-2" id="${hintCollapseId}">
+                        <div class="card card-body bg-light" style="font-size: 0.9em;">
+                            ${escapeHtml(hintText)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        // ==========================================================
+        
         const optionsToRender = q?.options || [];
         const correctAnsRaw = res?.correctAnswer ?? null;
         const studentAnsRaw = res?.studentAnswer ?? null;
 
+        // (Code tính điểm và trạng thái... giữ nguyên)
         if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan' || qTypeCheck === 'draw') { totalEssay++; }
         else { totalMc++; maxMcScore += max; }
-        
         const gained = res?.pointsGained ?? 0;
         const isCorrectRaw = res?.isCorrect; 
         const isPartialCredit = (isCorrectRaw === null); 
-
         let isCorrect;
         if (typeof isCorrectRaw === 'boolean') { isCorrect = isCorrectRaw; }
-        else if (isPartialCredit) {
-            isCorrect = null; 
-        }
+        else if (isPartialCredit) { isCorrect = null; }
         else if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan' || qTypeCheck === 'draw') { 
-            if (res.teacherScore !== null && res.teacherScore !== undefined) {
-                isCorrect = Number(res.teacherScore) > 0;
-            } else {
-                isCorrect = null; // Chưa chấm
-            }
-        } else {
-            isCorrect = gained > 0; // MC
-        }
-
+            if (res.teacherScore !== null && res.teacherScore !== undefined) { isCorrect = Number(res.teacherScore) > 0; }
+            else { isCorrect = null; }
+        } else { isCorrect = gained > 0; }
         if (qTypeCheck !== 'essay' && qTypeCheck !== 'tu_luan' && qTypeCheck !== 'draw') { 
             calculatedMcScore += gained;
             if (isCorrect === true) { correctMcCount++; }
         }
-
-        // Cập nhật logic badge
         let borderClass = ''; let badgeClass = ''; let badgeText = '';
         if (qTypeCheck === 'essay' || qTypeCheck === 'tu_luan' || qTypeCheck === 'draw') { 
             if (isCorrect === true) { borderClass = 'border-success'; badgeClass = 'bg-success'; badgeText = 'Đã Chấm (Đ)'; }
@@ -15649,6 +16239,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         let answerHtml = '';
         let unansweredNote = ''; 
 
+        // (Toàn bộ logic render các loại câu trả lời (MC, T/F, Fill, Draw...) giữ nguyên)
         if (qTypeCheck === 'multiple_choice' || qTypeCheck === 'mc') {
             const correctAns = correctAnsRaw ? String(correctAnsRaw).toLowerCase() : null;
             const studentAns = (studentAnsRaw ?? "").toString().trim().toLowerCase();
@@ -15717,86 +16308,54 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
             });
             mainQuestionTextHtml = '';
 
-        // === DRAW (Hình vẽ) ===
         } else if (qTypeCheck === 'draw') {
             const canvasId = `review_${resultQid}`;
             answerHtml = `<div class="form-group"><label class="form-label fw-bold">Hình vẽ của bạn (và sửa lỗi của GV):</label>`;
-            
             const toolbarHtml = ''; 
             answerHtml += toolbarHtml;
-            
-            // 🔥 FIX 1 (Mới): Giảm chiều cao từ 300px xuống 250px
             answerHtml += `<div id="${canvasId}" class="drawing-canvas-container" style="width: 100%; height: 250px; border: 1px solid #ccc; background: #fff;"></div>`;
-
-            // Lấy cả 2 bản vẽ
             const teacherDrawingRaw = res.teacherDrawing; 
-
             if (studentAnsRaw || teacherDrawingRaw) { 
                canvasLoadCallbacks.push(() => {
                     const canvasEl = document.getElementById(canvasId);
                     if (!canvasEl) return;
-                    if (typeof Konva === "undefined") {
-                        console.error("⚠️ Konva.js chưa sẵn sàng, bỏ qua canvas render");
-                        return;
-                    }
-
+                    if (typeof Konva === "undefined") { console.error("⚠️ Konva.js chưa sẵn sàng, bỏ qua canvas render"); return; }
                     try {
-                        // 1. Khởi tạo Stage (mode: 'teacher' là đúng, vì đây là chế độ xem)
                         const pad = initKonvaCanvas(canvasId, 'teacher');
                         if (!pad) throw new Error("Không thể khởi tạo Konva Stage");
-
                         let hsShapesCount = 0;
                         let gvShapesCount = 0;
-
-                        // 2. Tải Layer HỌC SINH (studentAnsRaw)
                         if (studentAnsRaw) {
                             const parsedData_HS = parseStudentAnswer(studentAnsRaw);
                             let shapesToLoad_HS = [];
-                            if (parsedData_HS?.className === 'Layer' && Array.isArray(parsedData_HS.children)) {
-                                shapesToLoad_HS = parsedData_HS.children;
-                            } else if (Array.isArray(parsedData_HS)) {
-                                shapesToLoad_HS = parsedData_HS;
-                            }
+                            if (parsedData_HS?.className === 'Layer' && Array.isArray(parsedData_HS.children)) { shapesToLoad_HS = parsedData_HS.children; }
+                            else if (Array.isArray(parsedData_HS)) { shapesToLoad_HS = parsedData_HS; }
                             shapesToLoad_HS.forEach(shapeData => {
                                 const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
                                 const className = shapeData.className;
                                 if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
                                     const shape = Konva.Node.create(shapeData);
-                                    if (shape) {
-                                        pad.studentLayer.add(shape);
-                                        hsShapesCount++; 
-                                    }
+                                    if (shape) { pad.studentLayer.add(shape); hsShapesCount++; }
                                 }
                             });
                         }
-                        
-                        // 3. Tải Layer GIÁO VIÊN (teacherDrawingRaw)
                         if (teacherDrawingRaw) {
                             const parsedData_GV = parseStudentAnswer(teacherDrawingRaw);
                             let shapesToLoad_GV = [];
-                            if (parsedData_GV?.className === 'Layer' && Array.isArray(parsedData_GV.children)) {
-                                shapesToLoad_GV = parsedData_GV.children;
-                            } else if (Array.isArray(parsedData_GV)) {
-                                shapesToLoad_GV = parsedData_GV;
-                            }
+                            if (parsedData_GV?.className === 'Layer' && Array.isArray(parsedData_GV.children)) { shapesToLoad_GV = parsedData_GV.children; }
+                            else if (Array.isArray(parsedData_GV)) { shapesToLoad_GV = parsedData_GV; }
                             shapesToLoad_GV.forEach(shapeData => {
                                 const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
                                 const className = shapeData.className;
                                 if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
                                     const shape = Konva.Node.create(shapeData);
-                                    if (shape) {
-                                        pad.teacherLayer.add(shape);
-                                        gvShapesCount++; 
-                                    }
+                                    if (shape) { pad.teacherLayer.add(shape); gvShapesCount++; }
                                 }
                             });
                         }
-
-                        // 4. KHÓA TOÀN BỘ STAGE
                         pad.stage.listening(false);
                         pad.stage.batchDraw();
                         console.log(`HS Konva: Đã tải ${hsShapesCount} hình HS, ${gvShapesCount} hình GV (Đã khóa).`);
-
                     } catch (e) {
                         console.error("Lỗi parse/load JSON hình vẽ (Student View - Konva):", e);
                         const el = document.getElementById(canvasId);
@@ -15804,7 +16363,6 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
                     }
                 });
             } else {
-                 // Không có hình vẽ, chỉ khởi tạo canvas rỗng
                  canvasLoadCallbacks.push(() => initKonvaCanvas(canvasId, 'teacher'));
                  unansweredNote = '<p class="text-danger small mb-1">⚠️ Chưa trả lời</p>';
                  if (!studentAnsRaw && !teacherDrawingRaw) {
@@ -15825,7 +16383,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
              }
         }
         
-        // Ghép thẻ card (Giữ nguyên)
+        // Ghép thẻ card
         const card = document.createElement('div');
         card.className = `card mb-3 shadow-sm ${borderClass}`;
         card.innerHTML = `
@@ -15834,8 +16392,11 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
               <span>Câu ${idx + 1}</span>
               <span class="badge ${badgeClass} fs-6">${badgeText}</span>
             </h5>
+            
             ${mainQuestionTextHtml}
-            ${imageId ? `<img src="${serverUrl}/images/${imageId}" class="img-fluid mb-2 rounded border" style="max-height: 200px; object-fit: contain;">` : ''}
+            
+            ${hintAndImageHtml} 
+            
             <div class="mt-3" style="line-height: 2.5;"> 
               ${unansweredNote}
               ${answerHtml}
@@ -15849,7 +16410,7 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
     });
     // --- Kết thúc vòng lặp ---
 
-    // Khởi tạo Konva Callbacks
+    // (Code khởi tạo Konva và cập nhật Summary... giữ nguyên)
     if (canvasLoadCallbacks.length > 0) {
         try {
             canvasLoadCallbacks.forEach(cb => {
@@ -15861,7 +16422,6 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         }
     }
 
-    // --- Cập nhật bảng SUMMARY (Giữ nguyên) ---
     totalQuestions = detailed.length;
     const finalTotalScore = result.totalScore !== undefined ? parseFloat(result.totalScore).toFixed(2) : 'Chưa có';
     const finalEssayScore = result.essayScore !== undefined ? parseFloat(result.essayScore).toFixed(1) : 'Chờ chấm';
@@ -15873,18 +16433,14 @@ function renderReviewQuiz(result, quiz, studentAnswersMap, stats = null) {
         <h4 class="text-primary mb-3">Tổng kết bài làm</h4>
         <p>Tổng số câu: <strong>${totalQuestions}</strong></p>
         <p>Tự động chấm: <strong>${totalMc} câu</strong> | Tự luận (GV Chấm): <strong>${totalEssay} câu</strong></p>
-        
         <p>Số câu đúng (Tự động chấm): <strong>${correctMcCount} / ${totalMc}</strong></p>
-        
         <hr>
         <p>Điểm (tự động): <strong class="text-success">${finalMcScore} / ${maxMcScore.toFixed(1)}</strong></p>
         <p>Điểm tự luận: <strong class="${result.gradingStatus === 'Hoàn tất' || result.gradingStatus === 'Đã Chấm' ? 'text-info' : 'text-warning'}">${finalEssayScore}</strong></p>
         <p class="fs-5">Tổng điểm: <strong class="text-primary">${finalTotalScore}</strong></p>
-        
         ${gradedAtHtml}
     </div>`;
 }
-
 
 
 // Thêm hàm thống kê này vào khối
@@ -17213,7 +17769,352 @@ async function waitForImagesToLoad() {
   console.log("🖼️ Ảnh đã tải xong.");
 }
 
+// ==================================================
+// === LOGIC MỚI: CHẤM BÀI THEO CÂU (ITEM-BASED) ===
+// ==================================================
 
+// Biến global để giữ dữ liệu
+let gradeByQuestionData = null;
+let gbqModalInstance = null;
+
+/**
+ * Mở Modal, gọi API Backend mới
+ */
+async function openGradeByQuestionModal() {
+    const btn = qs('#grade-by-question-btn');
+    const testId = btn ? btn.dataset.testId : null;
+    if (!testId) {
+        alert("Lỗi: Không tìm thấy ID bài thi.");
+        return;
+    }
+    
+    // Lấy instance modal
+    if (!gbqModalInstance) {
+        gbqModalInstance = new bootstrap.Modal(qs('#modalGradeByQuestion'));
+    }
+    
+    // Reset UI
+    qs('#gbq-test-name').textContent = 'Đang tải...';
+    qs('#gbq-sidebar').innerHTML = '<div class="p-3 text-center spinner-row"><div class="spinner-border spinner-border-sm"></div></div>';
+    qs('#gbq-content').innerHTML = '<div class="alert alert-info">Vui lòng chọn một câu hỏi từ danh sách bên trái để bắt đầu chấm.</div>';
+    qs('#gbq-question-text').textContent = '...';
+    qs('#gbq-save-btn').disabled = true;
+    
+    gbqModalInstance.show();
+
+    try {
+        // Gọi API Backend mới
+        const url = `${serverUrl}/api/test/${testId}/all-gradable-answers`;
+        const data = await fetchJson(url);
+
+        if (!data.success) {
+            throw new Error(data.message);
+        }
+
+        // Lưu dữ liệu vào biến global
+        gradeByQuestionData = data;
+        
+        // Render Tên bài thi
+        qs('#gbq-test-name').textContent = data.testName || 'Bài thi';
+
+        // Render Sidebar câu hỏi
+        const sidebar = qs('#gbq-sidebar');
+        if (!data.questions || data.questions.length === 0) {
+            sidebar.innerHTML = '<div class="list-group-item text-muted">Không có câu Tự luận/Vẽ nào trong bài thi này.</div>';
+            return;
+        }
+        
+        sidebar.innerHTML = data.questions.map((q, index) => {
+            const qType = (q.text.toLowerCase().includes('vẽ') || q.type === 'draw') ? 'Vẽ' : 'Tự luận';
+            return `
+                <a href="#" class="list-group-item list-group-item-action" 
+                   id="gbq-q-link-${q.id}"
+                   onclick="event.preventDefault(); loadAnswersForQuestion('${q.id}')">
+                    <strong>Câu ${index + 1} (${qType}):</strong>
+                    <small class="d-block text-muted">${escapeHtml(q.text).substring(0, 100)}...</small>
+                    <span class="badge bg-secondary float-end">${q.maxPoints.toFixed(1)} đ</span>
+                </a>
+            `;
+        }).join('');
+        
+    } catch (e) {
+        qs('#gbq-sidebar').innerHTML = `<div class="alert alert-danger m-2">${e.message}</div>`;
+    }
+}
+
+/**
+ * Render Cột 2: Hiển thị danh sách câu trả lời của HS
+ * (ĐÃ NÂNG CẤP: Gộp 2 canvas thành 1, fix lỗi render bài HS)
+ */
+function loadAnswersForQuestion(questionId) {
+    if (!gradeByQuestionData) return;
+    
+    // 1. Lấy dữ liệu cho câu hỏi này
+    const qData = gradeByQuestionData.questions.find(q => q.id === questionId);
+    const answers = gradeByQuestionData.answersByQuestion[questionId] || [];
+    
+    // 2. Highlight câu hỏi đang chọn trong sidebar
+    document.querySelectorAll('#gbq-sidebar .list-group-item').forEach(el => {
+        el.classList.remove('active');
+    });
+    qs(`#gbq-q-link-${questionId}`).classList.add('active');
+    
+    // 3. Cập nhật tiêu đề cột 2
+    qs('#gbq-question-text').textContent = `(Tối đa: ${qData.maxPoints.toFixed(1)}đ) ${qData.text.substring(0, 100)}...`;
+    qs('#gbq-save-btn').disabled = false;
+    qs('#gbq-save-btn').dataset.questionId = questionId; 
+    const qType = (qData.text.toLowerCase().includes('vẽ') || qData.type === 'draw') ? 'draw' : 'essay';
+    qs('#gbq-save-btn').dataset.questionType = qType;
+
+    // 4. Render nội dung
+    const content = qs('#gbq-content');
+    if (answers.length === 0) {
+        content.innerHTML = '<div class="alert alert-secondary">Chưa có học sinh nào nộp bài cho câu hỏi này.</div>';
+        return;
+    }
+
+    let html = '';
+    const canvasLoadCallbacks = []; // Mảng cho Konva
+
+    answers.forEach((ans, index) => {
+        const studentAnswer = ans.studentAnswer;
+        let answerDisplay = '';
+
+        if (qType === 'draw') {
+            const canvasId = `gbq_draw_${ans.resultId}_${questionId}`;
+            
+            // --- 1. LẤY LẠI THANH CÔNG CỤ (TOOLBAR) ---
+            const shortcutStyle = "font-size: 0.7em; opacity: 0.7; display: block; line-height: 1;";
+            const toolbarHtml = `
+                <div class="btn-toolbar mb-2" role="toolbar" style="flex-wrap: wrap; gap: 5px;">
+                    <div class="btn-group btn-group-sm me-2" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'select')">Chọn ✠ (V)</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="setDrawingMode('${canvasId}', 'draw')">Vẽ ෴(F)</button>
+                    </div>
+                    <div class="btn-group btn-group-sm me-2" role="group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'line')">Line (L)</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'rect')">Rect (R)</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="addShape('${canvasId}', 'circle')">Circle (C)</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="addText('${canvasId}')">Text (Ctrl+X)</button>
+                    </div>
+                    <div class="btn-group btn-group-sm me-2" role="group">
+                        <label for="color-picker-${canvasId}" class="btn btn-sm btn-outline-secondary">Fill</label>
+                        <input type="color" class="form-control-color" id="color-picker-${canvasId}" value="#FF0000" oninput="setFillColor('${canvasId}', this.value)">
+                        <label for="stroke-picker-${canvasId}" class="btn btn-sm btn-outline-secondary ms-2">Stroke</label>
+                        <input type="color" class="form-control-color" id="stroke-picker-${canvasId}" value="#000000" oninput="setStrokeColor('${canvasId}', this.value)">
+                        <button type="button" class="btn btn-outline-secondary ms-2" onclick="setStrokeDash('${canvasId}', true)">Dash</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setStrokeDash('${canvasId}', false)">Solid</button>
+                    </div>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-danger" onclick="deleteSelectedObject('${canvasId}')">Delete</button>
+                    </div>
+                </div>
+            `;
+            
+            // --- 2. TẠO HTML MỚI (CHỈ 1 CANVAS) ---
+            answerDisplay = `
+                <div class="drawing-pad-container" style="position: relative;">
+                    ${toolbarHtml}
+                    ${(!studentAnswer) ? `
+                        <div style="position:absolute; top: 80px; left: 20px; z-index: 1; color: #aaa; font-style: italic;">
+                            [HS không nộp bài vẽ]
+                        </div>
+                    ` : ''}
+                    <div id="${canvasId}" class="drawing-canvas-container" style="width: 100%; height: 350px; border: 1px solid #dc3545; background: #fff;"></div>
+                </div>
+            `;
+
+            // --- 3. TẠO CALLBACK MỚI (QUAN TRỌNG) ---
+            canvasLoadCallbacks.push(() => {
+                // Chỉ khởi tạo 1 canvas (chế độ GV)
+                const pad_gv = initKonvaCanvas(canvasId, 'teacher');
+                if (!pad_gv) return;
+
+                // 1. Tải bài HS vào StudentLayer (lớp DƯỚI)
+                if (studentAnswer) {
+                    loadJsonToKonva(pad_gv.studentLayer, studentAnswer);
+                }
+                pad_gv.studentLayer.opacity(0.6); // Làm mờ bài HS
+                pad_gv.studentLayer.listening(false); // Khóa lớp HS
+
+                // 2. Tải bài GV vào TeacherLayer (lớp TRÊN, có thể sửa)
+                if (ans.teacherDrawing) {
+                    loadJsonToKonva(pad_gv.teacherLayer, ans.teacherDrawing);
+                }
+                
+                pad_gv.stage.batchDraw();
+            });
+
+        } else {
+            // Tự luận (Essay)
+            answerDisplay = `<textarea class="form-control" rows="3" readonly disabled>${escapeHtml(studentAnswer || '')}</textarea>`;
+        }
+
+        // --- 4. RENDER KHUNG BÀI LÀM (Không đổi) ---
+        html += `
+            <div class="card shadow-sm mb-3 gbq-item" 
+                 data-resultid="${ans.resultId}" 
+                 data-questionid="${questionId}">
+                
+                <div class="card-header bg-white d-flex justify-content-between">
+                    <strong>${index + 1}. ${escapeHtml(ans.studentName)}</strong>
+                    <div class="d-flex" style="width: 250px;">
+                        <input type="number" class="form-control form-control-sm me-2 gbq-score" 
+                               placeholder="Điểm" min="0" max="${qData.maxPoints}" step="0.25"
+                               value="${(ans.teacherScore !== null && ans.teacherScore !== undefined) ? ans.teacherScore : ''}">
+                        <input type="text" class="form-control form-control-sm gbq-note" 
+                               placeholder="Nhận xét (ngắn)"
+                               value="${escapeHtml(ans.teacherNote || '')}">
+                    </div>
+                </div>
+                <div class="card-body">
+                    ${answerDisplay}
+                </div>
+            </div>
+        `;
+    });
+    
+    content.innerHTML = html;
+
+    // 5. Khởi tạo Konva
+    if (canvasLoadCallbacks.length) {
+        setTimeout(() => {
+            canvasLoadCallbacks.forEach(cb => {
+                try { cb(); } catch (e) { console.error("Lỗi callback Konva (GBQ):", e); }
+            });
+            console.log(`Đã khởi tạo ${canvasLoadCallbacks.length} canvas (GBQ - Single Mode).`);
+        }, 200); 
+    }
+}
+
+
+/**
+ * HÀM MỚI (Hỗ trợ Konva): Tải JSON vào Layer
+ */
+function loadJsonToKonva(layer, jsonString) {
+    if (!layer || !jsonString) return;
+    try {
+        let shapesData = JSON.parse(jsonString);
+        // Xử lý trường hợp JSON lồng nhau
+        if (typeof shapesData === 'string') shapesData = JSON.parse(shapesData);
+        if (shapesData.className === 'Layer' && Array.isArray(shapesData.children)) {
+            shapesData = shapesData.children;
+        }
+        if (!Array.isArray(shapesData)) return;
+
+        shapesData.forEach(shapeData => {
+            const shapeName = shapeData.attrs ? shapeData.attrs.name : '';
+            const className = shapeData.className;
+            if (className !== 'Transformer' && shapeName !== 'sel_rect_student' && shapeName !== 'sel_rect_teacher') {
+                const shape = Konva.Node.create(shapeData);
+                if (shape) layer.add(shape);
+            }
+        });
+        layer.batchDraw();
+    } catch (e) {
+        console.error("Lỗi loadJsonToKonva:", e, jsonString);
+    }
+}
+
+
+/**
+ * Lưu tất cả điểm cho câu hỏi hiện tại
+ * Tái sử dụng API chấm điểm cũ
+ */
+async function saveGradesForCurrentQuestion() {
+    const saveBtn = qs('#gbq-save-btn');
+    const questionId = saveBtn.dataset.questionId;
+    const questionType = saveBtn.dataset.questionType;
+    if (!questionId) {
+        alert("Lỗi: Không tìm thấy câu hỏi đang chấm.");
+        return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Đang lưu...';
+
+    const items = document.querySelectorAll('#gbq-content .gbq-item');
+    const promises = [];
+
+    items.forEach(item => {
+        const resultId = item.dataset.resultid;
+        const scoreEl = item.querySelector('.gbq-score');
+        const noteEl = item.querySelector('.gbq-note');
+        
+        const score = (scoreEl.value.trim() === '') ? null : parseFloat(scoreEl.value);
+        const note = noteEl.value.trim();
+        let drawingJson = null;
+        
+        // Lấy dữ liệu vẽ của GV (nếu là câu Draw)
+        if (questionType === 'draw') {
+            const canvasId = `gbq_draw_${resultId}_${questionId}`;
+            if (window.drawingPads && window.drawingPads[canvasId]) {
+                try {
+                    const pad = window.drawingPads[canvasId];
+                    const teacherLayer = pad.teacherLayer;
+                    const shapes = teacherLayer.getChildren(node => 
+                        node.getClassName() !== 'Transformer' && node.name() !== 'sel_rect_teacher'
+                    );
+                    if (shapes.length > 0) {
+                        drawingJson = JSON.stringify(shapes);
+                    }
+                } catch (e) { console.error("Lỗi serialize hình vẽ GV (GBQ):", e); }
+            }
+        }
+
+        // Tạo payload (chỉ chứa 1 câu hỏi)
+        const payload = {
+            essays: [
+                {
+                    questionId: questionId,
+                    teacherScore: score,
+                    teacherNote: note,
+                    teacherDrawing: drawingJson
+                }
+            ]
+        };
+
+        // Thêm API call vào hàng đợi
+        promises.push(
+            fetchJson(`${serverUrl}/api/results/${resultId}/grade`, {
+                method: 'POST',
+                body: payload
+            })
+        );
+    });
+
+    try {
+        // Gửi tất cả request song song
+        const results = await Promise.all(promises);
+        
+        // Cập nhật lại dữ liệu trong cache local (để không cần gọi API)
+        results.forEach((updatedResult, index) => {
+            const resultId = items[index].dataset.resultid;
+            const answers = gradeByQuestionData.answersByQuestion[questionId];
+            const answer = answers.find(a => a.resultId === resultId);
+            if (answer) {
+                const updatedDetail = updatedResult.detailedResults.find(d => d.questionId === questionId);
+                if (updatedDetail) {
+                    answer.teacherScore = updatedDetail.teacherScore;
+                    answer.teacherNote = updatedDetail.teacherNote;
+                    answer.teacherDrawing = updatedDetail.teacherDrawing;
+                }
+            }
+        });
+        
+        showToast(`Đã lưu thành công ${results.length} bài làm cho câu hỏi này.`, 'success');
+        
+        // Tải lại bảng kết quả chính ở nền
+        loadResults(true);
+
+    } catch (e) {
+        console.error("Lỗi khi lưu điểm hàng loạt:", e);
+        showToast(`Lỗi: ${e.message}`, 'danger');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Lưu điểm cho câu này';
+    }
+}
 
 
 
