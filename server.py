@@ -3070,7 +3070,7 @@ def _get_student_progress_analysis(student_id, class_name, subject, start_date, 
     if object_ids: or_clauses.append({"_id": {"$in": object_ids}})
     if uuid_strings: or_clauses.append({"id": {"$in": uuid_strings}})
 
-    questions_db_cursor = db.questions.find({"$or": or_clauses}, {"id": 1, "_id": 1, "tags": 1, "q": 1, "subject": 1})
+    questions_db_cursor = db.questions.find({"$or": or_clauses}, {"id": 1, "_id": 1, "tags": 1, "q": 1, "subject": 1, "level": 1, "type": 1})
 
     q_map = {}
     for q in questions_db_cursor:
@@ -3266,7 +3266,8 @@ def request_review_test():
             elif q_type == 'fill_blank': fill_count += 1
             else: mc_count += 1
             
-        new_test_name = f"[Ôn tập] Các câu hay sai - {student_name}"
+        today_str = datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m")
+        new_test_name = f"[Ôn tập {today_str}] Các câu hay sai - {student_name}"
             
         new_test = {
             "id": str(uuid4()),
@@ -3548,6 +3549,7 @@ def get_system_dashboard():
         
         # Đếm Đề thi (Chỉ đề chính thức)
         total_tests = db.tests.count_documents({"isPersonalizedReview": {"$ne": True}})
+        total_students = db.users.count_documents({"role": {"$nin": ["admin", "teacher"]}})
         
         # 🔥 ĐÂY LÀ DÒNG ĐÃ SỬA/THÊM LẠI: Đếm Học sinh
         total_students = db.users.count_documents({"role": {"$nin": ["admin", "teacher"]}})
@@ -3627,8 +3629,13 @@ def get_system_dashboard():
             )
             for q in questions_db_cursor:
                 key = q.get("id") or str(q.get("_id"))
-                q_map[key] = {"tags": q.get("tags", []), "q_text": q.get("q", "...")}
-
+                q_map[key] = {
+                    "tags": q.get("tags", []), 
+                    "q_text": q.get("q", "..."), 
+                    "subject": q.get("subject"), 
+                    "level": q.get("level"),
+                    "type": q.get("type", "mc")
+                }
         # Lặp lại lần 2 để tính toán
         for res in results:
             for detail in res.get("detailedResults", []):
@@ -3676,6 +3683,9 @@ def get_system_dashboard():
                 "correctCount": stats["correct"],
                 "total": stats["total"],
                 "correctPercent": round(correct_percent, 1)
+                "questionType": q_map.get(qid, {}).get("type", "mc"),
+                "subject": q_map.get(qid, {}).get("subject"), # <-- DÒNG SỬA LỖI
+                "level": q_map.get(qid, {}).get("level")      # <-- DÒNG SỬA LỖI
             })
         item_analysis_list.sort(key=lambda x: x["correctPercent"])
         most_failed_questions = item_analysis_list[:10] # 10 câu khó nhất
