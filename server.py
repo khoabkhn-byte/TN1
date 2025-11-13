@@ -3184,7 +3184,7 @@ def get_progress_summary():
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
 # ==================================================
-# ✅ THAY THẾ HÀM NÀY (SỬA LỖI 500, TÁCH MÔN, THÊM GHI NHẬN)
+# ✅ THAY THẾ HÀM NÀY (SỬA LỖI TÁCH MÔN, TRÙNG TÊN)
 # ==================================================
 @app.route("/api/student/request-review-test", methods=["POST"])
 def request_review_test():
@@ -3242,6 +3242,7 @@ def request_review_test():
                     }), 200
 
         # --- 2. PHÂN TÍCH ĐIỂM YẾU ---
+        # (Hàm này đã được sửa ở Bước 1 để trả về 'subject' và 'level')
         raw_data, tag_analysis, hardest_q, easiest_q = _get_student_progress_analysis(
             student_id, None, None, None, None
         )
@@ -3262,7 +3263,8 @@ def request_review_test():
 
         created_tests_count = 0
         created_subjects = []
-        today_str = datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m")
+        # 🔥 SỬA LỖI TRÙNG TÊN: Thêm Giờ và Phút
+        time_str = datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m %H:%M")
 
         for subject, q_list in questions_by_subject.items():
             if not q_list:
@@ -3294,7 +3296,8 @@ def request_review_test():
                 else: mc_count += 1
                 
             subject_name_vn = dict(SUBJECT_NAMES).get(default_subject, default_subject.capitalize())
-            new_test_name = f"[Ôn tập {today_str}] Môn {subject_name_vn} - {student_name}"
+            # 🔥 SỬA LỖI TRÙNG TÊN: Sử dụng time_str
+            new_test_name = f"[Ôn tập {time_str}] Môn {subject_name_vn} - {student_name}"
                 
             new_test = {
                 "id": str(uuid4()), "name": new_test_name,
@@ -3562,11 +3565,8 @@ def get_time_analysis():
 
 
 # ==================================================
-# ✅ THAY THẾ TOÀN BỘ HÀM NÀY (ĐÃ SỬA LỖI MẤT SỐ HỌC SINH)
-# (Khoảng dòng 2420 trong server.py)
+# ✅ THAY THẾ HÀM NÀY (SỬA LỖI "TỔNG HS --")
 # ==================================================
-from collections import defaultdict # (Đảm bảo đã import ở đầu file)
-
 @app.route("/api/reports/system_dashboard", methods=["GET"])
 def get_system_dashboard():
     """
@@ -3584,7 +3584,6 @@ def get_system_dashboard():
         total_results = db.results.count_documents({"testName": {"$not": {"$regex": "^\\[Ôn tập\\]"}}})
 
         # === 2. PHÂN TÍCH NGÂN HÀNG CÂU HỎI (BANK HEALTH) ===
-        # ... (code group by subject/difficulty giữ nguyên) ...
         bank_by_subject_raw = list(db.questions.aggregate([
             {"$group": {"_id": "$subject", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}}
@@ -3616,7 +3615,6 @@ def get_system_dashboard():
             {"_id": 0, "detailedResults": 1}
         ))
         
-        # ... (Toàn bộ code phân tích Tag và Câu hỏi giữ nguyên) ...
         tag_performance = defaultdict(lambda: {"gained_points": 0.0, "max_points": 0.0, "count": 0})
         question_performance = defaultdict(lambda: {"correct": 0, "incorrect": 0, "total": 0, "question_text": "..."})
         all_q_ids = set()
@@ -3681,14 +3679,13 @@ def get_system_dashboard():
             })
         item_analysis_list.sort(key=lambda x: x["correctPercent"])
         most_failed_questions = item_analysis_list[:10]
-        # === Kết thúc code phân tích ===
 
-        # === 4. TRẢ VỀ DỮ LIỆU (Đã sửa) ===
+        # === 4. TRẢ VỀ DỮ LIỆU ===
         dashboard_data = {
             "quickStats": {
                 "totalQuestions": total_questions,
                 "totalTests": total_tests,
-                "totalStudents": total_students, # <-- DÒNG ĐÃ SỬA
+                "totalStudents": total_students, # <-- 🔥 DÒNG ĐÃ SỬA
                 "totalResults": total_results
             },
             "bankHealth": {
