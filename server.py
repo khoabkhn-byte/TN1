@@ -3362,7 +3362,7 @@ def get_results_summary():
     pipeline = [
         # SỬA ĐỔI: Thêm $match để LỌC BỎ các bài ôn tập
         {"$match": {
-            "testName": {"$not": {"$regex": "^\\[Ôn tập\\]", "$options": "i"}}
+            "testName": {"$not": {"$regex": "^\\[Ôn tập", "$options": "i"}}
         }},
         
         {"$lookup": {
@@ -3387,6 +3387,7 @@ def get_results_summary():
             "gradedAt": {"$ifNull": ["$gradedAt", None]}, 
             "submittedAt": "$submittedAt",
             "testName": {"$ifNull": ["$test_info.name", "Đã Xóa"]},
+            "isPersonalizedReview": {"$ifNull": ["$test_info.isPersonalizedReview", False]},
             "studentName": {"$ifNull": ["$student_info.fullName", "N/A"]},
             "className": {"$ifNull": ["$student_info.className", "N/A"]},
         }}
