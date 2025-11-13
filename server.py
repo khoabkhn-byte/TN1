@@ -3169,43 +3169,68 @@ def get_progress_summary():
 
 # ==================================================
 # ✅ THAY THẾ TOÀN BỘ HÀM NÀY
-# (API TẠO BÀI ÔN TẬP CÁ NHÂN - ĐÃ SỬA LỖI LOGIC)
+# (API TẠO BÀI ÔN TẬP - ĐÃ THÊM BƯỚC XÁC NHẬN KHI ĐIỂM CAO)
 # ==================================================
 @app.route("/api/student/request-review-test", methods=["POST"])
 def request_review_test():
     """
     API MỚI (Học sinh gọi):
-    Tự động phân tích các CÂU HỎI SAI NHIỀM NHẤT và tạo + gán một bài ôn tập.
+    Tự động phân tích, kiểm tra điểm ôn tập cũ, và tạo bài ôn tập.
     """
     try:
         data = request.get_json() or {}
         student_id = data.get("studentId")
         if not student_id:
             return jsonify({"success": False, "message": "Thiếu studentId"}), 400
+        
+        # Lấy cờ 'forceCreate' từ frontend
+        force_create = data.get("forceCreate", False)
 
-        # --- 1. Lấy thông tin Học sinh (SỬA LỖI) ---
+        # --- 1. Lấy thông tin Học sinh ---
         student = db.users.find_one({"id": student_id})
         if not student:
             return jsonify({"success": False, "message": "Không tìm thấy học sinh"}), 404
         
-        # (Di chuyển 2 dòng này LÊN TRÊN để đảm bảo 'student' tồn tại)
         student_name = student.get("fullName", "Học sinh")
-        student_level = student.get("level") # Lấy khối của học sinh
+        student_level = student.get("level")
 
-        # --- 1B. KIỂM TRA "KHÓA" (CHỐNG SPAM) (ĐÚNG VỊ TRÍ) ---
-        existing_review = db.assignments.find_one({
+        # --- 1B. KIỂM TRA "KHÓA" (CHỐNG SPAM - BÀI CHƯA LÀM) ---
+        existing_pending_review = db.assignments.find_one({
             "studentId": student_id,
             "isPersonalizedReview": True,
             "status": "pending" 
         })
-        if existing_review:
+        if existing_pending_review:
             return jsonify({
                 "success": True, 
                 "messageType": "already_exists", 
                 "message": "Bạn đã có một bài ôn tập đang chờ. Vui lòng hoàn thành bài tập đó trước khi tạo bài mới."
             }), 200
 
-        # --- 2. Phân tích điểm yếu (Tái sử dụng helper) ---
+        # --- 1C. BƯỚC KIỂM TRA MỚI (THEO YÊU CẦU CỦA BẠN) ---
+        # (Chỉ kiểm tra nếu KHÔNG bị ép buộc tạo)
+        if not force_create:
+            # Tìm tất cả kết quả của các bài ôn tập (Đã nộp)
+            past_review_results = list(db.results.find({
+                "studentId": student_id,
+                "testName": {"$regex": "^\\[Ôn tập\\]"},
+                "gradingStatus": {"$in": ["Hoàn tất", "Đã Chấm"]} # Chỉ tính bài đã có điểm
+            }))
+            
+            if past_review_results:
+                total_score = sum(r.get("totalScore", 0) for r in past_review_results)
+                avg_review_score = total_score / len(past_review_results)
+                
+                # Đặt ngưỡng, ví dụ 8.0
+                REVIEW_THRESHOLD = 8.0 
+                if avg_review_score >= REVIEW_THRESHOLD:
+                    return jsonify({
+                        "success": True,
+                        "messageType": "confirm_continue", # <-- MessageType mới
+                        "message": f"Kết quả ôn tập của bạn đã rất tốt (Điểm TB: {avg_review_score:.1f}/10). Bạn có muốn tiếp tục tạo bài ôn tập mới không?"
+                    }), 200
+
+        # --- 2. PHÂN TÍCH ĐIỂM YẾU (Nếu điểm thấp HOẶC bị ép buộc) ---
         raw_data, tag_analysis, hardest_q, easiest_q = _get_student_progress_analysis(
             student_id, None, None, None, None # Phân tích TOÀN BỘ lịch sử
         )
@@ -3220,32 +3245,20 @@ def request_review_test():
             return jsonify({"success": True, "messageType": "all_good", "message": "Tuyệt vời! Bạn không có câu hỏi nào sai (hoặc sai dưới 50%)."})
 
         all_question_ids = [q["questionId"] for q in questions_for_review]
-        
-        # (SỬA LỖI LOGIC: Dùng default_level cho cả hai)
         default_subject = questions_for_review[0].get("subject", "khac")
-        default_level = student_level or questions_for_review[0].get("level") # <-- Ưu tiên khối của HS
+        default_level = student_level or questions_for_review[0].get("level")
 
-        # --- 4. Tạo Đề thi (Tái sử dụng logic từ create_test_auto_matrix) ---
+        # --- 4. Tạo Đề thi ---
         points_map = calculate_question_points(all_question_ids, db)
         
         formatted_questions = []
         mc_count, essay_count, tf_count, fill_count, draw_count = 0, 0, 0, 0, 0
-        
-        # (SỬA LỖI LOGIC: Phải tìm câu hỏi trong DB để lọc)
-        base_query = {"subject": default_subject, "level": default_level}
-        
-        all_questions_found = []
-        all_question_ids_found = set()
-
-        # (Chúng ta không thể dùng 'groups' vì các câu hỏi có thể khác môn/khối)
-        # (Chúng ta sẽ tạo đề từ các ID đã có)
         
         for q_id in all_question_ids:
             q_info = next((q for q in questions_for_review if q["questionId"] == q_id), None)
             if not q_info: continue
             
             formatted_questions.append({"id": q_id, "points": points_map.get(q_id, 0)})
-            
             q_type = q_info.get('questionType', 'mc')
             if q_type == 'essay': essay_count += 1
             elif q_type == 'draw': draw_count += 1
@@ -3290,7 +3303,6 @@ def request_review_test():
 
     except Exception as e:
         traceback.print_exc()
-        # (KHÔNG TRUY CẬP BIẾN 'student' ở đây)
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
         
