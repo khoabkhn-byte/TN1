@@ -3876,15 +3876,50 @@ def _get_document_title(doc_id, doc_type, db_instance):
 
 @app.route("/api/learning-paths", methods=["POST"])
 def create_learning_path():
-    """Tạo một Lộ trình học mới (chưa có steps)"""
+    """Tạo một Lộ trình học mới
+    (SỬA LỖI: Bây giờ sẽ đọc và xử lý 'steps' ngay khi tạo)
+    """
     data = request.get_json() or {}
     
+    # === [SỬA LỖI] LẤY 'steps' TỪ PAYLOAD ===
+    steps_payload = data.get("steps", [])
+    hydrated_steps = []
+    
+    # Hydrate (bù đắp) 'title' cho mỗi step (Copy logic từ hàm UPDATE)
+    for i, step in enumerate(steps_payload):
+        step_type = step.get("type") # 'lesson', 'quiz', hoặc 'header'
+        
+        if step_type == 'header':
+            # Đây là tiêu đề, chỉ cần lưu lại
+            hydrated_steps.append({
+                "index": i,
+                "type": "header",
+                "title": step.get("title", "Tiêu đề mới")
+            })
+            continue
+
+        # --- Logic cho lesson/quiz ---
+        step_id = step.get("id")
+        if not step_id or not step_type:
+            continue
+        
+        # Gọi hàm helper để lấy tên Bài giảng / Bài thi
+        step_title = _get_document_title(step_id, step_type, db)
+        
+        hydrated_steps.append({
+            "index": i,
+            "id": step_id,
+            "type": step_type,
+            "title": step_title 
+        })
+    # === [KẾT THÚC SỬA LỖI] ===
+
     new_path = {
         "id": str(uuid4()),
         "title": data.get("title"),
         "subject": data.get("subject"),
         "level": data.get("level"),
-        "steps": [], # Ban đầu là rỗng
+        "steps": hydrated_steps, # <-- [SỬA LỖI] Sử dụng mảng steps đã xử lý
         "authorId": data.get("authorId", "unknown"),
         "createdAt": now_vn_iso()
     }
