@@ -303,7 +303,8 @@ def login():
             "user": found.get("user"), 
             "role": found.get("role"),
             "fullName": found.get("fullName"),
-            "className": found.get("className")
+            "className": found.get("className"),
+            "level": found.get("level")
         }})
     return jsonify({"success": False, "message": "Tên đăng nhập hoặc mật khẩu không đúng."}), 401
 
