@@ -1419,6 +1419,81 @@ def ai_generate_question():
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Lỗi từ AI: {str(e)}"}), 500
 
+# ==================================================
+# ✅ API MỚI: TẠO ĐỀ LUYỆN TẬP TỰ DO (PRACTICE SANDBOX)
+# ==================================================
+@app.route("/api/practice/generate", methods=["POST"])
+def generate_practice_test():
+    """
+    Tạo một bài kiểm tra "ảo" (không lưu) cho học sinh luyện tập.
+    Nhận bộ lọc (subject, level, tags, count) và trả về danh sách câu hỏi.
+    """
+    try:
+        data = request.get_json() or {}
+        
+        # 1. Lấy bộ lọc từ frontend
+        subject = data.get("subject")
+        level = data.get("level")
+        tags_raw = data.get("tags", "")
+        count = int(data.get("count", 10))
+        
+        # Giới hạn số lượng
+        if count > 20: count = 20
+        if count < 1: count = 1
+
+        if not subject or not level:
+            return jsonify({"success": False, "message": "Vui lòng chọn Môn học và Khối lớp."}), 400
+
+        # 2. Xây dựng $match query
+        match_query = {
+            "subject": subject,
+            "level": level
+        }
+        
+        # Xử lý tags: "tag1, tag2" -> ["tag1", "tag2"]
+        if tags_raw:
+            tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
+            if tags_list:
+                # $all = câu hỏi phải chứa TẤT CẢ các tag
+                match_query["tags"] = {"$all": tags_list} 
+
+        # 3. Lấy câu hỏi ngẫu nhiên
+        pipeline = [
+            {"$match": match_query},
+            {"$sample": {"size": count}}
+            # Chúng ta lấy toàn bộ tài liệu (full question object)
+        ]
+        
+        questions_from_db = list(db.questions.aggregate(pipeline))
+        
+        if not questions_from_db:
+            return jsonify({"success": False, "message": "Không tìm thấy câu hỏi nào phù hợp với bộ lọc của bạn."}), 404
+
+        # 4. Tính toán điểm số (để tổng là 10)
+        all_question_ids = [q.get('id') or str(q.get('_id')) for q in questions_from_db]
+        points_map = calculate_question_points(all_question_ids, db)
+
+        # 5. Hydrate (bù đắp) câu hỏi với điểm và dọn dẹp
+        final_questions = []
+        for q in questions_from_db:
+            q_id = q.get('id') or str(q.get('_id'))
+            q["points"] = points_map.get(q_id, 0)
+            q["_id"] = str(q.get("_id")) # Đảm bảo _id là string
+            # Xáo trộn đáp án (nếu là trắc nghiệm)
+            q_type = q.get("type", "mc").lower()
+            if q_type == "mc":
+                options_list = q.get("options", [])
+                if options_list:
+                    random.shuffle(q["options"])
+            final_questions.append(q)
+
+        return jsonify({"success": True, "questions": final_questions}), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
+
 @app.route("/questions/<q_id>", methods=["DELETE"])
 @app.route("/api/questions/<q_id>", methods=["DELETE"])
 def delete_question(q_id):
