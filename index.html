@@ -1661,7 +1661,13 @@
         <strong>Câu hỏi đã khóa:</strong> Câu hỏi này nằm trong một đề thi đã được giao và không thể chỉnh sửa.
       </div>
       <input type="hidden" id="m-q-id">
-      <div class="mb-2"><label class="form-label">Câu hỏi</label><textarea id="m-q-q" class="form-control" rows="3"></textarea></div>
+                    <div class="d-grid mb-3">
+         <button type="button" class="btn btn-success" onclick="openAiPrompt()">
+             ✨ Tạo tự động bằng AI
+         </button>
+     </div>
+     <hr>
+     <div class="mb-2"><label class="form-label">Câu hỏi</label><textarea id="m-q-q" class="form-control" rows="3"></textarea></div>
       <div class="mb-3">
         <label for="q-image-file" class="form-label">Tải lên Hình ảnh (tùy chọn)</label>
         <input type="file" class="form-control" id="q-image-file" accept="image/*">
@@ -2942,6 +2948,41 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
         <button type="button" class="btn btn-success" id="import-upload-btn" onclick="handleUploadQuestions()">Bắt đầu Upload</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!--Modal Gemini google-->
+<div class="modal fade" id="modalAiPrompt" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">✨ Trợ lý Soạn câu hỏi</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Vui lòng nhập chủ đề hoặc yêu cầu chi tiết cho câu hỏi bạn muốn tạo.</p>
+        
+        <div class="mb-2 small text-muted">
+          <strong>Ngữ cảnh:</strong> 
+          Môn: <span id="ai-prompt-subject" class="fw-bold"></span> | 
+          Khối: <span id="ai-prompt-level" class="fw-bold"></span> | 
+          Loại: <span id="ai-prompt-type" class="fw-bold"></span>
+        </div>
+        
+        <textarea id="ai-prompt-topic" class="form-control" rows="4" placeholder="Ví dụ: &#10;- Văn tả cảnh hoàng hôn trên biển&#10;- Phép chia cho số có 2 chữ số&#10;- Giải thích tại sao lá cây có màu xanh"></textarea>
+        
+        <div id="ai-prompt-loading" class="text-center mt-3" style="display: none;">
+            <div class="spinner-border text-success" role="status"></div>
+            <p class="mt-2">Đang tạo câu hỏi, vui lòng chờ...</p>
+        </div>
+        
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" class="btn btn-success" id="ai-prompt-submit" onclick="handleAiGenerateQuestion()">Tạo câu hỏi</button>
       </div>
     </div>
   </div>
@@ -18116,7 +18157,178 @@ async function saveGradesForCurrentQuestion() {
     }
 }
 
+// ==================================================
+// === LOGIC MỚI: TRỢ LÝ AI TẠO CÂU HỎI ===
+// ==================================================
 
+let modalAiPromptInstance = null; // Biến cache cho modal AI
+
+/**
+ * (Hàm MỚI) - Mở modal để nhập chủ đề cho AI
+ * (ĐÃ SỬA LỖI: Thêm validation kiểm tra các trường bắt buộc)
+ */
+function openAiPrompt() {
+    // 1. Lấy các element dropdown
+    const subjectSelect = qs('m-q-subject');
+    const levelSelect = qs('m-q-level');
+    const typeSelect = qs('m-q-type');
+
+    // 2. Lấy giá trị (value) của chúng
+    const subject_code = subjectSelect.value;
+    const level_code = levelSelect.value;
+    const type_code = typeSelect.value;
+
+    // 3. === BƯỚC VALIDATION (SỬA LỖI) ===
+    // Kiểm tra xem các giá trị có rỗng không
+    if (!subject_code || !level_code || !type_code) {
+        // Dùng showToast thay vì alert
+        showToast("Vui lòng chọn Môn, Khối, và Loại câu hỏi trước khi dùng AI.", "warning");
+        return; // Dừng hàm tại đây
+    }
+    // === KẾT THÚC SỬA LỖI ===
+
+    // 4. Lấy text (Bây giờ đã an toàn vì chúng ta biết đã có lựa chọn)
+    const subject_text = subjectSelect.options[subjectSelect.selectedIndex].text;
+    const type_text = typeSelect.options[typeSelect.selectedIndex].text;
+    
+    // 5. Lấy các element của modal AI
+    const modalEl = qs('#modalAiPrompt');
+    const loadingEl = qs('#ai-prompt-loading');
+    const submitBtn = qs('#ai-prompt-submit');
+    const topicInput = qs('#ai-prompt-topic');
+
+    // 6. Reset modal
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = false;
+    if (topicInput) topicInput.value = '';
+
+    // 7. Điền ngữ cảnh (Dùng text đã lấy)
+    qs('#ai-prompt-subject').textContent = subject_text || 'N/A';
+    qs('#ai-prompt-level').textContent = level_code || 'N/A';
+    qs('#ai-prompt-type').textContent = type_text || 'N/A';
+    
+    // 8. Mở modal
+    if (!modalAiPromptInstance) {
+        modalAiPromptInstance = new bootstrap.Modal(modalEl);
+    }
+    modalAiPromptInstance.show();
+}
+
+/**
+ * (Hàm MỚI) - Gửi yêu cầu đến API AI
+ */
+async function handleAiGenerateQuestion() {
+    const loadingEl = qs('#ai-prompt-loading');
+    const submitBtn = qs('#ai-prompt-submit');
+    const topic = qs('#ai-prompt-topic').value;
+
+    if (!topic) {
+        alert("Vui lòng nhập chủ đề.");
+        return;
+    }
+
+    // Lấy thông tin gốc (mã code, không phải text)
+    const subject_code = qs('m-q-subject').value;
+    const level_code = qs('m-q-level').value;
+    const type_code = qs('m-q-type').value;
+
+    const payload = {
+        subject: SUBJECT_NAMES[subject_code] || subject_code, // Gửi tên Tiếng Việt
+        level: level_code,
+        type: type_code,
+        topic: topic
+    };
+
+    // Hiển thị loading
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (submitBtn) submitBtn.disabled = true;
+    
+    try {
+        const result = await fetchJson(`${serverUrl}/api/ai/generate-question`, {
+            method: 'POST',
+            body: payload
+        });
+
+        if (!result.success) {
+            throw new Error(result.message);
+        }
+        
+        // GỌI HÀM ĐIỀN DỮ LIỆU
+        fillQuestionModalWithAiData(result.data);
+        
+        // Đóng modal AI
+        if (modalAiPromptInstance) modalAiPromptInstance.hide();
+        showToast("Đã tạo câu hỏi bằng AI!", "success");
+
+    } catch (e) {
+        alert(`Lỗi: ${e.message}`);
+    } finally {
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = false;
+    }
+}
+
+/**
+ * (Hàm MỚI) - Tự động điền dữ liệu AI vào modal câu hỏi
+ */
+function fillQuestionModalWithAiData(data) {
+    if (!data) return;
+
+    // 1. Lấy các element của modal câu hỏi chính
+    const inputQ = qs('m-q-q');
+    const inputHint = qs('m-q-hint-field');
+    const inputOptionsContainer = qs('m-q-options-container');
+    const inputEssayAnswer = qs('m-q-essay-answer');
+    const trueFalseContainer = qs('m-q-true-false-container');
+    const fillBlankContainer = qs('m-q-fill-blank-container');
+    const qType = qs('m-q-type').value; // Lấy loại câu hỏi đang chọn
+
+    // 2. Điền các trường chính
+    if (inputQ) inputQ.value = data.q || '';
+    if (inputHint) inputHint.value = data.hint || '';
+
+    // 3. Xóa các lựa chọn cũ
+    if (inputOptionsContainer) inputOptionsContainer.innerHTML = '';
+    if (inputEssayAnswer) inputEssayAnswer.value = '';
+    if (trueFalseContainer) trueFalseContainer.innerHTML = '';
+    if (fillBlankContainer) fillBlankContainer.innerHTML = '';
+
+    // 4. Điền các lựa chọn (options) dựa trên loại câu hỏi
+    const options = data.options || [];
+    
+    if (qType === 'mc') {
+        if (options.length === 0) { // Nếu AI quên tạo (ví dụ: cho essay)
+            addQuestionOption('', false);
+        } else {
+            options.forEach(opt => {
+                addQuestionOption(opt.text, opt.correct);
+            });
+        }
+    } 
+    else if (qType === 'true_false') {
+        if (options.length === 0) {
+            addTrueFalseOption('', true);
+        } else {
+            options.forEach(opt => {
+                addTrueFalseOption(opt.text, opt.correct);
+            });
+        }
+    }
+    else if (qType === 'fill_blank') {
+        if (options.length === 0) {
+            addFillBlankOption('');
+        } else {
+            options.forEach(opt => {
+                addFillBlankOption(opt.text);
+            });
+        }
+    }
+    else if (qType === 'essay' || qType === 'draw') {
+        // AI có thể trả về gợi ý đáp án trong hint,
+        // hoặc chúng ta có thể gán `data.hint` vào `inputEssayAnswer` nếu muốn
+        // Hiện tại, `data.hint` đã được gán vào `m-q-hint-field`, điều này là đủ.
+    }
+}
 
 
 
