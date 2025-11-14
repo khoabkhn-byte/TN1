@@ -1319,10 +1319,12 @@ def _clean_ai_response(text):
         return match.group(2).strip()
     return text.strip()
 
+# [THAY THẾ HÀM CŨ]
 @app.route("/api/ai/generate-question", methods=["POST"])
 def ai_generate_question():
     """
-    API MỚI: Dùng AI (Gemini) để tạo một câu hỏi
+    API MỚI: Dùng AI (Gemini) để tạo NHIỀU câu hỏi
+    (NÂNG CẤP: Yêu cầu AI tự phân loại độ khó)
     """
     if not GOOGLE_API_KEY:
         return jsonify({"success": False, "message": "Tính năng AI chưa được kích hoạt trên server (thiếu GOOGLE_API_KEY)."}), 503
@@ -1333,11 +1335,18 @@ def ai_generate_question():
         level = data.get("level", "Trung học")
         q_type = data.get("type", "Trắc nghiệm")
         topic = data.get("topic")
-
+        
+        try:
+            count = int(data.get("count", 1))
+            if count > 10: count = 10 
+            if count < 1: count = 1
+        except ValueError:
+            count = 1
+        
         if not topic:
             return jsonify({"success": False, "message": "Vui lòng nhập chủ đề."}), 400
 
-        # === Xây dựng Prompt cho AI ===
+        # === THAY ĐỔI 1: Cập nhật mô tả loại câu hỏi ===
         type_description = "Trắc nghiệm (có 4 lựa chọn, trong đó 1 lựa chọn 'correct' là true)"
         if q_type == "essay":
             type_description = "Tự luận (không có lựa chọn, chỉ có câu hỏi và gợi ý)"
@@ -1348,44 +1357,57 @@ def ai_generate_question():
         elif q_type == "draw":
             type_description = "Vẽ (Câu hỏi yêu cầu vẽ hình, không có lựa chọn)"
 
+        # === THAY ĐỔI 2: Cập nhật YÊU CẦU PROMPT ===
         prompt = f"""
         Bạn là một trợ lý giáo dục chuyên nghiệp, đang soạn câu hỏi cho hệ thống thi trắc nghiệm.
-        Hãy tạo 1 câu hỏi duy nhất dựa trên các yêu cầu sau:
+        Hãy tạo chính xác {count} câu hỏi DUY NHẤT dựa trên các yêu cầu sau:
         
         1.  **Môn học:** {subject}
         2.  **Khối lớp:** {level}
         3.  **Chủ đề:** {topic}
         4.  **Loại câu hỏi:** {type_description}
 
+        YÊU CẦU NÂNG CAO:
+        - Hãy tạo một sự phân bổ hợp lý các câu hỏi ở 3 mức độ: 'easy', 'medium', và 'hard'.
+        - Ví dụ: Nếu tạo 5 câu, hãy cố gắng tạo 2 Dễ, 2 Trung bình, 1 Khó.
+        
         YÊU CẦU ĐẦU RA (RẤT QUAN TRỌNG):
         Chỉ trả về một đối tượng JSON duy nhất (không có bất kỳ văn bản nào khác) theo cấu trúc sau:
         {{
-          "q": "Nội dung câu hỏi (Nếu là Điền từ, phải chứa [BLANK])",
-          "options": [
-            {{"text": "Nội dung lựa chọn A", "correct": false}},
-            {{"text": "Nội dung lựa chọn B (đáp án đúng)", "correct": true}},
-            {{"text": "Nội dung lựa chọn C", "correct": false}},
-            {{"text": "Nội dung lựa chọn D", "correct": false}}
-          ],
-          "hint": "Giải thích chi tiết hoặc cung cấp gợi ý cho câu trả lời đúng."
+          "questions": [
+            {{
+              "q": "Nội dung câu hỏi 1...",
+              "options": [...],
+              "hint": "Giải thích cho câu 1.",
+              "difficulty": "easy" 
+            }},
+            {{
+              "q": "Nội dung câu hỏi 2...",
+              "options": [...],
+              "hint": "Giải thích cho câu 2.",
+              "difficulty": "medium" 
+            }}
+          ]
         }}
 
         LƯU Ý:
-        - Đối với loại 'Tự luận' hoặc 'Vẽ', mảng "options" phải là mảng rỗng [].
-        - Đối với loại 'Đúng/Sai', 'options' là mảng các mệnh đề.
-        - Đối với loại 'Điền từ', 'options' là mảng các đáp án (ví dụ: [{{"text": "đáp án 1"}}]).
-        - Hãy sáng tạo các phương án gây nhiễu (distractors) thật tốt.
+        - Phải có chính xác {count} câu hỏi trong mảng "questions".
+        - Mỗi câu hỏi BẮT BUỘC phải có trường "difficulty" với giá trị là "easy", "medium", hoặc "hard".
         - Đảm bảo JSON trả về là hợp lệ.
         """
 
         # === Gọi AI ===
+        # (Sử dụng model đã xác thực)
+        ai_model = genai.GenerativeModel('models/gemini-pro-latest') 
         response = ai_model.generate_content(prompt)
         
-        # Dọn dẹp và Parse JSON
         cleaned_json_str = _clean_ai_response(response.text)
-        ai_data = json.loads(cleaned_json_str)
+        ai_data_object = json.loads(cleaned_json_str)
 
-        return jsonify({"success": True, "data": ai_data}), 200
+        if "questions" not in ai_data_object or not isinstance(ai_data_object["questions"], list):
+             raise ValueError("AI không trả về một mảng 'questions' hợp lệ.")
+
+        return jsonify({"success": True, "data": ai_data_object}), 200
 
     except Exception as e:
         traceback.print_exc()
