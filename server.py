@@ -17,6 +17,8 @@ from gridfs import GridFS
 import random # Thêm thư viện random
 import traceback # Thêm thư viện traceback để debug
 import pandas as pd
+import google.generativeai as genai
+import re
 from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet
@@ -52,6 +54,17 @@ app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
 MONGODB_URI = os.getenv("MONGODB_URI")
 DB_NAME = os.getenv("DB_NAME", "quiz")
 PORT = int(os.getenv("PORT", 3000))
+
+# === CẤU HÌNH GOOGLE AI (GEMINI) ===
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    print("⚠️  GOOGLE_API_KEY is not set. AI features will be disabled.")
+    # (Bạn có thể `raise RuntimeError` nếu muốn)
+else:
+    genai.configure(api_key=GOOGLE_API_KEY)
+    ai_model = genai.GenerativeModel('gemini-1.5-pro-latest')
+    print("✅ Connected to Google AI (Gemini)")
+# === KẾT THÚC CẤU HÌNH ===
 
 if not MONGODB_URI:
     raise RuntimeError("MONGODB_URI is not set. Set it in environment variables.")
@@ -1298,6 +1311,85 @@ def update_question(q_id):
         return jsonify({"message": "Câu hỏi không tồn tại."}), 404
     updated = db.questions.find_one({"id": q_id}, {"_id": 0})
     return jsonify(updated), 200
+
+def _clean_ai_response(text):
+    """Hàm nội bộ để dọn dẹp JSON trả về từ AI (loại bỏ ```json và ```)"""
+    match = re.search(r'```(json)?(.*)```', text, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(2).strip()
+    return text.strip()
+
+@app.route("/api/ai/generate-question", methods=["POST"])
+def ai_generate_question():
+    """
+    API MỚI: Dùng AI (Gemini) để tạo một câu hỏi
+    """
+    if not GOOGLE_API_KEY:
+        return jsonify({"success": False, "message": "Tính năng AI chưa được kích hoạt trên server (thiếu GOOGLE_API_KEY)."}), 503
+
+    try:
+        data = request.get_json() or {}
+        subject = data.get("subject", "Chung")
+        level = data.get("level", "Trung học")
+        q_type = data.get("type", "Trắc nghiệm")
+        topic = data.get("topic")
+
+        if not topic:
+            return jsonify({"success": False, "message": "Vui lòng nhập chủ đề."}), 400
+
+        # === Xây dựng Prompt cho AI ===
+        type_description = "Trắc nghiệm (có 4 lựa chọn, trong đó 1 lựa chọn 'correct' là true)"
+        if q_type == "essay":
+            type_description = "Tự luận (không có lựa chọn, chỉ có câu hỏi và gợi ý)"
+        elif q_type == "true_false":
+            type_description = "Đúng/Sai (có 3-4 mệnh đề 'options', mỗi mệnh đề có 'correct' là true hoặc false)"
+        elif q_type == "fill_blank":
+            type_description = "Điền từ (Nội dung câu hỏi 'q' phải chứa [BLANK], và 'options' là mảng các đáp án đúng)"
+        elif q_type == "draw":
+            type_description = "Vẽ (Câu hỏi yêu cầu vẽ hình, không có lựa chọn)"
+
+        prompt = f"""
+        Bạn là một trợ lý giáo dục chuyên nghiệp, đang soạn câu hỏi cho hệ thống thi trắc nghiệm.
+        Hãy tạo 1 câu hỏi duy nhất dựa trên các yêu cầu sau:
+        
+        1.  **Môn học:** {subject}
+        2.  **Khối lớp:** {level}
+        3.  **Chủ đề:** {topic}
+        4.  **Loại câu hỏi:** {type_description}
+
+        YÊU CẦU ĐẦU RA (RẤT QUAN TRỌNG):
+        Chỉ trả về một đối tượng JSON duy nhất (không có bất kỳ văn bản nào khác) theo cấu trúc sau:
+        {{
+          "q": "Nội dung câu hỏi (Nếu là Điền từ, phải chứa [BLANK])",
+          "options": [
+            {{"text": "Nội dung lựa chọn A", "correct": false}},
+            {{"text": "Nội dung lựa chọn B (đáp án đúng)", "correct": true}},
+            {{"text": "Nội dung lựa chọn C", "correct": false}},
+            {{"text": "Nội dung lựa chọn D", "correct": false}}
+          ],
+          "hint": "Giải thích chi tiết hoặc cung cấp gợi ý cho câu trả lời đúng."
+        }}
+
+        LƯU Ý:
+        - Đối với loại 'Tự luận' hoặc 'Vẽ', mảng "options" phải là mảng rỗng [].
+        - Đối với loại 'Đúng/Sai', 'options' là mảng các mệnh đề.
+        - Đối với loại 'Điền từ', 'options' là mảng các đáp án (ví dụ: [{{"text": "đáp án 1"}}]).
+        - Hãy sáng tạo các phương án gây nhiễu (distractors) thật tốt.
+        - Đảm bảo JSON trả về là hợp lệ.
+        """
+
+        # === Gọi AI ===
+        response = ai_model.generate_content(prompt)
+        
+        # Dọn dẹp và Parse JSON
+        cleaned_json_str = _clean_ai_response(response.text)
+        ai_data = json.loads(cleaned_json_str)
+
+        return jsonify({"success": True, "data": ai_data}), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi từ AI: {str(e)}"}), 500
 
 @app.route("/questions/<q_id>", methods=["DELETE"])
 @app.route("/api/questions/<q_id>", methods=["DELETE"])
