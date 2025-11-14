@@ -1324,7 +1324,7 @@ def _clean_ai_response(text):
 def ai_generate_question():
     """
     API MỚI: Dùng AI (Gemini) để tạo NHIỀU câu hỏi
-    (NÂNG CẤP: Yêu cầu AI tự phân loại độ khó)
+    (NÂNG CẤP: Yêu cầu AI tự phân loại độ khó VÀ TẠO TAGS)
     """
     if not GOOGLE_API_KEY:
         return jsonify({"success": False, "message": "Tính năng AI chưa được kích hoạt trên server (thiếu GOOGLE_API_KEY)."}), 503
@@ -1346,7 +1346,6 @@ def ai_generate_question():
         if not topic:
             return jsonify({"success": False, "message": "Vui lòng nhập chủ đề."}), 400
 
-        # === THAY ĐỔI 1: Cập nhật mô tả loại câu hỏi ===
         type_description = "Trắc nghiệm (có 4 lựa chọn, trong đó 1 lựa chọn 'correct' là true)"
         if q_type == "essay":
             type_description = "Tự luận (không có lựa chọn, chỉ có câu hỏi và gợi ý)"
@@ -1357,7 +1356,7 @@ def ai_generate_question():
         elif q_type == "draw":
             type_description = "Vẽ (Câu hỏi yêu cầu vẽ hình, không có lựa chọn)"
 
-        # === THAY ĐỔI 2: Cập nhật YÊU CẦU PROMPT ===
+        # === THAY ĐỔI: CẬP NHẬT YÊU CẦU PROMPT CHO TAGS ===
         prompt = f"""
         Bạn là một trợ lý giáo dục chuyên nghiệp, đang soạn câu hỏi cho hệ thống thi trắc nghiệm.
         Hãy tạo chính xác {count} câu hỏi DUY NHẤT dựa trên các yêu cầu sau:
@@ -1369,8 +1368,12 @@ def ai_generate_question():
 
         YÊU CẦU NÂNG CAO:
         - Hãy tạo một sự phân bổ hợp lý các câu hỏi ở 3 mức độ: 'easy', 'medium', và 'hard'.
-        - Ví dụ: Nếu tạo 5 câu, hãy cố gắng tạo 2 Dễ, 2 Trung bình, 1 Khó.
         
+        # === YÊU CẦU MỚI: TẠO TAGS ===
+        - Tự động phân tích nội dung câu hỏi và chủ đề để tạo ra 3-5 'tags' (từ khóa) liên quan.
+        - Các tag phải viết bằng tiếng Việt, không dấu, và cách nhau bằng dấu phẩy (ví dụ: 'hinh hoc', 'phep nhan', 'van ta canh').
+        - Nếu người dùng có cung cấp gợi ý tag trong Chủ đề (ví dụ: 'Tag: hình học, góc'), hãy ưu tiên sử dụng các tag đó và chuyển đổi chúng sang định dạng không dấu.
+
         YÊU CẦU ĐẦU RA (RẤT QUAN TRỌNG):
         Chỉ trả về một đối tượng JSON duy nhất (không có bất kỳ văn bản nào khác) theo cấu trúc sau:
         {{
@@ -1379,26 +1382,28 @@ def ai_generate_question():
               "q": "Nội dung câu hỏi 1...",
               "options": [...],
               "hint": "Giải thích cho câu 1.",
-              "difficulty": "easy" 
+              "difficulty": "easy",
+              "tags": ["hinh hoc", "chu vi", "hinh vuong"]
             }},
             {{
               "q": "Nội dung câu hỏi 2...",
               "options": [...],
               "hint": "Giải thích cho câu 2.",
-              "difficulty": "medium" 
+              "difficulty": "medium",
+              "tags": ["van hoc", "ta canh", "mua xuan"]
             }}
           ]
         }}
 
         LƯU Ý:
         - Phải có chính xác {count} câu hỏi trong mảng "questions".
-        - Mỗi câu hỏi BẮT BUỘC phải có trường "difficulty" với giá trị là "easy", "medium", hoặc "hard".
+        - Mỗi câu hỏi BẮT BUỘC phải có trường "difficulty" ("easy", "medium", "hard").
+        - Mỗi câu hỏi BẮT BUỘC phải có trường "tags" là một mảng các chuỗi (viết thường, không dấu).
         - Đối với 'Trắc nghiệm', 'Đúng/Sai', 'Điền từ', phần "hint" CHỈ ĐƯỢC LÀ GIẢI THÍCH, KHÔNG ĐƯỢC CHỨA ĐÁP ÁN.
         - Đảm bảo JSON trả về là hợp lệ.
         """
+        # === KẾT THÚC THAY ĐỔI PROMPT ===
 
-        # === Gọi AI ===
-        # (Sử dụng model đã xác thực)
         ai_model = genai.GenerativeModel('models/gemini-pro-latest') 
         response = ai_model.generate_content(prompt)
         
