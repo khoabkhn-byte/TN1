@@ -1393,6 +1393,7 @@ def ai_generate_question():
         LƯU Ý:
         - Phải có chính xác {count} câu hỏi trong mảng "questions".
         - Mỗi câu hỏi BẮT BUỘC phải có trường "difficulty" với giá trị là "easy", "medium", hoặc "hard".
+        - Đối với 'Trắc nghiệm', 'Đúng/Sai', 'Điền từ', phần "hint" CHỈ ĐƯỢC LÀ GIẢI THÍCH, KHÔNG ĐƯỢC CHỨA ĐÁP ÁN.
         - Đảm bảo JSON trả về là hợp lệ.
         """
 
