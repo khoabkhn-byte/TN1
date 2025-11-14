@@ -62,7 +62,7 @@ if not GOOGLE_API_KEY:
     # (Bạn có thể `raise RuntimeError` nếu muốn)
 else:
     genai.configure(api_key=GOOGLE_API_KEY)
-    ai_model = genai.GenerativeModel('gemini-1.0-pro')
+    ai_model = genai.GenerativeModel('gemini-2.5-flash')
     print("✅ Connected to Google AI (Gemini)")
 # === KẾT THÚC CẤU HÌNH ===
 
