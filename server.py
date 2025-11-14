@@ -46,7 +46,7 @@ load_dotenv()
 
 app = Flask(__name__)
 # Allow all origins so frontend on any domain can call this API
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": ["*", "null"]}})
 
 # Tăng giới hạn dữ liệu request lên 25MB
 app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024 
@@ -3843,6 +3843,112 @@ def get_assignment_stats():
         return jsonify({
              "totalTestsCreated": 0, "totalAssignments": 0, "uniqueStudentsAssigned": 0, "totalResultsSubmitted": 0, "totalStudents": 0, "error": str(e)
         }), 500
+
+# ==================================================
+# ✅ MODULE MỚI: API QUẢN LÝ HỌC LIỆU (LESSONS)
+# ==================================================
+
+@app.route("/api/lessons", methods=["POST"])
+def create_lesson():
+    """Tạo một bài giảng mới (soạn giáo trình)"""
+    data = request.get_json() or {}
+    
+    # Lấy tags (tương tự như Questions)
+    tags_raw = data.get("tags", "")
+    tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
+    tags_list = list(dict.fromkeys(tags_list)) 
+
+    new_lesson = {
+        "id": str(uuid4()),
+        "title": data.get("title"),
+        "subject": data.get("subject"),
+        "level": data.get("level"),
+        "tags": tags_list,
+        "content": data.get("content"), # Nội dung (Markdown/HTML)
+        "createdAt": now_vn_iso(),
+        "authorId": data.get("authorId") # (Tùy chọn)
+    }
+    
+    if not new_lesson["title"] or not new_lesson["subject"] or not new_lesson["level"]:
+        return jsonify({"success": False, "message": "Thiếu Tiêu đề, Môn học hoặc Khối lớp"}), 400
+
+    db.lessons.insert_one(new_lesson)
+    new_lesson.pop("_id", None)
+    return jsonify({"success": True, "lesson": new_lesson}), 201
+
+@app.route("/api/lessons", methods=["GET"])
+def list_lessons():
+    """Lấy danh sách các bài giảng, có thể lọc"""
+    query = {}
+    subject = request.args.get("subject")
+    level = request.args.get("level")
+    tags = request.args.get("tags")
+    
+    if subject: query["subject"] = subject
+    if level: query["level"] = level
+    if tags: query["tags"] = {"$in": [tags.strip()]}
+
+    docs = list(db.lessons.find(query).sort("createdAt", DESCENDING))
+    for doc in docs:
+        doc['_id'] = str(doc['_id'])
+        
+    return jsonify(docs)
+
+@app.route("/api/lessons/<lesson_id>", methods=["GET"])
+def get_lesson(lesson_id):
+    """Lấy chi tiết một bài giảng bằng ID"""
+    doc = db.lessons.find_one({"id": lesson_id})
+    if not doc:
+        try:
+            doc = db.lessons.find_one({"_id": ObjectId(lesson_id)})
+        except Exception:
+            return jsonify({"success": False, "message": "Không tìm thấy bài giảng"}), 404
+    
+    if not doc:
+        return jsonify({"success": False, "message": "Không tìm thấy bài giảng"}), 404
+        
+    doc['_id'] = str(doc['_id'])
+    return jsonify({"success": True, "lesson": doc}), 200
+
+@app.route("/api/lessons/<lesson_id>", methods=["PUT"])
+def update_lesson(lesson_id):
+    """Cập nhật một bài giảng"""
+    data = request.get_json() or {}
+    update_fields = {}
+    
+    if "title" in data: update_fields["title"] = data["title"]
+    if "subject" in data: update_fields["subject"] = data["subject"]
+    if "level" in data: update_fields["level"] = data["level"]
+    if "content" in data: update_fields["content"] = data["content"]
+    
+    if "tags" in data:
+        tags_raw = data.get("tags", "")
+        tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
+        update_fields["tags"] = list(dict.fromkeys(tags_list))
+    
+    if not update_fields:
+        return jsonify({"message": "Không có gì để cập nhật"}), 400
+
+    res = db.lessons.update_one({"id": lesson_id}, {"$set": update_fields})
+    if res.matched_count == 0:
+        return jsonify({"message": "Bài giảng không tìm thấy."}), 404
+        
+    updated = db.lessons.find_one({"id": lesson_id})
+    updated['_id'] = str(updated['_id'])
+    return jsonify({"success": True, "lesson": updated}), 200
+
+@app.route("/api/lessons/<lesson_id>", methods=["DELETE"])
+def delete_lesson(lesson_id):
+    """Xóa một bài giảng"""
+    # (Sau này có thể thêm logic kiểm tra xem bài giảng có đang dùng trong lộ trình nào không)
+    res = db.lessons.delete_one({"id": lesson_id})
+    if res.deleted_count > 0:
+        return jsonify({"success": True, "message": "Đã xóa bài giảng"}), 200
+    return jsonify({"success": False, "message": "Bài giảng không tìm thấy."}), 404
+
+# ==================================================
+# HẾT MODULE API HỌC LIỆU
+# ==================================================
 
 
 # ==================================================
