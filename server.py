@@ -3937,7 +3937,9 @@ def get_learning_path(path_id):
 
 @app.route("/api/learning-paths/<path_id>", methods=["PUT"])
 def update_learning_path(path_id):
-    """Cập nhật một Lộ trình (quan trọng nhất)"""
+    """Cập nhật một Lộ trình (quan trọng nhất)
+    (NÂNG CẤP: Hỗ trợ 'type: header')
+    """
     data = request.get_json() or {}
     update_fields = {}
     
@@ -3949,20 +3951,33 @@ def update_learning_path(path_id):
         hydrated_steps = []
         # Bù đắp (hydrate) 'title' cho mỗi step
         for i, step in enumerate(data["steps"]):
-            step_id = step.get("id")
-            step_type = step.get("type") # 'lesson' hoặc 'quiz'
+            step_type = step.get("type") # 'lesson', 'quiz', hoặc 'header'
             
+            # === LOGIC MỚI CHO TIÊU ĐỀ ===
+            if step_type == 'header':
+                # Đây là tiêu đề, không cần tra cứu ID, chỉ cần lưu lại
+                hydrated_steps.append({
+                    "index": i,
+                    "type": "header",
+                    "title": step.get("title", "Tiêu đề mới")
+                })
+                continue # Bỏ qua phần còn lại, đi tới vòng lặp tiếp theo
+            # === KẾT THÚC LOGIC MỚI ===
+
+            # --- Logic cho lesson/quiz (như cũ) ---
+            step_id = step.get("id")
             if not step_id or not step_type:
                 continue
-                
+            
             step_title = _get_document_title(step_id, step_type, db)
             
             hydrated_steps.append({
                 "index": i,
                 "id": step_id,
                 "type": step_type,
-                "title": step_title # Lưu lại title để HS xem cho nhanh
+                "title": step_title # title từ db
             })
+        
         update_fields["steps"] = hydrated_steps
 
     if not update_fields:
