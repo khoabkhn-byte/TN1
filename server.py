@@ -3898,18 +3898,33 @@ def create_learning_path():
 
 @app.route("/api/learning-paths", methods=["GET"])
 def list_learning_paths():
-    """Lấy danh sách các Lộ trình, có thể lọc"""
+    """Lấy danh sách các Lộ trình, có thể lọc (ĐÃ NÂNG CẤP: Dùng aggregate để đếm steps)"""
     query = {}
     subject = request.args.get("subject")
     level = request.args.get("level")
     
     if subject: query["subject"] = subject
     if level: query["level"] = level
-
-    # Chỉ lấy các trường cơ bản, không lấy mảng 'steps' nặng
-    projection = {"steps": 0, "_id": 0} 
     
-    docs = list(db.learning_paths.find(query, projection).sort("createdAt", DESCENDING))
+    pipeline = [
+        # 1. Lọc như bình thường
+        {"$match": query},
+        
+        # 2. Thêm trường 'stepCount' mới
+        {"$addFields": {
+            # Dùng $size để đếm mảng 'steps'. 
+            # Nếu 'steps' không tồn tại (null), $ifNull sẽ trả về 0.
+            "stepCount": {"$ifNull": [{"$size": "$steps"}, 0]}
+        }},
+        
+        # 3. Sắp xếp
+        {"$sort": {"createdAt": DESCENDING}},
+        
+        # 4. Loại bỏ các trường không cần thiết (vẫn loại bỏ mảng 'steps' nặng)
+        {"$project": {"_id": 0, "steps": 0}}
+    ]
+    
+    docs = list(db.learning_paths.aggregate(pipeline))
     return jsonify(docs)
 
 @app.route("/api/learning-paths/<path_id>", methods=["GET"])
