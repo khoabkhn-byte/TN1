@@ -3844,6 +3844,134 @@ def get_assignment_stats():
              "totalTestsCreated": 0, "totalAssignments": 0, "uniqueStudentsAssigned": 0, "totalResultsSubmitted": 0, "totalStudents": 0, "error": str(e)
         }), 500
 
+
+# ==================================================
+# ✅ MODULE MỚI: API QUẢN LÝ LỘ TRÌNH HỌC (LEARNING PATHS)
+# ==================================================
+
+def _get_document_title(doc_id, doc_type, db_instance):
+    """Hàm nội bộ: Lấy title từ 'lessons' hoặc 'tests'."""
+    collection = None
+    title_field = ""
+    
+    if doc_type == 'lesson':
+        collection = db_instance.lessons
+        title_field = "title"
+    elif doc_type == 'quiz':
+        collection = db_instance.tests
+        title_field = "name"
+    else:
+        return "N/A"
+
+    # Cố gắng tìm bằng UUID (id) trước
+    doc = collection.find_one({"id": doc_id}, {title_field: 1})
+    if not doc:
+        # Nếu không thấy, thử tìm bằng ObjectId
+        try:
+            doc = collection.find_one({"_id": ObjectId(doc_id)}, {title_field: 1})
+        except Exception:
+            pass # Bỏ qua nếu ID không hợp lệ
+
+    return doc.get(title_field, "Tài liệu đã bị xóa") if doc else "Tài liệu không tồn tại"
+
+@app.route("/api/learning-paths", methods=["POST"])
+def create_learning_path():
+    """Tạo một Lộ trình học mới (chưa có steps)"""
+    data = request.get_json() or {}
+    
+    new_path = {
+        "id": str(uuid4()),
+        "title": data.get("title"),
+        "subject": data.get("subject"),
+        "level": data.get("level"),
+        "steps": [], # Ban đầu là rỗng
+        "authorId": data.get("authorId", "unknown"),
+        "createdAt": now_vn_iso()
+    }
+    
+    if not new_path["title"] or not new_path["subject"] or not new_path["level"]:
+        return jsonify({"success": False, "message": "Thiếu Tiêu đề, Môn học hoặc Khối lớp"}), 400
+
+    db.learning_paths.insert_one(new_path)
+    new_path.pop("_id", None)
+    return jsonify({"success": True, "path": new_path}), 201
+
+@app.route("/api/learning-paths", methods=["GET"])
+def list_learning_paths():
+    """Lấy danh sách các Lộ trình, có thể lọc"""
+    query = {}
+    subject = request.args.get("subject")
+    level = request.args.get("level")
+    
+    if subject: query["subject"] = subject
+    if level: query["level"] = level
+
+    # Chỉ lấy các trường cơ bản, không lấy mảng 'steps' nặng
+    projection = {"steps": 0, "_id": 0} 
+    
+    docs = list(db.learning_paths.find(query, projection).sort("createdAt", DESCENDING))
+    return jsonify(docs)
+
+@app.route("/api/learning-paths/<path_id>", methods=["GET"])
+def get_learning_path(path_id):
+    """Lấy chi tiết một Lộ trình (bao gồm cả steps)"""
+    doc = db.learning_paths.find_one({"id": path_id}, {"_id": 0})
+    if not doc:
+        return jsonify({"success": False, "message": "Không tìm thấy lộ trình"}), 404
+    return jsonify({"success": True, "path": doc}), 200
+
+@app.route("/api/learning-paths/<path_id>", methods=["PUT"])
+def update_learning_path(path_id):
+    """Cập nhật một Lộ trình (quan trọng nhất)"""
+    data = request.get_json() or {}
+    update_fields = {}
+    
+    if "title" in data: update_fields["title"] = data["title"]
+    if "subject" in data: update_fields["subject"] = data["subject"]
+    if "level" in data: update_fields["level"] = data["level"]
+    
+    if "steps" in data and isinstance(data["steps"], list):
+        hydrated_steps = []
+        # Bù đắp (hydrate) 'title' cho mỗi step
+        for i, step in enumerate(data["steps"]):
+            step_id = step.get("id")
+            step_type = step.get("type") # 'lesson' hoặc 'quiz'
+            
+            if not step_id or not step_type:
+                continue
+                
+            step_title = _get_document_title(step_id, step_type, db)
+            
+            hydrated_steps.append({
+                "index": i,
+                "id": step_id,
+                "type": step_type,
+                "title": step_title # Lưu lại title để HS xem cho nhanh
+            })
+        update_fields["steps"] = hydrated_steps
+
+    if not update_fields:
+        return jsonify({"message": "Không có gì để cập nhật"}), 400
+
+    res = db.learning_paths.update_one({"id": path_id}, {"$set": update_fields})
+    if res.matched_count == 0:
+        return jsonify({"message": "Lộ trình không tìm thấy."}), 404
+        
+    updated = db.learning_paths.find_one({"id": path_id}, {"_id": 0})
+    return jsonify({"success": True, "path": updated}), 200
+
+@app.route("/api/learning-paths/<path_id>", methods=["DELETE"])
+def delete_learning_path(path_id):
+    """Xóa một Lộ trình"""
+    res = db.learning_paths.delete_one({"id": path_id})
+    if res.deleted_count > 0:
+        return jsonify({"success": True, "message": "Đã xóa lộ trình"}), 200
+    return jsonify({"success": False, "message": "Lộ trình không tìm thấy."}), 404
+
+# ==================================================
+# HẾT MODULE API LỘ TRÌNH HỌC
+# ==================================================
+
 # ==================================================
 # ✅ MODULE MỚI: API QUẢN LÝ HỌC LIỆU (LESSONS)
 # ==================================================
