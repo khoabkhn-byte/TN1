@@ -4592,6 +4592,7 @@ def get_results_for_student():
                 "tfScore": 1,     # <-- THÊM MỚI
                 "fillScore": 1, # <-- THÊM MỚI
                 "drawScore": 1, # <-- THÊM MỚI
+                "isLearningPath": {"$ifNull": ["$isLearningPath", False]},
                 "studentAnswers": 1, "detailedResults": 1 
             }}
         ]
