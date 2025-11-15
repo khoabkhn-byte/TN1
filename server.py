@@ -4661,6 +4661,81 @@ def get_bulk_results_detail():
         print(f"Lỗi khi lấy chi tiết bulk result: {e}")
         return jsonify({"message": f"Server error: {e}"}), 500
 
+# ==================================================
+# ✅ MODULE MỚI: API QUẢN LÝ LEVEL GAME
+# ==================================================
+
+@app.route("/api/game-levels", methods=["GET"])
+def get_game_levels():
+    """
+    Lấy TẤT CẢ các level cho một game cụ thể (ví dụ: 'calcmaze')
+    Dùng cho Học sinh (tải 1 lần) hoặc Giáo viên (lấy danh sách)
+    """
+    game_id = request.args.get("gameId")
+    if not game_id:
+        return jsonify({"success": False, "message": "Thiếu gameId"}), 400
+    
+    levels = list(db.game_levels.find(
+        {"gameId": game_id}, 
+        {"_id": 0}
+    ).sort("level", 1)) # Sắp xếp theo level
+    
+    return jsonify({"success": True, "levels": levels}), 200
+
+@app.route("/api/game-levels", methods=["POST"])
+def create_game_level():
+    """
+    Tạo hoặc Cập nhật một level game (dùng cho Giáo viên)
+    Sử dụng 'replace_one' với 'upsert=True'
+    """
+    data = request.get_json() or {}
+    game_id = data.get("gameId")
+    level = data.get("level")
+    
+    if not game_id or not level:
+        return jsonify({"success": False, "message": "Thiếu gameId hoặc level"}), 400
+    
+    # Dữ liệu của level (grid, target, v.v.)
+    level_data = {
+        "gameId": game_id,
+        "level": int(level),
+        "targetValue": data.get("targetValue"),
+        "startValue": data.get("startValue"),
+        "grid": data.get("grid"), # Grid 2D
+        "updatedAt": now_vn_iso()
+    }
+    
+    # Dùng (gameId, level) làm khóa chính
+    db.game_levels.replace_one(
+        {"gameId": game_id, "level": int(level)},
+        level_data,
+        upsert=True
+    )
+    
+    return jsonify({"success": True, "level": level_data}), 201
+
+@app.route("/api/game-levels/<game_id>/<level>", methods=["DELETE"])
+def delete_game_level(game_id, level):
+    """
+    Xóa một level game (dùng cho Giáo viên)
+    """
+    try:
+        level_num = int(level)
+        result = db.game_levels.delete_one(
+            {"gameId": game_id, "level": level_num}
+        )
+        if result.deleted_count > 0:
+            return jsonify({"success": True, "message": "Đã xóa level"}), 200
+        else:
+            return jsonify({"success": False, "message": "Không tìm thấy level để xóa"}), 404
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+# ==================================================
+# HẾT MODULE API GAME
+# ==================================================
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=PORT)
