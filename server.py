@@ -4272,11 +4272,27 @@ def complete_student_step():
             
             score = result.get("totalScore", 0)
             PASSING_SCORE = 8.0 
+            
             if score >= PASSING_SCORE:
                 can_advance = True
-                progress["scores"].append({"quizId": step_to_check.get("id"), "score": score})
+                
+                # SỬA LỖI 1: Cập nhật điểm vào mảng scores
+                if not isinstance(progress.get("scores"), list):
+                    progress["scores"] = []
+                
+                score_found = False
+                for s in progress["scores"]:
+                    if s.get("quizId") == step_to_check.get("id"):
+                        s["score"] = score # Cập nhật điểm (nếu làm lại)
+                        score_found = True
+                        break
+                if not score_found:
+                    progress["scores"].append({"quizId": step_to_check.get("id"), "score": score})
+                
             else:
                 can_advance = False
+                # SỬA LỖI 3: Thông báo điểm số cụ thể (theo yêu cầu của bạn)
+                return jsonify({"success": True, "message": f"Bạn chỉ đạt {score} điểm. Cần {PASSING_SCORE} điểm để vượt qua, hãy ôn tập và làm lại!", "newIndex": current_idx})
         
         elif step_type == "header":
             # Nếu vì lý do nào đó mà frontend gọi "hoàn thành" header, cứ cho qua
