@@ -4143,6 +4143,143 @@ def delete_lesson(lesson_id):
 # HẾT MODULE API HỌC LIỆU
 # ==================================================
 
+# ==================================================
+# ✅ MODULE MỚI: API HỌC TẬP (PHÍA HỌC SINH)
+# ==================================================
+
+@app.route("/api/student/progress", methods=["GET"])
+def get_student_progress():
+    """Lấy toàn bộ tiến độ của một học sinh"""
+    student_id = request.args.get("studentId")
+    if not student_id:
+        return jsonify({"success": False, "message": "Thiếu studentId"}), 400
+        
+    progress_docs = list(db.student_progress.find({"studentId": student_id}, {"_id": 0}))
+    # Tạo map cho dễ truy cập: { "pathId1": { ...progress... }, "pathId2": ... }
+    progress_map = {p.get("pathId"): p for p in progress_docs}
+    return jsonify({"success": True, "progress": progress_map})
+
+@app.route("/api/student/paths", methods=["GET"])
+def get_student_paths():
+    """Lấy các Lộ trình học phù hợp với học sinh"""
+    student_level = request.args.get("level")
+    if not student_level:
+        return jsonify({"success": False, "message": "Thiếu Khối (level)"}), 400
+    
+    # Lấy các lộ trình của khối đó
+    query = {"level": str(student_level)}
+    projection = {"_id": 0} # Lấy toàn bộ (cả steps)
+    
+    docs = list(db.learning_paths.find(query, projection).sort("createdAt", 1)) # Sắp xếp cũ trước
+    return jsonify({"success": True, "paths": docs})
+
+@app.route("/api/student/lessons", methods=["GET"])
+def get_student_lessons():
+    """Lấy các Bài giảng (Học theo chủ đề) phù hợp với học sinh"""
+    student_level = request.args.get("level")
+    if not student_level:
+        return jsonify({"success": False, "message": "Thiếu Khối (level)"}), 400
+    
+    # Lấy các bài giảng của khối đó
+    query = {"level": str(student_level)}
+    projection = {"_id": 0, "content": 0} # Không lấy nội dung nặng
+    
+    docs = list(db.lessons.find(query, projection).sort("subject", 1))
+    return jsonify({"success": True, "lessons": docs})
+
+@app.route("/api/student/paths/complete-step", methods=["POST"])
+def complete_student_step():
+    """Học sinh báo cáo đã hoàn thành 1 bước (Đọc bài hoặc Làm Quiz)"""
+    data = request.get_json() or {}
+    student_id = data.get("studentId")
+    path_id = data.get("pathId")
+    step_index = data.get("stepIndex")
+    result_id = data.get("resultId", None) # ID của bài quiz (nếu là bước quiz)
+    
+    if student_id is None or path_id is None or step_index is None:
+        return jsonify({"success": False, "message": "Thiếu dữ liệu (studentId, pathId, stepIndex)"}), 400
+        
+    try:
+        step_index = int(step_index)
+        
+        # 1. Lấy Lộ trình gốc
+        path = db.learning_paths.find_one({"id": path_id})
+        if not path:
+            return jsonify({"success": False, "message": "Không tìm thấy Lộ trình"}), 404
+        
+        # 2. Lấy tiến độ hiện tại của HS
+        progress = db.student_progress.find_one({"studentId": student_id, "pathId": path_id})
+        if not progress:
+            # Tạo mới nếu chưa có
+            progress = {
+                "id": str(uuid4()),
+                "studentId": student_id,
+                "pathId": path_id,
+                "currentStepIndex": 0, # Bắt đầu ở bước 0
+                "scores": []
+            }
+            db.student_progress.insert_one(progress)
+            
+        current_idx = progress.get("currentStepIndex", 0)
+        
+        # 3. Kiểm tra xem học sinh có đang cố "nhảy cóc" không
+        if step_index != current_idx:
+            return jsonify({"success": False, "message": f"Học sinh đang ở bước {current_idx}, không thể hoàn thành bước {step_index}"}), 400
+            
+        # 4. Lấy thông tin bước (step) mà HS vừa hoàn thành
+        step_to_check = path.get("steps", [])[step_index]
+        step_type = step_to_check.get("type")
+        
+        can_advance = False
+        
+        if step_type == "lesson" or step_type == "header":
+            # Nếu là "Bài giảng" hoặc "Tiêu đề", luôn cho qua
+            can_advance = True
+        
+        elif step_type == "quiz":
+            # Nếu là "Bài thi", phải kiểm tra điểm
+            if not result_id:
+                return jsonify({"success": False, "message": "Hoàn thành Quiz nhưng không có resultId"}), 400
+                
+            result = db.results.find_one({"id": result_id})
+            if not result:
+                return jsonify({"success": False, "message": "Không tìm thấy kết quả bài làm"}), 404
+            
+            score = result.get("totalScore", 0)
+            
+            # === QUY TẮC: 8.0 ĐIỂM ===
+            PASSING_SCORE = 8.0 
+            if score >= PASSING_SCORE:
+                can_advance = True
+                # Lưu điểm
+                progress["scores"].append({"quizId": step_to_check.get("id"), "score": score})
+            else:
+                can_advance = False # Không cho qua
+        
+        # 5. Cập nhật CSDL
+        if can_advance:
+            next_step_index = current_idx + 1
+            if next_step_index >= len(path.get("steps", [])):
+                # Đã hoàn thành lộ trình
+                new_status = "completed"
+            else:
+                new_status = "inprogress"
+            
+            db.student_progress.update_one(
+                {"id": progress["id"]},
+                {
+                    "$set": {"currentStepIndex": next_step_index, "status": new_status, "scores": progress["scores"]},
+                    "$currentDate": {"lastUpdatedAt": True}
+                }
+            )
+            return jsonify({"success": True, "message": "Đã mở khóa bước tiếp theo", "newIndex": next_step_index})
+        else:
+            # Không thể qua (ví dụ: quiz điểm thấp)
+            return jsonify({"success": False, "message": f"Bạn cần đạt ít nhất 8.0 điểm để qua bài thi này!"})
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
 # ==================================================
 # ✅ DÁN HÀM MỚI NÀY VÀO SERVER.PY
