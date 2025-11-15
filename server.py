@@ -3103,7 +3103,8 @@ def create_result():
             "drawScore": 0.0,
             "totalScore": total_score,
             "submittedAt": now_vn_iso(),
-            "gradedAt": None
+            "gradedAt": None,
+            "isLearningPath": data.get("isLearningPath", False)
         }
         # ▲▲▲ KẾT THÚC SỬA ▲▲▲
         
@@ -3728,13 +3729,21 @@ def request_review_test():
 @app.route("/api/results_summary", methods=["GET"])
 def get_results_summary():
     pipeline = [
-        # SỬA ĐỔI: Thêm $match để LỌC BỎ các bài ôn tập
+        # === SỬA ĐỔI KHỐI $match NÀY ===
         {"$match": {
-            "testName": {"$not": {"$regex": "^\\[Ôn tập", "$options": "i"}}
+            # 1. Lọc bài ôn tập (đã có)
+            "testName": {"$not": {"$regex": "^\\[Ôn tập", "$options": "i"}},
+            
+            # 2. === DÒNG MỚI CẦN THÊM ===
+            # Lọc bài từ Lộ trình học
+            # ($ne: True có nghĩa là "không bằng True", 
+            # nó sẽ bao gồm cả "False" và "không tồn tại" (null))
+            "isLearningPath": {"$ne": True}
         }},
+        # === KẾT THÚC SỬA ĐỔI ===
         
         {"$lookup": {
-            "from": "users", "let": { "sid": "$studentId" }, 
+            "from": "users", "let": { "sid": "$studentId" },
             "pipeline": [
                 { "$match": { "$expr": { "$or": [ { "$eq": [ "$id", "$$sid" ] }, { "$eq": [ { "$toString": "$_id" }, "$$sid" ] } ] }}},
                 { "$project": { "fullName": 1, "className": 1, "_id": 0 } } 
