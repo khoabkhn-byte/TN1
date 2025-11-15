@@ -3933,7 +3933,9 @@ def create_learning_path():
 
 @app.route("/api/learning-paths", methods=["GET"])
 def list_learning_paths():
-    """Lấy danh sách các Lộ trình, có thể lọc (ĐÃ NÂNG CẤP: Dùng aggregate để đếm steps)"""
+    """Lấy danh sách các Lộ trình, có thể lọc
+    (NÂNG CẤP: Đếm số 'Tiêu đề Nhóm' thay vì tổng số bước)
+    """
     query = {}
     subject = request.args.get("subject")
     level = request.args.get("level")
@@ -3945,17 +3947,29 @@ def list_learning_paths():
         # 1. Lọc như bình thường
         {"$match": query},
         
-        # 2. Thêm trường 'stepCount' mới
+        # 2. === SỬA LỖI LOGIC ĐẾM ===
         {"$addFields": {
-            # Dùng $size để đếm mảng 'steps'. 
-            # Nếu 'steps' không tồn tại (null), $ifNull sẽ trả về 0.
-            "stepCount": {"$ifNull": [{"$size": "$steps"}, 0]}
+            "stepCount": {
+                "$ifNull": [
+                    {"$size": {
+                        # Lọc mảng 'steps' trước khi đếm
+                        "$filter": {
+                            "input": "$steps",
+                            "as": "step",
+                            # Chỉ đếm những phần tử có type = "header"
+                            "cond": {"$eq": ["$$step.type", "header"]}
+                        }
+                    }},
+                    0 # Giá trị mặc định nếu 'steps' là null
+                ]
+            }
         }},
+        # === KẾT THÚC SỬA LỖI ===
         
         # 3. Sắp xếp
         {"$sort": {"createdAt": DESCENDING}},
         
-        # 4. Loại bỏ các trường không cần thiết (vẫn loại bỏ mảng 'steps' nặng)
+        # 4. Loại bỏ các trường không cần thiết
         {"$project": {"_id": 0, "steps": 0}}
     ]
     
