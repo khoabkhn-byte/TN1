@@ -4720,10 +4720,10 @@ def create_game_level():
     data = request.get_json() or {}
     game_id = data.get("gameId")
     level = data.get("level")
-    
+
     if not game_id or not level:
         return jsonify({"success": False, "message": "Thiếu gameId hoặc level"}), 400
-    
+
     # Dữ liệu của level (grid, target, v.v.)
     level_data = {
         "gameId": game_id,
@@ -4731,16 +4731,17 @@ def create_game_level():
         "targetValue": data.get("targetValue"),
         "startValue": data.get("startValue"),
         "grid": data.get("grid"), # Grid 2D
+        "background": data.get("background"), # <-- THÊM DÒNG NÀY
         "updatedAt": now_vn_iso()
     }
-    
+
     # Dùng (gameId, level) làm khóa chính
     db.game_levels.replace_one(
         {"gameId": game_id, "level": int(level)},
         level_data,
         upsert=True
     )
-    
+
     return jsonify({"success": True, "level": level_data}), 201
 
 @app.route("/api/game-levels/<game_id>/<level>", methods=["DELETE"])
