@@ -353,6 +353,15 @@ def get_users():
     if nameSearch: query["fullName"] = {"$regex": nameSearch, "$options": "i"} 
     gender = request.args.get("gender")
     if gender: query["gender"] = gender 
+
+    # --- ĐOẠN CODE MỚI ĐƯỢC THÊM VÀO ĐÂY ---
+    level_param = request.args.get("level") # e.g., "4" or "4,5"
+    if level_param:
+        levels_list = [l.strip() for l in level_param.split(',') if l.strip()]
+        if levels_list:
+            query["level"] = {"$in": levels_list}
+    # --- KẾT THÚC ---
+
     docs = list(db.users.find(query, {"_id": 0}))
     return jsonify(docs)
 
@@ -492,9 +501,13 @@ def get_classes():
     Lấy danh sách các lớp học, có thể lọc theo Khối (level).
     """
     query = {}
-    level = request.args.get("level")
-    if level:
-        query["level"] = level
+    level_param = request.args.get("level") # e.g., "4" or "4,5"
+    if level_param:
+        # Tách chuỗi "4,5" thành ["4", "5"]
+        levels_list = [l.strip() for l in level_param.split(',') if l.strip()]
+        if levels_list:
+            # Sử dụng $in của MongoDB để tìm các lớp CÓ level nằm TRONG danh sách
+            query["level"] = {"$in": levels_list}
         
     try:
         classes = list(db.classes.find(query).sort("name", 1))
