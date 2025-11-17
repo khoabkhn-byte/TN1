@@ -4716,14 +4716,15 @@ def create_game_level():
     """
     Tạo hoặc Cập nhật một level game (dùng cho Giáo viên)
     Sử dụng 'replace_one' với 'upsert=True'
+    (ĐÃ CẬP NHẬT: Xử lý timeLimit và background ID)
     """
     data = request.get_json() or {}
     game_id = data.get("gameId")
     level = data.get("level")
-
+    
     if not game_id or not level:
         return jsonify({"success": False, "message": "Thiếu gameId hoặc level"}), 400
-
+    
     # Dữ liệu của level (grid, target, v.v.)
     level_data = {
         "gameId": game_id,
@@ -4731,18 +4732,18 @@ def create_game_level():
         "targetValue": data.get("targetValue"),
         "startValue": data.get("startValue"),
         "grid": data.get("grid"), # Grid 2D
-        "background": data.get("background"),
-        "timeLimit": data.get("timeLimit", 60), # <-- THÊM DÒNG NÀY
+        "background": data.get("background"), # Sẽ lưu ID ảnh hoặc keyword
+        "timeLimit": data.get("timeLimit", 60), 
         "updatedAt": now_vn_iso()
     }
-
+    
     # Dùng (gameId, level) làm khóa chính
     db.game_levels.replace_one(
         {"gameId": game_id, "level": int(level)},
         level_data,
         upsert=True
     )
-
+    
     return jsonify({"success": True, "level": level_data}), 201
 
 @app.route("/api/game-levels/<game_id>/<level>", methods=["DELETE"])
@@ -4761,6 +4762,52 @@ def delete_game_level(game_id, level):
             return jsonify({"success": False, "message": "Không tìm thấy level để xóa"}), 404
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/api/game-background", methods=["POST"])
+def upload_game_background():
+    """
+    API MỚI: Tải lên file ảnh nền cho game
+    """
+    if 'background' not in request.files:
+        return jsonify({"success": False, "message": "Không tìm thấy file 'background'"}), 400
+    
+    file = request.files['background']
+    
+    if file.filename == '':
+        return jsonify({"success": False, "message": "Không có file nào được chọn"}), 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        content_type = file.mimetype
+        try:
+            # Lưu vào GridFS
+            file_id = fs.put(file, filename=filename, content_type=content_type)
+            return jsonify({
+                "success": True, 
+                "message": "Tải file lên thành công",
+                "file_id": str(file_id) # Trả về ID (dưới dạng string)
+            }), 201
+        except Exception as e:
+            traceback.print_exc()
+            return jsonify({"success": False, "message": f"Lỗi lưu file: {str(e)}"}), 500
+            
+    return jsonify({"success": False, "message": "Lỗi không xác định"}), 500
+
+@app.route("/api/game-background/<file_id>", methods=["GET"])
+def get_game_background(file_id):
+    """
+    API MỚI: Phục vụ file ảnh nền từ GridFS
+    (Gần giống get_question_image)
+    """
+    try:
+        file_obj = fs.get(ObjectId(file_id))
+        return send_file(file_obj, mimetype=file_obj.content_type, as_attachment=False)
+    except Exception as e:
+        print(f"❌ Lỗi lấy ảnh nền GridFS: {e}")
+        # Trả về 404 để ảnh hiển thị là "bị hỏng"
+        return jsonify({"message": f"File not found: {str(e)}"}), 404
+
+
 
 # ==================================================
 # HẾT MODULE API GAME
