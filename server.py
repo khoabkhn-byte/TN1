@@ -2654,9 +2654,13 @@ def bulk_assign_tests():
 
     # --- 4. Lấy thông tin (Map) ---
     students_to_process = list(set(final_student_ids_to_assign + final_student_ids_to_remove))
-    students_cursor = db.users.find({"id": {"$in": students_to_process}}, {"id": 1, "fullName": 1, "className": 1, "classId": 1})
+    
+    # === SỬA ĐỔI 1: Thêm "level": 1 ===
+    students_cursor = db.users.find({"id": {"$in": students_to_process}}, {"id": 1, "fullName": 1, "className": 1, "classId": 1, "level": 1})
     student_map = {s['id']: s for s in students_cursor}
-    test_docs_cursor = db.tests.find({"id": {"$in": test_ids}}, {"_id": 0, "id": 1, "name": 1, "subject": 1})
+    
+    # === SỬA ĐỔI 2: Thêm "level": 1 ===
+    test_docs_cursor = db.tests.find({"id": {"$in": test_ids}}, {"_id": 0, "id": 1, "name": 1, "subject": 1, "level": 1})
     test_map = {t['id']: t for t in test_docs_cursor}
 
     assignments_to_insert = []
@@ -2675,6 +2679,22 @@ def bulk_assign_tests():
                 for stu_id in final_student_ids_to_assign:
                     student = student_map.get(stu_id)
                     if not student: continue
+                    
+                    # === SỬA ĐỔI 3: LOGIC PHÂN TÁCH TỰ ĐỘNG ===
+                    test_level = test_info.get("level")
+                    student_level = student.get("level")
+
+                    # Nếu 1 trong 2 không có level, bỏ qua (an toàn)
+                    if not test_level or not student_level:
+                        print(f"Bỏ qua: test_level({test_level}) hoặc student_level({student_level}) không tồn tại.")
+                        continue
+
+                    # CHỈ GIAO NẾU LEVEL KHỚP NHAU
+                    if str(test_level) != str(student_level):
+                        # Bỏ qua học sinh này, chuyển sang học sinh tiếp theo
+                        print(f"Bỏ qua: {student.get('fullName')} (Khối {student_level}) không khớp với đề (Khối {test_level})")
+                        continue 
+                    # === KẾT THÚC SỬA ĐỔI 3 ===
                     
                     existing_assignment = db.assignments.find_one({"testId": t_id, "studentId": stu_id})
                     
@@ -2705,8 +2725,7 @@ def bulk_assign_tests():
         
         # --- 6. Xử lý HỦY GIAO BÀI ---
         if final_student_ids_to_remove:
-            # Chỉ hủy cho các testId được chọn VÀ các studentId được chọn
-            # Quan trọng: KHÔNG HỦY BÀI ĐÃ NỘP (status: 'done' or 'submitted')
+            # (Logic hủy giữ nguyên)
             query = {
                 "testId": {"$in": test_ids},
                 "studentId": {"$in": final_student_ids_to_remove},
@@ -2717,19 +2736,16 @@ def bulk_assign_tests():
 
         # --- 7. Cập nhật trạng thái Đề thi ---
         if test_ids:
-            # Lặp qua từng ID đề thi đã bị ảnh hưởng
+            # (Logic cập nhật trạng thái giữ nguyên)
             for t_id in test_ids:
-                # Đếm xem đề thi này còn *bất kỳ* assignment nào không
                 remaining_assignments = db.assignments.count_documents({"testId": t_id})
                 
                 if remaining_assignments > 0:
-                    # Nếu còn, đặt là "assigned"
                     db.tests.update_one(
                         {"id": t_id},
                         {"$set": {"assignmentStatus": "assigned"}}
                     )
                 else:
-                    # Nếu không còn (count = 0), đặt lại là "not_assigned"
                     db.tests.update_one(
                         {"id": t_id},
                         {"$set": {"assignmentStatus": "not_assigned"}} # Hoặc dùng $unset
