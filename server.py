@@ -4731,7 +4731,8 @@ def create_game_level():
         "targetValue": data.get("targetValue"),
         "startValue": data.get("startValue"),
         "grid": data.get("grid"), # Grid 2D
-        "background": data.get("background"), # <-- THÊM DÒNG NÀY
+        "background": data.get("background"),
+        "timeLimit": data.get("timeLimit", 60), # <-- THÊM DÒNG NÀY
         "updatedAt": now_vn_iso()
     }
 
