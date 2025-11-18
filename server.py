@@ -1434,51 +1434,92 @@ def ai_generate_question():
         return jsonify({"success": False, "message": f"Lỗi từ AI: {str(e)}"}), 500
 
 # ==================================================
-# ✅ API MỚI: TẠO ĐỀ LUYỆN TẬP TỰ DO (PRACTICE SANDBOX)
+# ✅ THAY THẾ HÀM NÀY (HỖ TRỢ LỌC TYPE VÀ GAME TRIỆU PHÚ)
 # ==================================================
 @app.route("/api/practice/generate", methods=["POST"])
 def generate_practice_test():
     """
     Tạo một bài kiểm tra "ảo" (không lưu) cho học sinh luyện tập.
-    Nhận bộ lọc (subject, level, tags, count) và trả về danh sách câu hỏi.
+    Hỗ trợ lọc theo 'type' và logic 'game=trieuphu' (5 Dễ, 5 TB, 5 Khó).
     """
     try:
         data = request.get_json() or {}
         
         # 1. Lấy bộ lọc từ frontend
-        subject = data.get("subject")
+        subject = data.get("subject") # Có thể là None nếu chọn "Tổng hợp"
         level = data.get("level")
         tags_raw = data.get("tags", "")
         count = int(data.get("count", 10))
-        
-        # Giới hạn số lượng
-        if count > 20: count = 20
-        if count < 1: count = 1
+        req_type = data.get("type") # mc, essay...
+        game_mode = data.get("game") # "trieuphu"
 
-        if not subject or not level:
-            return jsonify({"success": False, "message": "Vui lòng chọn Môn học và Khối lớp."}), 400
+        if not level:
+            # Level là bắt buộc
+            return jsonify({"success": False, "message": "Vui lòng chọn Khối lớp."}), 400
 
         # 2. Xây dựng $match query
         match_query = {
-            "subject": subject,
-            "level": level
+            "level": level,
+            # Lọc bỏ các câu hỏi ôn tập cá nhân
+            "isPersonalizedReview": {"$ne": True}
         }
         
-        # Xử lý tags: "tag1, tag2" -> ["tag1", "tag2"]
+        if subject: # Chỉ thêm 'subject' nếu nó được cung cấp
+            match_query["subject"] = subject
+        
+        if req_type: # Thêm bộ lọc 'type' (để fix lỗi Triệu Phú)
+            match_query["type"] = req_type
+            
         if tags_raw:
             tags_list = [tag.strip() for tag in tags_raw.split(',') if tag.strip()]
             if tags_list:
-                # $all = câu hỏi phải chứa TẤT CẢ các tag
                 match_query["tags"] = {"$all": tags_list} 
 
-        # 3. Lấy câu hỏi ngẫu nhiên
-        pipeline = [
-            {"$match": match_query},
-            {"$sample": {"size": count}}
-            # Chúng ta lấy toàn bộ tài liệu (full question object)
-        ]
+        questions_from_db = []
         
-        questions_from_db = list(db.questions.aggregate(pipeline))
+        # 3. Logic lấy câu hỏi
+        if game_mode == 'trieuphu' and req_type == 'mc':
+            # === LOGIC MỚI CHO GAME TRIỆU PHÚ ===
+            # Lấy 5 Dễ, 5 TB, 5 Khó
+            
+            # $facet cho phép chạy 3 pipeline song song
+            pipeline = [
+                {"$match": match_query}, # Áp dụng bộ lọc Môn/Khối
+                {"$facet": {
+                    "easy": [
+                        {"$match": {"difficulty": "easy"}},
+                        {"$sample": {"size": 5}}
+                    ],
+                    "medium": [
+                        {"$match": {"difficulty": "medium"}},
+                        {"$sample": {"size": 5}}
+                    ],
+                    "hard": [
+                        {"$match": {"difficulty": "hard"}},
+                        {"$sample": {"size": 5}}
+                    ]
+                }}
+            ]
+            
+            result = list(db.questions.aggregate(pipeline))
+            
+            if result:
+                easy_q = result[0].get('easy', [])
+                medium_q = result[0].get('medium', [])
+                hard_q = result[0].get('hard', [])
+                questions_from_db = easy_q + medium_q + hard_q
+                
+                # Xáo trộn 15 câu hỏi
+                random.shuffle(questions_from_db)
+        
+        else:
+            # === LOGIC CŨ (Lấy ngẫu nhiên 'count' câu) ===
+            pipeline = [
+                {"$match": match_query},
+                {"$sample": {"size": count}}
+            ]
+            questions_from_db = list(db.questions.aggregate(pipeline))
+        
         
         if not questions_from_db:
             return jsonify({"success": False, "message": "Không tìm thấy câu hỏi nào phù hợp với bộ lọc của bạn."}), 404
