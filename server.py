@@ -1336,8 +1336,8 @@ def _clean_ai_response(text):
 @app.route("/api/ai/generate-question", methods=["POST"])
 def ai_generate_question():
     """
-    API MỚI: Dùng AI (Gemini) để tạo NHIỀU câu hỏi
-    (NÂNG CẤP: Yêu cầu AI tự phân loại độ khó VÀ TẠO TAGS)
+    API Dùng AI (Gemini) để tạo câu hỏi.
+    (Đã tối ưu hóa prompt để giảm độ phức tạp và tăng tốc độ xử lý).
     """
     if not GOOGLE_API_KEY:
         return jsonify({"success": False, "message": "Tính năng AI chưa được kích hoạt trên server (thiếu GOOGLE_API_KEY)."}), 503
@@ -1359,6 +1359,7 @@ def ai_generate_question():
         if not topic:
             return jsonify({"success": False, "message": "Vui lòng nhập chủ đề."}), 400
 
+        # Định nghĩa mô tả loại câu hỏi
         type_description = "Trắc nghiệm (có 4 lựa chọn, trong đó 1 lựa chọn 'correct' là true)"
         if q_type == "essay":
             type_description = "Tự luận (không có lựa chọn, chỉ có câu hỏi và gợi ý)"
@@ -1369,25 +1370,20 @@ def ai_generate_question():
         elif q_type == "draw":
             type_description = "Vẽ (Câu hỏi yêu cầu vẽ hình, không có lựa chọn)"
 
-        # === THAY ĐỔI: CẬP NHẬT YÊU CẦU PROMPT CHO TAGS ===
+        # === PROMPT ĐÃ ĐƯỢC TỐI ƯU HÓA ===
         prompt = f"""
-        Bạn là một trợ lý giáo dục chuyên nghiệp, đang soạn câu hỏi cho hệ thống thi trắc nghiệm.
-        Hãy tạo chính xác {count} câu hỏi DUY NHẤT dựa trên các yêu cầu sau:
+        Bạn là một trợ lý giáo dục chuyên nghiệp, chuyên soạn câu hỏi.
+        Hãy tạo chính xác {count} câu hỏi DUY NHẤT dựa trên các yêu cầu:
         
         1.  **Môn học:** {subject}
         2.  **Khối lớp:** {level}
         3.  **Chủ đề:** {topic}
         4.  **Loại câu hỏi:** {type_description}
 
-        YÊU CẦU NÂNG CAO:
-        - Hãy tạo một sự phân bổ hợp lý các câu hỏi ở 3 mức độ: 'easy', 'medium', và 'hard'.
-        
-        # === YÊU CẦU MỚI: TẠO TAGS ===
-        - Tự động phân tích nội dung câu hỏi và chủ đề để tạo ra 3-5 'tags' (từ khóa) liên quan.
-        - Các tag phải viết bằng tiếng Việt, không dấu, và cách nhau bằng dấu phẩy (ví dụ: 'hinh hoc', 'phep nhan', 'van ta canh').
-        - Nếu người dùng có cung cấp gợi ý tag trong Chủ đề (ví dụ: 'Tag: hình học, góc'), hãy ưu tiên sử dụng các tag đó và chuyển đổi chúng sang định dạng không dấu.
-
         YÊU CẦU ĐẦU RA (RẤT QUAN TRỌNG):
+        - Hãy tạo một sự phân bổ hợp lý các mức độ: 'easy', 'medium', 'hard'.
+        - Tự động tạo ra **1 đến 3 'tags'** (viết tiếng Việt, không dấu, cách nhau bằng dấu phẩy) cho mỗi câu hỏi.
+        
         Chỉ trả về một đối tượng JSON duy nhất (không có bất kỳ văn bản nào khác) theo cấu trúc sau:
         {{
           "questions": [
@@ -1396,26 +1392,18 @@ def ai_generate_question():
               "options": [...],
               "hint": "Giải thích cho câu 1.",
               "difficulty": "easy",
-              "tags": ["hinh hoc", "chu vi", "hinh vuong"]
+              "tags": ["hinh hoc", "chu vi"] // CHỈ 1-3 TAGS
             }},
-            {{
-              "q": "Nội dung câu hỏi 2...",
-              "options": [...],
-              "hint": "Giải thích cho câu 2.",
-              "difficulty": "medium",
-              "tags": ["van hoc", "ta canh", "mua xuan"]
-            }}
+            // ... (các câu hỏi khác)
           ]
         }}
 
         LƯU Ý:
-        - Phải có chính xác {count} câu hỏi trong mảng "questions".
-        - Mỗi câu hỏi BẮT BUỘC phải có trường "difficulty" ("easy", "medium", "hard").
-        - Mỗi câu hỏi BẮT BUỘC phải có trường "tags" là một mảng các chuỗi (viết thường, không dấu).
-        - Đối với 'Trắc nghiệm', 'Đúng/Sai', 'Điền từ', phần "hint" CHỈ ĐƯỢC LÀ GIẢI THÍCH, KHÔNG ĐƯỢC CHỨA ĐÁP ÁN.
-        - Đảm bảo JSON trả về là hợp lệ.
+        - Phải có chính xác {count} câu hỏi.
+        - Mỗi câu hỏi BẮT BUỘC phải có trường "difficulty" và "tags".
+        - Đảm bảo JSON trả về là hợp lệ và gọn gàng.
         """
-        # === KẾT THÚC THAY ĐỔI PROMPT ===
+        # === KẾT THÚC PROMPT ĐÃ ĐƯỢC TỐI ƯU HÓA ===
 
         ai_model = genai.GenerativeModel('models/gemini-pro-latest') 
         response = ai_model.generate_content(prompt)
@@ -1431,7 +1419,6 @@ def ai_generate_question():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Lỗi từ AI: {str(e)}"}), 500
-
 # ==================================================
 # ✅ THAY THẾ HÀM NÀY (HỖ TRỢ LỌC TYPE VÀ GAME TRIỆU PHÚ)
 # ==================================================
