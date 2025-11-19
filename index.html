@@ -945,79 +945,91 @@
 
 /* === KẾT THÚC CSS MỚI === */
 
-/* === THÊM CSS MỚI CHO MÊ CUNG PHÉP TÍNH (V5 - ĐÃ SỬA LỖI) === */
+/* === THAY THẾ BẰNG CSS MỚI (V9 - SỬA LỖI XẸP GRID & NỀN VẬT CẢN) === */
 #calcmaze-canvas-container {
-    display: grid; /* Chuyển sang Grid */
+    display: grid; 
     border: 2px solid #333;
-    background: #fff;
-    /* Tự động tính toán kích thước dựa trên biến JS */
+    background: #fff; /* Nền mặc định */
+    background-size: cover;
+    background-position: center;
     grid-template-columns: repeat(var(--maze-cols, 4), 1fr);
     grid-template-rows: repeat(var(--maze-rows, 4), 1fr);
-    /* Giữ tỷ lệ 1:1 */
     aspect-ratio: 1 / 1;
     max-height: 500px; 
     margin: 0 auto;
     overflow: hidden;
 }
 .maze-cell {
-    /* Căn giữa mọi thứ bên trong ô */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem; /* Thu nhỏ chữ 1 chút cho vừa ô */
+    font-size: 1.2rem; 
     font-family: 'Arial Black', sans-serif;
-    border: 1px solid #eee; /* Lưới mờ */
+    border: 1px solid rgba(238, 238, 238, 0.5); /* Lưới mờ (trong suốt) */
     transition: all 0.1s ease-out;
+    background-color: transparent; /* Nền trong suốt */
 }
-.maze-wall {
-    background-color: #5a6268;
-    border-radius: 2px;
+
+/* === SỬA LỖI: VẬT CẢN NỀN TRONG SUỐT === */
+.maze-wall, .maze-wall-rock, .maze-wall-tree, .maze-wall-water {
+    background-color: transparent !important; /* Nền trong suốt */
+    font-size: 1.5rem; /* Tăng kích thước emoji */
+    color: #333; /* Màu emoji đậm */
+    text-shadow: 0 0 3px white; /* Viền trắng cho emoji */
 }
+/* === KẾT THÚC SỬA LỖI === */
+
 .maze-path {
-    background-color: #fff;
+    background-color: transparent;
 }
 .maze-player {
-    background-color: #0d6efd !important; /* Luôn ưu tiên màu xanh */
+    background: rgba(13, 110, 253, 0.85) !important; 
     border-radius: 4px;
     transform: scale(0.8);
-    opacity: 1;
-    z-index: 10;
-    color: white !important; /* Luôn ưu tiên màu trắng */
+    color: white !important; 
     font-size: 1.5rem;
 }
 .maze-goal {
-    background-color: #198754; /* Màu đích */
-    border-radius: 50%; /* Hình tròn */
+    background: rgba(25, 135, 84, 0.85) !important; 
+    border-radius: 50%;
+    font-size: 2.5rem; 
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 0 5px rgba(0,0,0,0.5); 
 }
-/* Style cho các ô phép tính */
+
+/* Ô phép tính (giữ nguyên nền bán trong suốt) */
 .maze-op-add, .maze-op-sub, .maze-op-mul, .maze-op-div {
     font-weight: 700;
     border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.1); 
 }
-.maze-op-add { background-color: #d1e7dd; color: #0a3622; } /* Green */
-.maze-op-sub { background-color: #f8d7da; color: #58151c; } /* Red */
-.maze-op-mul { background-color: #e7f1ff; color: #052c65; } /* Blue */
-.maze-op-div { background-color: #fff3cd; color: #664d03; } /* Yellow */
+.maze-op-add { background: rgba(209, 231, 221, 0.85); color: #0a3622; }
+.maze-op-sub { background: rgba(248, 215, 218, 0.85); color: #58151c; }
+.maze-op-mul { background: rgba(231, 241, 255, 0.85); color: #052c65; }
+.maze-op-div { background: rgba(255, 243, 205, 0.85); color: #664d03; }
 
-/* Style khi phép tính đã được dùng */
 .maze-op-used {
-    background-color: #fff;
+    background-color: transparent;
     color: transparent;
-    transition: all 0.2s;
 }
-/* === KẾT THÚC KHỐI CSS MÊ CUNG PHÉP TÍNH === */
 
-/* === CSS MỚI CHO TRÌNH SOẠN THẢO LEVEL (GV) === */
+/* Nền cho Trình soạn thảo (Editor) */
 #calcmaze-editor-grid-container {
     display: grid;
     border: 2px solid #333;
     background: #fff;
+    background-size: cover;
+    background-position: center;
+    
+    /* === 5 DÒNG SỬA LỖI XẸP GRID === */
     grid-template-columns: repeat(var(--editor-cols, 4), 1fr);
     grid-template-rows: repeat(var(--editor-rows, 4), 1fr);
     aspect-ratio: 1 / 1;
     max-height: 500px; 
     margin: 0 auto;
     overflow: hidden;
+    /* === KẾT THÚC SỬA LỖI === */
 }
 .editor-cell {
     display: flex;
@@ -1025,14 +1037,186 @@
     justify-content: center;
     font-size: 1.2rem;
     font-family: 'Arial Black', sans-serif;
-    border: 1px solid #ccc; /* Lưới mờ */
+    border: 1px solid rgba(204, 204, 204, 0.7);
     cursor: pointer;
     transition: all 0.1s ease-out;
+    background: transparent;
 }
 .editor-cell:hover {
-    background-color: #f0f8ff; /* Light blue hover */
+    background-color: rgba(240, 248, 255, 0.5) !important;
 }
-/* === KẾT THÚC CSS MỚI === */
+/* === KẾT THÚC KHỐI CSS MÊ CUNG (V9) === */
+
+
+/* === CSS MỚI CHO VẬT CẢN & NỀN === */
+        .maze-wall-rock {
+            background-color: #d2b48c; /* Tông màu cát/đá */
+            font-size: 1.5rem;
+        }
+        .maze-wall-tree {
+            background-color: #f0f8ff; /* Nền trời nhạt */
+            font-size: 1.5rem;
+        }
+        .maze-wall-water {
+            background-color: #a2d2ff; /* Nền nước */
+            font-size: 1.5rem;
+        }
+
+        /* Nền cho Grid (Cả Trình soạn thảo và Game) */
+        #calcmaze-canvas-container.maze-bg-grass,
+        #calcmaze-editor-grid-container.maze-bg-grass {
+            background: #adebad; /* Màu cỏ nhạt */
+            border-color: #006400; /* Viền cỏ đậm */
+        }
+        #calcmaze-canvas-container.maze-bg-sand,
+        #calcmaze-editor-grid-container.maze-bg-sand {
+            background: #f4e2c2; /* Màu cát */
+            border-color: #b08d57; /* Viền cát đậm */
+        }
+        #calcmaze-canvas-container.maze-bg-stone,
+        #calcmaze-editor-grid-container.maze-bg-stone {
+            background: #d3d3d3; /* Màu đá nhạt */
+            border-color: #696969; /* Viền đá đậm */
+        }
+        /* === KẾT THÚC CSS MỚI === */
+
+/* === CSS MỚI CHO GAME TRIỆU PHÚ (ĐÃ SỬA) === */
+.tp-modal-content {
+    background-color: #02023a; /* Nền xanh đậm */
+    color: white;
+    border: 3px solid #ccc;
+}
+.tp-modal-body {
+    min-height: 500px;
+}
+.tp-question-card {
+    background-color: #f8f9fa; /* Nền sáng cho thẻ câu hỏi */
+    color: #212529; /* Chữ đen */
+    min-height: 200px;
+}
+#tp-question-image img {
+    max-width: 100%;
+    max-height: 200px;
+    object-fit: contain;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+.tp-answer-btn {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+    text-align: left;
+    background: linear-gradient(to right, #0d6efd, #0a58ca);
+    border: 1px solid #fff;
+    color: white;
+    transition: all 0.2s ease;
+}
+.tp-answer-btn:hover:not(:disabled) {
+    transform: scale(1.02);
+    background: linear-gradient(to right, #0a58ca, #0d6efd);
+}
+/* Trạng thái khi chọn */
+.tp-answer-btn.tp-selected {
+    background: linear-gradient(to right, #ffc107, #ff9800); /* Vàng cam */
+    color: #000;
+}
+/* Trạng thái khi đúng */
+.tp-answer-btn.tp-correct {
+    background: linear-gradient(to right, #198754, #157347); /* Xanh lá */
+    color: white;
+    animation: tp-pulse-green 0.5s 2;
+}
+/* Trạng thái khi sai */
+.tp-answer-btn.tp-incorrect {
+    background: linear-gradient(to right, #dc3545, #b02a37); /* Đỏ */
+    color: white;
+    animation: tp-shake 0.5s 1;
+}
+.tp-answer-btn:disabled {
+    opacity: 0.5;
+}
+
+/* Cây tiền */
+.tp-money-tree-col {
+    background: rgba(0,0,0,0.2);
+    border-radius: 5px;
+    padding: 10px;
+}
+#tp-money-tree {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+#tp-money-tree li {
+    padding: 4px 10px;
+    margin-bottom: 3px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 5px;
+    color: #ffc107; /* Vàng */
+    text-shadow: 0 0 5px rgba(255,193,7,0.5);
+    text-align: center;
+}
+#tp-money-tree li.tp-milestone {
+    color: white; /* Mốc quan trọng */
+    background: rgba(255,255,255,0.2);
+}
+#tp-money-tree li.tp-current-level {
+    background: #ffc107; /* Mốc hiện tại */
+    color: #000;
+    transform: scale(1.05);
+}
+
+/* Nút trợ giúp (ĐÃ SỬA LỖI TRÀN) */
+.tp-help-btn {
+    font-size: 1rem; /* Thu nhỏ chữ */
+    font-weight: bold;
+    border-radius: 5px; /* Đổi thành chữ nhật bo góc */
+    /* Bỏ width/height cố định */
+    padding: 5px 10px;
+    border-width: 2px;
+}
+.tp-help-btn:disabled {
+    opacity: 0.3;
+    text-decoration: line-through;
+}
+
+/* Animation */
+@keyframes tp-pulse-green {
+    0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
+    100% { box-shadow: 0 0 0 15px rgba(25, 135, 84, 0); }
+}
+@keyframes tp-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+/* === KẾT THÚC CSS GAME TRIỆU PHÚ === */
+
+
+/* Logo góc phải màn hình game (ĐÃ CHUYỂN VÀO GIỮA DƯỚI) */
+.tp-background-logo {
+    position: absolute;
+    bottom: 50px;           /* Đẩy lên giữa dưới (thay vì 10px) */
+    left: 50%;              /* Căn giữa theo chiều ngang */
+    transform: translateX(-50%); /* Dịch chuyển ngược lại 50% chiều rộng của chính nó */
+    width: 220px;           /* Giữ nguyên kích thước */
+    opacity: 0.7; 
+    z-index: 0; 
+    pointer-events: none; 
+}
+
+.tp-logo-icon {
+    font-size: 200px; /* Tăng kích thước (từ 120px lên 200px) */
+    display: block;
+    text-align: center;
+    filter: drop-shadow(0 0 10px gold) drop-shadow(0 0 5px white); 
+    line-height: 1;
+}
 
 
 
@@ -1142,7 +1326,8 @@
     <option value="mc">Trắc nghiệm</option>
     <option value="essay">Tự luận</option>
     <option value="true_false">Đúng/Sai (Nhiều ý)</option>
-    <option value="fill_blank">Điền từ (Inline)</option> </select>
+    <option value="fill_blank">Điền từ (Inline)</option>
+	<option value="draw">Vẽ</option>  </select>
                   </div>
                   <div class="col">
                       <label for="filter-difficulty" class="form-label small mb-1">Độ khó</label>
@@ -2535,10 +2720,10 @@
                                 <strong>🧮 Mê Cung Phép Tính</strong>
                                 <small class="d-block text-muted">Quản lý các level cho game mê cung tính toán.</small>
                             </a>
-                            <a href="#" class="list-group-item list-group-item-action disabled">
+                            <!--<a href="#" class="list-group-item list-group-item-action disabled">
                                 <strong>🗺️ Mê Cung Số Học</strong>
                                 <small class="d-block text-muted">(Trình soạn thảo chưa hỗ trợ)</small>
-                            </a>
+                            </a>-->
                             </div>
                     </div>
                 </div>
@@ -3141,7 +3326,7 @@
                 </div>
             </div>
 			
-			<div class="col-md-4 col-lg-3 mb-3">
+			<!--<div class="col-md-4 col-lg-3 mb-3">
                 <div class="card h-100 game-card">
                     <div class="card-body text-center d-flex flex-column">
                         <div class="game-icon">🗺️</div>
@@ -3155,7 +3340,7 @@
                     </div>
                 </div>
             
-        </div>
+        </div>-->
 		
 		
 		<div class="col-md-4 col-lg-3 mb-3">
@@ -3173,7 +3358,24 @@
                 </div>
 		</div>
 		
+		<div class="col-md-4 col-lg-3 mb-3">
+                <div class="card h-100 game-card">
+                    <div class="card-body text-center d-flex flex-column">
+                        <div class="game-icon">🏆</div>
+                        <h5 class="card-title mt-3">Triệu Phú Tri Thức</h5>
+                        <p class="card-text small text-muted">Trả lời 15 câu hỏi trắc nghiệm từ ngân hàng đề thi để chinh phục đỉnh cao kiến thức.</p>
+                        
+                        <div class="mt-auto">
+                            <button class="btn btn-primary w-100" onclick="launchGame_TrieuPhu()">Chơi</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+		
     </div>
+	
+	
+	
 	</div>
 	
 	
@@ -3593,7 +3795,7 @@
   </div>
 </div>
 
- <!-- Modal soạn GAME -->
+ <!-- Modal soạn GAME mê cung tính toán-->
 <div class="modal fade" id="modalCalcMazeEditor" tabindex="-1" aria-labelledby="modalCalcMazeEditorLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
@@ -3604,29 +3806,49 @@
             
             <div class="modal-body">
                 <div class="row">
+                
                     <div class="col-md-4">
                         <h5>Thông tin Level</h5>
                         <input type="hidden" id="calcmaze-editor-gameId" value="calcmaze">
                         
-                        <div class="row mb-2">
+                        <div class="row mb-2 g-3">
                             <div class="col-6">
-                                <label class="form-label">Level số:</label>
+                                <label class="form-label small">Level số:</label>
                                 <input type="number" class="form-control" id="calcmaze-editor-level" value="1" min="1">
                             </div>
-                        </div>
-                        <div class="row mb-2">
                             <div class="col-6">
-                                <label class="form-label">Số bắt đầu:</label>
+                                <label class="form-label small">Thời gian (giây):</label>
+                                <input type="number" class="form-control" id="calcmaze-editor-time" value="60" min="10">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small">Số bắt đầu:</label>
                                 <input type="number" class="form-control" id="calcmaze-editor-start" value="10">
                             </div>
                             <div class="col-6">
-                                <label class="form-label">Số mục tiêu:</label>
+                                <label class="form-label small">Số mục tiêu:</label>
                                 <input type="number" class="form-control" id="calcmaze-editor-target" value="20">
                             </div>
-                        </div>
-                        
-                        <hr>
-                        <h5>Công cụ (Chọn 1 ô để "vẽ")</h5>
+                            
+                            <div class="col-12">
+                                <label class="form-label small">Nền (Chọn mẫu):</label>
+                                <select id="calcmaze-editor-background-select" class="form-select form-select-sm" onchange="handleBackgroundSelectChange(this.value)">
+                                    <option value="default">Mặc định (Trắng)</option>
+                                    <option value="grass">Nền Cỏ</option>
+                                    <option value="sand">Nền Cát</option>
+                                    <option value="stone">Nền Đá</option>
+                                    <option value="custom" disabled>Tùy chỉnh (Đã tải lên)</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small">...hoặc Tải lên ảnh mới:</label>
+                                <input type="file" id="calcmaze-editor-background-file" class="form-control form-control-sm" accept="image/*" onchange="handleBackgroundFileUpload()">
+                            </div>
+                            <input type="hidden" id="calcmaze-editor-background-value">
+                            <div class="col-12">
+                                <div id="calcmaze-editor-bg-preview" class="mt-1" style="display:none; height: 60px; overflow: hidden; border: 1px solid #ccc; padding: 0; background-size: cover; background-position: center;">
+                                </div>
+                            </div>
+                        </div> <hr> <h5>Công cụ (Chọn 1 ô để "vẽ")</h5>
                         <div id="calcmaze-editor-palette" class="list-group">
                             <a href="#" class="list-group-item list-group-item-action active" data-tool="P">
                                 <strong>P</strong> - Người chơi (Điểm bắt đầu)
@@ -3634,10 +3856,16 @@
                             <a href="#" class="list-group-item list-group-item-action" data-tool="G">
                                 <strong>G</strong> - Đích (Điểm kết thúc)
                             </a>
-                            <a href="#" class="list-group-item list-group-item-action" data-tool="1">
-                                <strong>1</strong> - Tường (Vật cản)
+                            <a href="#" class="list-group-item list-group-item-action" data-tool="wall">
+                                <strong>Vật cản (Tường, Đá...)</strong>
+                                <select id="editor-wall-type" class="form-select form-select-sm mt-1">
+                                    <option value="1">Tường xám 🧱</option>
+                                    <option value="rock">Đá 🪨</option>
+                                    <option value="tree">Cây 🌲</option>
+                                    <option value="water">Nước 💧</option>
+                                </select>
                             </a>
-                            <a href="#" class_name="list-group-item list-group-item-action" data-tool="0">
+                            <a href="#" class="list-group-item list-group-item-action" data-tool="0">
                                 <strong>0</strong> - Đường đi (Xóa)
                             </a>
                             <a href="#" class="list-group-item list-group-item-action" data-tool="op">
@@ -3653,31 +3881,25 @@
                                 </div>
                             </a>
                         </div>
-                    </div>
-                    
-                    <div class="col-md-8">
+                    </div> <div class="col-md-8">
                         <h5>Thiết kế Mê Cung</h5>
                         <div class="row mb-2">
                             <div class="col-auto">
                                 <label class="form-label">Rộng:</label>
-                                <input type="number" class="form-control" id="calcmaze-editor-cols" value="4" min="3" max="10">
+                                <input type="number" class="form-control" id="calcmaze-editor-cols" value="5" min="3" max="10">
                             </div>
                             <div class="col-auto">
                                 <label class="form-label">Cao:</label>
-                                <input type="number" class="form-control" id="calcmaze-editor-rows" value="4" min="3" max="10">
+                                <input type="number" class="form-control" id="calcmaze-editor-rows" value="5" min="3" max="10">
                             </div>
                             <div class="col-auto d-flex align-items-end">
-                                <button class="btn btn-info" onclick="drawMazeEditorGrid()">Tạo/Đặt lại Lưới</button>
+                                <button class="btn btn-info" onclick="drawMazeEditorGrid(null, true)">Tạo/Đặt lại Lưới</button>
                             </div>
                         </div>
                         
                         <div id="calcmaze-editor-grid-container" class="text-center">
                             </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="modal-footer">
+                    </div> </div> </div> <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
                 <button type="button" class="btn btn-success" onclick="saveCalcMazeLevel()">💾 Lưu Level</button>
             </div>
@@ -3819,13 +4041,19 @@
             </div>
             <div class="modal-body">
                 
-                <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" 
-                     id="calcmaze-stats-bar" style="background-color: #f8f9fa;">
+                <div class="d-flex justify-content-between align-items-start mb-2 p-2 rounded" 
+                 id="calcmaze-stats-bar" style="background-color: #f8f9fa;">
                     <span class="badge bg-primary fs-6">Level: <span id="calcmaze-level-display">1</span></span>
                     <span class="fs-5">Bắt đầu: <strong id="calcmaze-start-value" class="text-info">5</strong></span>
                     <span class="fs-5">Mục tiêu: <strong id="calcmaze-target-sum" class="text-danger">15</strong></span>
                     <span class="fs-5">Hiện tại: <strong id="calcmaze-current-sum" class="text-success">5</strong></span>
-                    <button class="btn btn-sm btn-secondary" onclick="resetCalcMazeGame()">Chơi lại</button>
+
+                <div class="text-center mx-2">
+                    <span class="fs-5 text-danger fw-bold" id="calcmaze-timer-display">--:--</span>
+                    <div class="small text-muted" style="margin-top: -5px;">Thời gian</div>
+                </div>
+
+                <button class="btn btn-sm btn-secondary" onclick="resetCalcMazeGame()">Chơi lại</button>
                 </div>
                 
                 <div id="calcmaze-message-area" class="text-center" style="min-height: 40px;">
@@ -4080,6 +4308,84 @@
 </div>
 
 
+<!--Modal game triệu phú-->
+<div class="modal fade" id="modalGameTrieuPhu" tabindex="-1" aria-labelledby="modalGameTrieuPhuLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content tp-modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalGameTrieuPhuLabel">🏆 Triệu Phú Tri Thức</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body tp-modal-body">
+                
+                <div id="tp-start-screen" class="text-center p-5">
+                    <h2 class="text-primary">Chào mừng đến với Triệu Phú Tri Thức!</h2>
+                    <p class="fs-5 text-muted">Bạn sẽ trả lời 15 câu hỏi. Mỗi câu trả lời đúng sẽ đưa bạn đến một mốc cao hơn. Bạn đã sẵn sàng?</p>
+                    <div class="row justify-content-center mt-4">
+                        <div class="col-md-5">
+                            <label for="tp-subject-select" class="form-label">Chọn Môn học để bắt đầu:</label>
+                            <select id="tp-subject-select" class="form-select form-select-lg mb-3">
+                                <option value="">-- Vui lòng chọn môn --</option>
+                                </select>
+                            <button class="btn btn-success btn-lg" onclick="tp_startGame()">Bắt đầu!</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tp-loading-screen" class="text-center p-5" style="display: none;">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+                    <p class="fs-5 mt-3">Đang tải 15 câu hỏi từ ngân hàng đề...</p>
+                </div>
+
+                <div id="tp-play-screen" class="row" style="display: none;">
+                    
+                    <div class="col-md-9">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div id="tp-timer-container" class="text-center">
+                                <span class="badge bg-danger fs-3" id="tp-timer-display">60</span>
+                                <div class="small text-white-50">Giây</div>
+                            </div>
+                            
+                            <div id="tp-help-container" class="d-flex gap-2">
+                                <button class="btn btn-outline-info tp-help-btn" id="tp-help-5050" onclick="tp_useHelp('5050')" title="Loại bỏ 2 đáp án sai">50:50</button>
+                                <button class="btn btn-outline-info tp-help-btn" id="tp-help-consult" onclick="tp_useHelp('consult')" title="Tổ tư vấn (Loại bỏ 3 đáp án sai)">Tư vấn</button>
+                            </div>
+                        </div>
+                        
+                        <div class="card shadow-sm tp-question-card">
+                            <div class="card-body">
+                                <h5 class="card-title text-primary" id="tp-question-number">Câu 1:</h5>
+                                <p class="fs-5" id="tp-question-text">Đang tải câu hỏi...</p>
+                                <div id="tp-question-image" class="mt-2 text-center"></div>
+                            </div>
+                        </div>
+                        
+                        <div id="tp-answers-container" class="row mt-3">
+                            </div>
+                    </div>
+                    
+                    <div class="col-md-3 tp-money-tree-col">
+                        <ol id="tp-money-tree" reversed>
+                            </ol>
+                    </div>
+					<div class="tp-background-logo">
+                        <span class="tp-logo-icon">🏆</span>
+                    </div>
+                </div>
+
+                <div id="tp-end-screen" class="text-center p-5" style="display: none;">
+                    <h2 id="tp-end-title" class="text-success"></h2>
+                    <p class="fs-4">Bạn đã giành được mốc <strong id="tp-end-prize">0</strong> điểm!</p>
+                    <p id="tp-end-correct-answer" class="fs-5" style="display: none;"></p>
+                    <button class="btn btn-primary btn-lg mt-3" onclick="launchGame_TrieuPhu()">Chơi lại</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
 <!--Modal phân tích-->
 <div class="modal fade" id="modalQuestionAnalysis" tabindex="-1">
   <div class="modal-dialog modal-lg">
@@ -4320,6 +4626,7 @@ function formatQuestionType(type) {
     if (type === 'essay') return 'TL';
     if (type === 'true_false') return 'Đ/S';
     if (type === 'fill_blank') return 'FLL'; // (FLL là viết tắt của Fill)
+	if (type === 'draw') return 'Vẽ';
     return 'Khác';
 }
 
@@ -13514,47 +13821,22 @@ function getSelectedTestIds() {
 }
 
 async function showBulkAssignModal() {
-    const selectedIds = getSelectedTestIds();
+    const selectedIds = getSelectedTestIds(); // Lấy ["id1", "id2"]
     if (selectedIds.length === 0) {
         alert('Vui lòng chọn ít nhất một đề thi để giao.');
         return;
     }
-    if (!modalAssignInstance) return;
 
-    // Lưu test ids (string JSON) vào input ẩn để loadStudentsForModal đọc
-    qs('#assign-test-ids').value = JSON.stringify(selectedIds);
-    qs('#assign-deadline').value = '';
-
-    // UI
-    qs('#test-name-display').textContent = `[Giao hàng loạt: ${selectedIds.length} đề]`;
-    qs('#bulk-info').classList.remove('d-none');
-    qs('#bulk-count').textContent = `${selectedIds.length}`;
-
-    // Chọn container để hiển thị loading / checkbox
-    const assignBox = qs('#assign-students-list') || qs('#available-students-list') || qs('#current-assigned-list');
-
-    // Nếu chưa tải học sinh cho modal -> tải (hàm sẽ tự xử lý assignments cho bulk)
-    if (!studentsForModalLoaded) {
-        if (assignBox) assignBox.innerHTML = `<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-success" role="status"></div>Đang tải danh sách học sinh...</div>`;
-        await loadStudentsForModal(); // giờ đảm nhận cả việc load assignments nếu bulk
-    } else {
-        // Nếu đã tải, chỉ cần bỏ chọn tất cả checkbox (nếu có)
-        const cbContainer = qs('#assign-students-list') || qs('#available-students-list');
-        if (cbContainer) {
-            const boxes = cbContainer.querySelectorAll('input[type=checkbox]');
-            boxes.forEach(b => b.checked = false);
-        }
-
-        // Và reset phần "Đã được giao" nếu có
-        const assignedContainer = qs('#current-assigned-list');
-        if (assignedContainer) {
-            // nếu bulk, có thể cần refresh assignments (re-fetch) — gọi lại loadStudentsForModal
-            // để đơn giản: gọi loadStudentsForModal để refresh trạng thái assignments
-            await loadStudentsForModal();
-        }
-    }
-
-    modalAssignInstance.show();
+    // === ĐÂY LÀ PHẦN SỬA LỖI ===
+    // Gọi thẳng hàm openAssignModal với mảng IDs.
+    // Hàm này sẽ tự động:
+    // 1. Lọc các Khối (level) của các đề đã chọn.
+    // 2. Tải API (đã lọc theo level).
+    // 3. Hiển thị modal.
+    // (Chúng ta truyền 'null' cho testName vì hàm sẽ tự nhận diện là giao hàng loạt)
+    
+    await openAssignModal(selectedIds, null); 
+    // === KẾT THÚC SỬA LỖI ===
 }
 
 // Khai báo hàm helper để hiển thị modal cảnh báo (Đảm bảo infoModalInstance đã được khởi tạo)
@@ -19109,6 +19391,8 @@ function startGame_CalcMaze(levelOverride = null) {
     const grid = layout.grid.map(row => [...row]); // Tạo bản sao
     const targetValue = layout.targetValue;
     const startValue = layout.startValue;
+    const timeLimit = layout.timeLimit || 60; // <-- ĐÃ THÊM
+    const background = layout.background || 'default'; // <-- ĐÃ THÊM
     
     let startPos = { x: 0, y: 0 };
     for(let y=0; y < grid.length; y++) {
@@ -19128,7 +19412,12 @@ function startGame_CalcMaze(levelOverride = null) {
         currentValue: startValue, 
         playerPos: startPos,
         containerEl: qs('#calcmaze-canvas-container'),
-        gameWon: false
+        gameWon: false,
+        gameLost: false, // <-- ĐÃ THÊM
+        background: background, // <-- ĐÃ THÊM
+        timeLimit: timeLimit, // <-- ĐÃ THÊM
+        timeLeft: timeLimit, // <-- ĐÃ THÊM
+        timerInterval: null // <-- ĐÃ THÊM
     };
     
     // Cập nhật UI
@@ -19144,8 +19433,9 @@ function startGame_CalcMaze(levelOverride = null) {
     resetBtn.classList.add('btn-secondary');
     resetBtn.classList.remove('btn-success');
     
-    drawCalcMaze(grid, startValue);
-    attachCalcMazeControls();
+    drawCalcMaze(grid, startValue); // (Bạn đã có hàm này)
+    startCalcMazeTimer(); // <-- ĐÃ THÊM
+    attachCalcMazeControls(); // (Bạn đã có hàm này)
 }
 
 function resetCalcMazeGame() {
@@ -19165,7 +19455,8 @@ function getOpClass(val) {
 // === KẾT THÚC THÊM HÀM ===
 
 /**
- * (ĐÃ NÂNG CẤP) Vẽ mê cung bằng CSS Grid (cho Game Phép tính)
+ * (HS) Vẽ mê cung bằng CSS Grid (cho Game Phép tính)
+ * (Sửa lỗi: Thêm serverUrl, cập nhật logic nền, Icon Đích & Tường)
  */
 function drawCalcMaze(grid, startValue) {
     const container = calcmaze_state.containerEl;
@@ -19175,6 +19466,23 @@ function drawCalcMaze(grid, startValue) {
     
     container.style.setProperty('--maze-cols', gridWidth);
     container.style.setProperty('--maze-rows', gridHeight);
+
+    // === [SỬA LỖI] LOGIC NỀN HOÀN CHỈNH ===
+    const bgValue = calcmaze_state.background || ''; 
+    container.className = 'calcmaze-canvas-container'; 
+    container.style.backgroundImage = 'none'; 
+    
+    if (bgValue.startsWith('http') || bgValue.startsWith('data:')) {
+        container.style.backgroundImage = `url('${bgValue}')`;
+        container.style.backgroundSize = 'cover';
+    } else if (bgValue.match(/^[0-9a-fA-F]{24}$/)) {
+        // === SỬA LỖI: Thêm serverUrl ===
+        container.style.backgroundImage = `url('${serverUrl}/api/game-background/${bgValue}')`;
+        container.style.backgroundSize = 'cover';
+    } else if (bgValue && bgValue !== 'default') {
+        container.classList.add(`maze-bg-${bgValue}`);
+    }
+    // === [KẾT THÚC SỬA LỖI] ===
     
     for(let y=0; y < gridHeight; y++) {
         for(let x=0; x < gridWidth; x++) {
@@ -19185,16 +19493,26 @@ function drawCalcMaze(grid, startValue) {
             
             if (cellValue === 1) {
                 div.classList.add('maze-wall');
+                div.textContent = '🧱'; // <-- THÊM ICON TƯỜNG
+            } else if (cellValue === 'rock') {
+                div.classList.add('maze-wall-rock');
+                div.textContent = '🪨';
+            } else if (cellValue === 'tree') {
+                div.classList.add('maze-wall-tree');
+                div.textContent = '🌲';
+            } else if (cellValue === 'water') {
+                div.classList.add('maze-wall-water');
+                div.textContent = '💧';
             } else {
                 div.classList.add('maze-path');
                 
                 if (cellValue === 'P') {
                     div.classList.add('maze-player');
-                    div.textContent = startValue; // Hiển thị số bắt đầu
+                    div.textContent = startValue; 
                 } else if (cellValue === 'G') {
                     div.classList.add('maze-goal');
+                    div.textContent = '🏆'; 
                 } else if (typeof cellValue === 'string') {
-                    // Đây là ô phép tính
                     div.classList.add(getOpClass(cellValue));
                     div.textContent = cellValue;
                 }
@@ -19215,7 +19533,9 @@ function handleCalcMazeInput(e) {
     }
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault(); 
-        if (calcmaze_state.gameWon) return; 
+        // Kiểm tra cả 2 cờ
+        if (calcmaze_state.gameWon || calcmaze_state.gameLost) return; 
+        
         let dx = 0, dy = 0;
         if (e.key === 'ArrowUp') dy = -1;
         if (e.key === 'ArrowDown') dy = 1;
@@ -19229,22 +19549,34 @@ function handleCalcMazeInput(e) {
  * (ĐÃ NÂNG CẤP) Di chuyển và thực hiện phép tính
  */
 function movePlayer_CalcMaze(dx, dy) {
+    // Kiểm tra cờ trước khi di chuyển
+    if (calcmaze_state.gameWon || calcmaze_state.gameLost) return;
+
     const pos = calcmaze_state.playerPos;
     const grid = calcmaze_state.grid;
     const newX = pos.x + dx;
     const newY = pos.y + dy;
 
-    if (newY < 0 || newY >= grid.length || newX < 0 || newX >= grid[0].length || grid[newY][newX] === 1) {
-        return; // Đụng tường
+    // Kiểm tra biên
+    if (newY < 0 || newY >= grid.length || newX < 0 || newX >= grid[0].length) {
+        return; 
     }
     
+    const cellValue = grid[newY][newX];
+    
+    // Kiểm tra tất cả vật cản
+    const isWall = (cellValue === 1) || (cellValue === 'rock') || (cellValue === 'tree') || (cellValue === 'water');
+    if (isWall) {
+        return; // Đụng tường
+    }
+
     const oldCell = qs(`#calc-cell-${pos.x}-${pos.y}`);
     const newCell = qs(`#calc-cell-${newX}-${newY}`);
     if (!newCell) return;
     
-    const cellValue = grid[newY][newX];
     let currentValue = calcmaze_state.currentValue;
 
+    // Xử lý phép tính
     if (typeof cellValue === 'string' && cellValue !== 'G' && cellValue !== 'P') {
         const op = cellValue[0];
         const num = parseInt(cellValue.substring(1), 10);
@@ -19256,23 +19588,25 @@ function movePlayer_CalcMaze(dx, dy) {
         } else if (op === 'x') {
             currentValue *= num;
         } else if (op === '÷') {
-            if (currentValue % num !== 0) {
-                newCell.classList.add('mismatched');
+            if (currentValue % num !== 0) { // Không chia hết
+                newCell.classList.add('mismatched'); // Rung lắc
                 setTimeout(() => newCell.classList.remove('mismatched'), 300);
-                return; 
+                return; // Không thể đi
             }
             currentValue /= num;
         }
         
         calcmaze_state.currentValue = currentValue;
         qs('#calcmaze-current-sum').textContent = currentValue;
-        grid[newY][newX] = 0; 
+        grid[newY][newX] = 0; // Đánh dấu ô đã dùng
         
+        // Cập nhật UI ô
         newCell.classList.remove(getOpClass(cellValue));
         newCell.classList.add('maze-op-used');
         newCell.textContent = '';
     }
 
+    // Di chuyển người chơi
     if (oldCell) {
         oldCell.classList.remove('maze-player');
         oldCell.textContent = ''; 
@@ -19280,29 +19614,95 @@ function movePlayer_CalcMaze(dx, dy) {
     newCell.classList.add('maze-player');
     newCell.textContent = currentValue; 
     
+    // Cập nhật state vị trí
     pos.x = newX;
     pos.y = newY;
     
+    // Kiểm tra nếu đến Đích
     if (cellValue === 'G') {
-        checkCalcMazeWin();
+        checkCalcMazeWin(); // Gọi hàm kiểm tra thắng/thua
     }
 }
 
+/**
+ * HÀM MỚI: Bắt đầu bộ đếm ngược
+ */
+function startCalcMazeTimer() {
+    if (calcmaze_state.timerInterval) {
+        clearInterval(calcmaze_state.timerInterval);
+    }
+    
+    const display = qs('#calcmaze-timer-display');
+    
+    calcmaze_state.timeLeft = calcmaze_state.timeLimit;
+    display.textContent = formatDuration(calcmaze_state.timeLeft);
+    display.classList.remove('text-danger');
+
+    calcmaze_state.timerInterval = setInterval(() => {
+        if (calcmaze_state.gameWon || calcmaze_state.gameLost) {
+            clearInterval(calcmaze_state.timerInterval);
+            return;
+        }
+
+        calcmaze_state.timeLeft--;
+        display.textContent = formatDuration(calcmaze_state.timeLeft);
+
+        if (calcmaze_state.timeLeft <= 10) {
+            display.classList.add('text-danger');
+        }
+
+        if (calcmaze_state.timeLeft <= 0) {
+            clearInterval(calcmaze_state.timerInterval);
+            endCalcMazeGame(false); // Gọi hàm kết thúc (false = không thắng)
+        }
+    }, 1000);
+}
+
+
+/**
+ * HÀM MỚI: (Thay thế checkCalcMazeWin) Xử lý khi đến ô Đích 'G'
+ */
 function checkCalcMazeWin() {
+    endCalcMazeGame(true); // true = đã đến đích
+}
+
+/**
+ * HÀM MỚI: Xử lý tất cả trường hợp Thắng/Thua
+ */
+function endCalcMazeGame(didReachGoal) {
+    if (calcmaze_state.timerInterval) {
+        clearInterval(calcmaze_state.timerInterval);
+    }
+
     const msgEl = qs('#calcmaze-message-area');
-    if (calcmaze_state.currentValue === calcmaze_state.targetValue) {
-        calcmaze_state.gameWon = true;
-        msgEl.innerHTML = `<h4 class="text-success">🎉 Chúc mừng! Bạn đã qua Level ${calcmaze_state.level}! 🎉</h4>`;
-        let nextLevel = calcmaze_state.level + 1;
-        saveGameLevel('calcmaze', nextLevel);
-        
-        const resetBtn = qs('#calcmaze-stats-bar button');
-        resetBtn.textContent = 'Level tiếp theo';
-        resetBtn.onclick = () => startGame_CalcMaze(nextLevel);
-        resetBtn.classList.remove('btn-secondary');
-        resetBtn.classList.add('btn-success');
+    const resetBtn = qs('#calcmaze-stats-bar button');
+
+    if (didReachGoal) {
+        // --- TRƯỜNG HỢP 1: ĐÃ ĐẾN ĐÍCH ---
+        if (calcmaze_state.currentValue === calcmaze_state.targetValue) {
+            // A. THẮNG (Đến đích + Đúng giá trị)
+            calcmaze_state.gameWon = true;
+            msgEl.innerHTML = `<h4 class="text-success">🎉 Chúc mừng! Bạn đã qua Level ${calcmaze_state.level}! 🎉</h4>`;
+            let nextLevel = calcmaze_state.level + 1;
+            saveGameLevel('calcmaze', nextLevel);
+            
+            resetBtn.textContent = 'Level tiếp theo';
+            resetBtn.onclick = () => startGame_CalcMaze(nextLevel);
+            resetBtn.classList.remove('btn-secondary');
+            resetBtn.classList.add('btn-success');
+        } else {
+            // B. THUA (Đến đích + Sai giá trị)
+            calcmaze_state.gameLost = true;
+            msgEl.innerHTML = `<h5 class="text-danger">Sai mục tiêu! Kết quả của bạn là ${calcmaze_state.currentValue} (cần ${calcmaze_state.targetValue}). Hãy chơi lại!</h5>`;
+            resetBtn.textContent = 'Chơi lại';
+            resetBtn.onclick = resetCalcMazeGame;
+        }
     } else {
-        msgEl.innerHTML = `<h5 class="text-danger">Sai mục tiêu! Kết quả của bạn là ${calcmaze_state.currentValue} (cần ${calcmaze_state.targetValue}). Hãy chơi lại!</h5>`;
+        // --- TRƯỜNG HỢP 2: HẾT GIỜ ---
+        calcmaze_state.gameLost = true;
+        msgEl.innerHTML = `<h5 class="text-danger">Hết giờ! Hãy thử lại!</h5>`;
+        resetBtn.textContent = 'Chơi lại';
+        resetBtn.onclick = resetCalcMazeGame;
     }
 }
 // ==================================================
@@ -20389,6 +20789,43 @@ function openAiPrompt() {
 }
 
 /**
+ * Tự động thử lại lệnh fetch nếu gặp lỗi kết nối hoặc lỗi server (Status >= 400).
+ * @param {string} url - URL API
+ * @param {Object} options - Tùy chọn fetch (headers, body, method)
+ * @param {number} retries - Số lần thử lại tối đa (mặc định 3)
+ */
+function fetchWithRetry(url, options, retries = 3) {
+    return new Promise((resolve, reject) => {
+        const attemptFetch = (n) => {
+            fetch(url, options)
+                .then(r => {
+                    // Xử lý lỗi server và các lỗi 4xx
+                    if (!r.ok) {
+                        return r.json().then(errorData => {
+                            throw new Error(errorData.message || `API Error: ${r.status}`);
+                        });
+                    }
+                    return r.json();
+                })
+                .then(resolve) // Thành công, resolve Promise
+                .catch(err => {
+                    if (n > 0) {
+                        console.warn(`Fetch attempt failed (${n} remaining). Retrying in 2s...`, err);
+                        // Thử lại sau 2 giây (Backoff)
+                        setTimeout(() => attemptFetch(n - 1), 2000 * (4 - n)); 
+                    } else {
+                        reject(err); // Hết lượt thử, reject Promise
+                    }
+                });
+        };
+        attemptFetch(retries);
+    });
+}
+
+
+
+
+/**
  * (Hàm MỚI) - Gửi yêu cầu đến API AI
  */
 async function handleAiGenerateQuestion() {
@@ -20452,10 +20889,9 @@ async function handleAiGenerateQuestion() {
     }
 }
 
-// [THAY THẾ HÀM CŨ]
 /**
  * (Hàm MỚI) - Tự động điền dữ liệu AI vào modal câu hỏi
- * (NÂNG CẤP: Tự động điền độ khó VÀ TAGS)
+ * (ĐÃ SỬA LỖI: Buộc xóa trạng thái ảnh cũ)
  */
 function fillQuestionModalWithAiData(data) {
     if (!data) return;
@@ -20467,15 +20903,27 @@ function fillQuestionModalWithAiData(data) {
     const inputEssayAnswer = qs('m-q-essay-answer');
     const trueFalseContainer = qs('m-q-true-false-container');
     const fillBlankContainer = qs('m-q-fill-blank-container');
-    const qType = qs('m-q-type').value; // Lấy loại câu hỏi đang chọn
-    
+    const qType = qs('m-q-type').value; 
     const inputDifficulty = qs('add-question-difficulty');
-    
-    // === THÊM MỚI: Lấy input Tags ===
     const inputTags = qs('m-q-tags');
 
+    // === THÊM MỚI: Reset trạng thái ảnh ===
+    const imageFileEl = qs('q-image-file'); 
+    const imagePreviewEl = qs('q-image-preview'); 
+    const btnRemoveImage = qs('btn-remove-image');
+    
+    if (imageFileEl) imageFileEl.value = '';
+    if (imagePreviewEl) {
+        imagePreviewEl.innerHTML = '';
+        imagePreviewEl.style.display = 'none';
+    }
+    if (btnRemoveImage) btnRemoveImage.style.display = 'none';
+    if (imageFileEl) imageFileEl.dataset.removeOldImage = 'false';
+    // === KẾT THÚC THÊM MỚI ===
+
+
     // 2. Điền các trường chính
-    if (inputQ) inputQ.value = data.q || '';
+    if (inputQ) inputQ.value = data.q || ''; 
     if (inputHint) inputHint.value = data.hint || '';
     
     if (inputDifficulty) {
@@ -20483,21 +20931,17 @@ function fillQuestionModalWithAiData(data) {
         if (aiDifficulty === 'easy' || aiDifficulty === 'medium' || aiDifficulty === 'hard') {
             inputDifficulty.value = aiDifficulty;
         } else {
-            inputDifficulty.value = 'medium'; // Mặc định
+            inputDifficulty.value = 'medium'; 
         }
     }
     
-    // === THÊM MỚI: Điền Tags ===
     if (inputTags) {
         if (data.tags && Array.isArray(data.tags)) {
-            // AI trả về: ["hinh hoc", "chu vi"]
-            // Chuyển thành: "hinh hoc, chu vi"
             inputTags.value = data.tags.join(', '); 
         } else {
-            inputTags.value = ''; // Xóa tag cũ nếu AI không cung cấp
+            inputTags.value = ''; 
         }
     }
-    // === KẾT THÚC THÊM MỚI ===
 
     // 3. Xóa các lựa chọn cũ
     if (inputOptionsContainer) inputOptionsContainer.innerHTML = '';
@@ -20539,7 +20983,9 @@ function fillQuestionModalWithAiData(data) {
         }
     }
     else if (qType === 'essay' || qType === 'draw') {
-        // (Không cần làm gì thêm)
+         if (data.answer) {
+             qs('m-q-essay-answer').value = data.answer; // Nếu AI có cung cấp đáp án mẫu/gợi ý cho TL/Vẽ
+         }
     }
 }
 
@@ -21923,12 +22369,30 @@ async function loadGameEditor(gameId) {
             return;
         }
 
-        container.innerHTML = levels.map(level => `
+        // === [BẮT ĐẦU SỬA LỖI TẠI ĐÂY] ===
+        container.innerHTML = levels.map(level => {
+            
+            // Logic lấy kích thước lưới
+            const grid = level.grid;
+            let sizeText = ''; // Mặc định rỗng
+            
+            // Thêm kiểm tra an toàn (giống hệt logic sửa lỗi trước)
+            if (grid && grid.length > 0 && Array.isArray(grid[0])) {
+                const rows = grid.length;
+                const cols = grid[0].length;
+                if (rows > 0 && cols > 0) {
+                    // Tạo chuỗi kích thước
+                    sizeText = ` | Kích thước: ${rows}x${cols}`;
+                }
+            }
+            // === [KẾT THÚC SỬA LỖI] ===
+
+            return `
             <div class="list-group-item d-flex justify-content-between align-items-center">
                 <div>
                     <strong>Level ${level.level}</strong>
                     <small class="d-block text-muted">
-                        Bắt đầu: ${level.startValue} | Mục tiêu: ${level.targetValue} | Kích thước: ${level.grid[0].length}x${level.grid.length}
+                        Bắt đầu: ${level.startValue} | Mục tiêu: ${level.targetValue} | Thời gian: ${level.timeLimit || 'N/A'}s${sizeText}
                     </small>
                 </div>
                 <div>
@@ -21938,7 +22402,9 @@ async function loadGameEditor(gameId) {
                             onclick='deleteGameLevel("${gameId}", ${level.level})'>Xóa</button>
                 </div>
             </div>
-        `).join('');
+            `;
+        }).join('');
+        // === [HẾT KHỐI THAY ĐỔI] ===
 
     } catch (e) {
         container.innerHTML = `<div class="alert alert-danger">${e.message}</div>`;
@@ -21946,35 +22412,234 @@ async function loadGameEditor(gameId) {
 }
 
 /**
- * Mở Modal Soạn thảo Level (Mê Cung Phép Tính)
+ * HÀM 2 (SỬA): Xử lý khi GV chọn nền (Cỏ, Cát, Đá)
+ * (Sửa lỗi: Gọi drawMazeEditorGrid(null, false) để không reset)
+ */
+function handleBackgroundSelectChange(value) {
+    // 1. Cập nhật giá trị ẩn
+    qs('#calcmaze-editor-background-value').value = value;
+    
+    // 2. Xóa file input (nếu có)
+    qs('#calcmaze-editor-background-file').value = '';
+    
+    // 3. Cập nhật preview
+    const preview = qs('#calcmaze-editor-bg-preview');
+    preview.style.backgroundImage = 'none';
+    preview.style.display = 'none';
+    
+    // 4. === SỬA LỖI: Truyền false để không reset grid ===
+    // (null, false) nghĩa là: "Không dùng grid mới, và Không reset grid cũ"
+    // Nó sẽ giữ nguyên 'currentEditorGridState' và chỉ vẽ lại nền.
+    drawMazeEditorGrid(null, false);
+}
+
+/**
+ * HÀM 3 (SỬA): Xử lý khi GV tải file ảnh nền lên
+ * (Sửa lỗi: 1. Gọi drawMazeEditorGrid(null, false) | 2. Dùng alert() thay showToast())
+ */
+async function handleBackgroundFileUpload() {
+    const fileInput = qs('#calcmaze-editor-background-file');
+    const textInputHidden = qs('#calcmaze-editor-background-value');
+    const select = qs('#calcmaze-editor-background-select');
+    const preview = qs('#calcmaze-editor-bg-preview');
+
+    if (!fileInput.files || !fileInput.files[0]) return;
+    if (fileInput.files[0].size > 2 * 1024 * 1024) { // Giới hạn 2MB
+        alert("Lỗi: File quá lớn (tối đa 2MB).");
+        fileInput.value = '';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        preview.style.backgroundImage = `url('${ev.target.result}')`;
+        preview.style.display = 'block';
+    };
+    reader.readAsDataURL(fileInput.files[0]);
+
+    // === SỬA LỖI "ĐƠ MODAL": DÙNG alert() thay cho showToast() ===
+    alert('Đang tải ảnh nền lên...'); 
+    try {
+        const formData = new FormData();
+        formData.append('background', fileInput.files[0]);
+        const uploadResult = await fetch(`${serverUrl}/api/game-background`, {
+            method: 'POST',
+            body: formData
+        });
+        const resultJson = await uploadResult.json();
+        if (!uploadResult.ok) throw new Error(resultJson.message);
+        
+        const fileId = resultJson.file_id;
+        textInputHidden.value = fileId;
+        
+        const customOption = select.querySelector('option[value="custom"]');
+        customOption.disabled = false;
+        customOption.textContent = `Tùy chỉnh (${fileId.slice(0, 6)}...)`;
+        select.value = 'custom';
+        
+        alert('Tải ảnh nền thành công!'); // DÙNG alert()
+        
+        // === SỬA LỖI "MẤT DỮ LIỆU": Truyền false để không reset grid ===
+        drawMazeEditorGrid(null, false);
+
+    } catch (err) {
+        alert(`Lỗi tải ảnh nền: ${err.message}`); // DÙNG alert()
+        preview.style.display = 'none';
+        fileInput.value = '';
+        textInputHidden.value = select.value; // Quay về giá trị cũ
+    }
+}
+
+/**
+ * HÀM 4 (SỬA): (GV) Vẽ lưới (grid) trong trình soạn thảo
+ * (Sửa lỗi: Thêm 'forceReset' và kiểm tra grid.length > 0)
+ */
+function drawMazeEditorGrid(grid = null, forceReset = false) {
+    const rowsInput = qs('#calcmaze-editor-rows');
+    const colsInput = qs('#calcmaze-editor-cols');
+    
+    // === [LOGIC SỬA LỖI] ===
+    if (forceReset) {
+        // 1. Chỉ tạo grid MỚI khi bấm "Tạo/Đặt lại"
+        const rows = parseInt(rowsInput.value, 10);
+        const cols = parseInt(colsInput.value, 10);
+        currentEditorGridState = Array(rows).fill(null).map(() => Array(cols).fill(0));
+    
+    } else if (grid && grid.length > 0 && Array.isArray(grid[0])) {
+        // 2. Dùng grid truyền vào (khi mở modal Sửa)
+        currentEditorGridState = grid.map(row => [...row]);
+        // Cập nhật lại ô Rộng/Cao
+        rowsInput.value = currentEditorGridState.length;
+        colsInput.value = currentEditorGridState[0] ? currentEditorGridState[0].length : 0;
+    
+    }
+    // 3. Nếu (forceReset=false) và (grid=null hoặc grid rỗng), 
+    //    thì currentEditorGridState CỨ GIỮ NGUYÊN (fix lỗi đổi background).
+    // === [KẾT THÚC LOGIC SỬA LỖI] ===
+
+    // Lấy kích thước từ state (có thể vừa được cập nhật)
+    const rows = currentEditorGridState.length;
+    // Thêm kiểm tra (rows > 0) để tránh lỗi 'reading 0'
+    const cols = (rows > 0 && currentEditorGridState[0]) ? currentEditorGridState[0].length : 0;
+    
+    const container = qs('#calcmaze-editor-grid-container');
+    container.innerHTML = ''; 
+    container.style.setProperty('--editor-cols', cols);
+    container.style.setProperty('--editor-rows', rows);
+
+    // Logic vẽ nền
+    const bgValue = qs('#calcmaze-editor-background-value').value.trim(); 
+    container.className = 'calcmaze-editor-grid-container'; 
+    container.style.backgroundImage = 'none'; 
+    
+    if (bgValue.startsWith('http') || bgValue.startsWith('data:')) {
+        container.style.backgroundImage = `url('${bgValue}')`;
+        container.style.backgroundSize = 'cover';
+    } else if (bgValue.match(/^[0-9a-fA-F]{24}$/)) {
+        container.style.backgroundImage = `url('${serverUrl}/api/game-background/${bgValue}')`;
+        container.style.backgroundSize = 'cover';
+    } else if (bgValue && bgValue !== 'default') {
+        container.classList.add(`maze-bg-${bgValue}`);
+    }
+    
+    // Logic vẽ ô
+    for(let y=0; y < rows; y++) {
+        for(let x=0; x < cols; x++) {
+            // Thêm kiểm tra (nếu cols = 0 thì không chạy)
+            if (!currentEditorGridState[y]) continue; 
+            const cellValue = currentEditorGridState[y][x];
+
+            const div = document.createElement('div');
+            div.id = `editor-cell-${x}-${y}`;
+            div.className = 'editor-cell';
+            div.dataset.x = x;
+            div.dataset.y = y;
+            
+            div.addEventListener('click', () => paintMazeCell(div, x, y));
+            
+            updateEditorCellDisplay(div, cellValue);
+            
+            container.appendChild(div);
+        }
+    }
+}
+
+/**
+ * HÀM 5 (SỬA): (GV) Mở Modal Soạn thảo Level
+ * (Sửa lỗi: Thêm kiểm tra grid.length > 0 khi bấm "Sửa")
  */
 function openCalcMazeEditor(levelData, gameId) {
     if (!gameEditorModalInstance) {
         gameEditorModalInstance = new bootstrap.Modal(qs('#modalCalcMazeEditor'));
     }
     
-    // Gán gameId
     qs('#calcmaze-editor-gameId').value = gameId;
-    
-    // Reset palette
     selectMazeTool(qs('#calcmaze-editor-palette .list-group-item[data-tool="P"]'));
+
+    const textInputHidden = qs('#calcmaze-editor-background-value');
+    const fileInput = qs('#calcmaze-editor-background-file');
+    const preview = qs('#calcmaze-editor-bg-preview');
+    const select = qs('#calcmaze-editor-background-select');
+    const customOption = select.querySelector('option[value="custom"]');
+
+    textInputHidden.value = 'default';
+    fileInput.value = '';
+    preview.style.backgroundImage = 'none';
+    preview.style.display = 'none';
+    select.value = 'default';
+    customOption.disabled = true;
+    customOption.textContent = 'Tùy chỉnh (Đã tải lên)';
 
     if (levelData) {
         // --- CHẾ ĐỘ SỬA ---
         qs('#calcmaze-editor-level').value = levelData.level;
-        qs('#calcmaze-editor-level').readOnly = true; // Không cho sửa số level
+        qs('#calcmaze-editor-level').readOnly = true; 
         qs('#calcmaze-editor-start').value = levelData.startValue;
         qs('#calcmaze-editor-target').value = levelData.targetValue;
+        qs('#calcmaze-editor-time').value = levelData.timeLimit || 60;
+        
+        const bg = levelData.background || 'default';
+        textInputHidden.value = bg; 
+        
+        if (bg === 'grass' || bg === 'sand' || bg === 'stone') {
+            select.value = bg; 
+        } else if (bg.match(/^[0-9a-fA-F]{24}$/)) {
+            preview.style.backgroundImage = `url('${serverUrl}/api/game-background/${bg}')`;
+            preview.style.display = 'block';
+            customOption.disabled = false;
+            customOption.textContent = `Tùy chỉnh (${bg.slice(0, 6)}...)`;
+            select.value = 'custom';
+        } else if (bg.startsWith('http')) {
+            preview.style.backgroundImage = `url('${bg}')`;
+            preview.style.display = 'block';
+            customOption.disabled = false;
+            customOption.textContent = 'Tùy chỉnh (URL)';
+            select.value = 'custom';
+        } else {
+            select.value = 'default'; 
+            textInputHidden.value = 'default';
+        }
         
         const grid = levelData.grid;
-        const rows = grid.length;
-        const cols = grid[0].length;
-        qs('#calcmaze-editor-rows').value = rows;
-        qs('#calcmaze-editor-cols').value = cols;
         
-        // Sao chép grid
-        currentEditorGridState = grid.map(row => [...row]); 
-        drawMazeEditorGrid(grid); // Vẽ lại grid
+        // === [SỬA LỖI 1 TẠI ĐÂY] ===
+        // Kiểm tra xem grid có hợp lệ không
+        if (grid && grid.length > 0 && Array.isArray(grid[0])) {
+            const rows = grid.length;
+            const cols = grid[0].length;
+            qs('#calcmaze-editor-rows').value = rows;
+            qs('#calcmaze-editor-cols').value = cols;
+            // Gọi (grid, false) - Tải lưới, KHÔNG reset
+            drawMazeEditorGrid(grid, false); 
+        } else {
+            // Nếu grid bị lỗi (ví dụ: []), coi như tạo mới
+            console.warn("Lỗi tải grid, reset về 4x4.");
+            qs('#calcmaze-editor-rows').value = 4;
+            qs('#calcmaze-editor-cols').value = 4;
+            // Gọi (null, true) - KHÔNG tải lưới, Buộc reset
+            drawMazeEditorGrid(null, true);
+        }
+        // === [KẾT THÚC SỬA LỖI 1] ===
         
     } else {
         // --- CHẾ ĐỘ MỚI ---
@@ -21982,16 +22647,18 @@ function openCalcMazeEditor(levelData, gameId) {
         qs('#calcmaze-editor-level').readOnly = false;
         qs('#calcmaze-editor-start').value = 10;
         qs('#calcmaze-editor-target').value = 20;
+        qs('#calcmaze-editor-time').value = 60;
+        textInputHidden.value = 'default';
         qs('#calcmaze-editor-rows').value = 4;
         qs('#calcmaze-editor-cols').value = 4;
         
-        // Vẽ grid trống
-        drawMazeEditorGrid();
+        // Gọi (null, true) - KHÔNG tải lưới, Buộc reset
+        drawMazeEditorGrid(null, true);
     }
     
     gameEditorModalInstance.show();
     
-    // Gắn sự kiện 1 lần cho palette
+    // Gắn sự kiện Palette
     const palette = qs('#calcmaze-editor-palette');
     if (!palette.dataset.listenerAttached) {
         palette.addEventListener('click', (e) => {
@@ -22003,67 +22670,43 @@ function openCalcMazeEditor(levelData, gameId) {
         });
         palette.dataset.listenerAttached = 'true';
     }
+
+    // Gắn sự kiện File Upload
+    fileInput.onchange = handleBackgroundFileUpload;
 }
 
-/**
- * Vẽ lưới (grid) trong trình soạn thảo
- */
-function drawMazeEditorGrid(grid = null) {
-    const rows = parseInt(qs('#calcmaze-editor-rows').value, 10);
-    const cols = parseInt(qs('#calcmaze-editor-cols').value, 10);
-    
-    // 1. Tạo state grid (nếu là tạo mới)
-    if (!grid) {
-        currentEditorGridState = Array(rows).fill(null).map(() => Array(cols).fill(0)); // 0 = Đường đi
-    }
-    
-    const container = qs('#calcmaze-editor-grid-container');
-    container.innerHTML = ''; 
-    container.style.setProperty('--editor-cols', cols);
-    container.style.setProperty('--editor-rows', rows);
-    
-    // 2. Vẽ các ô
-    for(let y=0; y < rows; y++) {
-        for(let x=0; x < cols; x++) {
-            const cellValue = currentEditorGridState[y][x];
-            const div = document.createElement('div');
-            div.id = `editor-cell-${x}-${y}`;
-            div.className = 'editor-cell';
-            div.dataset.x = x;
-            div.dataset.y = y;
-            
-            // Gán sự kiện click để "vẽ"
-            div.addEventListener('click', () => paintMazeCell(div, x, y));
-            
-            // Cập nhật hiển thị ô
-            updateEditorCellDisplay(div, cellValue);
-            
-            container.appendChild(div);
-        }
-    }
-}
+
 
 /**
- * Cập nhật hiển thị cho 1 ô (tách ra làm hàm riêng)
+ * (GV) Cập nhật hiển thị cho 1 ô (tách ra làm hàm riêng)
+ * (Sửa lỗi: Thêm Icon Đích và Tường)
  */
 function updateEditorCellDisplay(cellElement, cellValue) {
-    // Xóa class cũ
-    cellElement.className = 'editor-cell'; // Reset
+    cellElement.className = 'editor-cell'; 
     cellElement.textContent = '';
     
     if (cellValue === 1) {
         cellElement.classList.add('maze-wall');
+        cellElement.textContent = '🧱'; // <-- THÊM ICON TƯỜNG
+    } else if (cellValue === 'rock') {
+        cellElement.classList.add('maze-wall-rock');
+        cellElement.textContent = '🪨';
+    } else if (cellValue === 'tree') {
+        cellElement.classList.add('maze-wall-tree');
+        cellElement.textContent = '🌲';
+    } else if (cellValue === 'water') {
+        cellElement.classList.add('maze-wall-water');
+        cellElement.textContent = '💧';
     } else if (cellValue === 'P') {
         cellElement.classList.add('maze-player');
         cellElement.textContent = 'P';
     } else if (cellValue === 'G') {
         cellElement.classList.add('maze-goal');
+        cellElement.textContent = '🏆'; 
     } else if (typeof cellValue === 'string') {
-        // Phép tính
         cellElement.classList.add(getOpClass(cellValue));
         cellElement.textContent = cellValue;
     } else {
-        // Ô 0 (Đường đi)
         cellElement.classList.add('maze-path');
     }
 }
@@ -22096,7 +22739,11 @@ function paintMazeCell(cellElement, x, y) {
         }
         newValue = `${opType}${opVal}`;
     } else {
-        newValue = currentEditorTool; // 'P', 'G', '1', '0'
+        if (currentEditorTool === 'wall') {
+    newValue = qs('#editor-wall-type').value; // e.g., '1', 'rock', 'tree'
+} else {
+    newValue = currentEditorTool; // 'P', 'G', '0'
+}
     }
     
     // Nếu vẽ Player (P) hoặc Đích (G), phải xóa cái cũ
@@ -22112,27 +22759,35 @@ function paintMazeCell(cellElement, x, y) {
     }
     
     // Lưu vào state
-    currentEditorGridState[y][x] = (newValue === '1') ? 1 : (newValue === '0' ? 0 : newValue);
-    // Cập nhật UI
-    updateEditorCellDisplay(cellElement, currentEditorGridState[y][x]);
+    // Chuyển đổi giá trị
+let valueToStore;
+if (newValue === '1') valueToStore = 1;       // Tường xám (lưu là số 1)
+else if (newValue === '0') valueToStore = 0; // Đường đi (lưu là số 0)
+else valueToStore = newValue;                // 'P', 'G', 'rock', 'tree', '+5' (lưu là string)
+
+currentEditorGridState[y][x] = valueToStore;
+// Cập nhật UI (dùng valueToStore)
+updateEditorCellDisplay(cellElement, valueToStore);
 }
 
 /**
- * (Hàm Mới) Lưu Level (Tạo/Cập nhật)
+ * (HÀM SỬA LỖI) (GV) Lưu Level
+ * (Sửa lỗi: Dùng alert() thay showToast() để tránh đơ modal)
  */
 async function saveCalcMazeLevel() {
-    // 1. Thu thập dữ liệu
+    
     const payload = {
         gameId: qs('#calcmaze-editor-gameId').value,
         level: parseInt(qs('#calcmaze-editor-level').value, 10),
         startValue: parseInt(qs('#calcmaze-editor-start').value, 10),
         targetValue: parseInt(qs('#calcmaze-editor-target').value, 10),
-        grid: currentEditorGridState // Grid 2D đã cập nhật
+        timeLimit: parseInt(qs('#calcmaze-editor-time').value, 10) || 60,
+        background: qs('#calcmaze-editor-background-value').value.trim(), 
+        grid: currentEditorGridState
     };
     
-    // 2. Kiểm tra
-    if (!payload.gameId || !payload.level || isNaN(payload.startValue) || isNaN(payload.targetValue)) {
-        alert("Vui lòng điền đầy đủ thông tin Level (Số level, Bắt đầu, Mục tiêu).");
+    if (!payload.gameId || !payload.level || isNaN(payload.startValue) || isNaN(payload.targetValue) || isNaN(payload.timeLimit)) {
+        alert("Vui lòng điền đầy đủ thông tin Level (Số level, Bắt đầu, Mục tiêu, Thời gian).");
         return;
     }
     if (JSON.stringify(payload.grid).indexOf('"P"') === -1 || JSON.stringify(payload.grid).indexOf('"G"') === -1) {
@@ -22140,7 +22795,6 @@ async function saveCalcMazeLevel() {
         return;
     }
 
-    // 3. Gọi API (POST)
     try {
         const result = await fetchJson(`${serverUrl}/api/game-levels`, {
             method: 'POST',
@@ -22149,15 +22803,16 @@ async function saveCalcMazeLevel() {
         
         if (!result.success) throw new Error(result.message);
         
-        showToast(`Đã lưu Level ${payload.level} thành công!`, 'success');
+        // === SỬA LỖI "ĐƠ MODAL": ẨN modal TRƯỚC, BÁO CÁO SAU ===
         gameEditorModalInstance.hide();
+        alert(`Đã lưu Level ${payload.level} thành công!`); // DÙNG alert()
         
-        // Tải lại danh sách level trong tab GV
         loadGameEditor(payload.gameId);
 
     } catch (e) {
         console.error("Lỗi lưu level:", e);
-        showToast(`Lỗi: ${e.message}`, 'danger');
+        // Khi lỗi, dùng alert() để modal soạn thảo vẫn mở
+        alert(`Lỗi: ${e.message}`); // DÙNG alert()
     }
 }
 
@@ -22193,6 +22848,445 @@ async function deleteGameLevel(gameId, level) {
 // ==================================================
 // === KẾT THÚC LOGIC QUẢN LÝ GAME (GV) ===
 // ==================================================
+
+// ==================================================
+// === LOGIC MỚI CHO GAME TRIỆU PHÚ TRI THỨC (ĐÃ NÂNG CẤP) ===
+// ==================================================
+
+let modalGameTrieuPhuInstance = null;
+let tp_state = {}; // State của game
+
+// Các mốc tiền (điểm)
+const TP_MONEY_LEVELS = [
+    100, 200, 300, 500, 1000, // Mốc 1 (Câu 5)
+    2000, 4000, 8000, 16000, 32000, // Mốc 2 (Câu 10)
+    64000, 125000, 250000, 500000, 1000000 // Mốc 3 (Câu 15)
+];
+const TP_MILESTONES = [4, 9, 14]; // Index (0-based) của các mốc quan trọng
+
+// Khởi tạo modal
+document.addEventListener('DOMContentLoaded', () => {
+    const modalEl = qs('#modalGameTrieuPhu');
+    if (modalEl) {
+        modalGameTrieuPhuInstance = new bootstrap.Modal(modalEl);
+        // Reset game khi modal đóng
+        modalEl.addEventListener('hide.bs.modal', () => {
+            if (tp_state.tp_timerInterval) {
+                clearInterval(tp_state.tp_timerInterval); // Dừng timer
+            }
+            tp_state = {}; // Xóa state
+        });
+    }
+});
+
+/**
+ * Mở modal game, điền danh sách Môn học (ĐÃ SỬA: Thêm "Tổng hợp")
+ */
+function launchGame_TrieuPhu() {
+    // 1. Lấy danh sách Môn học từ tab Luyện tập Tự do
+    const practiceSubjectSelect = qs('#practice-subject');
+    const tpSubjectSelect = qs('#tp-subject-select');
+    
+    if (practiceSubjectSelect && tpSubjectSelect) {
+        // Sao chép tất cả <option> từ select luyện tập
+        tpSubjectSelect.innerHTML = practiceSubjectSelect.innerHTML;
+        // Thêm "Tổng hợp" vào đầu
+        tpSubjectSelect.insertAdjacentHTML('afterbegin', '<option value="all">Tổng hợp (Tất cả)</option>');
+        tpSubjectSelect.value = 'all'; // Mặc định chọn "Tổng hợp"
+    } else {
+        tpSubjectSelect.innerHTML = '<option value="">Lỗi: Không tải được danh sách môn</option>';
+    }
+
+    // 2. Reset UI
+    qs('#tp-start-screen').style.display = 'block';
+    qs('#tp-loading-screen').style.display = 'none';
+    qs('#tp-play-screen').style.display = 'none';
+    qs('#tp-end-screen').style.display = 'none';
+
+    // 3. Mở modal
+    if (modalGameTrieuPhuInstance) {
+        modalGameTrieuPhuInstance.show();
+    }
+}
+
+/**
+ * Bắt đầu game sau khi chọn Môn (ĐÃ SỬA: Gửi 'type' và 'game')
+ */
+async function tp_startGame() {
+    const subject = qs('#tp-subject-select').value;
+    if (subject === "") { // Kiểm tra nếu chọn "-- Vui lòng chọn môn --"
+        alert("Vui lòng chọn một môn học hoặc 'Tổng hợp'!");
+        return;
+    }
+
+    // Chuyển sang màn hình tải
+    qs('#tp-start-screen').style.display = 'none';
+    qs('#tp-loading-screen').style.display = 'block';
+
+    try {
+        const payload = {
+            level: currentUser.level || '4', // Lấy level của HS, fallback về '4'
+            tags: '',
+            count: 15, // Backend sẽ bỏ qua cái này và dùng logic 5-5-5
+            type: 'mc', // *** YÊU CẦU 1: Chỉ lấy trắc nghiệm ***
+            game: 'trieuphu' // *** YÊU CẦU 6: Kích hoạt logic 5-5-5 ***
+        };
+        
+        // *** YÊU CẦU 3: Xử lý "Tổng hợp" ***
+        if (subject !== "all") {
+            payload.subject = subject;
+        }
+        
+        const result = await fetchJson(`${serverUrl}/api/practice/generate`, {
+            method: 'POST',
+            body: payload
+        });
+        
+        // Backend đã lọc 'mc', nhưng chúng ta kiểm tra lại
+        const questions_mc = (result.questions || []).filter(q => q.type === 'mc');
+
+        if (!result.success || questions_mc.length === 0) {
+            throw new Error(`Không tìm thấy câu hỏi trắc nghiệm nào cho lựa chọn này.`);
+        }
+        // (Không cần kiểm tra 15 câu nữa, vì 5-5-5 có thể không đủ)
+        
+        // 3. Khởi tạo State
+        tp_state = {
+            questions: questions_mc, // Dùng số câu hỏi thực tế tìm được
+            currentQuestionIndex: 0,
+            moneyIndex: 0,
+            helps: { '5050': true, 'consult': true },
+            lockSelection: false,
+            pendingAnswer: null, // Lưu đáp án chờ xác nhận
+            tp_timerInterval: null // Lưu ID của timer
+        };
+        
+        // 4. Render cây tiền
+        const moneyTree = qs('#tp-money-tree');
+        moneyTree.innerHTML = '';
+        const totalQuestionsInGame = tp_state.questions.length;
+        
+        // Chỉ render số mốc bằng số câu hỏi
+        for (let i = totalQuestionsInGame - 1; i >= 0; i--) {
+            const li = document.createElement('li');
+            li.id = `tp-level-${i}`;
+            // Lấy mốc tiền/điểm (an toàn)
+            li.textContent = `${i + 1}. ${TP_MONEY_LEVELS[i] || (i+1)*100}`;
+            
+            // Đánh dấu mốc quan trọng
+            if (TP_MILESTONES.includes(i)) {
+                li.classList.add('tp-milestone');
+            }
+            moneyTree.appendChild(li);
+        }
+
+        // 5. Chuyển sang màn hình chơi
+        qs('#tp-loading-screen').style.display = 'none';
+        qs('#tp-play-screen').style.display = 'block';
+
+        // 6. Reset nút trợ giúp
+        qs('#tp-help-5050').disabled = false;
+        qs('#tp-help-consult').disabled = false;
+        
+        // 7. Hiển thị câu hỏi đầu tiên
+        tp_renderQuestion();
+
+    } catch (e) {
+        // Lỗi
+        qs('#tp-start-screen').style.display = 'block';
+        qs('#tp-loading-screen').style.display = 'none';
+        alert(e.message);
+    }
+}
+
+/**
+ * Hiển thị câu hỏi và đáp án hiện tại (ĐÃ SỬA: Thêm timer)
+ */
+function tp_renderQuestion() {
+    if (tp_state.currentQuestionIndex >= tp_state.questions.length) {
+        // Thắng game!
+        tp_endGame(true);
+        return;
+    }
+
+    tp_state.lockSelection = false; // Mở khóa
+    tp_state.pendingAnswer = null; // Xóa đáp án chờ
+    const q = tp_state.questions[tp_state.currentQuestionIndex];
+    
+    // Cập nhật câu hỏi
+    qs('#tp-question-number').textContent = `Câu ${tp_state.currentQuestionIndex + 1}:`;
+    qs('#tp-question-text').innerHTML = q.q; // Dùng innerHTML để render (nếu có)
+    
+    // Xử lý ảnh
+    const imgContainer = qs('#tp-question-image');
+    if (q.imageId) {
+        imgContainer.innerHTML = `<img src="${serverUrl}/images/${q.imageId}" alt="Ảnh câu hỏi">`;
+    } else {
+        imgContainer.innerHTML = '';
+    }
+    
+    // Cập nhật đáp án
+    const answersContainer = qs('#tp-answers-container');
+    answersContainer.innerHTML = '';
+    const letters = ['A', 'B', 'C', 'D'];
+    
+    (q.options || []).slice(0, 4).forEach((opt, i) => {
+        const answerText = opt.text || opt.value || 'Lỗi';
+        answersContainer.innerHTML += `
+            <div class="col-md-6">
+                <button class="btn tp-answer-btn" id="tp-ans-${i}" onclick="tp_selectAnswer(this, '${answerText}')">
+                    <strong>${letters[i]}:</strong> ${escapeHtml(answerText)}
+                </button>
+            </div>
+        `;
+    });
+    
+    // Cập nhật cây tiền
+    tp_updateMoneyTree(-1); // -1 nghĩa là chưa trả lời
+    
+    // *** YÊU CẦU 4: Bắt đầu đếm ngược ***
+    tp_startTimer(60);
+}
+
+/**
+ * (HÀM MỚI) Bắt đầu đếm ngược 60 giây
+ */
+function tp_startTimer(seconds) {
+    if (tp_state.tp_timerInterval) {
+        clearInterval(tp_state.tp_timerInterval);
+    }
+    let timeLeft = seconds;
+    const timerDisplay = qs('#tp-timer-display');
+    timerDisplay.textContent = timeLeft;
+    timerDisplay.classList.remove('bg-warning');
+
+    tp_state.tp_timerInterval = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = timeLeft;
+
+        if (timeLeft <= 10) {
+            timerDisplay.classList.add('bg-warning'); // Chuyển sang vàng
+        }
+
+        if (timeLeft <= 0) {
+            clearInterval(tp_state.tp_timerInterval);
+            // Hết giờ -> Tự động xử lý như trả lời sai
+            tp_state.lockSelection = true;
+            tp_endGame(false, "Hết thời gian!");
+        }
+    }, 1000);
+}
+
+/**
+ * Cập nhật màu sắc cây tiền
+ */
+function tp_updateMoneyTree(status) {
+    const currentLevel = tp_state.moneyIndex;
+    
+    const oldActive = qs('#tp-money-tree li.tp-current-level');
+    if (oldActive) oldActive.classList.remove('tp-current-level');
+    
+    const newActive = qs(`#tp-level-${currentLevel}`);
+    if (newActive) newActive.classList.add('tp-current-level');
+}
+
+/**
+ * Người chơi chọn một đáp án (ĐÃ SỬA: Thêm modal xác nhận)
+ */
+function tp_selectAnswer(btnElement, selectedAnswerText) {
+    // Không cho chọn nếu đang khóa (chờ, hoặc đã xác nhận)
+    if (tp_state.lockSelection) return; 
+    
+    // Nếu đang có đáp án khác chờ, bỏ chọn nó
+    if (tp_state.pendingAnswer && tp_state.pendingAnswer.btnElement) {
+        tp_state.pendingAnswer.btnElement.classList.remove('tp-selected');
+    }
+    
+    // Tô màu nút mới
+    btnElement.classList.add('tp-selected');
+    
+    // Lưu đáp án chờ
+    tp_state.pendingAnswer = { btnElement, selectedAnswerText };
+    
+    // Gọi hàm xác nhận
+    tp_showConfirmation();
+}
+
+/**
+ * (HÀM MỚI) Hiển thị modal xác nhận
+ */
+async function tp_showConfirmation() {
+    if (tp_state.lockSelection || !tp_state.pendingAnswer) return;
+    
+    // Khóa tạm thời
+    tp_state.lockSelection = true; 
+    
+    const confirmed = await confirmBoxAsync(
+        "Xác nhận", 
+        "Đây có phải là đáp án cuối cùng của bạn không?", 
+        "OK (Chốt)", 
+        "btn-success"
+    );
+    
+    if (confirmed) {
+        // Nếu chốt -> Khóa và Chấm
+        tp_lockAndCheckAnswer();
+    } else {
+        // Nếu hủy -> Mở khóa và Bỏ chọn
+        if (tp_state.pendingAnswer && tp_state.pendingAnswer.btnElement) {
+            tp_state.pendingAnswer.btnElement.classList.remove('tp-selected');
+        }
+        tp_state.pendingAnswer = null;
+        tp_state.lockSelection = false; // Mở khóa lại
+    }
+}
+
+/**
+ * (HÀM MỚI) Khóa và chấm đáp án (sau khi đã xác nhận)
+ */
+function tp_lockAndCheckAnswer() {
+    // Dừng đồng hồ đếm ngược
+    if (tp_state.tp_timerInterval) {
+        clearInterval(tp_state.tp_timerInterval);
+    }
+    
+    const { btnElement, selectedAnswerText } = tp_state.pendingAnswer;
+    
+    // Lấy câu hỏi và đáp án đúng
+    const q = tp_state.questions[tp_state.currentQuestionIndex];
+    const correctAnsOption = (q.options || []).find(opt => opt.correct === true);
+    const correctAnsText = correctAnsOption ? (correctAnsOption.text || correctAnsOption.value) : 'LỖI_KHÔNG_CÓ_ĐÁP_ÁN';
+    
+    const isCorrect = (norm_str(selectedAnswerText) === norm_str(correctAnsText));
+
+    // Chờ 1 giây (hiệu ứng)
+    setTimeout(() => {
+        // Vô hiệu hóa tất cả các nút
+        qs('#tp-answers-container').querySelectorAll('button').forEach(btn => {
+            btn.disabled = true;
+        });
+
+        // Tìm nút đúng
+        const allButtons = qs('#tp-answers-container').querySelectorAll('.tp-answer-btn');
+        allButtons.forEach(btn => {
+            const btnText = btn.textContent.substring(3).trim(); // Bỏ "A: "
+            if (norm_str(btnText) === norm_str(correctAnsText)) {
+                btn.classList.remove('tp-selected');
+                btn.classList.add('tp-correct'); // Tô màu nút đúng
+            }
+        });
+
+        if (isCorrect) {
+            // Trả lời đúng
+            // Chờ 2 giây nữa rồi sang câu tiếp
+            setTimeout(() => {
+                tp_state.currentQuestionIndex++;
+                tp_state.moneyIndex++;
+                tp_renderQuestion(); // Tự động mở khóa (set lockSelection = false)
+            }, 2000);
+        } else {
+            // Trả lời sai
+            btnElement.classList.remove('tp-selected');
+            btnElement.classList.add('tp-incorrect'); // Nút đã chọn (sai)
+            
+            // Chờ 2 giây rồi kết thúc game
+            setTimeout(() => {
+                tp_endGame(false, correctAnsText); // Thua
+            }, 2000);
+        }
+    }, 1000); // Chờ 1s sau khi xác nhận
+}
+
+
+/**
+ * Sử dụng trợ giúp (ĐÃ SỬA: Thêm kiểm tra khóa)
+ */
+function tp_useHelp(type) {
+    // Không cho dùng trợ giúp nếu đang chọn dở hoặc đang khóa
+    if (tp_state.lockSelection || !tp_state.helps[type]) return; 
+    
+    tp_state.helps[type] = false; // Đánh dấu đã dùng
+    qs(`#tp-help-${type}`).disabled = true;
+
+    const q = tp_state.questions[tp_state.currentQuestionIndex];
+    const correctAnsOption = (q.options || []).find(opt => opt.correct === true);
+    const correctAnsText = correctAnsOption ? (correctAnsOption.text || correctAnsOption.value) : '';
+    
+    const allButtons = qs('#tp-answers-container').querySelectorAll('.tp-answer-btn');
+
+    if (type === '5050') {
+        let hiddenCount = 0;
+        allButtons.forEach(btn => {
+            const btnText = btn.textContent.substring(3).trim();
+            if (norm_str(btnText) !== norm_str(correctAnsText) && hiddenCount < 2) {
+                btn.style.visibility = 'hidden'; // Ẩn nút
+                hiddenCount++;
+            }
+        });
+    } else if (type === 'consult') {
+        let hiddenCount = 0;
+        allButtons.forEach(btn => {
+            const btnText = btn.textContent.substring(3).trim();
+            if (norm_str(btnText) !== norm_str(correctAnsText) && hiddenCount < 3) {
+                btn.style.visibility = 'hidden';
+                hiddenCount++;
+            }
+        });
+    }
+}
+
+/**
+ * Kết thúc game (Thắng hoặc Thua) (ĐÃ SỬA: Dừng timer)
+ */
+function tp_endGame(didWin, reason = null) {
+    // Dừng timer (nếu còn chạy)
+    if (tp_state.tp_timerInterval) {
+        clearInterval(tp_state.tp_timerInterval);
+    }
+    
+    qs('#tp-play-screen').style.display = 'none';
+    qs('#tp-end-screen').style.display = 'block';
+
+    let prizeIndex = tp_state.moneyIndex;
+    const totalQuestionsInGame = tp_state.questions.length;
+    
+    if (didWin) {
+        // Thắng (Trả lời hết câu cuối)
+        qs('#tp-end-title').textContent = '🎉 CHÚC MỪNG NHÀ TRIỆU PHÚ! 🎉';
+        // Lấy mốc tiền cao nhất (an toàn)
+        qs('#tp-end-prize').textContent = TP_MONEY_LEVELS[totalQuestionsInGame - 1] || (totalQuestionsInGame * 100);
+        qs('#tp-end-correct-answer').style.display = 'none';
+    } else {
+        // Thua
+        qs('#tp-end-title').textContent = 'Rất tiếc, bạn đã thua cuộc!';
+        
+        // Tính mốc tiền thưởng (quay về mốc gần nhất)
+        let milestonePrize = 0;
+        // Tìm mốc an toàn cao nhất MÀ BẠN ĐÃ VƯỢT QUA
+        const achievedMilestones = TP_MILESTONES.filter(index => prizeIndex > index);
+        if (achievedMilestones.length > 0) {
+            const lastMilestoneIndex = Math.max(...achievedMilestones);
+            milestonePrize = TP_MONEY_LEVELS[lastMilestoneIndex];
+        }
+        
+        qs('#tp-end-prize').textContent = milestonePrize;
+        
+        // Hiển thị lý do thua
+        if (reason === "Hết thời gian!") {
+            qs('#tp-end-correct-answer').textContent = "Bạn đã hết thời gian cho câu hỏi này!";
+            qs('#tp-end-correct-answer').style.display = 'block';
+        } else if (reason) { // 'reason' lúc này là đáp án đúng
+            qs('#tp-end-correct-answer').textContent = `Đáp án đúng là: ${escapeHtml(reason)}`;
+            qs('#tp-end-correct-answer').style.display = 'block';
+        }
+    }
+}
+
+// ==================================================
+// === KẾT THÚC LOGIC GAME TRIỆU PHÚ ===
+// ==================================================
+
+
 
 </script>
 
