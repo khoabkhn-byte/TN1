@@ -1333,7 +1333,6 @@ def _clean_ai_response(text):
         return match.group(2).strip()
     return text.strip()
 
-# [THAY THẾ HÀM CŨ]
 @app.route("/api/ai/generate-question", methods=["POST"])
 def ai_generate_question():
     """
