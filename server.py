@@ -81,6 +81,47 @@ db = client[DB_NAME]
 fs = GridFS(db)
 print(f"✅ Connected to MongoDB database: {DB_NAME}")
 
+# === KHỐI KHỞI TẠO DỮ LIỆU NGỮ PHÁP (MỚI) ===
+def initialize_grammar_data(db):
+    if db.grammar_points.count_documents({}) == 0:
+        db.grammar_points.insert_many([
+            {
+                "id": str(uuid4()),
+                "title": "Present Simple (Thì hiện tại đơn)",
+                "content": """
+                    <h3 class="text-primary">1. Công thức</h3>
+                    <p>Khẳng định: <strong>S + V(s/es)</strong></p>
+                    <p>Phủ định: <strong>S + do/does not + V(nguyên mẫu)</strong></p>
+                    <p>Nghi vấn: <strong>Do/Does + S + V(nguyên mẫu)?</strong></p>
+                    <h3 class="text-primary">2. Cách dùng</h3>
+                    <ul>
+                        <li>Diễn tả thói quen, hành động lặp đi lặp lại hoặc sự thật hiển nhiên. (I brush my teeth every day.)</li>
+                        <li>Diễn tả sự thật hiển nhiên, chân lý. (The sun rises in the East.)</li>
+                        <li>Diễn tả lịch trình, thời khóa biểu cố định. (The train leaves at 7 AM.)</li>
+                    </ul>
+                """,
+                "tags": ["A1", "basic", "tense", "hien_tai"]
+            },
+            {
+                "id": str(uuid4()),
+                "title": "Past Continuous (Thì quá khứ tiếp diễn)",
+                "content": """
+                    <h3 class="text-primary">1. Công thức</h3>
+                    <p>Khẳng định: <strong>S + was/were + V-ing</strong></p>
+                    <p>Phủ định: <strong>S + was/were not + V-ing</strong></p>
+                    <h3 class="text-primary">2. Cách dùng</h3>
+                    <ul>
+                        <li>Hành động đang xảy ra tại một thời điểm xác định trong quá khứ. (I was cooking at 6 PM yesterday.)</li>
+                        <li>Hành động đang xảy ra thì bị hành động khác xen vào. (When I came, she was watching TV.)</li>
+                    </ul>
+                """,
+                "tags": ["A2", "tense", "continuous", "qua_khu"]
+            }
+        ])
+        print("✅ Initial grammar data added.")
+# === KẾT THÚC KHỐI KHỞI TẠO ===
+
+
 def remove_id(doc):
     if not doc:
         return doc
@@ -560,6 +601,26 @@ def delete_class(class_id):
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
+
+# ==================================================
+# API NGỮ PHÁP (GRAMMAR POINTS) - MỚI
+# ==================================================
+@app.route("/api/grammar-points", methods=["GET"])
+def list_grammar_points():
+    """API MỚI: Lấy danh sách các điểm ngữ pháp (chủ đề)"""
+    # Không cần lọc phức tạp, chỉ lấy title và tags
+    docs = list(db.grammar_points.find({}, {"_id": 0, "content": 0}).sort("title", 1)) 
+    return jsonify({"success": True, "topics": docs})
+
+@app.route("/api/grammar-points/<topic_id>", methods=["GET"])
+def get_grammar_point_content(topic_id):
+    """API MỚI: Lấy nội dung chi tiết của một điểm ngữ pháp"""
+    doc = db.grammar_points.find_one({"id": topic_id}, {"_id": 0})
+    if not doc:
+        return jsonify({"success": False, "message": "Không tìm thấy chủ đề"}), 404
+    return jsonify({"success": True, "topic": doc})
+
 
 # THAY THẾ HÀM CŨ 'get_question_stats' (khoảng dòng 452) BẰNG HÀM NÀY
 @app.route("/api/questions/<question_id>/stats", methods=["GET"])
@@ -4843,4 +4904,5 @@ def get_game_background(file_id):
 
 
 if __name__ == "__main__":
+    initialize_grammar_data(db)
     app.run(host="0.0.0.0", port=PORT)
