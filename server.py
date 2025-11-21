@@ -121,6 +121,58 @@ def initialize_grammar_data(db):
         print("✅ Initial grammar data added.")
 # === KẾT THÚC KHỐI KHỞI TẠO ===
 
+# === KHỐI KHỞI TẠO DỮ LIỆU BÀI TẬP NGỮ PHÁP (MỚI) ===
+def initialize_grammar_exercises(db):
+    if db.grammar_exercises.count_documents({}) == 0:
+        db.grammar_exercises.insert_many([
+            {
+                "id": str(uuid4()),
+                "level": "A1",
+                "topic": "Present Simple Practice (Bài 1)",
+                "questions": [
+                    {
+                        "q_id": "q1_a1",
+                        # Cấu trúc: [gap:options:correct_value]
+                        "text": "He [gap:do,does:does] not like football.", 
+                        "type": "gap_dropdown",
+                        "hint": "Chọn trợ động từ phù hợp cho ngôi thứ ba số ít."
+                    },
+                    {
+                        "q_id": "q2_a1",
+                        "text": "They [gap:go,goes:go] to school every day.",
+                        "type": "gap_dropdown",
+                        "hint": "Chia động từ 'go' ở thì hiện tại đơn."
+                    },
+                    {
+                        "q_id": "q3_a1",
+                        "text": "I [gap:am,is,are:am] a student.",
+                        "type": "gap_dropdown",
+                        "hint": "Chọn dạng đúng của 'to be' cho ngôi 'I'."
+                    }
+                ]
+            },
+            {
+                "id": str(uuid4()),
+                "level": "A2",
+                "topic": "Past Continuous Practice (Bài 1)",
+                "questions": [
+                    {
+                        "q_id": "q1_a2",
+                        "text": "At 8 PM yesterday, she [gap:was watching,watched:was watching] a movie.",
+                        "type": "gap_dropdown",
+                        "hint": "Sử dụng thì quá khứ tiếp diễn cho hành động tại thời điểm cụ thể."
+                    },
+                    {
+                        "q_id": "q2_a2",
+                        "text": "While I was cooking, my phone [gap:ring,rang,was ringing:rang].",
+                        "type": "gap_dropdown",
+                        "hint": "Chọn động từ ở thì Quá khứ đơn cho hành động xen vào."
+                    }
+                ]
+            }
+        ])
+        print("✅ Initial grammar exercises added.")
+# === KẾT THÚC KHỐI KHỞI TẠO BÀI TẬP ===
 
 def remove_id(doc):
     if not doc:
@@ -621,6 +673,97 @@ def get_grammar_point_content(topic_id):
         return jsonify({"success": False, "message": "Không tìm thấy chủ đề"}), 404
     return jsonify({"success": True, "topic": doc})
 
+
+# ==================================================
+# API BÀI TẬP NGỮ PHÁP (GRAMMAR EXERCISES) - MỚI
+# ==================================================
+
+@app.route("/api/grammar-exercises/levels", methods=["GET"])
+def list_grammar_levels():
+    """API MỚI: Lấy danh sách các cấp độ (level) và số lượng bài tập của mỗi cấp độ"""
+    # Lấy các cấp độ duy nhất
+    levels = list(db.grammar_exercises.distinct("level"))
+    
+    level_stats = []
+    for level in levels:
+        count = db.grammar_exercises.count_documents({"level": level})
+        level_stats.append({
+            "level": level,
+            "count": count
+        })
+        
+    # Sắp xếp theo thứ tự chữ cái (A1, A2, B1, ...)
+    return jsonify({"success": True, "levels": sorted(level_stats, key=lambda x: x['level'])})
+
+
+@app.route("/api/grammar-exercises/<level>", methods=["GET"])
+def get_grammar_exercises_by_level(level):
+    """API MỚI: Lấy danh sách các bài tập (bao gồm câu hỏi) theo cấp độ"""
+    # Trả về tất cả bài tập/topic trong cấp độ đó
+    docs = list(db.grammar_exercises.find({"level": level}, {"_id": 0})) 
+    
+    if not docs:
+        return jsonify({"success": False, "message": f"Không tìm thấy bài tập cho cấp độ {level}"}), 404
+        
+    return jsonify({"success": True, "exercises": docs})
+
+@app.route("/api/grammar-exercises/submit", methods=["POST"])
+def submit_grammar_exercise():
+    """API MỚI: Chấm điểm bài tập điền từ/chia động từ"""
+    try:
+        data = request.json
+        exercise_id = data.get("exercise_id")
+        answers = data.get("answers", {}) # {q_id: user_answer}
+        
+        if not exercise_id:
+            return jsonify({"success": False, "message": "Thiếu exercise_id"}), 400
+
+        exercise = db.grammar_exercises.find_one({"id": exercise_id}, {"_id": 0})
+        if not exercise:
+            return jsonify({"success": False, "message": "Bài tập không tồn tại"}), 404
+
+        total_questions = len(exercise["questions"])
+        correct_count = 0
+        results = {}
+
+        for question in exercise["questions"]:
+            q_id = question["q_id"]
+            user_answer = answers.get(q_id)
+            is_correct = False
+            correct_value = None
+
+            # Phân tích cú pháp GAP: [gap:options:correct_value]
+            match = re.search(r'\[gap:(.+?):(.+?)\]', question["text"])
+            
+            if match:
+                correct_value = match.group(2).strip()
+                
+                # Chấm điểm (không phân biệt hoa thường và khoảng trắng)
+                if user_answer and correct_value and user_answer.strip().lower() == correct_value.lower():
+                    is_correct = True
+                    correct_count += 1
+            
+            # Ghi lại kết quả
+            results[q_id] = {
+                "user_answer": user_answer,
+                "is_correct": is_correct,
+                "correct_answer": correct_value
+            }
+
+        score = f"{correct_count}/{total_questions}"
+        
+        return jsonify({
+            "success": True,
+            "total": total_questions,
+            "correct_count": correct_count,
+            "score": score,
+            "results": results,
+            "message": f"Bạn đã hoàn thành bài tập. Kết quả: {correct_count}/{total_questions} câu đúng."
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi xử lý nộp bài: {str(e)}"}), 500
 
 # THAY THẾ HÀM CŨ 'get_question_stats' (khoảng dòng 452) BẰNG HÀM NÀY
 @app.route("/api/questions/<question_id>/stats", methods=["GET"])
@@ -4905,4 +5048,5 @@ def get_game_background(file_id):
 
 if __name__ == "__main__":
     initialize_grammar_data(db)
+    initialize_grammar_exercises(db)
     app.run(host="0.0.0.0", port=PORT)
