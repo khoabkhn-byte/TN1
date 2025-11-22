@@ -81,99 +81,6 @@ db = client[DB_NAME]
 fs = GridFS(db)
 print(f"✅ Connected to MongoDB database: {DB_NAME}")
 
-# === KHỐI KHỞI TẠO DỮ LIỆU NGỮ PHÁP (MỚI) ===
-def initialize_grammar_data(db):
-    if db.grammar_points.count_documents({}) == 0:
-        db.grammar_points.insert_many([
-            {
-                "id": str(uuid4()),
-                "title": "Present Simple (Thì hiện tại đơn)",
-                "content": """
-                    <h3 class="text-primary">1. Công thức</h3>
-                    <p>Khẳng định: <strong>S + V(s/es)</strong></p>
-                    <p>Phủ định: <strong>S + do/does not + V(nguyên mẫu)</strong></p>
-                    <p>Nghi vấn: <strong>Do/Does + S + V(nguyên mẫu)?</strong></p>
-                    <h3 class="text-primary">2. Cách dùng</h3>
-                    <ul>
-                        <li>Diễn tả thói quen, hành động lặp đi lặp lại hoặc sự thật hiển nhiên. (I brush my teeth every day.)</li>
-                        <li>Diễn tả sự thật hiển nhiên, chân lý. (The sun rises in the East.)</li>
-                        <li>Diễn tả lịch trình, thời khóa biểu cố định. (The train leaves at 7 AM.)</li>
-                    </ul>
-                """,
-                "tags": ["A1", "basic", "tense", "hien_tai"]
-            },
-            {
-                "id": str(uuid4()),
-                "title": "Past Continuous (Thì quá khứ tiếp diễn)",
-                "content": """
-                    <h3 class="text-primary">1. Công thức</h3>
-                    <p>Khẳng định: <strong>S + was/were + V-ing</strong></p>
-                    <p>Phủ định: <strong>S + was/were not + V-ing</strong></p>
-                    <h3 class="text-primary">2. Cách dùng</h3>
-                    <ul>
-                        <li>Hành động đang xảy ra tại một thời điểm xác định trong quá khứ. (I was cooking at 6 PM yesterday.)</li>
-                        <li>Hành động đang xảy ra thì bị hành động khác xen vào. (When I came, she was watching TV.)</li>
-                    </ul>
-                """,
-                "tags": ["A2", "tense", "continuous", "qua_khu"]
-            }
-        ])
-        print("✅ Initial grammar data added.")
-# === KẾT THÚC KHỐI KHỞI TẠO ===
-
-# === KHỐI KHỞI TẠO DỮ LIỆU BÀI TẬP NGỮ PHÁP (MỚI) ===
-def initialize_grammar_exercises(db):
-    if db.grammar_exercises.count_documents({}) == 0:
-        db.grammar_exercises.insert_many([
-            {
-                "id": str(uuid4()),
-                "level": "A1",
-                "topic": "Present Simple Practice (Bài 1)",
-                "questions": [
-                    {
-                        "q_id": "q1_a1",
-                        # Cấu trúc: [gap:options:correct_value]
-                        "text": "He [gap:do,does:does] not like football.", 
-                        "type": "gap_dropdown",
-                        "hint": "Chọn trợ động từ phù hợp cho ngôi thứ ba số ít."
-                    },
-                    {
-                        "q_id": "q2_a1",
-                        "text": "They [gap:go,goes:go] to school every day.",
-                        "type": "gap_dropdown",
-                        "hint": "Chia động từ 'go' ở thì hiện tại đơn."
-                    },
-                    {
-                        "q_id": "q3_a1",
-                        "text": "I [gap:am,is,are:am] a student.",
-                        "type": "gap_dropdown",
-                        "hint": "Chọn dạng đúng của 'to be' cho ngôi 'I'."
-                    }
-                ]
-            },
-            {
-                "id": str(uuid4()),
-                "level": "A2",
-                "topic": "Past Continuous Practice (Bài 1)",
-                "questions": [
-                    {
-                        "q_id": "q1_a2",
-                        "text": "At 8 PM yesterday, she [gap:was watching,watched:was watching] a movie.",
-                        "type": "gap_dropdown",
-                        "hint": "Sử dụng thì quá khứ tiếp diễn cho hành động tại thời điểm cụ thể."
-                    },
-                    {
-                        "q_id": "q2_a2",
-                        "text": "While I was cooking, my phone [gap:ring,rang,was ringing:rang].",
-                        "type": "gap_dropdown",
-                        "hint": "Chọn động từ ở thì Quá khứ đơn cho hành động xen vào."
-                    }
-                ]
-            }
-        ])
-        print("✅ Initial grammar exercises added.")
-# === KẾT THÚC KHỐI KHỞI TẠO BÀI TẬP ===
-
 def remove_id(doc):
     if not doc:
         return doc
@@ -654,117 +561,6 @@ def delete_class(class_id):
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
-
-# ==================================================
-# API NGỮ PHÁP (GRAMMAR POINTS) - MỚI
-# ==================================================
-@app.route("/api/grammar-points", methods=["GET"])
-def list_grammar_points():
-    """API MỚI: Lấy danh sách các điểm ngữ pháp (chủ đề)"""
-    # Không cần lọc phức tạp, chỉ lấy title và tags
-    docs = list(db.grammar_points.find({}, {"_id": 0, "content": 0}).sort("title", 1)) 
-    return jsonify({"success": True, "topics": docs})
-
-@app.route("/api/grammar-points/<topic_id>", methods=["GET"])
-def get_grammar_point_content(topic_id):
-    """API MỚI: Lấy nội dung chi tiết của một điểm ngữ pháp"""
-    doc = db.grammar_points.find_one({"id": topic_id}, {"_id": 0})
-    if not doc:
-        return jsonify({"success": False, "message": "Không tìm thấy chủ đề"}), 404
-    return jsonify({"success": True, "topic": doc})
-
-
-# ==================================================
-# API BÀI TẬP NGỮ PHÁP (GRAMMAR EXERCISES) - MỚI
-# ==================================================
-
-@app.route("/api/grammar-exercises/levels", methods=["GET"])
-def list_grammar_levels():
-    """API MỚI: Lấy danh sách các cấp độ (level) và số lượng bài tập của mỗi cấp độ"""
-    # Lấy các cấp độ duy nhất
-    levels = list(db.grammar_exercises.distinct("level"))
-    
-    level_stats = []
-    for level in levels:
-        count = db.grammar_exercises.count_documents({"level": level})
-        level_stats.append({
-            "level": level,
-            "count": count
-        })
-        
-    # Sắp xếp theo thứ tự chữ cái (A1, A2, B1, ...)
-    return jsonify({"success": True, "levels": sorted(level_stats, key=lambda x: x['level'])})
-
-
-@app.route("/api/grammar-exercises/<level>", methods=["GET"])
-def get_grammar_exercises_by_level(level):
-    """API MỚI: Lấy danh sách các bài tập (bao gồm câu hỏi) theo cấp độ"""
-    # Trả về tất cả bài tập/topic trong cấp độ đó
-    docs = list(db.grammar_exercises.find({"level": level}, {"_id": 0})) 
-    
-    if not docs:
-        return jsonify({"success": False, "message": f"Không tìm thấy bài tập cho cấp độ {level}"}), 404
-        
-    return jsonify({"success": True, "exercises": docs})
-
-@app.route("/api/grammar-exercises/submit", methods=["POST"])
-def submit_grammar_exercise():
-    """API MỚI: Chấm điểm bài tập điền từ/chia động từ"""
-    try:
-        data = request.json
-        exercise_id = data.get("exercise_id")
-        answers = data.get("answers", {}) # {q_id: user_answer}
-        
-        if not exercise_id:
-            return jsonify({"success": False, "message": "Thiếu exercise_id"}), 400
-
-        exercise = db.grammar_exercises.find_one({"id": exercise_id}, {"_id": 0})
-        if not exercise:
-            return jsonify({"success": False, "message": "Bài tập không tồn tại"}), 404
-
-        total_questions = len(exercise["questions"])
-        correct_count = 0
-        results = {}
-
-        for question in exercise["questions"]:
-            q_id = question["q_id"]
-            user_answer = answers.get(q_id)
-            is_correct = False
-            correct_value = None
-
-            # Phân tích cú pháp GAP: [gap:options:correct_value]
-            match = re.search(r'\[gap:(.+?):(.+?)\]', question["text"])
-            
-            if match:
-                correct_value = match.group(2).strip()
-                
-                # Chấm điểm (không phân biệt hoa thường và khoảng trắng)
-                if user_answer and correct_value and user_answer.strip().lower() == correct_value.lower():
-                    is_correct = True
-                    correct_count += 1
-            
-            # Ghi lại kết quả
-            results[q_id] = {
-                "user_answer": user_answer,
-                "is_correct": is_correct,
-                "correct_answer": correct_value
-            }
-
-        score = f"{correct_count}/{total_questions}"
-        
-        return jsonify({
-            "success": True,
-            "total": total_questions,
-            "correct_count": correct_count,
-            "score": score,
-            "results": results,
-            "message": f"Bạn đã hoàn thành bài tập. Kết quả: {correct_count}/{total_questions} câu đúng."
-        })
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"Lỗi xử lý nộp bài: {str(e)}"}), 500
-
 # THAY THẾ HÀM CŨ 'get_question_stats' (khoảng dòng 452) BẰNG HÀM NÀY
 @app.route("/api/questions/<question_id>/stats", methods=["GET"])
 def get_question_stats(question_id):
@@ -913,41 +709,6 @@ def get_question_image(file_id):
     except Exception as e:
         print("❌ Lỗi lấy ảnh:", e)
         return jsonify({"message": f"File not found: {str(e)}"}), 404
-
-
-# ==================================================
-# ✅ THÊM HÀM MỚI: API Lấy chi tiết Câu hỏi
-# ==================================================
-@app.route("/api/questions/<question_id>", methods=["GET"])
-def get_question_detail(question_id):
-    """
-    Lấy chi tiết một câu hỏi theo ID (bao gồm cả options, hint, answer).
-    Chức năng này được gọi khi giáo viên bấm SỬA.
-    """
-    try:
-        # Hỗ trợ tìm kiếm theo cả ID (UUID) và _id (ObjectId)
-        query = {"$or": [{"id": question_id}]}
-        try:
-            if len(question_id) == 24 and question_id.isalnum():
-                query["$or"].append({"_id": ObjectId(question_id)})
-        except Exception:
-            pass 
-
-        doc = db.questions.find_one(query)
-        
-        if not doc:
-            return jsonify({"success": False, "message": "Không tìm thấy câu hỏi này."}), 404
-
-        # Chuẩn hóa dữ liệu
-        doc['_id'] = str(doc['_id'])
-        doc['tags'] = doc.get('tags', [])
-        
-        # Trả về đối tượng chứa toàn bộ chi tiết câu hỏi
-        return jsonify({"success": True, "question": doc}), 200
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
 
 @app.route("/api/results/test-stats/<test_id>", methods=["GET"])
@@ -1186,9 +947,6 @@ def get_all_gradable_answers(test_id):
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
 
-# ==================================================
-# ✅ THAY THẾ HÀM NÀY: FIX LỖI 500 BẰNG PHÂN TRANG (PAGINATION)
-# ==================================================
 @app.route("/questions", methods=["GET"])
 @app.route("/api/questions", methods=["GET"])
 def list_questions():
@@ -1198,12 +956,9 @@ def list_questions():
     q_type = request.args.get("type") 
     difficulty = request.args.get("difficulty")
     search_keyword = request.args.get("search") 
-    tag_filter = request.args.get("tag")
     
-    # 💥 THÊM LOGIC PHÂN TRANG: Đọc tham số page và limit
-    page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 15)) # 15 mục/trang
-    skip_count = (page - 1) * limit # Tính toán số lượng bỏ qua
+    # ✅ MỚI: Thêm logic lọc theo Tag
+    tag_filter = request.args.get("tag")
     
     if subject: query["subject"] = subject
     if level: query["level"] = level
@@ -1212,49 +967,37 @@ def list_questions():
     if search_keyword:
         query["q"] = {"$regex": search_keyword, "$options": "i"} 
     
+    # ✅ MỚI: Thêm query cho tag
     if tag_filter:
+        # $in tìm bất kỳ câu hỏi nào có tag này trong mảng 'tags'
         query["tags"] = {"$in": [tag_filter.strip()]}
 
-    # === LOGIC KIỂM TRA ASSIGNED (GIỮ NGUYÊN) ===
+    # === LOGIC MỚI BẮT ĐẦU ===
+    # 1. Lấy tất cả ID câu hỏi (UUID) nằm trong các đề đã được giao
     assigned_test_ids = set(db.assignments.distinct("testId"))
     assigned_q_ids = set()
     
     if assigned_test_ids:
+        # Dùng pipeline để lấy tất cả question.id từ các test đã giao
         pipeline = [
             {"$match": {"id": {"$in": list(assigned_test_ids)}}},
             {"$unwind": "$questions"},
-            {"$group": {"_id": "$questions.id"}}
+            {"$group": {"_id": "$questions.id"}} # Gom nhóm theo question.id
         ]
         assigned_q_refs = list(db.tests.aggregate(pipeline))
+        # Tạo một Set chứa các ID (UUID) của câu hỏi đã được giao
         assigned_q_ids = {q_ref["_id"] for q_ref in assigned_q_refs if q_ref["_id"]}
-    # === KẾT THÚC LOGIC ASSIGNED ===
+    # === LOGIC MỚI KẾT THÚC ===
 
-    # Projection (Chiếu dữ liệu) để tối ưu hóa mạng
-    projection = {
-        "q": 1, "subject": 1, "level": 1, "type": 1, "points": 1, "difficulty": 1, "tags": 1, 
-        "createdAt": 1, "id": 1, "_id": 1,
-        "options": 0, "answer": 0, "hint": 0, "imageId": 0 # Loại bỏ nội dung nặng
-    }
-
-    # 1. Lấy tổng số lượng tài liệu (COUNT_DOCUMENTS rất nhanh)
-    total_count = db.questions.count_documents(query)
-    
-    # 2. Lấy tài liệu cho trang hiện tại (sử dụng skip và limit)
-    docs = list(db.questions.find(query, projection)
-                             .sort("createdAt", DESCENDING)
-                             .skip(skip_count)
-                             .limit(limit))
-    
+    docs = list(db.questions.find(query))
+    docs = list(db.questions.find(query).sort("createdAt", DESCENDING))
     for doc in docs:
+        # Thêm cờ 'isAssigned' vào tài liệu
         q_uuid = doc.get("id")
         doc['isAssigned'] = (q_uuid in assigned_q_ids)
         doc['_id'] = str(doc['_id'])
         
-    # 3. Trả về format mới: object chứa questions và totalCount
-    return jsonify({
-        "questions": docs,
-        "totalCount": total_count
-    })
+    return jsonify(docs)
 
 
 @app.route("/api/questions/bulk-upload", methods=["POST"])
@@ -4377,39 +4120,6 @@ def delete_learning_path(path_id):
 # ✅ MODULE MỚI: API QUẢN LÝ HỌC LIỆU (LESSONS)
 # ==================================================
 
-# ==================================================
-# ✅ THÊM HÀM MỚI: API Lấy chi tiết Bài giảng
-# ==================================================
-@app.route("/api/lessons/<lesson_id>", methods=["GET"])
-def get_lesson_detail(lesson_id):
-    """
-    Lấy chi tiết một bài giảng theo ID (bao gồm cả content nặng).
-    (ĐÃ SỬA LỖI: Hỗ trợ cả UUID và ObjectId)
-    """
-    try:
-        # Tạo query an toàn để tìm kiếm theo ID (UUID) hoặc _id (ObjectId)
-        query = {"$or": [{"id": lesson_id}]}
-        try:
-            # Thử thêm tìm kiếm theo ObjectId (sẽ bỏ qua nếu lesson_id không phải là 24 ký tự)
-            query["$or"].append({"_id": ObjectId(lesson_id)})
-        except Exception:
-            pass 
-
-        doc = db.lessons.find_one(query)
-        
-        if not doc:
-            return jsonify({"success": False, "message": "Không tìm thấy bài giảng này."}), 404
-
-        # Chuyển đổi ObjectId sang string cho frontend
-        doc['_id'] = str(doc['_id'])
-        doc['tags'] = doc.get('tags', [])
-        
-        return jsonify({"success": True, "lesson": doc}), 200
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
-
 @app.route("/api/lessons", methods=["POST"])
 def create_lesson():
     """Tạo một bài giảng mới (soạn giáo trình)"""
@@ -4440,6 +4150,7 @@ def create_lesson():
 
 @app.route("/api/lessons", methods=["GET"])
 def list_lessons():
+    """Lấy danh sách các bài giảng, có thể lọc"""
     query = {}
     subject = request.args.get("subject")
     level = request.args.get("level")
@@ -4449,10 +4160,7 @@ def list_lessons():
     if level: query["level"] = level
     if tags: query["tags"] = {"$in": [tags.strip()]}
 
-    # 💥 FIX LỖI 500: Chỉ lấy metadata, loại bỏ trường 'content' nặng
-    projection = {"content": 0} 
-
-    docs = list(db.lessons.find(query, projection).sort("createdAt", DESCENDING))
+    docs = list(db.lessons.find(query).sort("createdAt", DESCENDING))
     for doc in docs:
         doc['_id'] = str(doc['_id'])
         
@@ -4503,26 +4211,12 @@ def update_lesson(lesson_id):
 
 @app.route("/api/lessons/<lesson_id>", methods=["DELETE"])
 def delete_lesson(lesson_id):
-    """Xóa một bài giảng. (ĐÃ SỬA LỖI: Hỗ trợ cả UUID và ObjectId)"""
-    
-    query = {"$or": [{"id": lesson_id}]}
-    try:
-        query["$or"].append({"_id": ObjectId(lesson_id)})
-    except Exception:
-        pass 
-
-    try:
-        # Sử dụng find_one_and_delete để tìm và xóa
-        result = db.lessons.find_one_and_delete(query)
-        
-        if result:
-            return jsonify({"success": True, "message": "Đã xóa bài giảng"}), 200
-        else:
-            return jsonify({"success": False, "message": "Không tìm thấy bài giảng."}), 404
-            
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+    """Xóa một bài giảng"""
+    # (Sau này có thể thêm logic kiểm tra xem bài giảng có đang dùng trong lộ trình nào không)
+    res = db.lessons.delete_one({"id": lesson_id})
+    if res.deleted_count > 0:
+        return jsonify({"success": True, "message": "Đã xóa bài giảng"}), 200
+    return jsonify({"success": False, "message": "Bài giảng không tìm thấy."}), 404
 
 # ==================================================
 # HẾT MODULE API HỌC LIỆU
@@ -5149,6 +4843,4 @@ def get_game_background(file_id):
 
 
 if __name__ == "__main__":
-    initialize_grammar_data(db)
-    initialize_grammar_exercises(db)
     app.run(host="0.0.0.0", port=PORT)
