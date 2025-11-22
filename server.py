@@ -915,6 +915,41 @@ def get_question_image(file_id):
         return jsonify({"message": f"File not found: {str(e)}"}), 404
 
 
+# ==================================================
+# ✅ THÊM HÀM MỚI: API Lấy chi tiết Câu hỏi
+# ==================================================
+@app.route("/api/questions/<question_id>", methods=["GET"])
+def get_question_detail(question_id):
+    """
+    Lấy chi tiết một câu hỏi theo ID (bao gồm cả options, hint, answer).
+    Chức năng này được gọi khi giáo viên bấm SỬA.
+    """
+    try:
+        # Hỗ trợ tìm kiếm theo cả ID (UUID) và _id (ObjectId)
+        query = {"$or": [{"id": question_id}]}
+        try:
+            if len(question_id) == 24 and question_id.isalnum():
+                query["$or"].append({"_id": ObjectId(question_id)})
+        except Exception:
+            pass 
+
+        doc = db.questions.find_one(query)
+        
+        if not doc:
+            return jsonify({"success": False, "message": "Không tìm thấy câu hỏi này."}), 404
+
+        # Chuẩn hóa dữ liệu
+        doc['_id'] = str(doc['_id'])
+        doc['tags'] = doc.get('tags', [])
+        
+        # Trả về đối tượng chứa toàn bộ chi tiết câu hỏi
+        return jsonify({"success": True, "question": doc}), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
+
 @app.route("/api/results/test-stats/<test_id>", methods=["GET"])
 def get_test_stats_for_class(test_id):
     try:
@@ -1151,6 +1186,9 @@ def get_all_gradable_answers(test_id):
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
 
+# ==================================================
+# ✅ THAY THẾ HÀM NÀY (TỐI ƯU HÓA TẢI DỮ LIỆU)
+# ==================================================
 @app.route("/questions", methods=["GET"])
 @app.route("/api/questions", methods=["GET"])
 def list_questions():
@@ -1176,25 +1214,41 @@ def list_questions():
         # $in tìm bất kỳ câu hỏi nào có tag này trong mảng 'tags'
         query["tags"] = {"$in": [tag_filter.strip()]}
 
-    # === LOGIC MỚI BẮT ĐẦU ===
-    # 1. Lấy tất cả ID câu hỏi (UUID) nằm trong các đề đã được giao
+    # === LOGIC MỚI BẮT ĐẦU (Kiểm tra Assigned) ===
     assigned_test_ids = set(db.assignments.distinct("testId"))
     assigned_q_ids = set()
     
     if assigned_test_ids:
-        # Dùng pipeline để lấy tất cả question.id từ các test đã giao
         pipeline = [
             {"$match": {"id": {"$in": list(assigned_test_ids)}}},
             {"$unwind": "$questions"},
-            {"$group": {"_id": "$questions.id"}} # Gom nhóm theo question.id
+            {"$group": {"_id": "$questions.id"}}
         ]
         assigned_q_refs = list(db.tests.aggregate(pipeline))
-        # Tạo một Set chứa các ID (UUID) của câu hỏi đã được giao
         assigned_q_ids = {q_ref["_id"] for q_ref in assigned_q_refs if q_ref["_id"]}
     # === LOGIC MỚI KẾT THÚC ===
 
-    docs = list(db.questions.find(query))
-    docs = list(db.questions.find(query).sort("createdAt", DESCENDING))
+    # 💥 FIX TỐI ƯU: Projection để chỉ lấy các trường metadata cần thiết cho bảng
+    projection = {
+        "q": 1, 
+        "subject": 1, 
+        "level": 1, 
+        "type": 1, 
+        "points": 1, 
+        "difficulty": 1, 
+        "tags": 1, 
+        "createdAt": 1, 
+        "id": 1, 
+        "_id": 1,
+        # Loại bỏ các trường lớn/chỉ dùng khi sửa
+        "options": 0,
+        "answer": 0,
+        "hint": 0,
+        "imageId": 0
+    }
+
+    # Sử dụng projection trong lệnh find
+    docs = list(db.questions.find(query, projection).sort("createdAt", DESCENDING))
     for doc in docs:
         # Thêm cờ 'isAssigned' vào tài liệu
         q_uuid = doc.get("id")
