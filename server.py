@@ -1187,7 +1187,7 @@ def get_all_gradable_answers(test_id):
 
 
 # ==================================================
-# ✅ THAY THẾ HÀM NÀY (IMPLEMENT DATABASE PAGINATION)
+# ✅ THAY THẾ HÀM NÀY: FIX LỖI 500 BẰNG PHÂN TRANG (PAGINATION)
 # ==================================================
 @app.route("/questions", methods=["GET"])
 @app.route("/api/questions", methods=["GET"])
@@ -1202,7 +1202,7 @@ def list_questions():
     
     # 💥 THÊM LOGIC PHÂN TRANG: Đọc tham số page và limit
     page = int(request.args.get("page", 1))
-    limit = int(request.args.get("limit", 15))
+    limit = int(request.args.get("limit", 15)) # 15 mục/trang
     skip_count = (page - 1) * limit # Tính toán số lượng bỏ qua
     
     if subject: query["subject"] = subject
@@ -1215,7 +1215,7 @@ def list_questions():
     if tag_filter:
         query["tags"] = {"$in": [tag_filter.strip()]}
 
-    # === LOGIC MỚI BẮT ĐẦU (Kiểm tra Assigned) ===
+    # === LOGIC KIỂM TRA ASSIGNED (GIỮ NGUYÊN) ===
     assigned_test_ids = set(db.assignments.distinct("testId"))
     assigned_q_ids = set()
     
@@ -1227,15 +1227,16 @@ def list_questions():
         ]
         assigned_q_refs = list(db.tests.aggregate(pipeline))
         assigned_q_ids = {q_ref["_id"] for q_ref in assigned_q_refs if q_ref["_id"]}
-    # === LOGIC MỚI KẾT THÚC ===
+    # === KẾT THÚC LOGIC ASSIGNED ===
 
+    # Projection (Chiếu dữ liệu) để tối ưu hóa mạng
     projection = {
         "q": 1, "subject": 1, "level": 1, "type": 1, "points": 1, "difficulty": 1, "tags": 1, 
         "createdAt": 1, "id": 1, "_id": 1,
-        "options": 0, "answer": 0, "hint": 0, "imageId": 0
+        "options": 0, "answer": 0, "hint": 0, "imageId": 0 # Loại bỏ nội dung nặng
     }
 
-    # 1. Lấy tổng số lượng tài liệu (rất nhanh)
+    # 1. Lấy tổng số lượng tài liệu (COUNT_DOCUMENTS rất nhanh)
     total_count = db.questions.count_documents(query)
     
     # 2. Lấy tài liệu cho trang hiện tại (sử dụng skip và limit)
