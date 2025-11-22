@@ -4354,7 +4354,6 @@ def create_lesson():
 
 @app.route("/api/lessons", methods=["GET"])
 def list_lessons():
-    """Lấy danh sách các bài giảng, có thể lọc"""
     query = {}
     subject = request.args.get("subject")
     level = request.args.get("level")
@@ -4364,7 +4363,10 @@ def list_lessons():
     if level: query["level"] = level
     if tags: query["tags"] = {"$in": [tags.strip()]}
 
-    docs = list(db.lessons.find(query).sort("createdAt", DESCENDING))
+    # 💥 FIX LỖI 500: Chỉ lấy metadata, loại bỏ trường 'content' nặng
+    projection = {"content": 0} 
+
+    docs = list(db.lessons.find(query, projection).sort("createdAt", DESCENDING))
     for doc in docs:
         doc['_id'] = str(doc['_id'])
         
