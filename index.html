@@ -21416,64 +21416,76 @@ function clearLessonFilters() {
 
 /**
  * Mở modal Soạn Bài giảng (Thêm mới hoặc Sửa)
- * (NÂNG CẤP: Khởi tạo Trình soạn thảo SunEditor)
+ * (ĐÃ SỬA LỖI: Sử dụng getOrCreateInstance để khắc phục lỗi 'reading null')
  */
-function openLessonModal(lesson = null) {
-    if (!modalLessonInstance) {
-        modalLessonInstance = new bootstrap.Modal(qs('#modalLesson'));
+async function openLessonModal(lesson = null) {
+    
+    // 1. Get the modal instance robustly
+    const modalEl = qs('#modalLesson');
+    if (!modalEl) {
+        showToast("Lỗi: Không tìm thấy modal Soạn Bài giảng.", "danger");
+        return;
     }
     
-    // Reset form
+    // --- FIX: Sử dụng phương thức tĩnh (static method) để lấy instance an toàn ---
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+    
+    // 2. Reset editor và form
     qs('lesson-form').reset();
-    qs('lesson-modal-title').textContent = 'Soạn Bài giảng mới';
     qs('m-lesson-id').value = '';
     
-    // Hủy SunEditor cũ (nếu có)
     if (lessonEditorInstance) {
         lessonEditorInstance.destroy();
         lessonEditorInstance = null;
     }
 
     let initialContent = '';
-
-    if (lesson) {
-        // Chế độ Sửa
-        qs('lesson-modal-title').textContent = 'Sửa Bài giảng';
-        qs('m-lesson-id').value = lesson.id || lesson._id;
-        qs('m-lesson-title').value = lesson.title || '';
-        qs('m-lesson-subject').value = lesson.subject || '';
-        qs('m-lesson-level').value = lesson.level || '';
-        qs('m-lesson-tags').value = (lesson.tags || []).join(', ');
-        initialContent = lesson.content || ''; // Lấy nội dung cũ
+    let lessonData = lesson;
+    
+    // 3. CRITICAL FIX: FETCH CONTENT IF EDITING
+    if (lessonData && (lessonData.id || lessonData._id)) {
+        const lessonId = lessonData.id || lessonData._id;
+        
+        try {
+            const fullResult = await fetchJson(`${serverUrl}/api/lessons/${lessonId}`);
+            if (!fullResult.success) throw new Error(fullResult.message);
+            
+            lessonData = fullResult.lesson;
+            initialContent = lessonData.content || ''; 
+            
+            // Update fields that were missing or partial from the table row
+            qs('lesson-modal-title').textContent = 'Sửa Bài giảng';
+            qs('m-lesson-id').value = lessonId;
+            qs('m-lesson-title').value = lessonData.title || '';
+            qs('m-lesson-subject').value = lessonData.subject || '';
+            qs('m-lesson-level').value = lessonData.level || '';
+            qs('m-lesson-tags').value = (lessonData.tags || []).join(', ');
+            
+        } catch (e) {
+            showToast(`Lỗi tải nội dung bài giảng chi tiết: ${e.message}`, "danger");
+            return; // Stop function execution on fetch error
+        }
+    } else {
+        // Create New mode
+        qs('lesson-modal-title').textContent = 'Soạn Bài giảng mới';
     }
     
-    // Hiển thị modal TRƯỚC khi khởi tạo
-    modalLessonInstance.show();
+    // 4. Show modal (Bây giờ đã an toàn)
+    modalInstance.show();
 
-    // Khởi tạo SunEditor
+    // 5. Initialize SunEditor và gán nội dung
     lessonEditorInstance = SUNEDITOR.create('m-lesson-content', {
-        // Tải thư viện KaTeX (đã thêm ở Bước 2)
-        katex: katex, // Chỉ cần truyền đối tượng katex
-        
-        // Cấu hình thanh công cụ
+        katex: katex, 
         buttonList: [
-            ['undo', 'redo'],
-            ['font', 'fontSize', 'formatBlock'],
-            ['bold', 'italic', 'underline', 'strike'],
-            ['fontColor', 'hiliteColor'],
-            ['removeFormat'],
-            '/', // Xuống dòng
-            ['outdent', 'indent'],
-            ['align', 'list'],
-            ['link', 'image', 'video', 'math'], // Nút Toán (math) đã có sẵn!
-            ['codeView', 'fullScreen'],
-            ['preview']
+            ['undo', 'redo'], ['font', 'fontSize', 'formatBlock'], ['bold', 'italic', 'underline', 'strike'], 
+            ['fontColor', 'hiliteColor'], ['removeFormat'], '/', 
+            ['outdent', 'indent'], ['align', 'list'], 
+            ['link', 'image', 'video', 'math'], 
+            ['codeView', 'fullScreen'], ['preview']
         ],
         height: 400
-        // (Lưu ý: Chèn ảnh/video bằng link URL, chưa hỗ trợ tải lên trực tiếp)
     });
 
-    // Gán nội dung cũ (nếu có)
     lessonEditorInstance.onload = () => {
         lessonEditorInstance.setContents(initialContent);
     }
