@@ -4324,6 +4324,34 @@ def delete_learning_path(path_id):
 # ✅ MODULE MỚI: API QUẢN LÝ HỌC LIỆU (LESSONS)
 # ==================================================
 
+# ==================================================
+# ✅ THÊM HÀM MỚI: API Lấy chi tiết Bài giảng
+# ==================================================
+@app.route("/api/lessons/<lesson_id>", methods=["GET"])
+def get_lesson_detail(lesson_id):
+    """
+    Lấy chi tiết một bài giảng theo ID (bao gồm cả content nặng).
+    Chức năng này được gọi khi giáo viên bấm SỬA.
+    """
+    try:
+        # Tìm bài giảng theo ID
+        doc = db.lessons.find_one({"_id": ObjectId(lesson_id)})
+        
+        if not doc:
+            return jsonify({"success": False, "message": "Không tìm thấy bài giảng này."}), 404
+
+        # Chuyển đổi ObjectId sang string cho frontend
+        doc['_id'] = str(doc['_id'])
+        doc['tags'] = doc.get('tags', [])
+        
+        # Trả về đối tượng chứa toàn bộ chi tiết bài giảng
+        return jsonify({"success": True, "lesson": doc}), 200
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
+
+
 @app.route("/api/lessons", methods=["POST"])
 def create_lesson():
     """Tạo một bài giảng mới (soạn giáo trình)"""
