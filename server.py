@@ -4331,11 +4331,18 @@ def delete_learning_path(path_id):
 def get_lesson_detail(lesson_id):
     """
     Lấy chi tiết một bài giảng theo ID (bao gồm cả content nặng).
-    Chức năng này được gọi khi giáo viên bấm SỬA.
+    (ĐÃ SỬA LỖI: Hỗ trợ cả UUID và ObjectId)
     """
     try:
-        # Tìm bài giảng theo ID
-        doc = db.lessons.find_one({"_id": ObjectId(lesson_id)})
+        # Tạo query an toàn để tìm kiếm theo ID (UUID) hoặc _id (ObjectId)
+        query = {"$or": [{"id": lesson_id}]}
+        try:
+            # Thử thêm tìm kiếm theo ObjectId (sẽ bỏ qua nếu lesson_id không phải là 24 ký tự)
+            query["$or"].append({"_id": ObjectId(lesson_id)})
+        except Exception:
+            pass 
+
+        doc = db.lessons.find_one(query)
         
         if not doc:
             return jsonify({"success": False, "message": "Không tìm thấy bài giảng này."}), 404
@@ -4344,13 +4351,11 @@ def get_lesson_detail(lesson_id):
         doc['_id'] = str(doc['_id'])
         doc['tags'] = doc.get('tags', [])
         
-        # Trả về đối tượng chứa toàn bộ chi tiết bài giảng
         return jsonify({"success": True, "lesson": doc}), 200
 
     except Exception as e:
         traceback.print_exc()
         return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
-
 
 @app.route("/api/lessons", methods=["POST"])
 def create_lesson():
@@ -4445,12 +4450,26 @@ def update_lesson(lesson_id):
 
 @app.route("/api/lessons/<lesson_id>", methods=["DELETE"])
 def delete_lesson(lesson_id):
-    """Xóa một bài giảng"""
-    # (Sau này có thể thêm logic kiểm tra xem bài giảng có đang dùng trong lộ trình nào không)
-    res = db.lessons.delete_one({"id": lesson_id})
-    if res.deleted_count > 0:
-        return jsonify({"success": True, "message": "Đã xóa bài giảng"}), 200
-    return jsonify({"success": False, "message": "Bài giảng không tìm thấy."}), 404
+    """Xóa một bài giảng. (ĐÃ SỬA LỖI: Hỗ trợ cả UUID và ObjectId)"""
+    
+    query = {"$or": [{"id": lesson_id}]}
+    try:
+        query["$or"].append({"_id": ObjectId(lesson_id)})
+    except Exception:
+        pass 
+
+    try:
+        # Sử dụng find_one_and_delete để tìm và xóa
+        result = db.lessons.find_one_and_delete(query)
+        
+        if result:
+            return jsonify({"success": True, "message": "Đã xóa bài giảng"}), 200
+        else:
+            return jsonify({"success": False, "message": "Không tìm thấy bài giảng."}), 404
+            
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "message": f"Lỗi server: {str(e)}"}), 500
 
 # ==================================================
 # HẾT MODULE API HỌC LIỆU
