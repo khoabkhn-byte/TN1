@@ -1219,117 +1219,7 @@
 }
 
 
-/* === CSS MỚI CHO CHICKEN RUN === */
-#chickenrun-canvas-container {
-    /* Giữ nguyên nền */
-    background: linear-gradient(to bottom, #87ceeb 0%, #a0d6ed 50%, #7cfc00 50%, #6bc400 100%); 
-    position: relative;
-    overflow: hidden;
-}
 
-/* Tăng kích thước icon lên */
-.chicken-player, .chicken-wolf {
-    font-size: 50px !important; /* Gà và Sói to hơn */
-}
-.chicken-obstacle {
-    font-size: 35px !important; /* Vật cản (đá, cây) */
-}
-.chicken-food {
-    font-size: 30px !important; /* Thức ăn (ngô, sâu) */
-}
-/* Player animation */
-.chicken-player-running {
-    animation: chickenRun 0.4s steps(2) infinite; /* Ví dụ animation spritesheet */
-}
-@keyframes chickenRun {
-    from { background-position: 0px; }
-    to { background-position: -60px; } /* Giả sử 2 frame, mỗi frame 30px */
-}
-
-/* Global fade out animation for game over */
-@keyframes fadeOutDown {
-  from {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translate3d(0, 100%, 0);
-  }
-}
-
-.fade-out-down {
-  animation-name: fadeOutDown;
-  animation-duration: 1s;
-  animation-fill-mode: both;
-}
-
-/* === VẼ LÀN ĐƯỜNG BẰNG BOX-SHADOW VÀ NỀN DỌC (ẢO ẢNH) === */
-#chickenrun-canvas-container {
-    /* Giữ nguyên gradient nền */
-    background: linear-gradient(to bottom, #87ceeb 0%, #a0d6ed 50%, #7cfc00 50%, #6bc400 100%); 
-    position: relative;
-    overflow: hidden;
-    
-    /* VẼ ĐƯỜNG TRẮNG - 3 LÀN ĐƯỜNG CHÍNH (Ảo ảnh phối cảnh) */
-    /* Sử dụng Box-shadow để vẽ các vạch trắng ở 3 vị trí X cố định */
-    box-shadow: 
-        /* Vạch giữa (Center Line) */
-        inset 0 0 0 5px #fff, 
-        /* Làn trái (Lane Left) */
-        inset 50% 0 0 -50px #fff,
-        /* Làn phải (Lane Right) */
-        inset 50% 0 0 50px #fff; 
-        
-    /* MẸO: Thêm animation "rung" nhẹ để mô phỏng chuyển động chạy */
-    animation: running-vibration 0.5s infinite linear;
-}
-
-@keyframes running-vibration {
-    /* Tạo ảo ảnh chạy dọc */
-    0% { background-position-y: 0px; }
-    100% { background-position-y: 50px; }
-}
-
-/* Sửa lại kích thước icon để dùng font size 60px */
-.chicken-player, .chicken-wolf {
-    font-size: 60px !important; 
-}
-
-/* Đảm bảo header có thể kéo */
-.modal-header {
-    cursor: grab;
-}
-
-/* Đảm bảo modal sử dụng position: absolute khi kéo */
-.modal.draggable {
-    position: absolute !important;
-    /* Dùng 'position: absolute' thay vì 'fixed' để có thể di chuyển */
-}
-
-/* Cho phép nội dung bên trong modal-body tự điều chỉnh kích thước */
-.modal-body {
-    display: flex;
-    flex-direction: column;
-    min-height: 200px;
-    overflow: auto; 
-}
-
-/* Đảm bảo các trình soạn thảo/canvas chiếm hết không gian còn lại */
-.sun-editor-editable, .drawing-canvas-container {
-    flex-grow: 1; /* Rất quan trọng để chiếm hết không gian còn lại */
-    min-height: 150px; 
-}
-
-/* ADD THIS CRUCIAL CSS BLOCK */
-/* Vô hiệu hóa căn giữa dọc (transform) của Bootstrap khi modal đang kéo */
-.modal.draggable .modal-dialog {
-    /* Quan trọng: Vô hiệu hóa tính năng transform: translate() của Bootstrap */
-    transform: none !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-}
 
 
   </style>
@@ -3233,7 +3123,6 @@
     <li class="nav-item"><button class="nav-link" id="stu-practice-tab" data-bs-toggle="tab" data-bs-target="#stu-practice">Luyện tập Tự do</button></li>
 	<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#stu-games">🎮 Trò chơi</button></li>
 	<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#stu-done">Bài đã làm</button></li>
-	<li class="nav-item"><button class="nav-link" id="stu-grammar-tab" data-bs-toggle="tab" data-bs-target="#stu-grammar">🇬🇧 Ngữ pháp</button></li>
   <li class="nav-item">
             <button class="nav-link" id="stu-analytics-tab" data-bs-toggle="tab" data-bs-target="#stu-analytics">
                 📈 Thống kê
@@ -3482,54 +3371,12 @@
                     </div>
                 </div>
             </div>
-			
-			
-			<div class="col-md-4 col-lg-3 mb-3">
-    <div class="card h-100 game-card">
-        <div class="card-body text-center d-flex flex-column">
-            <div class="game-icon">🐔</div>
-            <h5 class="card-title mt-3">Gà Chạy Trốn Sói</h5>
-            <p class="card-text small text-muted">Giúp chú gà né tránh vật cản và chạy thoát khỏi sói. Thu thập thức ăn để tăng điểm.</p>
-
-            <div class="mt-auto">
-                <span class="badge bg-info mb-2">Điểm cao: <span id="highscore-display-chickenrun">0</span></span>
-                <button class="btn btn-primary w-100" onclick="launchGame_ChickenRun()">Chơi</button>
-            </div>
-        </div>
+		
     </div>
-</div>
-					
-    </div>
+	
 	
 	
 	</div>
-	
-	
-	<div class="tab-pane fade" id="stu-grammar">
-    <div id="grammar-main-view">
-        <h5>🇬🇧 Ngữ pháp Tiếng Anh</h5>
-        <p class="text-muted">Các cấp độ ngữ pháp. Chọn một cấp độ để luyện tập các chủ đề.</p>
-        <div id="grammar-level-container" class="d-flex flex-wrap gap-3">
-            <div class="text-center p-5 w-100"><div class="spinner-border text-success"></div></div>
-        </div>
-    </div>
-    
-    <div id="grammar-exercise-view" class="d-none">
-        <button class="btn btn-outline-secondary btn-sm mb-3" onclick="showGrammarMainView()">
-            &lt; Quay lại Cấp độ
-        </button>
-        <h5 id="exercise-view-title" class="text-primary"></h5>
-        <p class="text-muted" id="exercise-view-description"></p>
-        
-        <div id="exercise-questions-container" class="mt-4">
-            </div>
-        
-        <button id="exercise-submit-btn" class="btn btn-primary mt-4" onclick="submitGrammarExercise()">
-            Nộp Bài
-        </button>
-        <div id="exercise-result-display" class="alert mt-3 d-none"></div>
-    </div>
-</div>
 	
 	
 	<div class="tab-pane fade" id="stu-done">
@@ -4461,41 +4308,6 @@
 </div>
 
 
-
-<!--Modal game chạy trốn sói-->
-<div class="modal fade" id="modalGameChickenRun" tabindex="-1" aria-labelledby="modalGameChickenRunLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-white">
-                <h5 class="modal-title" id="modalGameChickenRunLabel">🐔 Gà Chạy Trốn Sói</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                
-                <div class="d-flex justify-content-between align-items-start mb-2 p-2 rounded" 
-                     id="chickenrun-stats-bar" style="background-color: #fff3cd;">
-                    <span class="badge bg-success fs-5">Điểm: <strong id="chicken-current-score" class="text-dark">0</strong></span>
-                    <span class="badge bg-info fs-5">Điểm cao: <strong id="chicken-high-score" class="text-dark">0</strong></span>
-                    <span class="fs-5 text-danger fw-bold" id="chicken-message-display"></span>
-                </div>
-                
-                <div id="chickenrun-canvas-container" class="text-center" style="width: 100%; height: 550px; border: 2px solid #555; background: linear-gradient(to bottom, #87ceeb 0%, #a0d6ed 50%, #7cfc00 50%, #6bc400 100%); margin: 0 auto; overflow: hidden; position: relative;">
-                    </div>
-                <div class="text-center mt-2 text-muted">
-                    <small>Sử dụng phím mũi tên ← và → để di chuyển chú gà 🐔.</small>
-                </div>
-
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button class="btn btn-warning text-dark" id="chicken-reset-btn" onclick="startGame_ChickenRun()">Chơi lại</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-
 <!--Modal game triệu phú-->
 <div class="modal fade" id="modalGameTrieuPhu" tabindex="-1" aria-labelledby="modalGameTrieuPhuLabel" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-xl">
@@ -4595,8 +4407,7 @@
 	<div id="print-area" style="display:none;"></div>
 	<!--<div id="print-area"></div>-->
 	
-  <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.x/dist/browser/pixi.min.js"></script>	
-  <!--<script src="https://unpkg.com/konva@9.3.11/konva.min.js"></script>-->
+  <script src="https://unpkg.com/konva@9.3.11/konva.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -4662,9 +4473,6 @@ let allAvailableQuestionSubjects = new Set(); // Set để lưu các môn học 
 // ===== DÁN CÁC BIẾN MỚI VÀO ĐÂY =====
 let questionTimeTracker = {}; // { qId: { startTime: null, totalVisibleTime: 0 } }
 let quizIntersectionObserver = null;
-
-let studentGrammarCache = null; 
-let currentExerciseId = null; 
 // ===== KẾT THÚC =====
 // [DÁN GẦN CÁC BIẾN MODAL KHÁC]
 let modalPathInstance = null;
@@ -6962,37 +6770,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try { confirmDeleteModalInstance = new bootstrap.Modal(confirmDeleteModalEl); } catch(e) {}
     }
 
-// Gán sự kiện cho Tab Ngữ pháp (CẬP NHẬT LOGIC)
-    const grammarTab = qs('#stu-grammar-tab');
-    if (grammarTab) {
-        grammarTab.addEventListener('shown.bs.tab', (event) => {
-            showGrammarMainView(); // Đảm bảo luôn bắt đầu từ màn hình chính
-            loadGrammarLevels_Student();
-        });
-    }
-
-
-// Gán sự kiện cho modal Gà Chạy Sói
-    const modalChickenRunEl = qs('#modalGameChickenRun');
-    if (modalChickenRunEl) {
-        modalGameChickenRunInstance = new bootstrap.Modal(modalChickenRunEl);
-        
-        // --- GẮN LISTENER SỬA LỖI SIZE 0X0 ---
-        modalChickenRunEl.addEventListener('shown.bs.modal', () => {
-            // Gọi hàm startGame_ChickenRun CHỈ SAU KHI modal đã có kích thước
-            startGame_ChickenRun(); 
-        });
-        // --- KẾT THÚC GẮN LISTENER SỬA LỖI SIZE 0X0 ---
-
-        // Gắn listener dọn dẹp (đã có)
-        modalChickenRunEl.addEventListener('hide.bs.modal', () => {
-            window.removeEventListener('keydown', handleChickenRunInput);
-            if (chickenRun_state.animation) chickenRun_state.animation.stop();
-            if (chickenRun_state.spawnInterval) clearInterval(chickenRun_state.spawnInterval);
-            if (chickenRun_konva.stage) chickenRun_konva.stage.destroy();
-            resetChickenRunKonvaObjects(); 
-        });
-    }
 
 // Gán sự kiện cho Tab Học theo Lộ trình (Học sinh)
     const studentPathTab = qs('#stu-path-tab');
@@ -7280,9 +7057,6 @@ if (modalQuestionEl) {
         else if (key === 'b') { event.preventDefault(); startCurveModeKonva(canvasId); }
         else if (key === 's') { event.preventDefault(); startSineWaveModeKonva(canvasId); } 
     });
-	
-
-	
 
     // ----- 4. GỘP HÀM INIT() VÀO ĐÂY -----
     // Init: try restore session
@@ -8964,24 +8738,15 @@ function clearResultFilters() {
 
 
 
-/**
- * (Hàm ASYNC MỚI) Mở modal thêm/sửa câu hỏi.
- * (ĐÃ SỬA LỖI: Buộc fetch lại toàn bộ dữ liệu khi bấm SỬA)
- */
-async function openQuestionModal(q = null) {
-    const modalEl = qs('#modalQuestion'); 
-    if (!modalEl) {
-        showToast("Lỗi: Không tìm thấy modal Câu hỏi.", "danger");
-        return;
-    }
-    
-    // FIX ỔN ĐỊNH MODAL: Sử dụng getOrCreateInstance
-    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+// ====================== OPEN QUESTION MODAL (ĐÃ CẬP NHẬT) ======================
+function openQuestionModal(q) {
+    const modalEl = qs('modalQuestion'); 
+    const modal = new bootstrap.Modal(modalEl);
 
     // --- Lấy các phần tử ---
     const warningDiv = qs('q-warning-locked');
     const inputId = qs('m-q-id');
-    const inputQ = qs('m-q-q');
+    const inputQ = qs('m-q-q'); 
     const inputSubject = qs('m-q-subject');
     const inputLevel = qs('m-q-level');
     const inputType = qs('m-q-type');
@@ -8989,147 +8754,107 @@ async function openQuestionModal(q = null) {
     const inputDifficulty = qs('add-question-difficulty');
     const inputOptionsContainer = qs('m-q-options-container');
     const inputEssayAnswer = qs('m-q-essay-answer');
-    const imageFileEl = qs('q-image-file');
-    const imagePreviewEl = qs('q-image-preview');
+    const imageFileEl = qs('q-image-file');       
+    const imagePreviewEl = qs('q-image-preview'); 
     const btnRemoveImage = qs('btn-remove-image');
     const btnSave = document.querySelector('#modalQuestion .btn-primary');
     const inputTags = qs('m-q-tags');
     const trueFalseContainer = qs('m-q-true-false-container');
-    const fillBlankContainer = qs('m-q-fill-blank-container');
-    const inputHint = qs('m-q-hint-field');
+    const fillBlankContainer = qs('m-q-fill-blank-container'); 
+    const inputHint = qs('m-q-hint-field'); // <-- ĐÃ THÊM
 
     // --- Reset modal ---
     inputOptionsContainer.innerHTML = '';
     inputEssayAnswer.value = '';
-    trueFalseContainer.innerHTML = '';
-    fillBlankContainer.innerHTML = '';
+    trueFalseContainer.innerHTML = ''; 
+    fillBlankContainer.innerHTML = ''; 
     inputDifficulty && (inputDifficulty.value = 'medium');
     imageFileEl.value = '';
     imagePreviewEl.innerHTML = '';
     imagePreviewEl.style.display = 'none';
     btnRemoveImage.style.display = 'none';
     imageFileEl.dataset.removeOldImage = 'false';
-    warningDiv.style.display = 'none';
-    modalEl.dataset.isLocked = 'false';
+    warningDiv.style.display = 'none'; 
+    modalEl.dataset.isLocked = 'false'; 
     inputTags.value = '';
-    inputQ.value = '';
-    inputHint.value = '';
-    
-    let fullQuestionData = {};
-    let isLocked = false;
-    
-    qs('modal-question-title').textContent = q ? 'Sửa Câu hỏi' : 'Thêm Câu hỏi mới';
+    inputQ.value = ''; 
+    inputHint.value = ''; // <-- ĐÃ THÊM
+
+    let isLocked = false; 
 
     if (q) {
-        const questionId = q.id || q._id;
-        if (!questionId) {
-             showToast("Lỗi: Không tìm thấy ID câu hỏi để sửa.", "danger");
-             return;
+        // === CHẾ ĐỘ SỬA/XEM ===
+        inputId.value = q.id || q._id || '';
+        inputQ.value = q.q || ''; 
+        inputSubject.value = q.subject || '';
+        inputLevel.value = q.level || '1';
+        inputType.value = q.type || 'mc'; 
+        inputPoints.value = q.points || 1;
+        inputDifficulty && (inputDifficulty.value = q.difficulty || 'medium');
+        
+        if (Array.isArray(q.tags)) {
+            inputTags.value = q.tags.join(', ');
+        }
+        inputHint.value = q.hint || ''; // <-- ĐÃ THÊM
+
+        if (q.imageId) {
+            imagePreviewEl.innerHTML = `<img src="${serverUrl}/images/${q.imageId}" class="img-fluid" style="object-fit: contain;">`;
+            imagePreviewEl.style.display = 'block';
+            btnRemoveImage.style.display = 'inline-block';
         }
 
-        // === CHẾ ĐỘ SỬA: FETCH DỮ LIỆU ĐẦY ĐỦ ===
-        try {
-            // FIX: Gọi API chi tiết mới
-            const fullResult = await fetchJson(`${serverUrl}/api/questions/${questionId}`);
-            if (!fullResult.success) throw new Error(fullResult.message);
-            
-            // Sử dụng dữ liệu đầy đủ
-            fullQuestionData = fullResult.question;
-            
-            // Lấy trạng thái khóa từ dữ liệu ban đầu
-            isLocked = q.isAssigned === true; 
-            
-        } catch (e) {
-            showToast(`Lỗi tải nội dung câu hỏi chi tiết: ${e.message}`, "danger");
-            return; // Dừng nếu fetch thất bại
+        // --- Điền các lựa chọn (options/ý) ---
+        if (q.type === 'mc' && Array.isArray(q.options) && q.options.length > 0) {
+            q.options.forEach(opt => addQuestionOption(opt.text, opt.correct));
+        } else if (q.type === 'essay') {
+            inputEssayAnswer.value = q.answer || '';
+        } else if (q.type === 'true_false' && Array.isArray(q.options)) {
+            q.options.forEach(opt => addTrueFalseOption(opt.text, opt.correct));
+        } else if (q.type === 'fill_blank' && Array.isArray(q.options)) { 
+            q.options.forEach(opt => addFillBlankOption(opt.text));
         }
-    } 
-    
-    // Sử dụng dữ liệu đã fetch (hoặc dữ liệu mặc định rỗng) để điền form
-    const data = fullQuestionData; 
-
-    // --- Điền các trường chính ---
-    inputId.value = data.id || data._id || '';
-    inputQ.value = data.q || '';
-    inputSubject.value = data.subject || '';
-    inputLevel.value = data.level || '1';
-    inputType.value = data.type || 'mc';
-    inputPoints.value = data.points || 1;
-    inputDifficulty && (inputDifficulty.value = data.difficulty || 'medium');
-    
-    if (Array.isArray(data.tags)) {
-        inputTags.value = data.tags.join(', ');
-    }
-    inputHint.value = data.hint || ''; 
-
-    // --- Xử lý Ảnh ---
-    if (data.imageId) {
-        imagePreviewEl.innerHTML = `<img src="${serverUrl}/images/${data.imageId}" class="img-fluid" style="object-fit: contain;">`;
-        imagePreviewEl.style.display = 'block';
-        btnRemoveImage.style.display = 'inline-block';
-    }
-
-    // --- Điền các lựa chọn (options/ý) ---
-    const options = data.options || [];
-
-    if (data.type === 'mc') {
-        if (options.length === 0) {
-            addQuestionOption();
-            addQuestionOption();
-            addQuestionOption();
-            addQuestionOption();
-        } else {
-            options.forEach(opt => addQuestionOption(opt.text, opt.correct));
-        }
-    } else if (data.type === 'essay') {
-        inputEssayAnswer.value = data.answer || '';
-    } else if (data.type === 'true_false') {
-         if (options.length === 0) {
-            addTrueFalseOption('', true);
-        } else {
-            options.forEach(opt => addTrueFalseOption(opt.text, opt.correct));
-        }
-    } else if (data.type === 'fill_blank') {
-        if (options.length === 0) {
-            addFillBlankOption('');
-        } else {
-            options.forEach(opt => addFillBlankOption(opt.text));
-        }
-    } else if (data.type === 'draw' && data.answer) {
-        inputEssayAnswer.value = data.answer; 
-    }
-
-    // Nếu là chế độ tạo mới và chưa có tùy chọn nào, thêm tùy chọn mặc định cho MC
-    if (!q && data.type === 'mc' && options.length === 0) {
+        
+        isLocked = q.isAssigned === true;
+        
+    } else {
+        // === CHẾ ĐỘ TẠO MỚI ===
+        inputId.value = '';
+        inputQ.value = ''; 
+        inputSubject.value = '';
+        inputLevel.value = '1';
+        inputType.value = 'mc'; 
+        inputPoints.value = 1;
+        inputDifficulty && (inputDifficulty.value = 'medium');
+        
         addQuestionOption();
         addQuestionOption();
         addQuestionOption();
+
+        isLocked = false; 
     }
-    
+
     // === ÁP DỤNG TRẠNG THÁI KHÓA & HIỂN THỊ ===
     toggleOptionFields(); 
-    modalEl.dataset.isLocked = isLocked;
-    
+    modalEl.dataset.isLocked = isLocked; 
     if (isLocked) {
-        warningDiv.style.display = 'block';
+        warningDiv.style.display = 'block'; 
     }
     
     const coreInputs = [
         inputQ, inputSubject, inputLevel, inputType, inputPoints, inputDifficulty,
         inputEssayAnswer, imageFileEl, btnRemoveImage, btnSave,
-        inputTags, inputHint
+        inputTags,
+        inputHint // <-- ĐÃ THÊM
     ];
 
-    // Khóa các trường nếu câu hỏi đã được giao
-    coreInputs.forEach(el => {
-        if (el) el.disabled = isLocked;
+    coreInputs.forEach(el => { 
+        if (el) el.disabled = isLocked; 
     });
     
     inputOptionsContainer.querySelectorAll('input, button').forEach(el => el.disabled = isLocked);
     trueFalseContainer.querySelectorAll('input, select, button').forEach(el => el.disabled = isLocked);
-    fillBlankContainer.querySelectorAll('input, button').forEach(el => el.disabled = isLocked);
+    fillBlankContainer.querySelectorAll('input, button').forEach(el => el.disabled = isLocked); 
     
-    // --- Thiết lập sự kiện (Event Handlers) ---
     // Nút Xóa ảnh cũ
     btnRemoveImage.onclick = () => {
         imageFileEl.dataset.removeOldImage = 'true';
@@ -9145,16 +8870,16 @@ async function openQuestionModal(q = null) {
             reader.onload = (ev) => {
                 imagePreviewEl.innerHTML = `<img src="${ev.target.result}" class="img-fluid" style="object-fit: contain;">`;
                 imagePreviewEl.style.display = 'block';
-                imageFileEl.dataset.removeOldImage = 'false';
-                btnRemoveImage.style.display = 'none';
+                imageFileEl.dataset.removeOldImage = 'false'; 
+                btnRemoveImage.style.display = 'none'; 
             };
             reader.readAsDataURL(e.target.files[0]);
         }
     };
     
     inputType.onchange = toggleOptionFields;
-
-    modalInstance.show();
+    
+    modal.show();
 }
 
 
@@ -15155,8 +14880,6 @@ let analyticsClassCache = [];
 
 // 1. Gán sự kiện khi người dùng MỞ tab "Phân tích"
 document.addEventListener('DOMContentLoaded', () => {
-
-
     const analyticsTab = qs('#a-tab');
     if (analyticsTab) {
         analyticsTab.addEventListener('shown.bs.tab', async () => {
@@ -15290,17 +15013,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // ===== KẾT THÚC KHỐI THAY THẾ =====
     qs('#analytics-subject-input-prog')?.addEventListener('click', function() { if (this.value) this.value = ''; });
-
-makeModalDraggable(qs('#modalQuestion'));
-    makeModalDraggable(qs('#modalGameTrieuPhu'));
-    makeModalDraggable(qs('#modalTestManual'));
-    makeModalDraggable(qs('#modalTestEdit'));
-    makeModalDraggable(qs('#modalGrading'));
-    makeModalDraggable(qs('#modalLesson'));
-    makeModalDraggable(qs('#modalLessonView'));
-    makeModalDraggable(qs('#modalGameCalcMaze'));
-makeModalDraggable(qs('#modalTestAuto'));
-
 });
 
 /**
@@ -21704,76 +21416,64 @@ function clearLessonFilters() {
 
 /**
  * Mở modal Soạn Bài giảng (Thêm mới hoặc Sửa)
- * (ĐÃ SỬA LỖI: Sử dụng getOrCreateInstance để khắc phục lỗi 'reading null')
+ * (NÂNG CẤP: Khởi tạo Trình soạn thảo SunEditor)
  */
-async function openLessonModal(lesson = null) {
-    
-    // 1. Get the modal instance robustly
-    const modalEl = qs('#modalLesson');
-    if (!modalEl) {
-        showToast("Lỗi: Không tìm thấy modal Soạn Bài giảng.", "danger");
-        return;
+function openLessonModal(lesson = null) {
+    if (!modalLessonInstance) {
+        modalLessonInstance = new bootstrap.Modal(qs('#modalLesson'));
     }
     
-    // --- FIX: Sử dụng phương thức tĩnh (static method) để lấy instance an toàn ---
-    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
-    
-    // 2. Reset editor và form
+    // Reset form
     qs('lesson-form').reset();
+    qs('lesson-modal-title').textContent = 'Soạn Bài giảng mới';
     qs('m-lesson-id').value = '';
     
+    // Hủy SunEditor cũ (nếu có)
     if (lessonEditorInstance) {
         lessonEditorInstance.destroy();
         lessonEditorInstance = null;
     }
 
     let initialContent = '';
-    let lessonData = lesson;
-    
-    // 3. CRITICAL FIX: FETCH CONTENT IF EDITING
-    if (lessonData && (lessonData.id || lessonData._id)) {
-        const lessonId = lessonData.id || lessonData._id;
-        
-        try {
-            const fullResult = await fetchJson(`${serverUrl}/api/lessons/${lessonId}`);
-            if (!fullResult.success) throw new Error(fullResult.message);
-            
-            lessonData = fullResult.lesson;
-            initialContent = lessonData.content || ''; 
-            
-            // Update fields that were missing or partial from the table row
-            qs('lesson-modal-title').textContent = 'Sửa Bài giảng';
-            qs('m-lesson-id').value = lessonId;
-            qs('m-lesson-title').value = lessonData.title || '';
-            qs('m-lesson-subject').value = lessonData.subject || '';
-            qs('m-lesson-level').value = lessonData.level || '';
-            qs('m-lesson-tags').value = (lessonData.tags || []).join(', ');
-            
-        } catch (e) {
-            showToast(`Lỗi tải nội dung bài giảng chi tiết: ${e.message}`, "danger");
-            return; // Stop function execution on fetch error
-        }
-    } else {
-        // Create New mode
-        qs('lesson-modal-title').textContent = 'Soạn Bài giảng mới';
+
+    if (lesson) {
+        // Chế độ Sửa
+        qs('lesson-modal-title').textContent = 'Sửa Bài giảng';
+        qs('m-lesson-id').value = lesson.id || lesson._id;
+        qs('m-lesson-title').value = lesson.title || '';
+        qs('m-lesson-subject').value = lesson.subject || '';
+        qs('m-lesson-level').value = lesson.level || '';
+        qs('m-lesson-tags').value = (lesson.tags || []).join(', ');
+        initialContent = lesson.content || ''; // Lấy nội dung cũ
     }
     
-    // 4. Show modal (Bây giờ đã an toàn)
-    modalInstance.show();
+    // Hiển thị modal TRƯỚC khi khởi tạo
+    modalLessonInstance.show();
 
-    // 5. Initialize SunEditor và gán nội dung
+    // Khởi tạo SunEditor
     lessonEditorInstance = SUNEDITOR.create('m-lesson-content', {
-        katex: katex, 
+        // Tải thư viện KaTeX (đã thêm ở Bước 2)
+        katex: katex, // Chỉ cần truyền đối tượng katex
+        
+        // Cấu hình thanh công cụ
         buttonList: [
-            ['undo', 'redo'], ['font', 'fontSize', 'formatBlock'], ['bold', 'italic', 'underline', 'strike'], 
-            ['fontColor', 'hiliteColor'], ['removeFormat'], '/', 
-            ['outdent', 'indent'], ['align', 'list'], 
-            ['link', 'image', 'video', 'math'], 
-            ['codeView', 'fullScreen'], ['preview']
+            ['undo', 'redo'],
+            ['font', 'fontSize', 'formatBlock'],
+            ['bold', 'italic', 'underline', 'strike'],
+            ['fontColor', 'hiliteColor'],
+            ['removeFormat'],
+            '/', // Xuống dòng
+            ['outdent', 'indent'],
+            ['align', 'list'],
+            ['link', 'image', 'video', 'math'], // Nút Toán (math) đã có sẵn!
+            ['codeView', 'fullScreen'],
+            ['preview']
         ],
         height: 400
+        // (Lưu ý: Chèn ảnh/video bằng link URL, chưa hỗ trợ tải lên trực tiếp)
     });
 
+    // Gán nội dung cũ (nếu có)
     lessonEditorInstance.onload = () => {
         lessonEditorInstance.setContents(initialContent);
     }
@@ -23587,710 +23287,6 @@ function tp_endGame(didWin, reason = null) {
 // ==================================================
 
 
-
-// ==================================================
-// === LOGIC MỚI: GÀ CHẠY TRỐN SÓI VỚI PIXIJS (BẢN 2D CẢI TIẾN) ===
-// ==================================================
-
-let modalGameChickenRunInstance = null;
-let chickenRun_state = {};
-let chickenRun_pixi = {
-    app: null,
-    player: null,
-    wolf: null,
-    ticker: null,
-    laneGraphics: null, // Dùng để vẽ làn đường
-    spawnGraphics: null, // Dùng để vẽ vật cản/thức ăn
-};
-
-const CHICKEN_RUN_SETTINGS = {
-    playerSize: 50,
-    playerSpeed: 10,
-    gameSpeed: 3, 
-    objectSpawnInterval: 1200, // Spawn nhanh hơn (1.2s)
-    difficultyScale: 0.05,
-    numLanes: 3,
-    laneWidth: 120,
-    // CẤU HÌNH CHO VẬT CẢN (DÙNG RECTANGLE VÀ TEXT)
-    objectConfigs: [
-        { type: 'obstacle', icon: '🪨', color: 0x8B4513, width: 30, height: 30, points: 0, chance: 0.4 }, 
-        { type: 'obstacle', icon: '🌲', color: 0x006400, width: 40, height: 40, points: 0, chance: 0.3 }, 
-        { type: 'food', icon: '🌽', color: 0xFFD700, width: 20, height: 20, points: 1, chance: 0.5 },    
-    ],
-};
-
-// --- HÀM KHỞI TẠO GAME CORE (CHUYỂN SANG PIXIJS) ---
-
-function launchGame_ChickenRun() {
-    if (!modalGameChickenRunInstance) {
-        modalGameChickenRunInstance = new bootstrap.Modal(qs('#modalGameChickenRun'));
-        qs('#modalGameChickenRun').addEventListener('hide.bs.modal', () => {
-            window.removeEventListener('keydown', handleChickenRunInput);
-            if (chickenRun_pixi.app) chickenRun_pixi.app.destroy(true);
-            chickenRun_state = {};
-            chickenRun_pixi = { app: null, player: null, wolf: null, ticker: null };
-        });
-    }
-    
-    qs('#highscore-display-chickenrun').textContent = getGameLevel('chickenrun');
-    qs('#chicken-high-score').textContent = getGameLevel('chickenrun');
-
-    modalGameChickenRunInstance.show();
-}
-
-
-/**
- * Khởi tạo PIXI.Application và các đối tượng game.
- * (Đã FIX LỖI TEXT/ANCHOR PIXIJS và thêm logic Làn đường)
- */
-function startGame_ChickenRun(levelOverride = null) {
-    // 1. Reset state
-    chickenRun_state = {
-        score: 0,
-        highScore: getGameLevel('chickenrun'), // Lấy điểm cao thực tế
-        gameOver: false,
-        gameSpeed: CHICKEN_RUN_SETTINGS.gameSpeed,
-        lanePositions: [],
-        currentLaneIndex: 1, // Bắt đầu ở làn giữa (index 1)
-        spawnInterval: null
-    };
-
-    // 2. Cập nhật UI
-    qs('#chicken-current-score').textContent = chickenRun_state.score;
-    qs('#chicken-high-score').textContent = chickenRun_state.highScore;
-    qs('#chicken-message-display').textContent = 'Chạy đi!'; // Hiển thị sẵn sàng
-    qs('#chicken-message-display').className = 'fs-5 text-danger fw-bold'; 
-    qs('#chicken-reset-btn').style.display = 'none';
-
-    // 3. Khởi tạo PIXI Application
-    const container = qs('#chickenrun-canvas-container');
-    const stageWidth = container.clientWidth;
-    const stageHeight = container.clientHeight;
-    
-    // Dọn dẹp canvas cũ
-    if (chickenRun_pixi.app) chickenRun_pixi.app.destroy(true);
-
-    // ⚠️ QUAN TRỌNG: Kiểm tra kích thước an toàn
-    if (stageWidth === 0 || stageHeight === 0) {
-        console.error("LỖI KÍCH THƯỚC: Container 0x0. Hãy gọi hàm này sau sự kiện 'shown.bs.modal'.");
-        qs('#chicken-message-display').textContent = 'Lỗi khởi tạo: Gọi hàm không đúng thời điểm.';
-        return; 
-    }
-
-    chickenRun_pixi.app = new PIXI.Application({
-        width: stageWidth,
-        height: stageHeight,
-        backgroundColor: 0x6bc400, // Nền màu xanh lá (cỏ)
-        sharedTicker: true,
-        sharedLoader: true,
-    });
-    
-    // FIX LỖI GẮN CANVAS: Gắn Canvas PIXI vào container
-    container.innerHTML = ''; 
-    container.appendChild(chickenRun_pixi.app.view); 
-    
-    // 4. Cấu hình Làn đường
-    const center = stageWidth / 2;
-    chickenRun_state.lanePositions.push(center - CHICKEN_RUN_SETTINGS.laneWidth); // Làn 0 (Trái)
-    chickenRun_state.lanePositions.push(center);                                   // Làn 1 (Giữa)
-    chickenRun_state.lanePositions.push(center + CHICKEN_RUN_SETTINGS.laneWidth); // Làn 2 (Phải)
-    const initialLaneX = chickenRun_state.lanePositions[chickenRun_state.currentLaneIndex];
-
-    // 5. VẼ LÀN ĐƯỜNG (Graphics Object)
-    chickenRun_pixi.laneGraphics = new PIXI.Graphics();
-    chickenRun_pixi.app.stage.addChild(chickenRun_pixi.laneGraphics);
-    drawLanes(stageWidth, stageHeight); // Vẽ làn đường tĩnh
-
-    // 6. Tạo Player (Gà) - FIX FONT SIZE VÀ ANCHOR
-    // Sẽ dùng font size 60px để hiển thị to
-    chickenRun_pixi.player = createGameCharacter('🐔', 60, initialLaneX, stageHeight - 60, 0);
-    chickenRun_pixi.app.stage.addChild(chickenRun_pixi.player);
-    
-    // Hoạt ảnh (chuyển qua Ticker)
-    chickenRun_pixi.player.rotationSpeed = 0.05;
-    chickenRun_pixi.player.maxRotation = 0.1;
-    chickenRun_pixi.player.isRotatingUp = true;
-    
-    // 7. Tạo Sói (Đẩy ra xa hơn)
-    chickenRun_pixi.wolf = createGameCharacter('🐺', 60, initialLaneX, stageHeight + 200, 0);
-    chickenRun_pixi.app.stage.addChild(chickenRun_pixi.wolf);
-    
-    // 8. Thêm Container cho Vật cản/Thức ăn
-    chickenRun_pixi.objectsContainer = new PIXI.Container();
-    chickenRun_pixi.app.stage.addChild(chickenRun_pixi.objectsContainer);
-
-    // 9. Bắt đầu Vòng lặp Game (sẽ gọi gameLoop_ChickenRun)
-    chickenRun_pixi.app.ticker.start();
-    
-    // 10. Bắt đầu Spawn
-    startChickenRunObjectSpawner(CHICKEN_RUN_SETTINGS.objectSpawnInterval);
-    
-    // 11. Gán điều khiển
-    attachChickenRunControls();
-}
-
-function createGameCharacter(icon, size, x, y, rotation) {
-    // 1. Tạo đối tượng Text
-    const character = new PIXI.Text(icon, {
-        fontSize: size, // Kích thước chữ (ví dụ 60)
-        fill: 0x000000,
-        align: 'center',
-        // Bắt buộc: Đặt font family để hiển thị emoji ổn định
-        fontFamily: 'Arial, sans-serif' 
-    });
-    
-    // 2. Gán vị trí và xoay
-    character.x = x;
-    character.y = y;
-    character.rotation = rotation;
-    
-    // ⚠️ FIX QUAN TRỌNG: Căn giữa đối tượng (Nếu không có, Text sẽ bị đặt sai vị trí)
-    character.anchor.set(0.5); 
-    
-    return character;
-}
-
-/**
- * Hàm vẽ làn đường tĩnh (Làm cho hình ảnh 2D có cảm giác sâu)
- */
-function drawLanes(width, height) {
-    const graphics = chickenRun_pixi.laneGraphics;
-    graphics.clear();
-    
-    // Vẽ cỏ bên ngoài
-    graphics.beginFill(0x7cfc00);
-    graphics.drawRect(0, height / 2, width, height / 2);
-    graphics.endFill();
-
-    // Vẽ 3 Làn đường (sử dụng đường kẻ)
-    const colors = [0xFFFFFF, 0xFFFFFF]; // Màu trắng
-    
-    // Làn trái và Làn phải (tạo cảm giác sâu)
-    chickenRun_state.lanePositions.forEach((laneX, index) => {
-        if (index !== 1) { // Bỏ làn giữa
-            graphics.lineStyle(5, colors[index % 2]);
-            // Vẽ đường từ giữa màn hình (y/2) ra ngoài (để tạo phối cảnh)
-            graphics.moveTo(laneX, height); 
-            graphics.lineTo(laneX, height / 2);
-            graphics.endFill();
-        }
-    });
-}
-
-/**
- * Vòng lặp chính của trò chơi (Sử dụng Ticker)
- */
-function gameLoop_ChickenRun(delta) {
-    if (chickenRun_state.gameOver) {
-        chickenRun_pixi.app.ticker.stop();
-        return;
-    }
-    
-    // Cập nhật tốc độ
-    chickenRun_state.gameSpeed = CHICKEN_RUN_SETTINGS.gameSpeed + (chickenRun_state.score * CHICKEN_RUN_SETTINGS.difficultyScale);
-    
-    // 1. Chuyển động vật cản/thức ăn
-    const moveAmount = chickenRun_state.gameSpeed * delta;
-    
-    chickenRun_pixi.objectsContainer.children.forEach(obj => {
-        obj.y += moveAmount * 1.5; // Chuyển động nhanh hơn
-        
-        // Hoạt ảnh "nhấp nháy" nhẹ cho thức ăn/vật cản
-        obj.rotation += 0.01 * delta;
-
-        if (obj.y > chickenRun_pixi.app.screen.height + 50) {
-            obj.destroy(); // Xóa khỏi màn hình
-        }
-    });
-
-    // 2. Chuyển động Sói (Đuổi theo)
-    const wolfTargetY = chickenRun_pixi.app.screen.height - 20; 
-    const wolfMove = moveAmount * 0.5; // Sói di chuyển chậm hơn
-    if (chickenRun_pixi.wolf.y > wolfTargetY) {
-        chickenRun_pixi.wolf.y -= wolfMove;
-    }
-    
-    // 3. Hoạt ảnh Gà (Vung cánh/Vung chân)
-    // Hoạt ảnh vung cánh được xử lý qua Tween/Rotation trong init
-    
-    checkChickenRunCollisions();
-}
-
-
-// [THAY THẾ HÀM createChickenRunObject]
-function createChickenRunObject() {
-    const availableTypes = CHICKEN_RUN_SETTINGS.objectConfigs.filter(t => Math.random() < t.chance);
-    if (availableTypes.length === 0) return;
-
-    const typeDef = availableTypes[Math.floor(Math.random() * availableTypes.length)];
-
-    const icon = typeDef.icon; 
-    const size = typeDef.width;
-    const laneIndex = Math.floor(Math.random() * chickenRun_state.lanePositions.length);
-    const spawnX = chickenRun_state.lanePositions[laneIndex]; 
-    
-    // 1. Tạo đối tượng PIXI (sử dụng kích thước lớn hơn)
-    const obstacle = new PIXI.Text(icon, {
-        fontSize: size * 1.5, // Tăng kích thước font cho dễ thấy
-        fill: typeDef.color,
-    });
-
-    obstacle.x = spawnX;
-    obstacle.y = -50;
-    obstacle.anchor.set(0.5); // Căn giữa
-    obstacle.name = typeDef.type; 
-    obstacle.value = typeDef.points; 
-    
-    // 2. Gắn vào CONTAINER (quan trọng!)
-    chickenRun_pixi.objectsContainer.addChild(obstacle);
-}
-
-function checkChickenRunCollisions() {
-    // Sử dụng getBounds() của PIXI để kiểm tra va chạm
-    const playerBounds = chickenRun_pixi.player.getBounds();
-    const wolfBounds = chickenRun_pixi.wolf.getBounds();
-    
-    // 1. Va chạm với Sói
-    if (playerBounds.intersects(wolfBounds)) {
-        endGame_ChickenRun('Sói đã bắt được bạn!');
-        return;
-    }
-
-    // 2. Va chạm với vật cản/thức ăn
-    for(let i = chickenRun_pixi.objectsContainer.children.length - 1; i >= 0; i--) {
-        const obj = chickenRun_pixi.objectsContainer.children[i];
-        const objBounds = obj.getBounds();
-        
-        if (playerBounds.intersects(objBounds)) {
-            if (obj.name === 'obstacle') {
-                endGame_ChickenRun('Va phải vật cản!');
-                return;
-            } else if (obj.name === 'food') {
-                chickenRun_state.score += obj.value;
-                qs('#chicken-current-score').textContent = chickenRun_state.score;
-                obj.destroy(); 
-            }
-        }
-    }
-}
-
-
-// --- INPUT HANDLING (Dùng GSAP/TweenLite để chuyển làn mượt hơn) ---
-
-function attachChickenRunControls() {
-    window.removeEventListener('keydown', handleChickenRunInput);
-    window.addEventListener('keydown', handleChickenRunInput);
-}
-
-function handleChickenRunInput(e) {
-    if (chickenRun_state.gameOver || !chickenRun_pixi.player) return;
-    
-    let currentLaneIndex = chickenRun_state.currentLaneIndex;
-    let newLaneIndex = currentLaneIndex;
-
-    if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        newLaneIndex = Math.max(0, currentLaneIndex - 1);
-        
-    } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        newLaneIndex = Math.min(CHICKEN_RUN_SETTINGS.numLanes - 1, currentLaneIndex + 1);
-    }
-    
-    if (newLaneIndex !== currentLaneIndex) {
-        chickenRun_state.currentLaneIndex = newLaneIndex;
-        const targetX = chickenRun_state.lanePositions[newLaneIndex];
-        
-        // Hoạt ảnh nhảy làn đường mượt mà bằng PIXI
-        PIXI.Ticker.shared.stop(); // Tắt ticker để tránh jitter
-        
-        // Sử dụng PIXI.Ticker để tạo animation chuyển động mượt
-        const moveDuration = 0.15 * 60; // 0.15 giây * 60FPS
-        let framesPassed = 0;
-        const startX = chickenRun_pixi.player.x;
-        const deltaX = targetX - startX;
-
-        const moveTicker = new PIXI.Ticker();
-        moveTicker.add(() => {
-            framesPassed++;
-            const progress = framesPassed / moveDuration;
-            
-            // Linear easing (có thể dùng hàm easing phức tạp hơn nếu muốn)
-            chickenRun_pixi.player.x = startX + deltaX * progress; 
-            
-            if (progress >= 1) {
-                moveTicker.stop();
-                moveTicker.destroy();
-                PIXI.Ticker.shared.start(); // Bật lại game ticker
-            }
-        });
-        moveTicker.start();
-    }
-}
-
-// --- GAME END ---
-
-function endGame_ChickenRun(message) {
-    if (chickenRun_state.gameOver) return;
-
-    chickenRun_state.gameOver = true;
-    if (chickenRun_pixi.app.ticker) chickenRun_pixi.app.ticker.stop();
-    if (chickenRun_state.spawnInterval) clearInterval(chickenRun_state.spawnInterval);
-    window.removeEventListener('keydown', handleChickenRunInput);
-
-    // Hiệu ứng "ngất" cho gà (chuyển icon)
-    chickenRun_pixi.player.text = '😵'; 
-
-    // Cập nhật điểm cao
-    if (chickenRun_state.score > chickenRun_state.highScore) {
-        chickenRun_state.highScore = chickenRun_state.score;
-        saveGameLevel('chickenrun', chickenRun_state.highScore); 
-        qs('#chicken-high-score').textContent = chickenRun_state.highScore;
-        qs('#highscore-display-chickenrun').textContent = chickenRun_state.highScore; 
-    }
-
-    qs('#chicken-message-display').innerHTML = `<h5 class="text-danger">Game Over!</h5>${message}`;
-    qs('#chicken-reset-btn').style.display = 'block';
-}
-
-
-
-
-
-
-
-// --- KHỐI HÀM GRAMMAR EXERCISES MỚI ---
-
-// Hàm chuyển đổi View
-function showGrammarMainView() {
-    qs('#grammar-main-view').classList.remove('d-none');
-    qs('#grammar-exercise-view').classList.add('d-none');
-    currentExerciseId = null;
-    qs('#exercise-result-display').classList.add('d-none'); 
-}
-
-function showGrammarExerciseView() {
-    qs('#grammar-main-view').classList.add('d-none');
-    qs('#grammar-exercise-view').classList.remove('d-none');
-}
-
-// 1. Load Cấp độ Ngữ pháp (A1, A2, ...)
-async function loadGrammarLevels_Student() {
-    const container = qs('#grammar-level-container');
-    if (!container) return;
-    
-    if (studentGrammarCache && studentGrammarCache.levels) {
-        renderGrammarLevels(studentGrammarCache.levels);
-        return;
-    }
-
-    container.innerHTML = '<div class="text-center p-5 w-100"><div class="spinner-border text-success"></div></div>';
-
-    try {
-        const result = await fetchJson(`${serverUrl}/api/grammar-exercises/levels`);
-        if (!result.success || !result.levels) throw new Error(result.message);
-        
-        studentGrammarCache = { levels: result.levels };
-        renderGrammarLevels(result.levels);
-
-    } catch (e) {
-        container.innerHTML = `<div class="alert alert-danger w-100">Không tải được cấp độ ngữ pháp: ${e.message}</div>`;
-    }
-}
-
-function renderGrammarLevels(levels) {
-    const container = qs('#grammar-level-container');
-    container.innerHTML = '';
-    
-    levels.forEach(item => {
-        // Hiển thị thẻ cấp độ (Level card)
-        container.innerHTML += `
-            <div class="card shadow-sm" style="width: 18rem;">
-                <div class="card-body">
-                    <h5 class="card-title text-success">${escapeHtml(item.level)}</h5>
-                    <h6 class="card-subtitle mb-2 text-muted">Beginner to Advanced</h6>
-                    <p class="card-text">Tổng cộng ${item.count} bài tập đang có sẵn.</p>
-                    <a href="#" class="card-link" 
-                       onclick="event.preventDefault(); loadGrammarExercises('${item.level}')">
-                       Bắt đầu Luyện tập
-                    </a>
-                </div>
-            </div>
-        `;
-    });
-}
-
-// 2. Load Bài tập Ngữ pháp theo Level
-async function loadGrammarExercises(level) {
-    showGrammarExerciseView(); 
-    
-    const titleEl = qs('#exercise-view-title');
-    const container = qs('#exercise-questions-container');
-    const submitBtn = qs('#exercise-submit-btn');
-
-    titleEl.textContent = `Bài Tập Ngữ Pháp - Cấp độ ${level}`;
-    submitBtn.classList.remove('d-none'); 
-    container.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-success"></div></div>';
-    
-    try {
-        const result = await fetchJson(`${serverUrl}/api/grammar-exercises/${level}`);
-        if (!result.success || !result.exercises || result.exercises.length === 0) {
-             throw new Error("Không tìm thấy bài tập.");
-        }
-        
-        // Giả sử ta chỉ lấy bài tập đầu tiên trong danh sách cho level này để luyện tập
-        const exercise = result.exercises[0]; 
-        currentExerciseId = exercise.id; 
-        
-        qs('#exercise-view-title').textContent = `${escapeHtml(exercise.topic)} (${exercise.level})`;
-        qs('#exercise-view-description').textContent = "Hãy hoàn thành các câu sau bằng cách chọn từ/dạng động từ phù hợp.";
-
-        renderGrammarExercises(exercise.questions);
-
-    } catch (e) {
-        container.innerHTML = `<div class="alert alert-warning">Lỗi: ${e.message}</div>`;
-        submitBtn.classList.add('d-none');
-    }
-}
-
-// 3. Render Bài tập với Dropdown (Logic quan trọng)
-function renderGrammarExercises(questions) {
-    const container = qs('#exercise-questions-container');
-    let html = '';
-    
-    questions.forEach((q, index) => {
-        if (q.type === 'gap_dropdown') {
-            // Logic quan trọng: Phân tích cú pháp câu hỏi có GAP: "Text [gap:options:correct_value] Text"
-            
-            const regex = /\[gap:(.+?):(.+?)\]/g;
-            let parts = [];
-            let lastIndex = 0;
-            let match;
-
-            while ((match = regex.exec(q.text)) !== null) {
-                // Thêm phần văn bản trước GAP
-                parts.push(escapeHtml(q.text.substring(lastIndex, match.index)));
-                
-                // Trích xuất options và tạo Dropdown
-                const optionsStr = match[1];
-                const options = optionsStr.split(',').map(o => o.trim());
-                
-                // Thêm dropdown
-                let dropdownHtml = `<select class="form-select form-select-sm d-inline-block w-auto" 
-                                           data-q-id="${q.q_id}"
-                                           id="answer-${q.q_id}-${index}">`;
-                dropdownHtml += '<option value="" disabled selected>-- Chọn --</option>';
-                options.forEach(opt => {
-                    dropdownHtml += `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`;
-                });
-                dropdownHtml += '</select>';
-                
-                parts.push(dropdownHtml);
-                lastIndex = match.index + match[0].length;
-            }
-            
-            // Thêm phần văn bản còn lại sau GAP
-            parts.push(escapeHtml(q.text.substring(lastIndex)));
-            
-            // Xây dựng HTML cho câu hỏi
-            html += `
-                <div class="card mb-3 question-item" data-q-id="${q.q_id}">
-                    <div class="card-body">
-                        <p class="card-text">
-                            <strong>Câu ${index + 1}:</strong> ${parts.join('')}
-                        </p>
-                        ${q.hint ? `<small class="text-info">Gợi ý: ${escapeHtml(q.hint)}</small>` : ''}
-                        <div class="feedback mt-2"></div>
-                    </div>
-                </div>
-            `;
-        }
-    });
-
-    container.innerHTML = html;
-}
-
-// 4. Xử lý Nộp Bài và Chấm Điểm
-async function submitGrammarExercise() {
-    if (!currentExerciseId) return showToast("Không có bài tập nào đang làm.", 'danger');
-
-    const container = qs('#exercise-questions-container');
-    const resultDisplay = qs('#exercise-result-display');
-    const submitBtn = qs('#exercise-submit-btn');
-
-    // 1. Thu thập đáp án từ các dropdown
-    const answers = {};
-    let allAnswered = true;
-    container.querySelectorAll('select[data-q-id]').forEach(selectEl => {
-        const qId = selectEl.getAttribute('data-q-id');
-        const value = selectEl.value;
-        answers[qId] = value;
-        if (!value) {
-            allAnswered = false;
-        }
-    });
-    
-    if (!allAnswered) {
-        if (!confirm("Bạn chưa trả lời hết các câu hỏi. Bạn có chắc muốn nộp bài?")) {
-            return;
-        }
-    }
-
-    // 2. Gửi lên Server
-    submitBtn.disabled = true;
-    resultDisplay.classList.add('d-none');
-    try {
-        const payload = {
-            exercise_id: currentExerciseId,
-            answers: answers
-        };
-        
-        const result = await fetchJson(`${serverUrl}/api/grammar-exercises/submit`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (!result.success) throw new Error(result.message || "Lỗi không xác định khi nộp bài.");
-
-        // 3. Hiển thị Kết quả
-        resultDisplay.classList.remove('d-none', 'alert-danger', 'alert-success');
-        resultDisplay.classList.add(result.correct_count > (result.total / 2) ? 'alert-success' : 'alert-danger');
-        resultDisplay.innerHTML = `<strong>Kết quả:</strong> ${result.message}`;
-        submitBtn.classList.add('d-none'); 
-
-        // 4. Highlight đáp án đúng/sai trên giao diện
-        for (const [q_id, res] of Object.entries(result.results)) {
-            const questionCard = container.querySelector(`.question-item[data-q-id="${q_id}"]`);
-            const selectEl = container.querySelector(`select[data-q-id="${q_id}"]`);
-            const feedbackEl = questionCard.querySelector('.feedback');
-            
-            if (res.is_correct) {
-                feedbackEl.innerHTML = `<span class="badge bg-success">Đúng!</span>`;
-                selectEl.classList.add('is-valid');
-            } else {
-                feedbackEl.innerHTML = `<span class="badge bg-danger">Sai.</span> Đáp án đúng: <strong>${escapeHtml(res.correct_answer)}</strong>`;
-                selectEl.classList.add('is-invalid');
-            }
-            selectEl.disabled = true; 
-        }
-
-    } catch (e) {
-        resultDisplay.classList.remove('d-none', 'alert-success');
-        resultDisplay.classList.add('alert-danger');
-        resultDisplay.innerHTML = `<strong>Lỗi:</strong> ${e.message}`;
-    } finally {
-        submitBtn.disabled = false;
-    }
-}
-
-function renderGrammarPoints(topics) {
-    const container = qs('#grammar-list-container');
-    container.innerHTML = '';
-    
-    topics.forEach(topic => {
-        container.innerHTML += `
-            <a href="#" class="list-group-item list-group-item-action" 
-               onclick="event.preventDefault(); viewGrammarContent('${topic.id}')">
-                <div class="d-flex w-100 justify-content-between">
-                    <h6 class="mb-1">${escapeHtml(topic.title)}</h6>
-                </div>
-                <p class="mb-1 small text-muted">Tags: ${(topic.tags || []).join(', ')}</p>
-            </a>
-        `;
-    });
-}
-
-async function viewGrammarContent(topicId) {
-    try {
-        const result = await fetchJson(`${serverUrl}/api/grammar-points/${topicId}`);
-        if (!result.success || !result.topic) throw new Error(result.message);
-        
-        // Tái sử dụng modal Bài giảng (modalLessonView)
-        qs('#lesson-view-title').textContent = `🇬🇧 ${result.topic.title}`;
-        qs('#lesson-view-content').innerHTML = result.topic.content; 
-        
-        // Ẩn nút "Hoàn thành" vì đây là nội dung tham khảo
-        qs('#lesson-view-complete-btn').style.display = 'none'; 
-        
-        modalLessonViewInstance.show();
-
-    } catch (e) {
-        showToast(`Lỗi tải nội dung: ${e.message}`, 'danger');
-    }
-}
-
-
-
-// THAY THẾ TOÀN BỘ HÀM makeModalDraggable BẰNG KHỐI NÀY
-function makeModalDraggable(modalEl) {
-    const dialog = modalEl.querySelector('.modal-dialog');
-    const header = modalEl.querySelector('.modal-header');
-    
-    if (!dialog || !header) return;
-
-    let isDragging = false;
-    let offsetX, offsetY;
-
-    const startDrag = (e) => {
-        if (e.target.closest('.btn-close')) return;
-        
-        isDragging = true;
-        
-        // --- CÁC THAY ĐỔI CẦN THIẾT CHO VỊ TRÍ (QUAN TRỌNG) ---
-        // 1. Buộc modal sử dụng position: absolute (trên modal element)
-        modalEl.classList.add('draggable'); 
-        
-        // 2. Vô hiệu hóa căn giữa dọc của Bootstrap (trên dialog element)
-        dialog.style.marginTop = '0';
-        dialog.style.position = 'absolute'; 
-
-        // 3. Khởi tạo vị trí Left/Top từ vị trí đang hiển thị
-        const rect = dialog.getBoundingClientRect();
-        dialog.style.left = rect.left + 'px';
-        dialog.style.top = rect.top + 'px';
-        
-        // Tính toán offset
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
-        
-        header.style.cursor = 'grabbing';
-        e.preventDefault(); 
-    };
-
-    const drag = (e) => {
-        if (!isDragging) return;
-        
-        // Cập nhật vị trí
-        let newX = e.clientX - offsetX;
-        let newY = e.clientY - offsetY;
-
-        // Giới hạn không cho modal chạy quá xa màn hình
-        newX = Math.max(0, Math.min(newX, window.innerWidth - dialog.clientWidth - 20));
-        newY = Math.max(0, Math.min(newY, window.innerHeight - dialog.clientHeight - 20));
-        
-        dialog.style.left = newX + 'px';
-        dialog.style.top = newY + 'px';
-    };
-
-    const stopDrag = () => {
-        if (!isDragging) return;
-        isDragging = false;
-        header.style.cursor = 'grab';
-    };
-
-    header.addEventListener('mousedown', startDrag);
-    document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', stopDrag);
-
-    // Xử lý khi modal ẩn (để xóa class 'draggable' và reset vị trí)
-    modalEl.addEventListener('hide.bs.modal', () => {
-        modalEl.classList.remove('draggable');
-        // KHÔNG reset left/top để modal mở lại ở vị trí cũ (nếu có)
-    });
-}
-
-    
 
 </script>
 
