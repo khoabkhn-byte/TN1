@@ -1187,7 +1187,7 @@ def get_all_gradable_answers(test_id):
 
 
 # ==================================================
-# ✅ THAY THẾ HÀM NÀY (TỐI ƯU HÓA TẢI DỮ LIỆU)
+# ✅ THAY THẾ HÀM NÀY (IMPLEMENT DATABASE PAGINATION)
 # ==================================================
 @app.route("/questions", methods=["GET"])
 @app.route("/api/questions", methods=["GET"])
@@ -1198,9 +1198,12 @@ def list_questions():
     q_type = request.args.get("type") 
     difficulty = request.args.get("difficulty")
     search_keyword = request.args.get("search") 
-    
-    # ✅ MỚI: Thêm logic lọc theo Tag
     tag_filter = request.args.get("tag")
+    
+    # 💥 THÊM LOGIC PHÂN TRANG: Đọc tham số page và limit
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 15))
+    skip_count = (page - 1) * limit # Tính toán số lượng bỏ qua
     
     if subject: query["subject"] = subject
     if level: query["level"] = level
@@ -1209,9 +1212,7 @@ def list_questions():
     if search_keyword:
         query["q"] = {"$regex": search_keyword, "$options": "i"} 
     
-    # ✅ MỚI: Thêm query cho tag
     if tag_filter:
-        # $in tìm bất kỳ câu hỏi nào có tag này trong mảng 'tags'
         query["tags"] = {"$in": [tag_filter.strip()]}
 
     # === LOGIC MỚI BẮT ĐẦU (Kiểm tra Assigned) ===
@@ -1228,34 +1229,31 @@ def list_questions():
         assigned_q_ids = {q_ref["_id"] for q_ref in assigned_q_refs if q_ref["_id"]}
     # === LOGIC MỚI KẾT THÚC ===
 
-    # 💥 FIX TỐI ƯU: Projection để chỉ lấy các trường metadata cần thiết cho bảng
     projection = {
-        "q": 1, 
-        "subject": 1, 
-        "level": 1, 
-        "type": 1, 
-        "points": 1, 
-        "difficulty": 1, 
-        "tags": 1, 
-        "createdAt": 1, 
-        "id": 1, 
-        "_id": 1,
-        # Loại bỏ các trường lớn/chỉ dùng khi sửa
-        "options": 0,
-        "answer": 0,
-        "hint": 0,
-        "imageId": 0
+        "q": 1, "subject": 1, "level": 1, "type": 1, "points": 1, "difficulty": 1, "tags": 1, 
+        "createdAt": 1, "id": 1, "_id": 1,
+        "options": 0, "answer": 0, "hint": 0, "imageId": 0
     }
 
-    # Sử dụng projection trong lệnh find
-    docs = list(db.questions.find(query, projection).sort("createdAt", DESCENDING))
+    # 1. Lấy tổng số lượng tài liệu (rất nhanh)
+    total_count = db.questions.count_documents(query)
+    
+    # 2. Lấy tài liệu cho trang hiện tại (sử dụng skip và limit)
+    docs = list(db.questions.find(query, projection)
+                             .sort("createdAt", DESCENDING)
+                             .skip(skip_count)
+                             .limit(limit))
+    
     for doc in docs:
-        # Thêm cờ 'isAssigned' vào tài liệu
         q_uuid = doc.get("id")
         doc['isAssigned'] = (q_uuid in assigned_q_ids)
         doc['_id'] = str(doc['_id'])
         
-    return jsonify(docs)
+    # 3. Trả về format mới: object chứa questions và totalCount
+    return jsonify({
+        "questions": docs,
+        "totalCount": total_count
+    })
 
 
 @app.route("/api/questions/bulk-upload", methods=["POST"])
