@@ -21414,38 +21414,41 @@ function clearLessonFilters() {
     loadLessons(false, true); // Lọc lại, reset trang
 }
 
-/**
- * Mở modal Soạn Bài giảng (Thêm mới hoặc Sửa)
- * (ĐÃ SỬA LỖI: Sử dụng getOrCreateInstance để khắc phục lỗi 'reading null')
- */
+// ==================================================
+// HÀM OPEN LESSON MODAL (ĐÃ CẢI TIẾN LẮP ĐẶT SUNEDITOR)
+// ==================================================
 async function openLessonModal(lesson = null) {
-    
-    // 1. Get the modal instance robustly
     const modalEl = qs('#modalLesson');
     if (!modalEl) {
         showToast("Lỗi: Không tìm thấy modal Soạn Bài giảng.", "danger");
         return;
     }
     
-    // --- FIX: Sử dụng phương thức tĩnh (static method) để lấy instance an toàn ---
+    // 1. Get the modal instance
     const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
     
     // 2. Reset editor và form
     qs('lesson-form').reset();
     qs('m-lesson-id').value = '';
-    
+    // Hủy SunEditor cũ trước khi làm bất cứ điều gì
     if (lessonEditorInstance) {
         lessonEditorInstance.destroy();
         lessonEditorInstance = null;
     }
-
+    
+    // 3. Reset nút Lưu
+    const saveBtn = qs('#modalLesson button[onclick="saveLesson()"]');
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = '💾 Lưu Bài giảng';
+    
     let initialContent = '';
     let lessonData = lesson;
     
-    // 3. CRITICAL FIX: FETCH CONTENT IF EDITING
+    // ... (Toàn bộ logic Tải chi tiết bài giảng khi SỬA giữ nguyên) ...
+    // (Đoạn này đã đúng, tôi không render lại ở đây để tránh dài dòng)
     if (lessonData && (lessonData.id || lessonData._id)) {
-        const lessonId = lessonData.id || lessonData._id;
-        
+        // Tải chi tiết bài giảng (logic tương tự như bạn đã có)
+         const lessonId = lessonData.id || lessonData._id;
         try {
             const fullResult = await fetchJson(`${serverUrl}/api/lessons/${lessonId}`);
             if (!fullResult.success) throw new Error(fullResult.message);
@@ -21453,7 +21456,6 @@ async function openLessonModal(lesson = null) {
             lessonData = fullResult.lesson;
             initialContent = lessonData.content || ''; 
             
-            // Update fields that were missing or partial from the table row
             qs('lesson-modal-title').textContent = 'Sửa Bài giảng';
             qs('m-lesson-id').value = lessonId;
             qs('m-lesson-title').value = lessonData.title || '';
@@ -21463,17 +21465,17 @@ async function openLessonModal(lesson = null) {
             
         } catch (e) {
             showToast(`Lỗi tải nội dung bài giảng chi tiết: ${e.message}`, "danger");
-            return; // Stop function execution on fetch error
+            return; 
         }
     } else {
-        // Create New mode
         qs('lesson-modal-title').textContent = 'Soạn Bài giảng mới';
     }
+    // ... (Kết thúc logic Tải chi tiết) ...
     
-    // 4. Show modal (Bây giờ đã an toàn)
+    // 4. Mở modal (để SunEditor có kích thước chính xác)
     modalInstance.show();
 
-    // 5. Initialize SunEditor và gán nội dung
+    // 5. Khởi tạo SunEditor (sau khi modal đã hiển thị)
     lessonEditorInstance = SUNEDITOR.create('m-lesson-content', {
         katex: katex, 
         buttonList: [
@@ -21485,39 +21487,44 @@ async function openLessonModal(lesson = null) {
         ],
         height: 400
     });
+    
+    // 6. Gán nội dung ban đầu (Dùng setContents)
+    lessonEditorInstance.setContents(initialContent);
 
-    lessonEditorInstance.onload = () => {
-        lessonEditorInstance.setContents(initialContent);
-    }
 }
 
-/**
- * Lưu Bài giảng (Tạo mới hoặc Cập nhật)
- * (NÂNG CẤP: Lấy nội dung từ SunEditor)
- */
+// ==================================================
+// HÀM SAVE LESSON (ĐÃ CẢI TIẾN)
+// ==================================================
 async function saveLesson() {
     const id = qs('m-lesson-id').value;
     const isNew = !id;
     
-    // === THAY ĐỔI: Lấy nội dung từ SunEditor ===
+    // ... (logic lấy nội dung từ SunEditor) ...
     const lessonContent = lessonEditorInstance.getContents(true);
     if (!lessonContent || lessonContent === '<p><br></p>') {
         alert("Nội dung bài giảng không được để trống.");
         return;
     }
-    // === KẾT THÚC THAY ĐỔI ===
 
     const payload = {
+        // ... (logic lấy payload giữ nguyên) ...
         title: qs('m-lesson-title').value,
         subject: qs('m-lesson-subject').value,
         level: qs('m-lesson-level').value,
         tags: qs('m-lesson-tags').value,
-        content: lessonContent, // Dùng nội dung từ SunEditor
+        content: lessonContent, 
         authorId: currentUser?.id || 'unknown'
     };
 
     const method = isNew ? 'POST' : 'PUT';
     const url = isNew ? `${serverUrl}/api/lessons` : `${serverUrl}/api/lessons/${id}`;
+    
+    // Vô hiệu hóa nút và hiển thị loading
+    const saveBtn = qs('#modalLesson button[onclick="saveLesson()"]');
+    const oldBtnHtml = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
 
     try {
         const result = await fetchJson(url, {
@@ -21529,18 +21536,29 @@ async function saveLesson() {
 
         showToast(`Đã ${isNew ? 'tạo' : 'cập nhật'} bài giảng thành công!`, 'success');
         
-        // Hủy SunEditor trước khi đóng modal
+        // 1. Hủy SunEditor (phải luôn hủy)
         if (lessonEditorInstance) {
             lessonEditorInstance.destroy();
             lessonEditorInstance = null;
         }
-        modalLessonInstance.hide();
+        
+        // 2. === SỬA LỖI READING 'HIDE' ===
+        const modalEl = qs('#modalLesson');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) {
+            modalInstance.hide(); // Ẩn modal an toàn
+        }
+        // ================================
         
         await loadLessons(true, false); 
 
     } catch (e) {
         console.error("Lỗi lưu bài giảng:", e);
         showToast(`Lỗi: ${e.message}`, 'danger');
+        
+        // Chỉ khôi phục nút (không đóng modal khi lỗi)
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = oldBtnHtml;
     }
 }
 
